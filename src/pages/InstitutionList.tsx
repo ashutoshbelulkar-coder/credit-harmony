@@ -13,6 +13,7 @@ import {
   ArrowUpDown,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 
 type InstitutionStatus = "active" | "pending" | "suspended" | "draft";
 
@@ -40,7 +41,7 @@ const institutions: Institution[] = [
 const statusStyles: Record<InstitutionStatus, string> = {
   active: "bg-success/15 text-success",
   pending: "bg-warning/15 text-warning",
-  suspended: "bg-destructive/15 text-destructive",
+  suspended: "bg-danger-subtle text-danger",
   draft: "bg-muted text-muted-foreground",
 };
 
@@ -62,14 +63,14 @@ const InstitutionList = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-foreground">Institutions</h1>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h1 className="text-h2 font-semibold text-foreground">Institutions</h1>
+            <p className="text-caption text-muted-foreground mt-1">
               Manage onboarded institutions and their configurations
             </p>
           </div>
           <button
             onClick={() => navigate("/institutions/register")}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-body font-medium hover:bg-primary/90 transition-colors"
           >
             <Plus className="w-4 h-4" />
             Register Institution
@@ -84,14 +85,14 @@ const InstitutionList = () => {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search institutions..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-card text-sm outline-none focus:border-primary transition-colors placeholder:text-muted-foreground"
+              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-card text-body outline-none focus:border-primary transition-colors placeholder:text-muted-foreground"
             />
           </div>
 
           <div className="relative">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border bg-card text-sm font-medium hover:bg-muted transition-colors"
+              className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border bg-card text-body font-medium hover:bg-muted transition-colors"
             >
               <Filter className="w-4 h-4 text-muted-foreground" />
               Status
@@ -106,7 +107,7 @@ const InstitutionList = () => {
                       key={s}
                       onClick={() => { setStatusFilter(s); setShowFilters(false); }}
                       className={cn(
-                        "w-full text-left px-4 py-2 text-sm capitalize hover:bg-muted transition-colors",
+                        "w-full text-left px-4 py-2 text-body capitalize hover:bg-muted transition-colors",
                         statusFilter === s && "bg-muted font-medium"
                       )}
                     >
@@ -123,12 +124,24 @@ const InstitutionList = () => {
         <div className="bg-card rounded-xl border border-border overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead>
-                <tr className="border-b border-border bg-muted/50">
+              <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
+                <tr className="border-b border-border">
                   {["Institution Name", "Type", "Status", "APIs Enabled", "SLA Health", "Last Updated", ""].map((h) => (
-                    <th key={h} className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    <th
+                      key={h}
+                      className={cn(
+                        "px-5 py-3",
+                        tableHeaderClasses,
+                        h === "APIs Enabled" || h === "SLA Health" ? "text-right" : "text-left"
+                      )}
+                    >
                       {h && (
-                        <span className="flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors">
+                        <span
+                          className={cn(
+                            "flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors",
+                            (h === "APIs Enabled" || h === "SLA Health") && "justify-end"
+                          )}
+                        >
                           {h}
                           {h !== "" && <ArrowUpDown className="w-3 h-3" />}
                         </span>
@@ -145,20 +158,20 @@ const InstitutionList = () => {
                     className="hover:bg-muted/30 cursor-pointer transition-colors"
                   >
                     <td className="px-5 py-4">
-                      <span className="text-sm font-medium text-foreground">{inst.name}</span>
+                      <span className="text-body font-medium text-foreground">{inst.name}</span>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="text-sm text-muted-foreground">{inst.type}</span>
+                      <span className="text-body text-muted-foreground">{inst.type}</span>
                     </td>
                     <td className="px-5 py-4">
-                      <span className={cn("px-2.5 py-1 rounded-full text-xs font-medium capitalize", statusStyles[inst.status])}>
+                      <span className={cn("px-2.5 py-1 rounded-full capitalize", badgeTextClasses, statusStyles[inst.status])}>
                         {inst.status}
                       </span>
                     </td>
-                    <td className="px-5 py-4">
-                      <span className="text-sm text-foreground">{inst.apisEnabled}/3</span>
+                    <td className="px-5 py-4 text-right">
+                      <span className="text-body text-foreground">{inst.apisEnabled}/3</span>
                     </td>
-                    <td className="px-5 py-4">
+                    <td className="px-5 py-4 text-right">
                       {inst.slaHealth > 0 ? (
                         <div className="flex items-center gap-2">
                           <div className="w-16 h-1.5 bg-muted rounded-full overflow-hidden">
@@ -170,14 +183,14 @@ const InstitutionList = () => {
                               style={{ width: `${inst.slaHealth}%` }}
                             />
                           </div>
-                          <span className="text-xs text-muted-foreground">{inst.slaHealth}%</span>
+                          <span className="text-caption text-muted-foreground">{inst.slaHealth}%</span>
                         </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
+                        <span className="text-caption text-muted-foreground">—</span>
                       )}
                     </td>
                     <td className="px-5 py-4">
-                      <span className="text-sm text-muted-foreground">{inst.lastUpdated}</span>
+                      <span className="text-body text-muted-foreground">{inst.lastUpdated}</span>
                     </td>
                     <td className="px-5 py-4">
                       <button
@@ -195,12 +208,12 @@ const InstitutionList = () => {
 
           {/* Pagination */}
           <div className="flex items-center justify-between px-5 py-3 border-t border-border">
-            <span className="text-xs text-muted-foreground">
+            <span className="text-caption text-muted-foreground">
               Showing {filtered.length} of {institutions.length} institutions
             </span>
             <div className="flex items-center gap-1">
-              <button className="px-3 py-1.5 rounded-md text-xs font-medium bg-primary text-primary-foreground">1</button>
-              <button className="px-3 py-1.5 rounded-md text-xs font-medium text-muted-foreground hover:bg-muted transition-colors">2</button>
+              <button className="px-3 py-1.5 rounded-md text-caption font-medium bg-primary text-primary-foreground">1</button>
+              <button className="px-3 py-1.5 rounded-md text-caption font-medium text-muted-foreground hover:bg-muted transition-colors">2</button>
             </div>
           </div>
         </div>

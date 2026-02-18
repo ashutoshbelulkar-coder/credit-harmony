@@ -1,22 +1,33 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Building2, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react";
+import { ArrowLeft, Building2, CheckCircle2, AlertTriangle, ExternalLink, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
-const tabs = [
+const primaryTabs = [
   "Overview",
   "API & Access",
   "Alternate Data",
   "Consent Configuration",
   "Mapping",
   "Validation Rules",
+];
+
+const secondaryTabs = [
   "Match Review",
   "Monitoring",
-  "CBS Integration",
   "Reports",
   "Audit Trail",
 ];
+
+const tabs = [...primaryTabs, ...secondaryTabs];
 
 const InstitutionDetail = () => {
   const { id } = useParams();
@@ -39,33 +50,64 @@ const InstitutionDetail = () => {
               <Building2 className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-foreground">First National Bank</h1>
+              <h1 className="text-h2 font-semibold text-foreground">First National Bank</h1>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-xs text-muted-foreground">Commercial Bank</span>
+                <span className="text-caption text-muted-foreground">Commercial Bank</span>
                 <span className="w-1 h-1 rounded-full bg-muted-foreground" />
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-medium bg-success/15 text-success">Active</span>
+                <span className={cn("px-2 py-0.5 rounded-full bg-success/15 text-success", badgeTextClasses)}>Active</span>
               </div>
             </div>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="border-b border-border overflow-x-auto">
-          <div className="flex gap-0 min-w-max">
-            {tabs.map((tab) => (
+        <div className="rounded-xl border border-border bg-card px-1.5 py-1.5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="flex items-center gap-0.5">
+            {primaryTabs.map((tab) => (
               <button
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 className={cn(
-                  "px-4 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap",
+                  "rounded-lg px-2.5 py-1.5 text-[11px] font-medium leading-[18px] whitespace-nowrap transition-all",
                   activeTab === tab
-                    ? "border-primary text-primary"
-                    : "border-transparent text-muted-foreground hover:text-foreground hover:border-border"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
                 {tab}
               </button>
             ))}
+
+            {/* Overflow menu for secondary tabs */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button
+                  className={cn(
+                    "flex items-center gap-1 rounded-lg px-2 py-1.5 text-[11px] font-medium leading-[18px] whitespace-nowrap transition-all",
+                    secondaryTabs.includes(activeTab)
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  {secondaryTabs.includes(activeTab) ? activeTab : "More"}
+                  <MoreHorizontal className="h-3 w-3" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                {secondaryTabs.map((tab) => (
+                  <DropdownMenuItem
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={cn(
+                      "text-[11px] font-medium",
+                      activeTab === tab && "bg-primary/10 text-primary"
+                    )}
+                  >
+                    {tab}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
@@ -74,7 +116,7 @@ const InstitutionDetail = () => {
         {activeTab === "API & Access" && <ApiAccessTab />}
         {activeTab !== "Overview" && activeTab !== "API & Access" && (
           <div className="bg-card rounded-xl border border-border p-12 text-center">
-            <p className="text-muted-foreground text-sm">
+            <p className="text-muted-foreground text-body">
               {activeTab} configuration will be available here.
             </p>
           </div>
@@ -90,7 +132,7 @@ function OverviewTab() {
       {/* Details */}
       <div className="lg:col-span-2 space-y-6">
         <div className="bg-card rounded-xl border border-border p-6">
-          <h3 className="text-sm font-semibold text-foreground mb-4">Corporate Details</h3>
+          <h3 className="text-h4 font-semibold text-foreground mb-4">Corporate Details</h3>
           <div className="grid grid-cols-2 gap-4">
             {[
               ["Legal Name", "First National Bank Ltd."],
@@ -101,15 +143,15 @@ function OverviewTab() {
               ["Contact Phone", "+254 700 123 456"],
             ].map(([label, value]) => (
               <div key={label}>
-                <p className="text-xs text-muted-foreground">{label}</p>
-                <p className="text-sm font-medium text-foreground mt-0.5">{value}</p>
+                <p className="text-caption text-muted-foreground">{label}</p>
+                <p className="text-body font-medium text-foreground mt-0.5">{value}</p>
               </div>
             ))}
           </div>
         </div>
 
         <div className="bg-card rounded-xl border border-border p-6">
-          <h3 className="text-sm font-semibold text-foreground mb-4">Compliance Documents</h3>
+          <h3 className="text-h4 font-semibold text-foreground mb-4">Compliance Documents</h3>
           <div className="space-y-3">
             {[
               { name: "Certificate of Incorporation", status: "verified" },
@@ -123,9 +165,9 @@ function OverviewTab() {
                   ) : (
                     <AlertTriangle className="w-4 h-4 text-warning" />
                   )}
-                  <span className="text-sm text-foreground">{doc.name}</span>
+                  <span className="text-body text-foreground">{doc.name}</span>
                 </div>
-                <button className="text-xs text-primary hover:text-primary/80 flex items-center gap-1">
+                <button className="text-caption text-primary hover:text-primary/80 flex items-center gap-1">
                   View <ExternalLink className="w-3 h-3" />
                 </button>
               </div>
@@ -144,8 +186,8 @@ function OverviewTab() {
           { label: "Onboarded", value: "Jan 15, 2026", color: "text-muted-foreground" },
         ].map((item) => (
           <div key={item.label} className="bg-card rounded-xl border border-border p-4">
-            <p className="text-xs text-muted-foreground">{item.label}</p>
-            <p className={cn("text-lg font-bold mt-1", item.color)}>{item.value}</p>
+            <p className="text-caption text-muted-foreground">{item.label}</p>
+            <p className={cn("text-h4 font-bold mt-1", item.color)}>{item.value}</p>
           </div>
         ))}
       </div>
@@ -184,38 +226,40 @@ function ApiAccessTab() {
       {/* API Keys Table */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b border-border">
-          <h3 className="text-sm font-semibold text-foreground">API Keys</h3>
-          <button className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90 transition-colors">
+          <h3 className="text-h4 font-semibold text-foreground">API Keys</h3>
+          <button className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors">
             Generate New Key
           </button>
         </div>
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border bg-muted/50">
-              <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Key</th>
-              <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Created</th>
-              <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Status</th>
-              <th className="text-left px-5 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">Actions</th>
-            </tr>
-          </thead>
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
+              <tr className="border-b border-border">
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Key</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Created</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Status</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Actions</th>
+              </tr>
+            </thead>
           <tbody className="divide-y divide-border">
-            {keys.map((k, i) => (
-              <tr key={i}>
-                <td className="px-5 py-4 font-mono text-sm text-foreground">{k.key}</td>
-                <td className="px-5 py-4 text-sm text-muted-foreground">{k.created}</td>
+                {keys.map((k, i) => (
+                  <tr key={i}>
+                    <td className="px-5 py-4 text-body text-foreground">{k.key}</td>
+                <td className="px-5 py-4 text-body text-muted-foreground">{k.created}</td>
                 <td className="px-5 py-4">
-                  <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-success/15 text-success capitalize">{k.status}</span>
+                  <span className={cn("px-2.5 py-1 rounded-full capitalize bg-success/15 text-success", badgeTextClasses)}>{k.status}</span>
                 </td>
                 <td className="px-5 py-4">
                   <div className="flex gap-2">
-                    <button className="text-xs text-primary hover:text-primary/80">Rotate</button>
-                    <button className="text-xs text-destructive hover:text-destructive/80">Revoke</button>
+                    <button className="text-caption text-primary hover:text-primary/80">Rotate</button>
+                    <button className="text-caption text-destructive hover:text-destructive/80">Revoke</button>
                   </div>
                 </td>
               </tr>
             ))}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* API Toggle Cards */}
@@ -227,7 +271,7 @@ function ApiAccessTab() {
         ].map((api) => (
           <div key={api.name} className="bg-card rounded-xl border border-border p-5">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-semibold text-foreground">{api.name}</h4>
+              <h4 className="text-body font-semibold text-foreground">{api.name}</h4>
               <div className={cn(
                 "w-10 h-6 rounded-full flex items-center px-0.5 transition-colors cursor-pointer",
                 api.enabled ? "bg-success justify-end" : "bg-muted justify-start"
@@ -237,12 +281,12 @@ function ApiAccessTab() {
             </div>
             <div className="space-y-1.5">
               <div className="flex justify-between">
-                <span className="text-xs text-muted-foreground">Rate Limit</span>
-                <span className="text-xs text-foreground font-medium">{api.rateLimit}</span>
+                <span className="text-caption text-muted-foreground">Rate Limit</span>
+                <span className="text-caption text-foreground font-medium">{api.rateLimit}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-xs text-muted-foreground">Last Modified</span>
-                <span className="text-xs text-foreground">{api.lastModified}</span>
+                <span className="text-caption text-muted-foreground">Last Modified</span>
+                <span className="text-caption text-foreground">{api.lastModified}</span>
               </div>
             </div>
           </div>

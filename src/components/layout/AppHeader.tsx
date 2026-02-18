@@ -1,4 +1,4 @@
-import { Search, Bell, ChevronDown, User } from "lucide-react";
+import { Search, Bell, ChevronDown, User, Menu } from "lucide-react";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 
@@ -10,29 +10,32 @@ const institutions = [
   "Southern Trust Bank",
 ];
 
-type Environment = "sandbox" | "uat" | "prod";
+interface AppHeaderProps {
+  onToggleSidebar?: () => void;
+}
 
-const envConfig: Record<Environment, { label: string; className: string }> = {
-  sandbox: { label: "Sandbox", className: "bg-warning/15 text-warning border-warning/30" },
-  uat: { label: "UAT", className: "bg-info/15 text-info border-info/30" },
-  prod: { label: "Production", className: "bg-success/15 text-success border-success/30" },
-};
-
-export function AppHeader() {
+export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   const [selectedInstitution, setSelectedInstitution] = useState(institutions[0]);
   const [showInstitutions, setShowInstitutions] = useState(false);
-  const [environment] = useState<Environment>("sandbox");
   const [searchFocused, setSearchFocused] = useState(false);
 
-  const env = envConfig[environment];
-
   return (
-    <header className="sticky top-0 z-20 h-16 bg-card border-b border-border flex items-center px-6 gap-4">
+    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-border bg-card px-4 sm:px-6">
+      {/* Mobile menu */}
+      <button
+        type="button"
+        aria-label="Toggle navigation"
+        className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted md:hidden"
+        onClick={onToggleSidebar}
+      >
+        <Menu className="h-4 w-4" />
+      </button>
+
       {/* Institution Selector */}
-      <div className="relative">
+      <div className="relative hidden md:block">
         <button
           onClick={() => setShowInstitutions(!showInstitutions)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-sm font-medium"
+          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-body font-medium"
         >
           <Building2Icon />
           <span className="max-w-[160px] truncate">{selectedInstitution}</span>
@@ -51,7 +54,7 @@ export function AppHeader() {
                     setShowInstitutions(false);
                   }}
                   className={cn(
-                    "w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors",
+                    "w-full text-left px-4 py-2.5 text-body hover:bg-muted transition-colors",
                     selectedInstitution === inst && "bg-muted font-medium text-foreground"
                   )}
                 >
@@ -63,13 +66,8 @@ export function AppHeader() {
         )}
       </div>
 
-      {/* Environment Badge */}
-      <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold border", env.className)}>
-        {env.label}
-      </span>
-
       {/* Global Search */}
-      <div className="flex-1 max-w-md ml-auto">
+      <div className="ml-auto flex-1 max-w-md">
         <div
           className={cn(
             "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200",
@@ -80,11 +78,11 @@ export function AppHeader() {
           <input
             type="text"
             placeholder="Search institutions, APIs, logs..."
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            className="flex-1 bg-transparent text-body outline-none placeholder:text-muted-foreground"
             onFocus={() => setSearchFocused(true)}
             onBlur={() => setSearchFocused(false)}
           />
-          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-border bg-muted text-[10px] text-muted-foreground font-mono">
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-border bg-muted text-caption text-muted-foreground">
             ⌘K
           </kbd>
         </div>
@@ -102,8 +100,8 @@ export function AppHeader() {
           <User className="w-4 h-4 text-primary-foreground" />
         </div>
         <div className="hidden md:flex flex-col text-left">
-          <span className="text-sm font-medium leading-tight">Admin User</span>
-          <span className="text-[11px] text-muted-foreground leading-tight">Super Admin</span>
+          <span className="text-body font-medium leading-tight">Admin User</span>
+          <span className="text-caption text-muted-foreground leading-tight">Super Admin</span>
         </div>
         <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden md:block" />
       </button>
