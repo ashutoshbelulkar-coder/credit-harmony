@@ -138,6 +138,7 @@ export interface AIMappingResult {
   confidence: number;
   matchType: MatchType;
   status: AIMappingFieldStatus;
+  mappingReason: string;
 }
 
 export interface AIMappingSummary {

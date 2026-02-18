@@ -73,7 +73,7 @@ export default function Login() {
   return (
     <div className="flex h-screen flex-col overflow-hidden lg:flex-row">
       {/* ── Left Brand Panel ── */}
-      <div className="relative flex w-full shrink-0 flex-col items-center justify-center overflow-hidden bg-[#1D3A6B] px-8 py-8 lg:w-1/2 lg:h-full lg:py-0">
+      <div className="relative flex w-full shrink flex-col items-center justify-center overflow-hidden bg-[#1D3A6B] px-8 py-8 lg:w-1/2 lg:h-full lg:py-0 lg:shrink-0">
         <CreditNetworkCanvas reduced={!!prefersReduced} />
 
         <motion.div
@@ -93,7 +93,7 @@ export default function Login() {
       </div>
 
       {/* ── Right Form Panel ── */}
-      <div className="flex w-full min-h-0 flex-1 items-center justify-center bg-white px-6 py-6 lg:w-1/2 lg:h-full lg:py-0">
+      <div className="flex w-full min-h-0 flex-1 items-center justify-center bg-white px-6 py-6 overflow-y-auto lg:overflow-hidden lg:w-1/2 lg:h-full lg:py-0">
         <motion.div
           className="w-full max-w-[420px]"
           {...fadeUp}
@@ -101,7 +101,7 @@ export default function Login() {
           <div role="main" aria-label="Sign in">
             {/* Header */}
             <motion.div className="mb-6 lg:mb-8" {...stagger} {...staggerDelay(0)}>
-              <h1 className="text-[22px] font-semibold leading-tight text-gray-900">
+              <h1 className="text-[22px] font-semibold leading-tight text-[#1D3A6B]">
                 Login
               </h1>
             </motion.div>

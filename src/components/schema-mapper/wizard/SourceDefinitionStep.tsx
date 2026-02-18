@@ -16,9 +16,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SchemaTreeView } from "@/components/schema-mapper/shared/SchemaTreeView";
 import { FieldStatisticsPanel } from "@/components/schema-mapper/shared/FieldStatisticsPanel";
-import { telecomParsedFields, telecomFieldStatistics, institutionOptions } from "@/data/schema-mapper-mock";
+import { telecomParsedFields, telecomFieldStatistics } from "@/data/schema-mapper-mock";
 import type { SourceMetadata, SourceType } from "@/types/schema-mapper";
-import { cn } from "@/lib/utils";
 
 interface SourceDefinitionStepProps {
   initialMetadata: SourceMetadata | null;
@@ -38,7 +37,6 @@ const SAMPLE_JSON = `{
 export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefinitionStepProps) {
   const [sourceName, setSourceName] = useState(initialMetadata?.sourceName ?? "");
   const [sourceType, setSourceType] = useState<SourceType>(initialMetadata?.sourceType ?? "telecom");
-  const [institutions, setInstitutions] = useState<string[]>(initialMetadata?.institutionScope ?? []);
   const [effectiveDate, setEffectiveDate] = useState(initialMetadata?.effectiveDate ?? "2026-03-01");
   const [version] = useState(initialMetadata?.versionNumber ?? "v1.0");
 
@@ -54,17 +52,11 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
     onComplete({
       sourceName,
       sourceType,
-      institutionScope: institutions,
+      institutionScope: [],
       effectiveDate,
       versionNumber: version,
     });
-  }, [sourceName, sourceType, institutions, effectiveDate, version, onComplete]);
-
-  const toggleInstitution = (inst: string) => {
-    setInstitutions((prev) =>
-      prev.includes(inst) ? prev.filter((i) => i !== inst) : [...prev, inst],
-    );
-  };
+  }, [sourceName, sourceType, effectiveDate, version, onComplete]);
 
   const isFormValid = sourceName.trim().length > 0 && sourceType && isParsed;
 
@@ -110,24 +102,6 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
           <div className="space-y-1.5">
             <Label className="text-caption text-muted-foreground">Version</Label>
             <Input value={version} disabled className="h-8 bg-muted" />
-          </div>
-          <div className="space-y-1.5 sm:col-span-2">
-            <Label className="text-caption text-muted-foreground">Institution Scope</Label>
-            <div className="flex flex-wrap gap-1.5">
-              {institutionOptions.map((inst) => (
-                <Badge
-                  key={inst}
-                  variant={institutions.includes(inst) ? "default" : "secondary"}
-                  className={cn(
-                    "cursor-pointer text-[9px] leading-[12px] transition-colors",
-                    institutions.includes(inst) && "bg-primary text-primary-foreground",
-                  )}
-                  onClick={() => toggleInstitution(inst)}
-                >
-                  {inst}
-                </Badge>
-              ))}
-            </div>
           </div>
         </div>
       </div>

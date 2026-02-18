@@ -1,17 +1,23 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { SchemaRegistryTable } from "./SchemaRegistryTable";
+import { SchemaDetailDialog } from "./SchemaDetailDialog";
 import { RegistryFilters, type RegistryFilterValues } from "./RegistryFilters";
 import { schemaRegistryEntries } from "@/data/schema-mapper-mock";
+import { useToast } from "@/hooks/use-toast";
+import type { SchemaRegistryEntry } from "@/types/schema-mapper";
 
 interface SchemaRegistryViewProps {
   onCreateNew: () => void;
+  onEditEntry: (entryId: string) => void;
   onViewAudit: (entryId: string) => void;
 }
 
-export function SchemaRegistryView({ onCreateNew, onViewAudit }: SchemaRegistryViewProps) {
+export function SchemaRegistryView({ onCreateNew, onEditEntry, onViewAudit }: SchemaRegistryViewProps) {
+  const { toast } = useToast();
+  const [entries, setEntries] = useState<SchemaRegistryEntry[]>(schemaRegistryEntries);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<RegistryFilterValues>({
     sourceType: "all",
@@ -19,9 +25,11 @@ export function SchemaRegistryView({ onCreateNew, onViewAudit }: SchemaRegistryV
     coverageMin: 0,
     createdBy: "",
   });
+  const [detailEntry, setDetailEntry] = useState<SchemaRegistryEntry | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
 
   const filtered = useMemo(() => {
-    let result = schemaRegistryEntries;
+    let result = entries;
 
     if (search) {
       const q = search.toLowerCase();
@@ -46,7 +54,98 @@ export function SchemaRegistryView({ onCreateNew, onViewAudit }: SchemaRegistryV
     }
 
     return result;
-  }, [search, filters]);
+  }, [entries, search, filters]);
+
+  const findEntry = useCallback(
+    (id: string) => entries.find((e) => e.id === id),
+    [entries],
+  );
+
+  const handleView = useCallback(
+    (id: string) => {
+      const entry = findEntry(id);
+      if (entry) {
+        setDetailEntry(entry);
+        setDetailOpen(true);
+      }
+    },
+    [findEntry],
+  );
+
+  const handleEdit = useCallback(
+    (id: string) => {
+      onEditEntry(id);
+    },
+    [onEditEntry],
+  );
+
+  const handleClone = useCallback(
+    (id: string) => {
+      const entry = findEntry(id);
+      if (!entry) return;
+
+      const cloned: SchemaRegistryEntry = {
+        ...entry,
+        id: `reg-clone-${Date.now()}`,
+        sourceName: `${entry.sourceName} (Copy)`,
+        status: "draft",
+        version: "v0.1",
+        createdAt: new Date().toISOString(),
+        lastModifiedAt: new Date().toISOString(),
+      };
+      setEntries((prev) => [cloned, ...prev]);
+      toast({
+        title: "Schema mapping cloned",
+        description: `"${cloned.sourceName}" created as Draft`,
+      });
+    },
+    [findEntry, toast],
+  );
+
+  const handleNewVersion = useCallback(
+    (id: string) => {
+      const entry = findEntry(id);
+      if (!entry) return;
+
+      const vNum = entry.version.replace(/^v/, "");
+      const parts = vNum.split(".");
+      const minor = parseInt(parts[1] ?? "0", 10) + 1;
+      const newVersion = `v${parts[0]}.${minor}`;
+
+      const versioned: SchemaRegistryEntry = {
+        ...entry,
+        id: `reg-ver-${Date.now()}`,
+        version: newVersion,
+        status: "draft",
+        createdAt: new Date().toISOString(),
+        lastModifiedAt: new Date().toISOString(),
+      };
+      setEntries((prev) => [versioned, ...prev]);
+      toast({
+        title: "New version created",
+        description: `"${entry.sourceName}" ${newVersion} created as Draft`,
+      });
+    },
+    [findEntry, toast],
+  );
+
+  const handleArchive = useCallback(
+    (id: string) => {
+      const entry = findEntry(id);
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === id
+            ? { ...e, status: "archived" as const, lastModifiedAt: new Date().toISOString() }
+            : e,
+        ),
+      );
+      toast({
+        title: "Schema mapping archived",
+        description: entry ? `"${entry.sourceName}" has been archived` : "Entry archived",
+      });
+    },
+    [findEntry, toast],
+  );
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -81,12 +180,19 @@ export function SchemaRegistryView({ onCreateNew, onViewAudit }: SchemaRegistryV
       {/* Table */}
       <SchemaRegistryTable
         entries={filtered}
-        onView={(id) => onViewAudit(id)}
-        onEdit={() => {}}
-        onClone={() => {}}
-        onNewVersion={() => {}}
-        onArchive={() => {}}
+        onView={handleView}
+        onEdit={handleEdit}
+        onClone={handleClone}
+        onNewVersion={handleNewVersion}
+        onArchive={handleArchive}
         onAuditHistory={(id) => onViewAudit(id)}
+      />
+
+      {/* Detail dialog */}
+      <SchemaDetailDialog
+        entry={detailEntry}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
       />
     </div>
   );

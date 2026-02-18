@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, ArrowRight, ChevronDown, ChevronUp } from "lucide-react";
+import { Sparkles, ArrowRight, ChevronDown, ChevronUp, Pencil, Check, MessageSquareText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -23,7 +23,6 @@ import type {
   ParsedSourceField,
   AIMappingResult,
   AIMappingSummary,
-  AIMappingFieldStatus,
   MatchType,
   EnumReconciliation,
   MasterSchemaField,
@@ -37,10 +36,16 @@ interface AIMappingStepProps {
   onComplete: (results: AIMappingResult[], summary: AIMappingSummary, enums: EnumReconciliation[]) => void;
 }
 
-function confidenceColor(c: number) {
-  if (c >= 85) return "bg-success/15 text-success";
-  if (c >= 60) return "bg-warning/15 text-warning";
-  return "bg-destructive/15 text-destructive";
+function confidenceBarColor(c: number) {
+  if (c >= 85) return "bg-success";
+  if (c >= 60) return "bg-warning";
+  return "bg-destructive";
+}
+
+function confidenceTextColor(c: number) {
+  if (c >= 85) return "text-success";
+  if (c >= 60) return "text-warning";
+  return "text-destructive";
 }
 
 const MATCH_LABELS: Record<MatchType, string> = {
@@ -50,23 +55,11 @@ const MATCH_LABELS: Record<MatchType, string> = {
   derived: "Derived",
 };
 
-const STATUS_LABELS: Record<AIMappingFieldStatus, string> = {
-  auto_accepted: "Accepted",
-  needs_review: "Review",
-  unmapped: "Unmapped",
-};
-
-const STATUS_COLORS: Record<AIMappingFieldStatus, string> = {
-  auto_accepted: "bg-success/15 text-success",
-  needs_review: "bg-warning/15 text-warning",
-  unmapped: "bg-destructive/15 text-destructive",
-};
-
-function flattenMasterFields(fields: MasterSchemaField[]): { id: string; label: string }[] {
-  const result: { id: string; label: string }[] = [];
+function flattenMasterFields(fields: MasterSchemaField[]): { id: string; label: string; dataType: string }[] {
+  const result: { id: string; label: string; dataType: string }[] = [];
   function walk(nodes: MasterSchemaField[]) {
     for (const n of nodes) {
-      result.push({ id: n.id, label: n.path });
+      result.push({ id: n.id, label: n.path, dataType: n.dataType });
       if (n.children) walk(n.children);
     }
   }
@@ -92,6 +85,7 @@ export function AIMappingStep({
   const [masterFieldDrawerOpen, setMasterFieldDrawerOpen] = useState(false);
   const [enumDrawerOpen, setEnumDrawerOpen] = useState(false);
   const [activeEnumFieldId, setActiveEnumFieldId] = useState<string | null>(null);
+  const [editingRowId, setEditingRowId] = useState<string | null>(null);
 
   const masterFieldOptions = flattenMasterFields(masterSchemaTree);
 
@@ -113,7 +107,7 @@ export function AIMappingStep({
   const unmappedResults = results.filter((r) => r.status === "unmapped");
   const mappedResults = results.filter((r) => r.status !== "unmapped");
 
-  const handleMapToExisting = useCallback(
+  const handleChangeMasterField = useCallback(
     (resultId: string, masterFieldId: string) => {
       const masterOpt = masterFieldOptions.find((o) => o.id === masterFieldId);
       setResults((prev) =>
@@ -123,14 +117,15 @@ export function AIMappingStep({
                 ...r,
                 suggestedMasterFieldId: masterFieldId,
                 suggestedMasterFieldName: masterOpt?.label ?? null,
-                masterFieldType: "string",
+                masterFieldType: masterOpt?.dataType ?? "string",
                 confidence: 100,
                 matchType: "exact" as MatchType,
-                status: "needs_review" as AIMappingFieldStatus,
+                mappingReason: "Manually reassigned by user",
               }
             : r,
         ),
       );
+      setEditingRowId(null);
     },
     [masterFieldOptions],
   );
@@ -171,10 +166,8 @@ export function AIMappingStep({
 
   return (
     <div className="space-y-3 animate-fade-in">
-      {/* Compact summary strip */}
       <MappingSummaryBanner summary={summary} />
 
-      {/* Tabbed layout: Mappings | Source Schema | Master Schema */}
       <Tabs defaultValue="mappings" className="w-full">
         <TabsList className="w-full justify-start">
           <TabsTrigger value="mappings" className="text-caption gap-1">
@@ -187,57 +180,123 @@ export function AIMappingStep({
           <TabsTrigger value="master" className="text-caption">Master Schema</TabsTrigger>
         </TabsList>
 
-        {/* TAB: Mapping Results as compact card rows */}
+        {/* TAB: Mapping Results — side-by-side cards */}
         <TabsContent value="mappings" className="mt-3">
-          <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-            <ScrollArea className="max-h-[420px]">
-              <div className="divide-y divide-border">
-                {mappedResults.map((r) => (
+          <ScrollArea className="max-h-[460px]">
+            <div className="space-y-2">
+              {mappedResults.map((r) => {
+                const isEditing = editingRowId === r.id;
+
+                return (
                   <div
                     key={r.id}
-                    className="flex items-center gap-2 px-3 py-2 hover:bg-muted/30 transition-colors cursor-pointer"
+                    className="rounded-xl border border-border bg-card p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] hover:border-primary/20 transition-colors"
                     onMouseEnter={() => handleRowHover(r)}
                   >
-                    {/* Source → Master */}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-1 flex-wrap">
-                        <span className="text-body font-medium text-foreground truncate">
-                          {r.sourceFieldName}
-                        </span>
-                        <Badge variant="secondary" className="text-[8px] leading-[10px] px-1 py-0 font-normal shrink-0">
-                          {r.sourceFieldType}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="text-[9px] text-muted-foreground">→</span>
-                        <span className="text-caption font-medium text-primary truncate">
-                          {r.suggestedMasterFieldName ?? "—"}
-                        </span>
-                        {r.masterFieldType && (
+                    {/* Row 1: Source ──> Target side-by-side */}
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-medium uppercase tracking-[0.08em] text-muted-foreground mb-0.5">
+                          Source
+                        </p>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-body font-semibold text-foreground truncate">
+                            {r.sourceFieldName}
+                          </span>
                           <Badge variant="secondary" className="text-[8px] leading-[10px] px-1 py-0 font-normal shrink-0">
-                            {r.masterFieldType}
+                            {r.sourceFieldType}
                           </Badge>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center pt-4 shrink-0 px-1">
+                        <div className="h-px w-4 bg-border sm:w-6" />
+                        <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                        <div className="h-px w-4 bg-border sm:w-6" />
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-medium uppercase tracking-[0.08em] text-muted-foreground mb-0.5">
+                          Target
+                        </p>
+                        {isEditing ? (
+                          <Select
+                            value={r.suggestedMasterFieldId ?? undefined}
+                            onValueChange={(v) => handleChangeMasterField(r.id, v)}
+                          >
+                            <SelectTrigger className="h-7 text-[11px]">
+                              <SelectValue placeholder="Select master field..." />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {masterFieldOptions.map((opt) => (
+                                <SelectItem key={opt.id} value={opt.id} className="text-caption">
+                                  {opt.label}
+                                  <span className="ml-1 text-muted-foreground">({opt.dataType})</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-body font-semibold text-primary truncate">
+                              {r.suggestedMasterFieldName ?? "—"}
+                            </span>
+                            {r.masterFieldType && (
+                              <Badge variant="secondary" className="text-[8px] leading-[10px] px-1 py-0 font-normal shrink-0">
+                                {r.masterFieldType}
+                              </Badge>
+                            )}
+                          </div>
                         )}
+                      </div>
+
+                      {/* Edit / confirm toggle */}
+                      <div className="pt-3.5 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-6 w-6 p-0"
+                          onClick={() => setEditingRowId(isEditing ? null : r.id)}
+                        >
+                          {isEditing ? (
+                            <Check className="h-3 w-3 text-success" />
+                          ) : (
+                            <Pencil className="h-3 w-3 text-muted-foreground" />
+                          )}
+                        </Button>
                       </div>
                     </div>
 
-                    {/* Badges cluster */}
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Badge className={cn("text-[8px] leading-[10px] px-1.5 py-0 font-semibold border-0 tabular-nums", confidenceColor(r.confidence))}>
+                    {/* Row 2: Confidence bar + match type */}
+                    <div className="mt-2 flex items-center gap-2">
+                      <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div
+                          className={cn("h-full rounded-full transition-all", confidenceBarColor(r.confidence))}
+                          style={{ width: `${r.confidence}%` }}
+                        />
+                      </div>
+                      <span className={cn("text-[10px] font-bold tabular-nums shrink-0", confidenceTextColor(r.confidence))}>
                         {r.confidence}%
-                      </Badge>
-                      <Badge variant="outline" className="text-[8px] leading-[10px] px-1 py-0 font-normal">
+                      </span>
+                      <Badge variant="outline" className="text-[8px] leading-[10px] px-1.5 py-0 font-normal shrink-0">
                         {MATCH_LABELS[r.matchType]}
                       </Badge>
-                      <Badge className={cn("text-[8px] leading-[10px] px-1 py-0 font-medium border-0", STATUS_COLORS[r.status])}>
-                        {STATUS_LABELS[r.status]}
-                      </Badge>
                     </div>
+
+                    {/* Row 3: AI reasoning comment */}
+                    {r.mappingReason && (
+                      <div className="mt-1.5 flex items-start gap-1.5">
+                        <MessageSquareText className="h-3 w-3 text-muted-foreground shrink-0 mt-px" />
+                        <p className="text-[10px] leading-[14px] text-muted-foreground">
+                          {r.mappingReason}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                ))}
-              </div>
-            </ScrollArea>
-          </div>
+                );
+              })}
+            </div>
+          </ScrollArea>
         </TabsContent>
 
         {/* TAB: Source Schema Tree */}
@@ -315,9 +374,17 @@ export function AIMappingStep({
                               e.g. {sourceField.sampleValues.slice(0, 3).join(", ")}
                             </p>
                           )}
+                          {r.mappingReason && (
+                            <div className="flex items-start gap-1 mt-1">
+                              <MessageSquareText className="h-2.5 w-2.5 text-muted-foreground shrink-0 mt-px" />
+                              <p className="text-[9px] leading-[12px] text-muted-foreground">
+                                {r.mappingReason}
+                              </p>
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <Select onValueChange={(v) => handleMapToExisting(r.id, v)}>
+                          <Select onValueChange={(v) => handleChangeMasterField(r.id, v)}>
                             <SelectTrigger className="h-6 w-32 text-[9px]">
                               <SelectValue placeholder="Map to field..." />
                             </SelectTrigger>

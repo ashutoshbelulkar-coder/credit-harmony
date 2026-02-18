@@ -1,4 +1,5 @@
-import { Check, FileInput, Target, Sparkles, ShieldCheck, SendHorizonal } from "lucide-react";
+import { Check, FileInput, Target, Sparkles, ShieldCheck, SendHorizonal, ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { WizardStep } from "@/types/schema-mapper";
 
@@ -13,10 +14,12 @@ const STEPS: { key: WizardStep; label: string; shortLabel: string; icon: React.E
 interface StepIndicatorProps {
   currentStep: WizardStep;
   completedSteps: Set<WizardStep>;
+  onBack?: () => void;
+  isFirst?: boolean;
   className?: string;
 }
 
-export function StepIndicator({ currentStep, completedSteps, className }: StepIndicatorProps) {
+export function StepIndicator({ currentStep, completedSteps, onBack, isFirst, className }: StepIndicatorProps) {
   const currentIdx = STEPS.findIndex((s) => s.key === currentStep);
 
   return (
@@ -28,11 +31,24 @@ export function StepIndicator({ currentStep, completedSteps, className }: StepIn
     >
       {/* Desktop / tablet: horizontal bar */}
       <div className="hidden sm:flex items-stretch">
+        {!isFirst && onBack && (
+          <div className="flex items-center border-r border-border">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onBack}
+              className="h-full rounded-none px-2.5 gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
+            >
+              <ArrowLeft className="h-3 w-3" />
+              <span className="hidden lg:inline">Back</span>
+            </Button>
+          </div>
+        )}
+
         {STEPS.map((step, idx) => {
           const isCompleted = completedSteps.has(step.key);
           const isCurrent = step.key === currentStep;
           const isPast = idx < currentIdx;
-          const Icon = step.icon;
 
           return (
             <div key={step.key} className="flex min-w-0 flex-1 items-stretch">
@@ -53,7 +69,6 @@ export function StepIndicator({ currentStep, completedSteps, className }: StepIn
                   isCurrent && "bg-primary/8",
                 )}
               >
-                {/* Number circle */}
                 <div
                   className={cn(
                     "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold leading-none transition-colors",
@@ -67,7 +82,6 @@ export function StepIndicator({ currentStep, completedSteps, className }: StepIn
                   {isCompleted ? <Check className="h-3 w-3" /> : idx + 1}
                 </div>
 
-                {/* Text — always visible, adapts size */}
                 <div className="min-w-0 flex-1">
                   <p
                     className={cn(
@@ -79,13 +93,11 @@ export function StepIndicator({ currentStep, completedSteps, className }: StepIn
                           : "text-muted-foreground",
                     )}
                   >
-                    {/* Full label on xl+, short label on sm-lg */}
                     <span className="hidden xl:inline">{step.label}</span>
                     <span className="xl:hidden">{step.shortLabel}</span>
                   </p>
                 </div>
 
-                {/* Active dot indicator */}
                 {isCurrent && (
                   <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
                 )}
@@ -95,8 +107,19 @@ export function StepIndicator({ currentStep, completedSteps, className }: StepIn
         })}
       </div>
 
-      {/* Mobile: compact horizontal with numbers + active label */}
+      {/* Mobile: back button + compact steps */}
       <div className="flex sm:hidden items-center px-2 py-2 gap-1">
+        {!isFirst && onBack && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBack}
+            className="h-6 w-6 p-0 shrink-0 mr-1"
+          >
+            <ArrowLeft className="h-3 w-3 text-muted-foreground" />
+          </Button>
+        )}
+
         {STEPS.map((step, idx) => {
           const isCompleted = completedSteps.has(step.key);
           const isCurrent = step.key === currentStep;

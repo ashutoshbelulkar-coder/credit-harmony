@@ -1,5 +1,5 @@
 import { useState, useCallback } from "react";
-import { ArrowLeft, ArrowRight, X } from "lucide-react";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Breadcrumb,
@@ -106,7 +106,7 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
 
   return (
     <div className="flex flex-col gap-3 animate-fade-in">
-      {/* Top bar: breadcrumb + nav buttons on same row */}
+      {/* Top bar: breadcrumb + cancel */}
       <div className="flex items-center justify-between gap-2">
         <Breadcrumb>
           <BreadcrumbList>
@@ -129,24 +129,18 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
           </BreadcrumbList>
         </Breadcrumb>
 
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Button variant="ghost" size="sm" onClick={onCancel} className="h-7 gap-1 px-2 text-caption">
-            <X className="h-3 w-3" />
-            <span className="hidden sm:inline">Cancel</span>
-          </Button>
-          {!isFirst && (
-            <Button variant="outline" size="sm" onClick={goBack} className="h-7 gap-1 px-2 text-caption">
-              <ArrowLeft className="h-3 w-3" />
-              <span className="hidden sm:inline">Back</span>
-            </Button>
-          )}
-        </div>
+        <Button variant="ghost" size="sm" onClick={onCancel} className="h-7 gap-1 px-2 text-caption shrink-0">
+          <X className="h-3 w-3" />
+          <span className="hidden sm:inline">Cancel</span>
+        </Button>
       </div>
 
-      {/* Step indicator */}
+      {/* Step indicator with integrated Back navigation */}
       <StepIndicator
         currentStep={currentStep}
         completedSteps={completedSteps}
+        onBack={goBack}
+        isFirst={isFirst}
       />
 
       {/* Step content */}

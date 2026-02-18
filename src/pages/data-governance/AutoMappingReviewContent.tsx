@@ -9,7 +9,8 @@ export default function AutoMappingReviewContent() {
   const [view, setView] = useState<ViewMode>("registry");
 
   const handleCreateNew = useCallback(() => setView("wizard"), []);
-  const handleViewAudit = useCallback(() => setView("version_diff"), []);
+  const handleEditEntry = useCallback((_entryId: string) => setView("wizard"), []);
+  const handleViewAudit = useCallback((_entryId: string) => setView("version_diff"), []);
   const handleBackToRegistry = useCallback(() => setView("registry"), []);
 
   return (
@@ -17,6 +18,7 @@ export default function AutoMappingReviewContent() {
       {view === "registry" && (
         <SchemaRegistryView
           onCreateNew={handleCreateNew}
+          onEditEntry={handleEditEntry}
           onViewAudit={handleViewAudit}
         />
       )}
