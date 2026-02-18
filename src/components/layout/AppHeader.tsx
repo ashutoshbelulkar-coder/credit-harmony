@@ -1,0 +1,123 @@
+import { Search, Bell, ChevronDown, User } from "lucide-react";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
+
+const institutions = [
+  "All Institutions",
+  "First National Bank",
+  "Metro Credit Union",
+  "Pacific Finance Corp",
+  "Southern Trust Bank",
+];
+
+type Environment = "sandbox" | "uat" | "prod";
+
+const envConfig: Record<Environment, { label: string; className: string }> = {
+  sandbox: { label: "Sandbox", className: "bg-warning/15 text-warning border-warning/30" },
+  uat: { label: "UAT", className: "bg-info/15 text-info border-info/30" },
+  prod: { label: "Production", className: "bg-success/15 text-success border-success/30" },
+};
+
+export function AppHeader() {
+  const [selectedInstitution, setSelectedInstitution] = useState(institutions[0]);
+  const [showInstitutions, setShowInstitutions] = useState(false);
+  const [environment] = useState<Environment>("sandbox");
+  const [searchFocused, setSearchFocused] = useState(false);
+
+  const env = envConfig[environment];
+
+  return (
+    <header className="sticky top-0 z-20 h-16 bg-card border-b border-border flex items-center px-6 gap-4">
+      {/* Institution Selector */}
+      <div className="relative">
+        <button
+          onClick={() => setShowInstitutions(!showInstitutions)}
+          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-sm font-medium"
+        >
+          <Building2Icon />
+          <span className="max-w-[160px] truncate">{selectedInstitution}</span>
+          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+        </button>
+
+        {showInstitutions && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowInstitutions(false)} />
+            <div className="absolute top-full left-0 mt-1 w-64 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-fade-in">
+              {institutions.map((inst) => (
+                <button
+                  key={inst}
+                  onClick={() => {
+                    setSelectedInstitution(inst);
+                    setShowInstitutions(false);
+                  }}
+                  className={cn(
+                    "w-full text-left px-4 py-2.5 text-sm hover:bg-muted transition-colors",
+                    selectedInstitution === inst && "bg-muted font-medium text-foreground"
+                  )}
+                >
+                  {inst}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Environment Badge */}
+      <span className={cn("px-2.5 py-1 rounded-full text-xs font-semibold border", env.className)}>
+        {env.label}
+      </span>
+
+      {/* Global Search */}
+      <div className="flex-1 max-w-md ml-auto">
+        <div
+          className={cn(
+            "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200",
+            searchFocused ? "border-primary bg-card shadow-sm" : "border-border bg-background"
+          )}
+        >
+          <Search className="w-4 h-4 text-muted-foreground shrink-0" />
+          <input
+            type="text"
+            placeholder="Search institutions, APIs, logs..."
+            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+            onFocus={() => setSearchFocused(true)}
+            onBlur={() => setSearchFocused(false)}
+          />
+          <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-border bg-muted text-[10px] text-muted-foreground font-mono">
+            ⌘K
+          </kbd>
+        </div>
+      </div>
+
+      {/* Notifications */}
+      <button className="relative p-2 rounded-lg hover:bg-muted transition-colors">
+        <Bell className="w-5 h-5 text-muted-foreground" />
+        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive" />
+      </button>
+
+      {/* User Profile */}
+      <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">
+        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+          <User className="w-4 h-4 text-primary-foreground" />
+        </div>
+        <div className="hidden md:flex flex-col text-left">
+          <span className="text-sm font-medium leading-tight">Admin User</span>
+          <span className="text-[11px] text-muted-foreground leading-tight">Super Admin</span>
+        </div>
+        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden md:block" />
+      </button>
+    </header>
+  );
+}
+
+function Building2Icon() {
+  return (
+    <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
+      <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
+      <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
+      <path d="M10 6h4" /><path d="M10 10h4" /><path d="M10 14h4" /><path d="M10 18h4" />
+    </svg>
+  );
+}
