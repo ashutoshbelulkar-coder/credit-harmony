@@ -70,6 +70,9 @@
     --badge-uat: 262 52% 47%;
     --badge-prod: 152 60% 42%;
 
+    --crif-orange: 24 95% 53%;
+    --crif-orange-foreground: 0 0% 100%;
+
     --chart-1: 215 80% 22%;
     --chart-2: 152 55% 40%;
     --chart-3: 38 92% 50%;
@@ -115,6 +118,8 @@
     --warning-subtle: 38 85% 22%;
     --info-light: 210 80% 15%;
     --info-subtle: 210 70% 22%;
+    --crif-orange: 24 90% 55%;
+    --crif-orange-foreground: 0 0% 100%;
     --border: 222 30% 18%;
     --input: 222 30% 18%;
     --ring: 175 60% 40%;
@@ -128,7 +133,6 @@
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
-    font-family: 'Inter', sans-serif;
   }
 }
 

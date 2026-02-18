@@ -4,21 +4,47 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { motion, useReducedMotion } from "framer-motion";
+import CreditNetworkCanvas from "@/components/CreditNetworkCanvas";
+import {
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
+  ShieldCheck,
+  Building2,
+  KeyRound,
+  Users,
+} from "lucide-react";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const trustIndicators = [
+  { icon: ShieldCheck, label: "256-bit Encrypted" },
+  { icon: KeyRound, label: "Enterprise Security" },
+  { icon: Users, label: "Role-Based Access" },
+];
 
 export default function Login() {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const prefersReduced = useReducedMotion();
+
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+    {}
+  );
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     const next: { email?: string; password?: string } = {};
     if (!email.trim()) next.email = "Email is required";
-    else if (!EMAIL_REGEX.test(email)) next.email = "Enter a valid email address";
+    else if (!EMAIL_REGEX.test(email))
+      next.email = "Enter a valid email address";
     if (!password) next.password = "Password is required";
     setErrors(next);
     if (Object.keys(next).length > 0) return;
@@ -26,78 +52,237 @@ export default function Login() {
     navigate("/", { replace: true });
   };
 
+  const fadeUp = prefersReduced
+    ? {}
+    : {
+        initial: { opacity: 0, y: 12 },
+        animate: { opacity: 1, y: 0 },
+        transition: { duration: 0.3, ease: "easeOut" },
+      };
+
+  const stagger = prefersReduced
+    ? {}
+    : {
+        initial: { opacity: 0, y: 8 },
+        animate: { opacity: 1, y: 0 },
+      };
+
+  const staggerDelay = (i: number) =>
+    prefersReduced ? {} : { transition: { delay: 0.05 * i, duration: 0.3 } };
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
-      <div
-        className="w-full max-w-[400px] rounded-xl border border-border bg-card p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
-        role="main"
-        aria-label="Sign in"
-      >
-        <div className="mb-6">
-          <h1 className="text-h2 font-semibold text-foreground">Hybrid Credit Bureau</h1>
-          <p className="mt-1 text-caption text-muted-foreground">
-            Sign in to access the admin dashboard
-          </p>
-        </div>
+    <div className="flex h-screen flex-col overflow-hidden lg:flex-row">
+      {/* ── Left Brand Panel ── */}
+      <div className="relative flex w-full shrink-0 flex-col items-center justify-center overflow-hidden bg-[#1D3A6B] px-8 py-8 lg:w-1/2 lg:h-full lg:py-0">
+        <CreditNetworkCanvas reduced={!!prefersReduced} />
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="login-email" className="text-label">
-              Email
-            </Label>
-            <Input
-              id="login-email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@company.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="text-body"
-              aria-invalid={!!errors.email}
-              aria-describedby={errors.email ? "login-email-error" : undefined}
-            />
-            {errors.email && (
-              <p id="login-email-error" className="text-caption text-destructive" role="alert">
-                {errors.email}
-              </p>
-            )}
+        <motion.div
+          className="relative z-10 flex flex-col items-center text-center"
+          {...fadeUp}
+        >
+          <img
+            src="/crif-logo-white.png"
+            alt="CRIF – Together to the next level"
+            className="h-7 w-auto md:h-8 lg:h-14"
+            draggable={false}
+          />
+        </motion.div>
+
+        {/* Decorative corner accent */}
+        <div className="absolute bottom-0 right-0 hidden h-32 w-32 rounded-tl-full bg-white/[0.03] lg:block" />
+      </div>
+
+      {/* ── Right Form Panel ── */}
+      <div className="flex w-full min-h-0 flex-1 items-center justify-center bg-white px-6 py-6 lg:w-1/2 lg:h-full lg:py-0">
+        <motion.div
+          className="w-full max-w-[420px]"
+          {...fadeUp}
+        >
+          <div role="main" aria-label="Sign in">
+            {/* Header */}
+            <motion.div className="mb-6 lg:mb-8" {...stagger} {...staggerDelay(0)}>
+              <h1 className="text-[22px] font-semibold leading-tight text-gray-900">
+                Login
+              </h1>
+            </motion.div>
+
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="space-y-5 lg:space-y-6">
+              {/* Email */}
+              <motion.div
+                className="space-y-2"
+                {...stagger}
+                {...staggerDelay(1)}
+              >
+                <Label
+                  htmlFor="login-email"
+                  className="text-[11px] font-medium text-gray-700"
+                >
+                  Email Address
+                </Label>
+                <div className="relative">
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    id="login-email"
+                    type="email"
+                    autoComplete="email"
+                    placeholder="you@company.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="h-11 pl-10 text-[13px] transition-all duration-200 focus-visible:ring-crif-orange/60 focus-visible:border-crif-orange"
+                    aria-invalid={!!errors.email}
+                    aria-describedby={
+                      errors.email ? "login-email-error" : undefined
+                    }
+                  />
+                </div>
+                {errors.email && (
+                  <p
+                    id="login-email-error"
+                    className="text-[11px] text-red-500"
+                    role="alert"
+                  >
+                    {errors.email}
+                  </p>
+                )}
+              </motion.div>
+
+              {/* Password */}
+              <motion.div
+                className="space-y-2"
+                {...stagger}
+                {...staggerDelay(2)}
+              >
+                <Label
+                  htmlFor="login-password"
+                  className="text-[11px] font-medium text-gray-700"
+                >
+                  Password
+                </Label>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Input
+                    id="login-password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="h-11 pl-10 pr-10 text-[13px] transition-all duration-200 focus-visible:ring-crif-orange/60 focus-visible:border-crif-orange"
+                    aria-invalid={!!errors.password}
+                    aria-describedby={
+                      errors.password ? "login-password-error" : undefined
+                    }
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded-sm transition-colors"
+                    aria-label={
+                      showPassword ? "Hide password" : "Show password"
+                    }
+                    tabIndex={0}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+                {errors.password && (
+                  <p
+                    id="login-password-error"
+                    className="text-[11px] text-red-500"
+                    role="alert"
+                  >
+                    {errors.password}
+                  </p>
+                )}
+              </motion.div>
+
+              {/* Remember + Forgot */}
+              <motion.div
+                className="flex items-center justify-between"
+                {...stagger}
+                {...staggerDelay(3)}
+              >
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="remember-me"
+                    checked={rememberMe}
+                    onCheckedChange={(v) => setRememberMe(v === true)}
+                    className="h-4 w-4 border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                  />
+                  <Label
+                    htmlFor="remember-me"
+                    className="cursor-pointer text-[11px] font-normal text-gray-600"
+                  >
+                    Remember me
+                  </Label>
+                </div>
+                <a
+                  href="#"
+                  className="text-[11px] font-medium text-crif-orange hover:text-crif-orange/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded transition-colors"
+                >
+                  Forgot password?
+                </a>
+              </motion.div>
+
+              {/* Sign In */}
+              <motion.div {...stagger} {...staggerDelay(4)}>
+                <Button
+                  type="submit"
+                  className="h-11 w-full rounded-[10px] bg-[hsl(215,80%,22%)] text-[13px] font-medium text-white shadow-sm transition-all duration-200 hover:bg-[hsl(215,80%,18%)] focus-visible:ring-2 focus-visible:ring-crif-orange/60 focus-visible:ring-offset-2"
+                >
+                  Sign In
+                </Button>
+              </motion.div>
+
+              {/* SSO Divider */}
+              <motion.div
+                className="relative flex items-center py-1"
+                {...stagger}
+                {...staggerDelay(5)}
+              >
+                <div className="flex-1 border-t border-gray-200" />
+                <span className="px-3 text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                  or
+                </span>
+                <div className="flex-1 border-t border-gray-200" />
+              </motion.div>
+
+              {/* SSO Button */}
+              <motion.div {...stagger} {...staggerDelay(6)}>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-11 w-full rounded-[10px] border-gray-200 text-[13px] font-medium text-gray-700 transition-all duration-200 hover:bg-gray-50 hover:border-gray-300"
+                >
+                  <Building2 className="mr-2 h-4 w-4" />
+                  Sign in with SSO
+                </Button>
+              </motion.div>
+            </form>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="login-password" className="text-label">
-              Password
-            </Label>
-            <Input
-              id="login-password"
-              type="password"
-              autoComplete="current-password"
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="text-body"
-              aria-invalid={!!errors.password}
-              aria-describedby={errors.password ? "login-password-error" : undefined}
-            />
-            {errors.password && (
-              <p id="login-password-error" className="text-caption text-destructive" role="alert">
-                {errors.password}
-              </p>
-            )}
-          </div>
-
-          <div className="flex items-center justify-end">
-            <a
-              href="#"
-              className="text-caption font-medium text-primary hover:text-primary/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"
-            >
-              Forgot password?
-            </a>
-          </div>
-
-          <Button type="submit" className="w-full text-body font-medium text-primary-foreground">
-            Sign in
-          </Button>
-        </form>
+          {/* Trust Indicators */}
+          <motion.div
+            className="mt-6 flex items-center justify-center gap-6"
+            {...stagger}
+            {...staggerDelay(7)}
+          >
+            {trustIndicators.map(({ icon: Icon, label }) => (
+              <div
+                key={label}
+                className="flex items-center gap-1.5 text-gray-400"
+              >
+                <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
+                <span className="text-[10px] font-medium">{label}</span>
+              </div>
+            ))}
+          </motion.div>
+        </motion.div>
       </div>
     </div>
   );
