@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Building2, CheckCircle2, AlertTriangle, ExternalLink, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
+import { getInstitutionById, statusStyles } from "@/data/institutions-mock";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -27,12 +28,25 @@ const secondaryTabs = [
   "Audit Trail",
 ];
 
-const tabs = [...primaryTabs, ...secondaryTabs];
-
 const InstitutionDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("Overview");
+
+  const institution = getInstitutionById(id || "");
+
+  if (!institution) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center py-20 space-y-4">
+          <p className="text-muted-foreground">Institution not found.</p>
+          <button onClick={() => navigate("/institutions")} className="text-primary hover:underline text-sm">
+            Back to Institutions
+          </button>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -50,11 +64,13 @@ const InstitutionDetail = () => {
               <Building2 className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h1 className="text-h2 font-semibold text-foreground">First National Bank</h1>
+              <h1 className="text-h2 font-semibold text-foreground">{institution.name}</h1>
               <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-caption text-muted-foreground">Commercial Bank</span>
+                <span className="text-caption text-muted-foreground">{institution.type}</span>
                 <span className="w-1 h-1 rounded-full bg-muted-foreground" />
-                <span className={cn("px-2 py-0.5 rounded-full bg-success/15 text-success", badgeTextClasses)}>Active</span>
+                <span className={cn("px-2 py-0.5 rounded-full capitalize", badgeTextClasses, statusStyles[institution.status])}>
+                  {institution.status}
+                </span>
               </div>
             </div>
           </div>
@@ -78,7 +94,6 @@ const InstitutionDetail = () => {
               </button>
             ))}
 
-            {/* Overflow menu for secondary tabs */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button
@@ -112,7 +127,7 @@ const InstitutionDetail = () => {
         </div>
 
         {/* Tab Content */}
-        {activeTab === "Overview" && <OverviewTab />}
+        {activeTab === "Overview" && <OverviewTab institution={institution} />}
         {activeTab === "API & Access" && <ApiAccessTab />}
         {activeTab !== "Overview" && activeTab !== "API & Access" && (
           <div className="bg-card rounded-xl border border-border p-12 text-center">
@@ -126,22 +141,25 @@ const InstitutionDetail = () => {
   );
 };
 
-function OverviewTab() {
+function OverviewTab({ institution }: { institution: NonNullable<ReturnType<typeof getInstitutionById>> }) {
+  const docs = institution.complianceDocs || [
+    { name: "Certificate of Incorporation", status: "pending" as const },
+  ];
+
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-      {/* Details */}
       <div className="lg:col-span-2 space-y-6">
         <div className="bg-card rounded-xl border border-border p-6">
           <h3 className="text-h4 font-semibold text-foreground mb-4">Corporate Details</h3>
           <div className="grid grid-cols-2 gap-4">
-            {[
-              ["Legal Name", "First National Bank Ltd."],
-              ["Registration No.", "BK-2024-00142"],
-              ["Jurisdiction", "Kenya"],
-              ["License Type", "Commercial Banking"],
-              ["Contact Email", "compliance@fnb.co.ke"],
-              ["Contact Phone", "+254 700 123 456"],
-            ].map(([label, value]) => (
+            {([
+              ["Legal Name", institution.name + (institution.tradingName ? ` (${institution.tradingName})` : "")],
+              ["Registration No.", institution.registrationNumber || "—"],
+              ["Jurisdiction", institution.jurisdiction || "—"],
+              ["License Type", institution.licenseType || "—"],
+              ["Contact Email", institution.contactEmail || "—"],
+              ["Contact Phone", institution.contactPhone || "—"],
+            ] as const).map(([label, value]) => (
               <div key={label}>
                 <p className="text-caption text-muted-foreground">{label}</p>
                 <p className="text-body font-medium text-foreground mt-0.5">{value}</p>
@@ -153,11 +171,7 @@ function OverviewTab() {
         <div className="bg-card rounded-xl border border-border p-6">
           <h3 className="text-h4 font-semibold text-foreground mb-4">Compliance Documents</h3>
           <div className="space-y-3">
-            {[
-              { name: "Certificate of Incorporation", status: "verified" },
-              { name: "CBK License", status: "verified" },
-              { name: "Data Protection Certificate", status: "pending" },
-            ].map((doc) => (
+            {docs.map((doc) => (
               <div key={doc.name} className="flex items-center justify-between py-2">
                 <div className="flex items-center gap-3">
                   {doc.status === "verified" ? (
@@ -176,14 +190,13 @@ function OverviewTab() {
         </div>
       </div>
 
-      {/* Summary Cards */}
       <div className="space-y-4">
         {[
-          { label: "APIs Enabled", value: "3/3", color: "text-success" },
-          { label: "SLA Health", value: "99.9%", color: "text-success" },
-          { label: "Data Quality", value: "98%", color: "text-foreground" },
-          { label: "Match Accuracy", value: "96.4%", color: "text-foreground" },
-          { label: "Onboarded", value: "Jan 15, 2026", color: "text-muted-foreground" },
+          { label: "APIs Enabled", value: `${institution.apisEnabled}/3`, color: institution.apisEnabled === 3 ? "text-success" : "text-foreground" },
+          { label: "SLA Health", value: institution.slaHealth > 0 ? `${institution.slaHealth}%` : "—", color: institution.slaHealth >= 99 ? "text-success" : "text-foreground" },
+          { label: "Data Quality", value: institution.dataQuality ? `${institution.dataQuality}%` : "—", color: "text-foreground" },
+          { label: "Match Accuracy", value: institution.matchAccuracy ? `${institution.matchAccuracy}%` : "—", color: "text-foreground" },
+          { label: "Onboarded", value: institution.onboardedDate || "—", color: "text-muted-foreground" },
         ].map((item) => (
           <div key={item.label} className="bg-card rounded-xl border border-border p-4">
             <p className="text-caption text-muted-foreground">{item.label}</p>
@@ -205,7 +218,6 @@ function ApiAccessTab() {
 
   return (
     <div className="space-y-6">
-      {/* Env Tabs */}
       <div className="flex gap-2">
         {(["sandbox", "uat", "prod"] as const).map((env) => (
           <button
@@ -223,7 +235,6 @@ function ApiAccessTab() {
         ))}
       </div>
 
-      {/* API Keys Table */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b border-border">
           <h3 className="text-h4 font-semibold text-foreground">API Keys</h3>
@@ -241,28 +252,27 @@ function ApiAccessTab() {
                 <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Actions</th>
               </tr>
             </thead>
-          <tbody className="divide-y divide-border">
-                {keys.map((k, i) => (
-                  <tr key={i}>
-                    <td className="px-5 py-4 text-body text-foreground">{k.key}</td>
-                <td className="px-5 py-4 text-body text-muted-foreground">{k.created}</td>
-                <td className="px-5 py-4">
-                  <span className={cn("px-2.5 py-1 rounded-full capitalize bg-success/15 text-success", badgeTextClasses)}>{k.status}</span>
-                </td>
-                <td className="px-5 py-4">
-                  <div className="flex gap-2">
-                    <button className="text-caption text-primary hover:text-primary/80">Rotate</button>
-                    <button className="text-caption text-destructive hover:text-destructive/80">Revoke</button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            <tbody className="divide-y divide-border">
+              {keys.map((k, i) => (
+                <tr key={i}>
+                  <td className="px-5 py-4 text-body text-foreground">{k.key}</td>
+                  <td className="px-5 py-4 text-body text-muted-foreground">{k.created}</td>
+                  <td className="px-5 py-4">
+                    <span className={cn("px-2.5 py-1 rounded-full capitalize bg-success/15 text-success", badgeTextClasses)}>{k.status}</span>
+                  </td>
+                  <td className="px-5 py-4">
+                    <div className="flex gap-2">
+                      <button className="text-caption text-primary hover:text-primary/80">Rotate</button>
+                      <button className="text-caption text-destructive hover:text-destructive/80">Revoke</button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
       </div>
 
-      {/* API Toggle Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {[
           { name: "Submission API", enabled: true, rateLimit: "1000/min", lastModified: "Feb 10, 2026" },
