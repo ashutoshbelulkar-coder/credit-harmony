@@ -350,8 +350,8 @@ export const dataQualityMetrics: QualityMetric[] = [
   { id: "mq-1", label: "Missing Field %", value: 1.2, unit: "%", threshold: 2, trend: "down" },
   { id: "mq-2", label: "Invalid Format %", value: 2.1, unit: "%", threshold: 3, trend: "down" },
   { id: "mq-3", label: "Duplicate Rate %", value: 0.4, unit: "%", threshold: 1, trend: "up" },
-  { id: "mq-4", label: "Schema Drift Alerts", value: 2, unit: "count", trend: "neutral" },
-  { id: "mq-5", label: "Mapping Drift Alerts", value: 1, unit: "count", trend: "neutral" },
+  { id: "mq-4", label: "Schema Drift Alerts", value: 2, unit: "count" },
+  { id: "mq-5", label: "Mapping Drift Alerts", value: 1, unit: "count" },
 ];
 
 export const dataQualityTrendWithAnomaly: AnomalyPoint[] = [
