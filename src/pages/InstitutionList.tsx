@@ -29,7 +29,12 @@ type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 5;
 
-const InstitutionList = () => {
+const roleLabels: Record<string, string> = {
+  dataSubmitter: "Data Submission Institutions",
+  subscriber: "Subscriber Institutions",
+};
+
+const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subscriber" }) => {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -40,6 +45,8 @@ const InstitutionList = () => {
 
   const filtered = useMemo(() => {
     let result = institutions.filter((inst) => {
+      if (roleFilter === "dataSubmitter" && !inst.isDataSubmitter) return false;
+      if (roleFilter === "subscriber" && !inst.isSubscriber) return false;
       const matchSearch = inst.name.toLowerCase().includes(search.toLowerCase());
       const matchStatus = statusFilter === "all" || inst.status === statusFilter;
       return matchSearch && matchStatus;
@@ -58,7 +65,7 @@ const InstitutionList = () => {
     });
 
     return result;
-  }, [search, statusFilter, sortKey, sortDir]);
+  }, [search, statusFilter, sortKey, sortDir, roleFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -85,9 +92,13 @@ const InstitutionList = () => {
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-h2 font-semibold text-foreground">Institutions</h1>
+            <h1 className="text-h2 font-semibold text-foreground">
+              {roleFilter ? roleLabels[roleFilter] : "Institutions"}
+            </h1>
             <p className="text-caption text-muted-foreground mt-1">
-              Manage onboarded institutions and their configurations
+              {roleFilter
+                ? `Manage ${roleLabels[roleFilter].toLowerCase()} and their configurations`
+                : "Manage onboarded institutions and their configurations"}
             </p>
           </div>
           <button

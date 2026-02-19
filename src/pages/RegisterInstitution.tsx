@@ -24,6 +24,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const steps = [
   { title: "Corporate Details", icon: Building2 },
@@ -40,6 +41,11 @@ const corporateDetailsSchema = z.object({
   licenseNumber: z.string().trim().min(1, "License number is required").max(50),
   contactEmail: z.string().trim().email("Enter a valid email address").max(255),
   contactPhone: z.string().trim().min(1, "Contact phone is required").max(30),
+  isDataSubmitter: z.boolean(),
+  isSubscriber: z.boolean(),
+}).refine((data) => data.isDataSubmitter || data.isSubscriber, {
+  message: "At least one participation type must be selected",
+  path: ["isDataSubmitter"],
 });
 
 type CorporateDetailsFormData = z.infer<typeof corporateDetailsSchema>;
@@ -50,12 +56,22 @@ interface UploadedDoc {
   size: number;
 }
 
-const requiredDocs = [
+const baseDocs = [
   "Certificate of Incorporation",
   "Banking License",
   "Data Protection Certificate",
   "Board Resolution",
 ];
+
+function getRequiredDocs(isDataSubmitter: boolean, isSubscriber: boolean) {
+  const docs = [...baseDocs];
+  if (isDataSubmitter) docs.push("Data Sharing Agreement");
+  if (isSubscriber) {
+    docs.push("Subscriber Agreement");
+    docs.push("Permitted Use Declaration");
+  }
+  return docs;
+}
 
 const RegisterInstitution = () => {
   const navigate = useNavigate();
@@ -73,6 +89,8 @@ const RegisterInstitution = () => {
       licenseNumber: "",
       contactEmail: "",
       contactPhone: "",
+      isDataSubmitter: false,
+      isSubscriber: false,
     },
     mode: "onTouched",
   });
@@ -117,9 +135,15 @@ const RegisterInstitution = () => {
 
   const handleSubmit = () => {
     const data = form.getValues();
-    const allFieldsFilled = Object.values(data).every((v) => v.trim().length > 0);
+    const requiredDocs = getRequiredDocs(data.isDataSubmitter, data.isSubscriber);
+    const stringFields = Object.entries(data).filter(([, v]) => typeof v === "string") as [string, string][];
+    const allFieldsFilled = stringFields.every(([, v]) => v.trim().length > 0);
     if (!allFieldsFilled) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+    if (!(data.isDataSubmitter || data.isSubscriber)) {
+      toast.error("At least one participation type must be selected");
       return;
     }
     if (uploadedDocs.length < requiredDocs.length) {
@@ -182,6 +206,8 @@ const RegisterInstitution = () => {
             <Step2Documents
               uploadedDocs={uploadedDocs}
               onUpload={handleFileUpload}
+              isDataSubmitter={values.isDataSubmitter}
+              isSubscriber={values.isSubscriber}
             />
           )}
           {currentStep === 2 && (
@@ -352,6 +378,51 @@ function Step1Corporate({ form }: { form: ReturnType<typeof useForm<CorporateDet
             )}
           />
         </div>
+
+        <div className="mt-6 pt-5 border-t border-border">
+          <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Participation Type</h4>
+          <div className="space-y-3">
+            <FormField
+              control={form.control}
+              name="isDataSubmitter"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormLabel className="text-sm text-foreground font-medium cursor-pointer">
+                    Data Submission Institution
+                  </FormLabel>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="isSubscriber"
+              render={({ field }) => (
+                <FormItem className="flex items-center gap-3 space-y-0">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <FormLabel className="text-sm text-foreground font-medium cursor-pointer">
+                    Subscriber Institution
+                  </FormLabel>
+                </FormItem>
+              )}
+            />
+            {form.formState.errors.isDataSubmitter && (
+              <p className="text-xs text-destructive font-medium">
+                {form.formState.errors.isDataSubmitter.message}
+              </p>
+            )}
+          </div>
+        </div>
       </Form>
     </div>
   );
@@ -360,10 +431,15 @@ function Step1Corporate({ form }: { form: ReturnType<typeof useForm<CorporateDet
 function Step2Documents({
   uploadedDocs,
   onUpload,
+  isDataSubmitter,
+  isSubscriber,
 }: {
   uploadedDocs: UploadedDoc[];
   onUpload: (docName: string) => void;
+  isDataSubmitter: boolean;
+  isSubscriber: boolean;
 }) {
+  const requiredDocs = getRequiredDocs(isDataSubmitter, isSubscriber);
   return (
     <div className="space-y-5">
       <h3 className="text-sm font-semibold text-foreground">Compliance Documents</h3>
@@ -422,9 +498,12 @@ function Step3Review({
   values: CorporateDetailsFormData;
   uploadedDocs: UploadedDoc[];
 }) {
-  const allFieldsFilled = Object.values(values).every((v) => v.trim().length > 0);
+  const requiredDocs = getRequiredDocs(values.isDataSubmitter, values.isSubscriber);
+  const stringFields = Object.entries(values).filter(([, v]) => typeof v === "string") as [string, string][];
+  const allFieldsFilled = stringFields.every(([, v]) => v.trim().length > 0);
+  const participationSelected = values.isDataSubmitter || values.isSubscriber;
   const allDocsUploaded = uploadedDocs.length >= requiredDocs.length;
-  const isReady = allFieldsFilled && allDocsUploaded;
+  const isReady = allFieldsFilled && allDocsUploaded && participationSelected;
 
   const summaryFields: [string, string][] = [
     ["Legal Name", values.legalName || "—"],
@@ -453,6 +532,23 @@ function Step3Review({
           </div>
         ))}
       </div>
+
+      <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+        <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">Participation Summary</h4>
+        <div className="flex justify-between">
+          <span className="text-xs text-muted-foreground">Data Submission</span>
+          <span className={cn("text-xs font-medium", values.isDataSubmitter ? "text-success" : "text-muted-foreground")}>
+            {values.isDataSubmitter ? "Yes" : "No"}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-xs text-muted-foreground">Subscriber</span>
+          <span className={cn("text-xs font-medium", values.isSubscriber ? "text-success" : "text-muted-foreground")}>
+            {values.isSubscriber ? "Yes" : "No"}
+          </span>
+        </div>
+      </div>
+
       {!isReady && (
         <div className="p-4 rounded-lg border border-warning/30 bg-warning/5 flex items-start gap-2">
           <AlertCircle className="w-4 h-4 text-warning mt-0.5 shrink-0" />

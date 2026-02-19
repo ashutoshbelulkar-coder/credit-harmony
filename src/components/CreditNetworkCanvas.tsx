@@ -316,7 +316,7 @@ export default function CreditNetworkCanvas({
         }
 
         // Label
-        const fontSize = Math.max(13, scale * 0.028);
+        const fontSize = Math.max(12, scale * 0.0252);
         ctx.font = `600 ${fontSize}px Inter, system-ui, sans-serif`;
         ctx.textAlign = "center";
         ctx.fillStyle = `rgba(${WHITE}, 0.45)`;
@@ -366,7 +366,7 @@ export default function CreditNetworkCanvas({
       ctx.lineWidth = 1.5;
       ctx.stroke();
 
-      const hubFontSize = Math.max(13, scale * 0.028);
+      const hubFontSize = Math.max(12, scale * 0.0252);
       ctx.font = `700 ${hubFontSize}px Inter, system-ui, sans-serif`;
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -431,7 +431,7 @@ export default function CreditNetworkCanvas({
   return (
     <canvas
       ref={canvasRef}
-      className="absolute inset-0 h-full w-full"
+      className="absolute inset-0 hidden h-full w-full lg:block"
       aria-hidden="true"
     />
   );

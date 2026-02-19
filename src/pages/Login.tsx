@@ -73,7 +73,7 @@ export default function Login() {
   return (
     <div className="flex h-screen flex-col overflow-hidden lg:flex-row">
       {/* ── Left Brand Panel ── */}
-      <div className="relative flex w-full shrink flex-col items-center justify-center overflow-hidden bg-[#1D3A6B] px-8 py-8 lg:w-1/2 lg:h-full lg:py-0 lg:shrink-0">
+      <div className="relative hidden w-full shrink flex-col items-center justify-center overflow-hidden bg-[#0B2E5B] px-8 py-8 lg:flex lg:w-1/2 lg:h-full lg:py-0 lg:shrink-0">
         <CreditNetworkCanvas reduced={!!prefersReduced} />
 
         <motion.div
@@ -101,7 +101,7 @@ export default function Login() {
           <div role="main" aria-label="Sign in">
             {/* Header */}
             <motion.div className="mb-6 lg:mb-8" {...stagger} {...staggerDelay(0)}>
-              <h1 className="text-[22px] font-semibold leading-tight text-[#1D3A6B]">
+              <h1 className="font-sans text-[22px] font-bold leading-tight text-[#0B2E5B]">
                 Login
               </h1>
             </motion.div>
@@ -233,7 +233,7 @@ export default function Login() {
               <motion.div {...stagger} {...staggerDelay(4)}>
                 <Button
                   type="submit"
-                  className="h-11 w-full rounded-[10px] bg-[hsl(215,80%,22%)] text-[13px] font-medium text-white shadow-sm transition-all duration-200 hover:bg-[hsl(215,80%,18%)] focus-visible:ring-2 focus-visible:ring-crif-orange/60 focus-visible:ring-offset-2"
+                  className="h-11 w-full rounded-[10px] bg-[hsl(214,78%,20%)] text-[13px] font-medium text-white shadow-sm transition-all duration-200 hover:bg-[hsl(214,78%,16%)] focus-visible:ring-2 focus-visible:ring-crif-orange/60 focus-visible:ring-offset-2"
                 >
                   Sign In
                 </Button>

@@ -15,9 +15,9 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 215 80% 22%;
+    --primary: 214 78% 20%;
     --primary-foreground: 210 40% 98%;
-    --primary-light: 215 80% 95%;
+    --primary-light: 214 78% 95%;
 
     --secondary: 175 60% 40%;
     --secondary-foreground: 0 0% 100%;
@@ -39,7 +39,7 @@
 
     --border: 220 13% 88%;
     --input: 220 13% 88%;
-    --ring: 215 80% 22%;
+    --ring: 214 78% 20%;
 
     --radius: 0.5rem;
 
@@ -73,7 +73,7 @@
     --crif-orange: 24 95% 53%;
     --crif-orange-foreground: 0 0% 100%;
 
-    --chart-1: 215 80% 22%;
+    --chart-1: 214 78% 20%;
     --chart-2: 152 55% 40%;
     --chart-3: 38 92% 50%;
     --chart-4: 225 20% 65%;
@@ -99,7 +99,7 @@
     --primary: 175 60% 40%;
     --primary-foreground: 0 0% 100%;
     --primary-light: 175 60% 20%;
-    --secondary: 215 80% 22%;
+    --secondary: 214 78% 20%;
     --secondary-foreground: 210 40% 98%;
     --muted: 222 30% 18%;
     --muted-foreground: 220 14% 60%;
@@ -156,7 +156,7 @@
   }
 
   .stat-glow-primary {
-    box-shadow: 0 4px 20px -4px hsl(215 80% 22% / 0.15);
+    box-shadow: 0 4px 20px -4px hsl(214 78% 20% / 0.15);
   }
 
   .stat-glow-success {

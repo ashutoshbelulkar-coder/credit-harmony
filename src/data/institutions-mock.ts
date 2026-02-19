@@ -1,4 +1,5 @@
 export type InstitutionStatus = "active" | "pending" | "suspended" | "draft";
+export type BillingModel = "prepaid" | "postpaid" | "hybrid";
 
 export interface Institution {
   id: string;
@@ -19,6 +20,10 @@ export interface Institution {
   dataQuality?: number;
   matchAccuracy?: number;
   complianceDocs?: { name: string; status: "verified" | "pending" }[];
+  isDataSubmitter: boolean;
+  isSubscriber: boolean;
+  billingModel?: BillingModel;
+  creditBalance?: number;
 }
 
 export const institutions: Institution[] = [
@@ -45,6 +50,10 @@ export const institutions: Institution[] = [
       { name: "CBK License", status: "verified" },
       { name: "Data Protection Certificate", status: "pending" },
     ],
+    isDataSubmitter: true,
+    isSubscriber: true,
+    billingModel: "postpaid",
+    creditBalance: undefined,
   },
   {
     id: "2",
@@ -69,6 +78,8 @@ export const institutions: Institution[] = [
       { name: "SASRA License", status: "verified" },
       { name: "Data Protection Certificate", status: "verified" },
     ],
+    isDataSubmitter: true,
+    isSubscriber: false,
   },
   {
     id: "3",
@@ -93,6 +104,10 @@ export const institutions: Institution[] = [
       { name: "BOT License", status: "pending" },
       { name: "Data Protection Certificate", status: "pending" },
     ],
+    isDataSubmitter: false,
+    isSubscriber: true,
+    billingModel: "prepaid",
+    creditBalance: 25000,
   },
   {
     id: "4",
@@ -117,6 +132,10 @@ export const institutions: Institution[] = [
       { name: "BOU License", status: "verified" },
       { name: "Data Protection Certificate", status: "verified" },
     ],
+    isDataSubmitter: true,
+    isSubscriber: true,
+    billingModel: "hybrid",
+    creditBalance: 50000,
   },
   {
     id: "5",
@@ -137,6 +156,10 @@ export const institutions: Institution[] = [
     dataQuality: 0,
     matchAccuracy: 0,
     complianceDocs: [],
+    isDataSubmitter: false,
+    isSubscriber: true,
+    billingModel: "prepaid",
+    creditBalance: 10000,
   },
   {
     id: "6",
@@ -161,6 +184,8 @@ export const institutions: Institution[] = [
       { name: "BNR License", status: "pending" },
       { name: "Data Protection Certificate", status: "pending" },
     ],
+    isDataSubmitter: true,
+    isSubscriber: false,
   },
   {
     id: "7",
@@ -185,6 +210,9 @@ export const institutions: Institution[] = [
       { name: "CBK MFI License", status: "verified" },
       { name: "Data Protection Certificate", status: "verified" },
     ],
+    isDataSubmitter: true,
+    isSubscriber: true,
+    billingModel: "postpaid",
   },
   {
     id: "8",
@@ -209,6 +237,8 @@ export const institutions: Institution[] = [
       { name: "CBK License", status: "verified" },
       { name: "Data Protection Certificate", status: "verified" },
     ],
+    isDataSubmitter: true,
+    isSubscriber: false,
   },
 ];
 

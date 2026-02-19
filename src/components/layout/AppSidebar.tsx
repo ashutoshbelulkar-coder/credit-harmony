@@ -16,13 +16,18 @@ import {
 
 const navItems = [
   { title: "Dashboard", path: "/", icon: LayoutDashboard },
-  { title: "Institution Management", path: "/institutions", icon: Building2 },
+  { title: "Institution Management", path: "/institutions/data-submitters", icon: Building2 },
 
   { title: "Data Governance", path: "/data-governance", icon: ShieldCheck },
   { title: "Monitoring", path: "/monitoring", icon: Activity },
   { title: "Reporting", path: "/reporting", icon: FileBarChart },
   { title: "Audit Logs", path: "/audit-logs", icon: ScrollText },
   { title: "User Management", path: "/user-management", icon: Users },
+];
+
+const institutionSubItems = [
+  { title: "Data Submission Institutions", path: "/institutions/data-submitters" },
+  { title: "Subscriber Institutions", path: "/institutions/subscribers" },
 ];
 
 const dataGovernanceSubItems = [
@@ -66,11 +71,19 @@ export function AppSidebar() {
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
         {navItems.map((item) => {
           const isDataGov = item.path === "/data-governance";
+          const isInstitutions = item.path.startsWith("/institutions");
           const isActive =
             item.path === "/"
               ? location.pathname === "/"
               : location.pathname.startsWith(item.path);
-          const showSubNav = isDataGov && isActive && !collapsed;
+          const showDataGovSub = isDataGov && isActive && !collapsed;
+          const showInstitutionsSub = isInstitutions && isActive && !collapsed;
+          const subItems = isDataGov
+            ? dataGovernanceSubItems
+            : isInstitutions
+            ? institutionSubItems
+            : null;
+          const showSubNav = (showDataGovSub || showInstitutionsSub) && subItems;
 
           return (
             <div key={item.path}>
@@ -94,9 +107,9 @@ export function AppSidebar() {
                   <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sidebar-primary shrink-0" />
                 )}
               </NavLink>
-              {showSubNav && (
+              {showSubNav && subItems && (
                 <div className="mt-1 ml-4 pl-3 border-l border-sidebar-border space-y-0.5">
-                  {dataGovernanceSubItems.map((sub) => {
+                  {subItems.map((sub) => {
                     const isSubActive = location.pathname === sub.path;
                     return (
                       <NavLink
