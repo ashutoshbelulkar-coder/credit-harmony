@@ -31,82 +31,86 @@ export function StepIndicator({ currentStep, completedSteps, onBack, isFirst, cl
         className,
       )}
     >
-      {/* Desktop / tablet: horizontal bar - flex-wrap on md so steps don't overlap content on laptop */}
-      <div className="hidden sm:flex items-stretch flex-wrap md:flex-nowrap">
-        {!isFirst && onBack && (
-          <div className="flex items-center border-r border-border">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onBack}
-              className="h-full rounded-none px-2.5 gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
-            >
-              <ArrowLeft className="h-3 w-3" />
-              <span className="hidden lg:inline">Back</span>
-            </Button>
-          </div>
-        )}
-
-        {STEPS.map((step, idx) => {
-          const isCompleted = completedSteps.has(step.key);
-          const isCurrent = step.key === currentStep;
-          const isPast = idx < currentIdx;
-
-          return (
-            <div key={step.key} className="flex min-w-0 flex-1 items-stretch">
-              {idx > 0 && (
-                <div className="flex items-center">
-                  <div
-                    className={cn(
-                      "h-px w-3 lg:w-5",
-                      isPast || isCompleted ? "bg-secondary" : "bg-border",
-                    )}
-                  />
-                </div>
-              )}
-
-              <div
-                className={cn(
-                  "flex flex-1 items-center gap-2 px-2.5 py-2 transition-colors",
-                  isCurrent && "bg-primary/8",
-                )}
+      {/* Desktop / tablet: horizontal bar - scrollable to prevent overlap on laptop */}
+      <div className="hidden sm:block overflow-x-auto">
+        <div className="flex items-stretch flex-nowrap min-w-0">
+          {!isFirst && onBack && (
+            <div className="flex items-center border-r border-border shrink-0">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onBack}
+                className="h-full rounded-none px-2.5 gap-1 text-[11px] font-medium text-muted-foreground hover:text-foreground"
               >
+                <ArrowLeft className="h-3 w-3" />
+                <span className="hidden lg:inline">Back</span>
+              </Button>
+            </div>
+          )}
+
+          {STEPS.map((step, idx) => {
+            const isCompleted = completedSteps.has(step.key);
+            const isCurrent = step.key === currentStep;
+            const isPast = idx < currentIdx;
+
+            return (
+              <div key={step.key} className="flex shrink-0 items-stretch min-w-[100px]">
+                {idx > 0 && (
+                  <div className="flex items-center shrink-0">
+                    <div
+                      className={cn(
+                        "h-px w-3 lg:w-5",
+                        isPast || isCompleted ? "bg-secondary" : "bg-border",
+                      )}
+                    />
+                  </div>
+                )}
+
                 <div
                   className={cn(
-                    "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold leading-none transition-colors",
-                    isCurrent
-                      ? "bg-primary text-primary-foreground"
-                      : isCompleted
-                        ? "bg-success text-success-foreground"
-                        : "bg-muted text-muted-foreground",
+                    "flex items-center gap-2 px-2.5 py-2 transition-colors shrink-0",
+                    isCurrent && "bg-primary/8",
                   )}
                 >
-                  {isCompleted ? <Check className="h-3 w-3" /> : idx + 1}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <p
+                  <div
                     className={cn(
-                      "text-[11px] font-medium leading-[18px] truncate",
+                      "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold leading-none transition-colors",
                       isCurrent
-                        ? "text-foreground"
+                        ? "bg-primary text-primary-foreground"
                         : isCompleted
-                          ? "text-foreground"
-                          : "text-muted-foreground",
+                          ? "bg-success text-success-foreground"
+                          : "bg-muted text-muted-foreground",
                     )}
                   >
-                    <span className="hidden xl:inline">{step.label}</span>
-                    <span className="xl:hidden">{step.shortLabel}</span>
-                  </p>
-                </div>
+                    {isCompleted ? <Check className="h-3 w-3" /> : idx + 1}
+                  </div>
 
-                {isCurrent && (
-                  <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-                )}
+                  <div className="min-w-0 max-w-[140px]">
+                    <p
+                      className={cn(
+                        "text-[11px] font-medium leading-[18px] truncate whitespace-nowrap",
+                        isCurrent
+                          ? "text-foreground"
+                          : isCompleted
+                            ? "text-foreground"
+                            : "text-muted-foreground",
+                      )}
+                      title={step.label}
+                    >
+                      {/* Use short labels to avoid overlap on laptop; full label only on very wide (2xl) */}
+                      <span className="hidden 2xl:inline">{step.label}</span>
+                      <span className="2xl:hidden">{step.shortLabel}</span>
+                    </p>
+                  </div>
+
+                  {isCurrent && (
+                    <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                  )}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
 
       {/* Mobile: back button + compact steps */}
