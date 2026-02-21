@@ -16,6 +16,13 @@ import type {
   MappingVersionEntry,
   SchemaDiffEntry,
   MappingConfirmationSummary,
+  SimilarSchemaEntry,
+  IngestedSourceMetadata,
+  LLMFieldIntelligenceRow,
+  FieldCluster,
+  StorageMetadataSummary,
+  LineageEntry,
+  GovernanceSummary,
 } from "@/types/schema-mapper";
 
 // ─── Schema Registry ───────────────────────────────────────────────────────
@@ -237,37 +244,37 @@ export const telecomParsedFields: ParsedSourceField[] = [
   {
     id: "tf-1", name: "subscriber_id", dataType: "string", path: "subscriber_id",
     depth: 0, sampleValues: ["SUB-90012", "SUB-90013", "SUB-90014"],
-    nullFrequency: 0, isEnumCandidate: false, detectedEnumValues: [],
+    nullFrequency: 0, distinctCount: 12450, isEnumCandidate: false, detectedEnumValues: [],
   },
   {
     id: "tf-2", name: "customer_name", dataType: "string", path: "customer_name",
     depth: 0, sampleValues: ["Rajesh Kumar", "Priya Sharma", "Amit Patel"],
-    nullFrequency: 1.2, isEnumCandidate: false, detectedEnumValues: [],
+    nullFrequency: 1.2, distinctCount: 11820, isEnumCandidate: false, detectedEnumValues: [],
   },
   {
     id: "tf-3", name: "dob", dataType: "string", path: "dob",
     depth: 0, sampleValues: ["1985-03-15", "1990-07-22", "1988-11-10"],
-    nullFrequency: 2.4, isEnumCandidate: false, detectedEnumValues: [],
+    nullFrequency: 2.4, distinctCount: 8920, isEnumCandidate: false, detectedEnumValues: [],
   },
   {
     id: "tf-4", name: "mobile_no", dataType: "string", path: "mobile_no",
     depth: 0, sampleValues: ["9876543210", "8765432109", "7654321098"],
-    nullFrequency: 0, isEnumCandidate: false, detectedEnumValues: [],
+    nullFrequency: 0, distinctCount: 12400, isEnumCandidate: false, detectedEnumValues: [],
   },
   {
     id: "tf-5", name: "avg_monthly_bill", dataType: "number", path: "avg_monthly_bill",
     depth: 0, sampleValues: ["499.00", "799.50", "1299.00"],
-    nullFrequency: 3.1, isEnumCandidate: false, detectedEnumValues: [],
+    nullFrequency: 3.1, distinctCount: 3420, isEnumCandidate: false, detectedEnumValues: [],
   },
   {
     id: "tf-6", name: "payment_delay_days", dataType: "number", path: "payment_delay_days",
     depth: 0, sampleValues: ["0", "5", "15", "30"],
-    nullFrequency: 0.8, isEnumCandidate: false, detectedEnumValues: [],
+    nullFrequency: 0.8, distinctCount: 31, isEnumCandidate: false, detectedEnumValues: [],
   },
   {
     id: "tf-7", name: "last_payment_status", dataType: "string", path: "last_payment_status",
     depth: 0, sampleValues: ["ON_TIME", "DELAYED", "MISSED", "PAID"],
-    nullFrequency: 0.5, isEnumCandidate: true,
+    nullFrequency: 0.5, distinctCount: 4, isEnumCandidate: true,
     detectedEnumValues: ["ON_TIME", "DELAYED", "MISSED", "PAID"],
   },
 ];
@@ -279,6 +286,106 @@ export const telecomFieldStatistics: SourceFieldStatistics = {
   numericFields: 2,
   stringFields: 5,
   dateFields: 0,
+};
+
+// ─── Similar Existing Schemas (for Step 1 & 2) ───────────────────────────
+
+export const similarSchemasForTelecom: SimilarSchemaEntry[] = [
+  { schemaId: "retail-credit-v1", label: "Retail Credit v1", category: "bank", similarityPercent: 78, sharedFieldsCount: 5, recommended: true },
+  { schemaId: "telecom-v2", label: "Telecom v2", category: "telecom", similarityPercent: 94, sharedFieldsCount: 7, recommended: true },
+  { schemaId: "utility-v1", label: "Utility v1", category: "utility", similarityPercent: 61, sharedFieldsCount: 4, recommended: false },
+];
+
+export const similarityRankingForBarChart: { name: string; similarity: number }[] = [
+  { name: "Telecom v2", similarity: 94 },
+  { name: "Retail Credit v1", similarity: 78 },
+  { name: "Utility v1", similarity: 61 },
+];
+
+export const ingestedSourceMetadataTelecom: IngestedSourceMetadata = {
+  sourceName: "Jio Telecom Sample",
+  sourceType: "telecom",
+  sourceCategory: "telecom",
+  detectionConfidence: 92,
+  similarSchemas: similarSchemasForTelecom,
+  institutionScope: [],
+  effectiveDate: "2026-03-01",
+  versionNumber: "v1.0",
+};
+
+// ─── Previously Ingested Schemas (for dropdown) ─────────────────────────
+
+export const previouslyIngestedSchemas: { id: string; label: string; category: string }[] = [
+  { id: "telecom-sample", label: "Jio Telecom Sample", category: "Telecom" },
+  { id: "utility-sample", label: "Tata Power Utility Sample", category: "Utility" },
+];
+
+// ─── Utility Source Schema (parsed) ──────────────────────────────────────
+
+export const utilityParsedFields: ParsedSourceField[] = [
+  { id: "uf-1", name: "utility_customer_id", dataType: "string", path: "utility_customer_id", depth: 0, sampleValues: ["U-44521"], nullFrequency: 0, distinctCount: 1000, isEnumCandidate: false, detectedEnumValues: [] },
+  { id: "uf-2", name: "name", dataType: "string", path: "name", depth: 0, sampleValues: ["Ravi Sharma"], nullFrequency: 0, distinctCount: 980, isEnumCandidate: false, detectedEnumValues: [] },
+  { id: "uf-3", name: "service_address", dataType: "string", path: "service_address", depth: 0, sampleValues: ["Baner Pune"], nullFrequency: 2, distinctCount: 850, isEnumCandidate: false, detectedEnumValues: [] },
+  { id: "uf-4", name: "monthly_bill_amount", dataType: "number", path: "monthly_bill_amount", depth: 0, sampleValues: ["2300"], nullFrequency: 0, distinctCount: 420, isEnumCandidate: false, detectedEnumValues: [] },
+  { id: "uf-5", name: "payment_status", dataType: "string", path: "payment_status", depth: 0, sampleValues: ["OVERDUE", "CURRENT"], nullFrequency: 0, distinctCount: 3, isEnumCandidate: true, detectedEnumValues: ["OVERDUE", "CURRENT", "PAID"] },
+  { id: "uf-6", name: "outstanding_amount", dataType: "number", path: "outstanding_amount", depth: 0, sampleValues: ["5600"], nullFrequency: 1, distinctCount: 2100, isEnumCandidate: false, detectedEnumValues: [] },
+  { id: "uf-7", name: "disconnection_flag", dataType: "boolean", path: "disconnection_flag", depth: 0, sampleValues: ["false"], nullFrequency: 0, distinctCount: 2, isEnumCandidate: false, detectedEnumValues: [] },
+];
+
+export const utilityFieldStatistics: SourceFieldStatistics = {
+  totalFields: 7,
+  nestedFields: 0,
+  enumCandidates: 1,
+  numericFields: 2,
+  stringFields: 4,
+  dateFields: 0,
+};
+
+// ─── LLM Field Intelligence Rows (Telecom) ─────────────────────────────────
+
+export const llmFieldIntelligenceRowsTelecom: LLMFieldIntelligenceRow[] = [
+  { id: "lli-1", sourceFieldId: "tf-1", sourceField: "subscriber_id", sourceFieldType: "string", llmMeaning: "Unique subscriber identifier", canonicalMatch: "consumer_id", canonicalMatchId: "ms-1", similarFieldsAcrossSystem: ["consumer_id", "utility_customer_id"], confidence: 76, pii: false },
+  { id: "lli-2", sourceFieldId: "tf-2", sourceField: "customer_name", sourceFieldType: "string", llmMeaning: "Consumer Full Name", canonicalMatch: "full_name", canonicalMatchId: "ms-2", similarFieldsAcrossSystem: ["full_name", "name"], confidence: 92, pii: true },
+  { id: "lli-3", sourceFieldId: "tf-3", sourceField: "dob", sourceFieldType: "string", llmMeaning: "Date of Birth", canonicalMatch: "date_of_birth", canonicalMatchId: "ms-3", similarFieldsAcrossSystem: ["date_of_birth", "birth_date", "customer_dob"], confidence: 88, pii: true },
+  { id: "lli-4", sourceFieldId: "tf-4", sourceField: "mobile_no", sourceFieldType: "string", llmMeaning: "Phone Number", canonicalMatch: "phone_number", canonicalMatchId: "ms-5", similarFieldsAcrossSystem: ["phone_number"], confidence: 95, pii: true },
+  { id: "lli-5", sourceFieldId: "tf-5", sourceField: "avg_monthly_bill", sourceFieldType: "number", llmMeaning: "Income Proxy", canonicalMatch: null, canonicalMatchId: null, similarFieldsAcrossSystem: [], confidence: 52, pii: false, action: "create_new" },
+  { id: "lli-6", sourceFieldId: "tf-6", sourceField: "payment_delay_days", sourceFieldType: "number", llmMeaning: "Delinquency Proxy", canonicalMatch: "accounts.dpd", canonicalMatchId: "ms-6-4", similarFieldsAcrossSystem: ["accounts.dpd"], confidence: 81, pii: false },
+  { id: "lli-7", sourceFieldId: "tf-7", sourceField: "last_payment_status", sourceFieldType: "string", llmMeaning: "Account payment status", canonicalMatch: "accounts.account_status", canonicalMatchId: "ms-6-5", similarFieldsAcrossSystem: ["accounts.account_status", "payment_status"], confidence: 84, pii: false },
+];
+
+// ─── Field Clusters (Semantic Insights) ───────────────────────────────────
+
+export const fieldClusters: FieldCluster[] = [
+  { id: "cluster-dob", canonicalLabel: "Date of Birth", fieldNames: ["dob", "birth_date", "date_of_birth", "customer_dob"], action: "merge" },
+  { id: "cluster-name", canonicalLabel: "Full Name", fieldNames: ["customer_name", "name", "full_name", "consumer_name"], action: "merge" },
+  { id: "cluster-phone", canonicalLabel: "Phone Number", fieldNames: ["mobile_no", "phone_number", "mobile", "contact_number"], action: "keep_alias" },
+  { id: "cluster-status", canonicalLabel: "Account Status", fieldNames: ["last_payment_status", "payment_status", "account_status"], action: "keep_alias" },
+];
+
+// ─── Storage Metadata & Lineage ─────────────────────────────────────────────
+
+export const storageMetadataSummary: StorageMetadataSummary = {
+  rawPayloadStored: true,
+  normalizedPayloadGenerated: true,
+  mappingMetadataStored: true,
+  lineageCaptured: true,
+  schemaVersion: "v1.2",
+};
+
+export const lineagePreview: LineageEntry[] = [
+  { source_field: "mobile_no", mapped_to: "phone_number", confidence: 0.95, llm_model: "gpt-4.1", timestamp: "2026-02-21T10:30:00Z" },
+  { source_field: "customer_name", mapped_to: "full_name", confidence: 0.92, llm_model: "gpt-4.1", timestamp: "2026-02-21T10:30:00Z" },
+  { source_field: "dob", mapped_to: "date_of_birth", confidence: 0.88, llm_model: "gpt-4.1", timestamp: "2026-02-21T10:30:00Z" },
+];
+
+// ─── Governance Summary ───────────────────────────────────────────────────
+
+export const governanceSummaryDefault: GovernanceSummary = {
+  mappingCoveragePercent: 92,
+  newFieldsProposed: 1,
+  enumChangesProposed: 2,
+  rulesGenerated: 7,
+  evolutionQueueStatus: "AI Proposed",
 };
 
 // ─── AI Mapping Results (Telecom → Master v1.1) ──────────────────────────

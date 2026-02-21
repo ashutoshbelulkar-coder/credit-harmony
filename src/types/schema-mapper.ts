@@ -46,11 +46,13 @@ export type RuleType =
 export type DiffChangeType = "added" | "removed" | "modified";
 
 export type WizardStep =
-  | "source_definition"
-  | "target_schema"
-  | "ai_mapping"
-  | "validation_rules"
-  | "confirmation";
+  | "source_ingestion"
+  | "multi_schema_matching"
+  | "llm_field_intelligence"
+  | "auto_rule_preview"
+  | "semantic_insights"
+  | "storage_visibility"
+  | "governance_actions";
 
 // ─── Schema Registry ───────────────────────────────────────────────────────
 
@@ -68,6 +70,30 @@ export interface SchemaRegistryEntry {
   createdAt: string;
   lastModifiedBy: string;
   lastModifiedAt: string;
+}
+
+// ─── Source Category (for auto-detection) ────────────────────────────────────
+
+export type SourceCategory = "telecom" | "utility" | "bank" | "gst" | "custom";
+
+export interface SimilarSchemaEntry {
+  schemaId: string;
+  label: string;
+  category: SourceCategory;
+  similarityPercent: number;
+  sharedFieldsCount: number;
+  recommended: boolean;
+}
+
+export interface IngestedSourceMetadata {
+  sourceName: string;
+  sourceType: SourceType;
+  sourceCategory: SourceCategory;
+  detectionConfidence: number;
+  similarSchemas: SimilarSchemaEntry[];
+  institutionScope: string[];
+  effectiveDate: string;
+  versionNumber: string;
 }
 
 // ─── Source Definition (Step 1) ────────────────────────────────────────────
@@ -88,6 +114,7 @@ export interface ParsedSourceField {
   depth: number;
   sampleValues: string[];
   nullFrequency: number;
+  distinctCount?: number;
   isEnumCandidate: boolean;
   detectedEnumValues: string[];
   children?: ParsedSourceField[];
@@ -123,6 +150,24 @@ export interface MasterSchemaField {
   required: boolean;
   enumValues?: string[];
   children?: MasterSchemaField[];
+}
+
+// ─── LLM Field Intelligence (Step 3) ───────────────────────────────────────
+
+export type LLMFieldAction = "map_existing" | "create_new" | "source_only";
+
+export interface LLMFieldIntelligenceRow {
+  id: string;
+  sourceFieldId: string;
+  sourceField: string;
+  sourceFieldType: string;
+  llmMeaning: string;
+  canonicalMatch: string | null;
+  canonicalMatchId: string | null;
+  similarFieldsAcrossSystem: string[];
+  confidence: number;
+  pii: boolean;
+  action?: LLMFieldAction;
 }
 
 // ─── AI Mapping Results (Step 3) ──────────────────────────────────────────
@@ -170,6 +215,9 @@ export interface MasterFieldDefinition {
   isDerived: boolean;
   defaultValue: string;
   parentObjectPath: string;
+  piiClassification?: string;
+  riskClassification?: string;
+  enumMappingSuggestions?: { sourceValue: string; canonicalValue: string }[];
 }
 
 // ─── Enum Reconciliation ─────────────────────────────────────────────────
@@ -214,6 +262,47 @@ export interface MappingConfirmationSummary {
   rulesReviewed: boolean;
 }
 
+// ─── Semantic Clusters (Step 6) ──────────────────────────────────────────
+
+export type FieldClusterAction = "merge" | "keep_alias" | "flag_duplicate";
+
+export interface FieldCluster {
+  id: string;
+  canonicalLabel: string;
+  fieldNames: string[];
+  action?: FieldClusterAction;
+}
+
+// ─── Storage / Lineage (Step 7) ───────────────────────────────────────────
+
+export interface StorageMetadataSummary {
+  rawPayloadStored: boolean;
+  normalizedPayloadGenerated: boolean;
+  mappingMetadataStored: boolean;
+  lineageCaptured: boolean;
+  schemaVersion: string;
+}
+
+export interface LineageEntry {
+  source_field: string;
+  mapped_to: string;
+  confidence: number;
+  llm_model: string;
+  timestamp: string;
+}
+
+// ─── Governance (Step 8) ─────────────────────────────────────────────────
+
+export type EvolutionQueueStatus = "AI Proposed" | "Under Review" | "Approved" | "Rejected";
+
+export interface GovernanceSummary {
+  mappingCoveragePercent: number;
+  newFieldsProposed: number;
+  enumChangesProposed: number;
+  rulesGenerated: number;
+  evolutionQueueStatus?: EvolutionQueueStatus;
+}
+
 // ─── Version Control & Audit ─────────────────────────────────────────────
 
 export interface MappingVersionEntry {
@@ -243,13 +332,20 @@ export interface SchemaDiffEntry {
 export interface SchemaMapperWizardState {
   currentStep: WizardStep;
   sourceMetadata: SourceMetadata | null;
+  ingestedMetadata: IngestedSourceMetadata | null;
   parsedSourceFields: ParsedSourceField[];
   fieldStatistics: SourceFieldStatistics | null;
   selectedMasterVersion: string | null;
+  selectedSchemaId: string | null;
   mappingResults: AIMappingResult[];
   mappingSummary: AIMappingSummary | null;
+  llmFieldIntelligenceRows: LLMFieldIntelligenceRow[];
   unmappedActions: UnmappedFieldAction[];
   enumReconciliations: EnumReconciliation[];
   generatedRules: GeneratedValidationRule[];
+  fieldClusters: FieldCluster[];
+  storageMetadata: StorageMetadataSummary | null;
+  lineagePreview: LineageEntry[];
+  governanceSummary: GovernanceSummary | null;
   confirmationSummary: MappingConfirmationSummary | null;
 }

@@ -10,19 +10,35 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { StepIndicator, STEPS } from "./StepIndicator";
-import { SourceDefinitionStep } from "./SourceDefinitionStep";
-import { TargetSchemaStep } from "./TargetSchemaStep";
-import { AIMappingStep } from "./AIMappingStep";
+import { SourceIngestionStep } from "./SourceIngestionStep";
+import { MultiSchemaMatchingStep } from "./MultiSchemaMatchingStep";
+import { LLMFieldIntelligenceStep } from "./LLMFieldIntelligenceStep";
 import { ValidationRuleStep } from "./ValidationRuleStep";
-import { ConfirmationStep } from "./ConfirmationStep";
-import type { WizardStep, SourceMetadata, ParsedSourceField, SourceFieldStatistics, AIMappingResult, AIMappingSummary, EnumReconciliation, GeneratedValidationRule } from "@/types/schema-mapper";
+import { SemanticInsightsStep } from "./SemanticInsightsStep";
+import { StorageVisibilityStep } from "./StorageVisibilityStep";
+import { GovernanceActionsStep } from "./GovernanceActionsStep";
+import type {
+  WizardStep,
+  IngestedSourceMetadata,
+  ParsedSourceField,
+  SourceFieldStatistics,
+  LLMFieldIntelligenceRow,
+  EnumReconciliation,
+  GeneratedValidationRule,
+  FieldCluster,
+  StorageMetadataSummary,
+  LineageEntry,
+  GovernanceSummary,
+} from "@/types/schema-mapper";
 import {
-  telecomParsedFields,
-  telecomFieldStatistics,
-  telecomMappingResults,
-  telecomMappingSummary,
+  similarSchemasForTelecom,
+  llmFieldIntelligenceRowsTelecom,
   telecomEnumReconciliations,
   generatedValidationRules,
+  fieldClusters,
+  storageMetadataSummary,
+  lineagePreview,
+  governanceSummaryDefault,
 } from "@/data/schema-mapper-mock";
 
 interface WizardContainerProps {
@@ -31,27 +47,27 @@ interface WizardContainerProps {
 }
 
 export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) {
-  const [currentStep, setCurrentStep] = useState<WizardStep>("source_definition");
+  const [currentStep, setCurrentStep] = useState<WizardStep>("source_ingestion");
   const [completedSteps, setCompletedSteps] = useState<Set<WizardStep>>(new Set());
 
-  const [sourceMetadata, setSourceMetadata] = useState<SourceMetadata | null>(null);
+  const [ingestedMetadata, setIngestedMetadata] = useState<IngestedSourceMetadata | null>(null);
   const [parsedFields, setParsedFields] = useState<ParsedSourceField[]>([]);
   const [fieldStats, setFieldStats] = useState<SourceFieldStatistics | null>(null);
-  const [selectedMasterVersion, setSelectedMasterVersion] = useState<string | null>(null);
-  const [mappingResults, setMappingResults] = useState<AIMappingResult[]>([]);
-  const [mappingSummary, setMappingSummary] = useState<AIMappingSummary | null>(null);
-  const [enumReconciliations, setEnumReconciliations] = useState<EnumReconciliation[]>([]);
-  const [validationRules, setValidationRules] = useState<GeneratedValidationRule[]>([]);
+  const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null);
+  const [llmRows, setLlmRows] = useState<LLMFieldIntelligenceRow[]>(llmFieldIntelligenceRowsTelecom);
+  const [enumReconciliations, setEnumReconciliations] = useState<EnumReconciliation[]>(telecomEnumReconciliations);
+  const [validationRules, setValidationRules] = useState<GeneratedValidationRule[]>(generatedValidationRules);
+  const [clusters, setClusters] = useState<FieldCluster[]>(fieldClusters);
+  const [storageMetadata, setStorageMetadata] = useState<StorageMetadataSummary | null>(storageMetadataSummary);
+  const [lineage, setLineage] = useState<LineageEntry[]>(lineagePreview);
+  const [governanceSummary, setGovernanceSummary] = useState<GovernanceSummary | null>(governanceSummaryDefault);
 
   const currentIdx = STEPS.findIndex((s) => s.key === currentStep);
   const isFirst = currentIdx === 0;
 
-  const markComplete = useCallback(
-    (step: WizardStep) => {
-      setCompletedSteps((prev) => new Set([...prev, step]));
-    },
-    [],
-  );
+  const markComplete = useCallback((step: WizardStep) => {
+    setCompletedSteps((prev) => new Set([...prev, step]));
+  }, []);
 
   const goNext = useCallback(() => {
     markComplete(currentStep);
@@ -67,27 +83,26 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
   }, [currentIdx]);
 
   const handleSourceComplete = useCallback(
-    (meta: SourceMetadata) => {
-      setSourceMetadata(meta);
-      setParsedFields(telecomParsedFields);
-      setFieldStats(telecomFieldStatistics);
+    (meta: IngestedSourceMetadata, fields: ParsedSourceField[], stats: SourceFieldStatistics) => {
+      setIngestedMetadata(meta);
+      setParsedFields(fields);
+      setFieldStats(stats);
       goNext();
     },
     [goNext],
   );
 
-  const handleTargetComplete = useCallback(
-    (versionId: string) => {
-      setSelectedMasterVersion(versionId);
+  const handleMultiSchemaComplete = useCallback(
+    (schemaId: string | null, _createNew: boolean) => {
+      setSelectedSchemaId(schemaId);
       goNext();
     },
     [goNext],
   );
 
-  const handleMappingComplete = useCallback(
-    (results: AIMappingResult[], summary: AIMappingSummary, enums: EnumReconciliation[]) => {
-      setMappingResults(results);
-      setMappingSummary(summary);
+  const handleLLMComplete = useCallback(
+    (rows: LLMFieldIntelligenceRow[], enums: EnumReconciliation[]) => {
+      setLlmRows(rows);
       setEnumReconciliations(enums);
       goNext();
     },
@@ -97,24 +112,36 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
   const handleRulesComplete = useCallback(
     (rules: GeneratedValidationRule[]) => {
       setValidationRules(rules);
+      setGovernanceSummary((prev) =>
+        prev ? { ...prev, rulesGenerated: rules.length } : { ...governanceSummaryDefault, rulesGenerated: rules.length },
+      );
       goNext();
     },
     [goNext],
   );
 
+  const handleGovernanceSubmit = useCallback(() => {
+    setGovernanceSummary((prev) => ({ ...(prev ?? governanceSummaryDefault), evolutionQueueStatus: "AI Proposed" }));
+    onComplete();
+  }, [onComplete]);
+
+  const handleGovernanceSaveDraft = useCallback(() => {
+    onComplete();
+  }, [onComplete]);
+
+  const handleGovernanceReject = useCallback(() => {
+    onComplete();
+  }, [onComplete]);
+
   const stepLabel = STEPS[currentIdx]?.label ?? "";
 
   return (
-    <div className="flex flex-col gap-3 animate-fade-in">
-      {/* Top bar: breadcrumb + cancel */}
+    <div className="flex flex-col gap-4 animate-fade-in">
       <div className="flex items-center justify-between gap-2">
         <Breadcrumb>
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink
-                className="cursor-pointer text-caption"
-                onClick={onCancel}
-              >
+              <BreadcrumbLink className="cursor-pointer text-caption" onClick={onCancel}>
                 Schema Registry
               </BreadcrumbLink>
             </BreadcrumbItem>
@@ -135,49 +162,63 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
         </Button>
       </div>
 
-      {/* Step indicator with integrated Back navigation */}
-      <StepIndicator
-        currentStep={currentStep}
-        completedSteps={completedSteps}
-        onBack={goBack}
-        isFirst={isFirst}
-      />
+      <div className="shrink-0">
+        <StepIndicator
+          currentStep={currentStep}
+          completedSteps={completedSteps}
+          onBack={goBack}
+          isFirst={isFirst}
+        />
+      </div>
 
-      {/* Step content */}
-      <div className="min-h-0">
-        {currentStep === "source_definition" && (
-          <SourceDefinitionStep
-            initialMetadata={sourceMetadata}
+      <div className="min-h-0 flex-1">
+        {currentStep === "source_ingestion" && (
+          <SourceIngestionStep
+            initialMetadata={ingestedMetadata}
             onComplete={handleSourceComplete}
           />
         )}
-        {currentStep === "target_schema" && (
-          <TargetSchemaStep
-            selectedVersionId={selectedMasterVersion}
-            onComplete={handleTargetComplete}
+        {currentStep === "multi_schema_matching" && (
+          <MultiSchemaMatchingStep
+            similarSchemas={ingestedMetadata?.similarSchemas ?? similarSchemasForTelecom}
+            selectedSchemaId={selectedSchemaId}
+            onComplete={handleMultiSchemaComplete}
           />
         )}
-        {currentStep === "ai_mapping" && (
-          <AIMappingStep
-            parsedFields={parsedFields}
-            initialResults={telecomMappingResults}
-            initialSummary={telecomMappingSummary}
-            initialEnums={telecomEnumReconciliations}
-            onComplete={handleMappingComplete}
+        {currentStep === "llm_field_intelligence" && (
+          <LLMFieldIntelligenceStep
+            initialRows={llmRows}
+            initialEnums={enumReconciliations}
+            onComplete={handleLLMComplete}
           />
         )}
-        {currentStep === "validation_rules" && (
+        {currentStep === "auto_rule_preview" && (
           <ValidationRuleStep
-            initialRules={generatedValidationRules}
+            initialRules={validationRules}
             onComplete={handleRulesComplete}
           />
         )}
-        {currentStep === "confirmation" && (
-          <ConfirmationStep
-            mappingSummary={mappingSummary}
-            rulesCount={validationRules.length || generatedValidationRules.length}
-            enumReconciliations={enumReconciliations}
-            onSubmit={onComplete}
+        {currentStep === "semantic_insights" && (
+          <SemanticInsightsStep
+            clusters={clusters}
+            onClustersChange={setClusters}
+            onComplete={goNext}
+          />
+        )}
+        {currentStep === "storage_visibility" && (
+          <StorageVisibilityStep
+            storageMetadata={storageMetadata}
+            lineagePreview={lineage}
+            onComplete={goNext}
+          />
+        )}
+        {currentStep === "governance_actions" && (
+          <GovernanceActionsStep
+            governanceSummary={governanceSummary}
+            onSubmitToQueue={handleGovernanceSubmit}
+            onSaveDraft={handleGovernanceSaveDraft}
+            onReject={handleGovernanceReject}
+            onComplete={onComplete}
           />
         )}
       </div>

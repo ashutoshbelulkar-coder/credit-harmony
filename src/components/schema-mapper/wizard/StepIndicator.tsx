@@ -1,14 +1,16 @@
-import { Check, FileInput, Target, Sparkles, ShieldCheck, SendHorizonal, ArrowLeft } from "lucide-react";
+import { Check, FileInput, GitCompare, Sparkles, ShieldCheck, Network, Database, SendHorizonal, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { WizardStep } from "@/types/schema-mapper";
 
 const STEPS: { key: WizardStep; label: string; shortLabel: string; icon: React.ElementType }[] = [
-  { key: "source_definition", label: "Source Definition", shortLabel: "Source", icon: FileInput },
-  { key: "target_schema", label: "Target Schema", shortLabel: "Target", icon: Target },
-  { key: "ai_mapping", label: "AI Mapping", shortLabel: "AI Map", icon: Sparkles },
-  { key: "validation_rules", label: "Validation Rules", shortLabel: "Rules", icon: ShieldCheck },
-  { key: "confirmation", label: "Confirmation", shortLabel: "Confirm", icon: SendHorizonal },
+  { key: "source_ingestion", label: "Upload & Analyze Source Schema", shortLabel: "Upload", icon: FileInput },
+  { key: "multi_schema_matching", label: "Global Schema Similarity Analysis", shortLabel: "Similarity", icon: GitCompare },
+  { key: "llm_field_intelligence", label: "LLM Field Intelligence", shortLabel: "Field Intel", icon: Sparkles },
+  { key: "auto_rule_preview", label: "Validation Rules Proposed by AI", shortLabel: "Rules", icon: ShieldCheck },
+  { key: "semantic_insights", label: "Global Field Clusters Impact", shortLabel: "Clusters", icon: Network },
+  { key: "storage_visibility", label: "Storage Model Visibility", shortLabel: "Storage", icon: Database },
+  { key: "governance_actions", label: "Governance Actions", shortLabel: "Governance", icon: SendHorizonal },
 ];
 
 interface StepIndicatorProps {
@@ -29,8 +31,8 @@ export function StepIndicator({ currentStep, completedSteps, onBack, isFirst, cl
         className,
       )}
     >
-      {/* Desktop / tablet: horizontal bar */}
-      <div className="hidden sm:flex items-stretch">
+      {/* Desktop / tablet: horizontal bar - flex-wrap on md so steps don't overlap content on laptop */}
+      <div className="hidden sm:flex items-stretch flex-wrap md:flex-nowrap">
         {!isFirst && onBack && (
           <div className="flex items-center border-r border-border">
             <Button

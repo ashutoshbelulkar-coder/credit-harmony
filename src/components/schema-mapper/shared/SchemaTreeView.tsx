@@ -12,6 +12,7 @@ interface TreeNode {
   children?: TreeNode[];
   sampleValues?: string[];
   nullFrequency?: number;
+  distinctCount?: number;
   enumValues?: string[];
 }
 
@@ -21,6 +22,7 @@ interface SchemaTreeViewProps {
   onNodeClick?: (id: string) => void;
   className?: string;
   showSamples?: boolean;
+  showNullAndDistinct?: boolean;
 }
 
 const INDENT_PX = 16;
@@ -32,11 +34,13 @@ function TreeNodeItem({
   highlightedId,
   onNodeClick,
   showSamples,
+  showNullAndDistinct,
 }: {
   node: TreeNode;
   highlightedId?: string | null;
   onNodeClick?: (id: string) => void;
   showSamples?: boolean;
+  showNullAndDistinct?: boolean;
 }) {
   const [expanded, setExpanded] = useState(true);
   const hasChildren = node.children && node.children.length > 0;
@@ -44,6 +48,7 @@ function TreeNodeItem({
 
   const indent = node.depth * INDENT_PX;
   const textIndent = indent + CHEVRON_W + GAP;
+  const showMeta = showNullAndDistinct && (node.nullFrequency !== undefined || node.distinctCount !== undefined);
 
   return (
     <div>
@@ -94,6 +99,17 @@ function TreeNodeItem({
         </p>
       )}
 
+      {showMeta && (
+        <p
+          className="pb-0.5 text-[9px] leading-[12px] text-muted-foreground"
+          style={{ paddingLeft: `${textIndent + 8}px` }}
+        >
+          {node.nullFrequency !== undefined && `Null: ${node.nullFrequency}%`}
+          {node.nullFrequency !== undefined && node.distinctCount !== undefined && " · "}
+          {node.distinctCount !== undefined && `Distinct: ${node.distinctCount}`}
+        </p>
+      )}
+
       {!showSamples && node.description && (
         <p
           className="pb-0.5 text-[9px] leading-[12px] text-muted-foreground/70 truncate"
@@ -129,6 +145,7 @@ function TreeNodeItem({
               highlightedId={highlightedId}
               onNodeClick={onNodeClick}
               showSamples={showSamples}
+              showNullAndDistinct={showNullAndDistinct}
             />
           ))}
         </div>
@@ -143,6 +160,7 @@ export function SchemaTreeView({
   onNodeClick,
   className,
   showSamples,
+  showNullAndDistinct,
 }: SchemaTreeViewProps) {
   return (
     <div className={cn("space-y-0.5", className)}>
@@ -153,6 +171,7 @@ export function SchemaTreeView({
           highlightedId={highlightedId}
           onNodeClick={onNodeClick}
           showSamples={showSamples}
+          showNullAndDistinct={showNullAndDistinct}
         />
       ))}
     </div>

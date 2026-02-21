@@ -84,7 +84,7 @@ export function ValidationRuleStep({ initialRules, onComplete }: ValidationRuleS
       <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h3 className="text-h4 font-semibold text-foreground">Auto-Generated Validation Rules</h3>
+            <h3 className="text-h4 font-semibold text-foreground">Validation Rules Proposed by AI</h3>
             <p className="text-caption text-muted-foreground mt-0.5">
               {rules.length} rules generated &middot; {enabledCount} enabled
             </p>
@@ -106,6 +106,7 @@ export function ValidationRuleStep({ initialRules, onComplete }: ValidationRuleS
                 <TableHead className={cn(tableHeaderClasses, "min-w-[180px]")}>Rule Logic</TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[80px]")}>Severity</TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[60px] text-center")}>Enabled</TableHead>
+                <TableHead className={cn(tableHeaderClasses, "min-w-[70px]")}>Editable</TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[70px] text-center")}>Impact</TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[100px]")}>Actions</TableHead>
               </TableRow>
@@ -147,6 +148,9 @@ export function ValidationRuleStep({ initialRules, onComplete }: ValidationRuleS
                       checked={rule.isEnabled}
                       onCheckedChange={() => toggleEnabled(rule.id)}
                     />
+                  </TableCell>
+                  <TableCell className="text-caption">
+                    {rule.isEditable ? "Yes" : "No"}
                   </TableCell>
                   <TableCell className="text-center">
                     {rule.impactPercent !== null ? (
@@ -191,7 +195,7 @@ export function ValidationRuleStep({ initialRules, onComplete }: ValidationRuleS
       {/* Proceed */}
       <div className="flex justify-end">
         <Button onClick={() => onComplete(rules)} className="gap-1.5">
-          Proceed to Confirmation
+          Proceed to Semantic Insights
           <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       </div>
