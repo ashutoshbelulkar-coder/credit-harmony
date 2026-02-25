@@ -76,14 +76,22 @@ export function AppSidebar() {
             item.path === "/"
               ? location.pathname === "/"
               : location.pathname.startsWith(item.path);
-          const showDataGovSub = isDataGov && isActive && !collapsed;
-          const showInstitutionsSub = isInstitutions && isActive && !collapsed;
+          // Keep sub-nav visible when on any sub-route (e.g. Data Submitters OR Subscribers)
+          const isInstitutionsSectionActive = institutionSubItems.some(
+            (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")
+          );
+          const isDataGovSectionActive = dataGovernanceSubItems.some(
+            (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")
+          );
+          const showDataGovSub = isDataGov && (isActive || isDataGovSectionActive) && !collapsed;
+          const showInstitutionsSub = isInstitutions && (isActive || isInstitutionsSectionActive) && !collapsed;
           const subItems = isDataGov
             ? dataGovernanceSubItems
             : isInstitutions
             ? institutionSubItems
             : null;
           const showSubNav = (showDataGovSub || showInstitutionsSub) && subItems;
+          const isParentActive = isActive || (isInstitutions && isInstitutionsSectionActive) || (isDataGov && isDataGovSectionActive);
 
           return (
             <div key={item.path}>
@@ -91,7 +99,7 @@ export function AppSidebar() {
                 to={item.path}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[11px] font-medium leading-[18px] transition-all duration-200 group",
-                  isActive
+                  isParentActive
                     ? "bg-sidebar-accent text-sidebar-primary"
                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 )}
@@ -99,11 +107,11 @@ export function AppSidebar() {
                 <item.icon
                   className={cn(
                     "w-5 h-5 shrink-0 transition-colors",
-                    isActive ? "text-sidebar-primary" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                    isParentActive ? "text-sidebar-primary" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
                   )}
                 />
                 {!collapsed && <span className="truncate">{item.title}</span>}
-                {isActive && !showSubNav && (
+                {isParentActive && !showSubNav && (
                   <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sidebar-primary shrink-0" />
                 )}
               </NavLink>

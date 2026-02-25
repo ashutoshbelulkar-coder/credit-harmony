@@ -141,25 +141,25 @@ export function LLMFieldIntelligenceStep({
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className={cn(tableHeaderClasses, "sticky left-0 z-10 bg-card min-w-[130px] px-4 align-middle")}>
+                <TableHead className={cn(tableHeaderClasses, "sticky left-0 z-10 bg-card min-w-[130px] px-4 align-middle text-left")}>
                   Source Field
                 </TableHead>
-                <TableHead className={cn(tableHeaderClasses, "min-w-[140px] px-4 align-middle")}>
+                <TableHead className={cn(tableHeaderClasses, "min-w-[140px] px-4 align-middle text-left")}>
                   LLM Meaning
                 </TableHead>
-                <TableHead className={cn(tableHeaderClasses, "min-w-[140px] px-4 align-middle")}>
+                <TableHead className={cn(tableHeaderClasses, "min-w-[140px] px-4 align-middle text-left")}>
                   Canonical Match
                 </TableHead>
-                <TableHead className={cn(tableHeaderClasses, "min-w-[160px] px-4 align-middle")}>
+                <TableHead className={cn(tableHeaderClasses, "min-w-[160px] px-4 align-middle text-left")}>
                   Similar Fields Across System
                 </TableHead>
-                <TableHead className={cn(tableHeaderClasses, "min-w-[80px] px-4 align-middle text-right")}>
+                <TableHead className={cn(tableHeaderClasses, "min-w-[80px] w-[80px] px-4 align-middle text-right")}>
                   Confidence
                 </TableHead>
-                <TableHead className={cn(tableHeaderClasses, "min-w-[56px] px-4 align-middle text-center")}>
+                <TableHead className={cn(tableHeaderClasses, "min-w-[56px] w-[56px] px-4 align-middle text-center")}>
                   PII
                 </TableHead>
-                <TableHead className={cn(tableHeaderClasses, "min-w-[160px] px-4 align-middle")}>
+                <TableHead className={cn(tableHeaderClasses, "min-w-[160px] px-4 align-middle text-left")}>
                   Action
                 </TableHead>
               </TableRow>
@@ -171,15 +171,15 @@ export function LLMFieldIntelligenceStep({
                 return (
                   <TableRow key={row.id}>
                     <TableCell className="sticky left-0 bg-card px-4 align-middle py-2">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-body font-medium">{row.sourceField}</span>
-                        <Badge variant="secondary" className="text-[8px] font-normal shrink-0">
+                      <div className="flex items-center gap-2 flex-nowrap min-w-0">
+                        <span className="text-body font-medium truncate min-w-0">{row.sourceField}</span>
+                        <Badge variant="secondary" className="text-[8px] font-normal shrink-0 flex-shrink-0">
                           {row.sourceFieldType}
                         </Badge>
                       </div>
                     </TableCell>
-                    <TableCell className="text-caption px-4 align-middle py-2">{row.llmMeaning}</TableCell>
-                    <TableCell className="px-4 align-middle py-2">
+                    <TableCell className="text-caption px-4 align-middle py-2 text-left">{row.llmMeaning}</TableCell>
+                    <TableCell className="px-4 align-middle py-2 text-left">
                       {isEditing ? (
                         <Select
                           value={row.canonicalMatchId ?? undefined}
@@ -200,8 +200,8 @@ export function LLMFieldIntelligenceStep({
                           </SelectContent>
                         </Select>
                       ) : (
-                        <div className="flex items-center gap-1">
-                          <span className="text-body">{row.canonicalMatch ?? "—"}</span>
+                        <div className="flex items-center gap-1.5 flex-nowrap">
+                          <span className="text-body truncate min-w-0">{row.canonicalMatch ?? "—"}</span>
                           <Button
                             variant="ghost"
                             size="sm"
@@ -213,16 +213,16 @@ export function LLMFieldIntelligenceStep({
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="text-caption px-4 align-middle py-2">
+                    <TableCell className="text-caption px-4 align-middle py-2 text-left">
                       {row.similarFieldsAcrossSystem.length > 0
                         ? row.similarFieldsAcrossSystem.join(", ")
                         : "—"}
                     </TableCell>
-                    <TableCell className="tabular-nums font-medium px-4 align-middle py-2 text-right">
+                    <TableCell className="tabular-nums font-medium px-4 align-middle py-2 text-right w-[80px]">
                       {row.confidence > 0 ? `${row.confidence}%` : "—"}
                     </TableCell>
-                    <TableCell className="px-4 align-middle py-2 text-center">{row.pii ? "Yes" : "No"}</TableCell>
-                    <TableCell className="px-4 align-middle py-2">
+                    <TableCell className="px-4 align-middle py-2 text-center w-[56px]">{row.pii ? "Yes" : "No"}</TableCell>
+                    <TableCell className="px-4 align-middle py-2 text-left">
                       {row.canonicalMatch == null ? (
                         <Select
                           value={row.action ?? ""}
