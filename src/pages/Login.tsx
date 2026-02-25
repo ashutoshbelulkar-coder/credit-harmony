@@ -93,7 +93,17 @@ export default function Login() {
       </div>
 
       {/* ── Right Form Panel ── */}
-      <div className="flex w-full min-h-0 flex-1 items-center justify-center bg-background px-6 py-6 overflow-y-auto lg:overflow-hidden lg:w-1/2 lg:h-full lg:py-0">
+      <div className="flex w-full min-h-0 flex-1 flex-col items-center justify-center bg-background px-6 py-6 overflow-y-auto lg:overflow-hidden lg:w-1/2 lg:h-full lg:py-0">
+        {/* Mobile-only CRIF logo */}
+        <div className="mb-8 mt-4 flex lg:hidden">
+          <img
+            src="/crif-logo.png"
+            alt="CRIF – Together to the next level"
+            className="h-8 w-auto"
+            draggable={false}
+          />
+        </div>
+
         <motion.div
           className="w-full max-w-[420px]"
           {...fadeUp}
