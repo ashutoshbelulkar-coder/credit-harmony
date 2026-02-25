@@ -308,8 +308,8 @@ export function DataSubmissionApiSection({
               <tr className="border-b border-border">
                 <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("request_id")}>Request ID</th>
                 <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Institute</th>
-                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Endpoint</th>
                 <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("status")}>Status</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Error reason</th>
                 <th className={cn("text-right px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("response_time_ms")}>Response Time</th>
                 <th className={cn("text-right px-5 py-3", tableHeaderClasses)}>Records</th>
                 <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("timestamp")}>Timestamp</th>
@@ -321,12 +321,12 @@ export function DataSubmissionApiSection({
                 <tr key={r.request_id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-5 py-4 text-caption font-medium text-foreground">{r.request_id}</td>
                   <td className="px-5 py-4 text-caption text-muted-foreground">{getInstituteName(r.api_key)}</td>
-                  <td className="px-5 py-4 text-body text-foreground">{r.endpoint}</td>
                   <td className="px-5 py-4">
                     <span className={cn("px-2.5 py-1 rounded-full", badgeTextClasses, statusStyles[r.status])}>
                       {r.status}
                     </span>
                   </td>
+                  <td className="px-5 py-4 text-caption text-muted-foreground">{r.error_code ?? "—"}</td>
                   <td className="px-5 py-4 text-caption text-right tabular-nums">{r.response_time_ms} ms</td>
                   <td className="px-5 py-4 text-caption text-right">{r.records}</td>
                   <td className="px-5 py-4 text-caption text-muted-foreground whitespace-nowrap">{r.timestamp}</td>

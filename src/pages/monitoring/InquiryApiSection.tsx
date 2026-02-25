@@ -62,6 +62,13 @@ const ENQUIRY_TIME_OPTIONS: { value: TimeRangeValue; label: string }[] = [
 
 const subscribers = institutions.filter((i) => i.isSubscriber);
 
+function getSubscriberName(apiKey: string): string {
+  const id = subscriberIdByApiKey[apiKey];
+  if (!id) return "—";
+  const inst = institutions.find((i) => i.id === id);
+  return inst ? (inst.tradingName ?? inst.name) : "—";
+}
+
 function isWithinTimeRange(ts: string, timeRange: TimeRangeValue): boolean {
   const ms = new Date(ts.replace(" ", "T")).getTime();
   const now = Date.now();
@@ -291,12 +298,10 @@ export function InquiryApiSection({
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
               <tr className="border-b border-border">
                 <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("enquiry_id")}>Enquiry ID</th>
-                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>API Key</th>
-                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Product</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Institution</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Data sources</th>
                 <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("status")}>Status</th>
                 <th className={cn("text-right px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("response_time_ms")}>Response Time</th>
-                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Consumer ID</th>
-                <th className={cn("text-right px-5 py-3", tableHeaderClasses)}>Alt Data Used</th>
                 <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("timestamp")}>Timestamp</th>
                 <th className={cn("text-right px-5 py-3", tableHeaderClasses)}>Action</th>
               </tr>
@@ -305,7 +310,7 @@ export function InquiryApiSection({
               {paginated.map((e) => (
                 <tr key={e.enquiry_id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-5 py-4 text-caption font-medium text-foreground">{e.enquiry_id}</td>
-                  <td className="px-5 py-4 text-caption text-muted-foreground">{e.api_key}</td>
+                  <td className="px-5 py-4 text-caption text-muted-foreground">{getSubscriberName(e.api_key)}</td>
                   <td className="px-5 py-4 text-body text-foreground">{e.product}</td>
                   <td className="px-5 py-4">
                     <span className={cn("px-2.5 py-1 rounded-full", badgeTextClasses, statusStyles[e.status])}>
@@ -313,8 +318,6 @@ export function InquiryApiSection({
                     </span>
                   </td>
                   <td className="px-5 py-4 text-caption text-right tabular-nums">{e.response_time_ms} ms</td>
-                  <td className="px-5 py-4 text-caption text-muted-foreground">{e.consumer_id}</td>
-                  <td className="px-5 py-4 text-caption text-right">{e.alternate_data_used}</td>
                   <td className="px-5 py-4 text-caption text-muted-foreground whitespace-nowrap">{e.timestamp}</td>
                   <td className="px-5 py-4 text-right">
                     <Button

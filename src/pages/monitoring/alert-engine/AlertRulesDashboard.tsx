@@ -20,8 +20,6 @@ import {
 import { alertRules, type AlertRule, type AlertRuleDomain, type SeverityLevel } from "@/data/alert-engine-mock";
 import { Plus, Pencil, Power, PowerOff, Trash2 } from "lucide-react";
 
-const cardClass =
-  "bg-card rounded-lg border border-border p-4 shadow-[0_1px_2px_rgba(15,23,42,0.04)]";
 
 const DOMAINS: AlertRuleDomain[] = ["Submission API", "Batch", "Inquiry API", "Schema Drift", "Rate Limit Abuse"];
 const METRICS = ["Success Rate", "Latency", "Error Count", "Failure %", "Queue Size", "Drift Severity", "Rate Limit Violations"];
@@ -259,45 +257,45 @@ export function AlertRulesDashboard() {
 
   return (
     <section className="shrink-0">
-      <div className="flex items-center justify-between gap-2 mb-2">
-        <h3 className="text-h4 font-semibold text-foreground">Alert Rules</h3>
-        <Button size="sm" className="gap-1.5 h-8 text-body text-primary-foreground" onClick={() => setCreateOpen(true)}>
-          <Plus className="w-3.5 h-3.5" />
-          Create Rule
-        </Button>
-      </div>
-      <div className={cn(cardClass, "overflow-hidden")}>
+      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 pt-6 pb-4 border-b border-border">
+          <h3 className="text-body font-semibold text-foreground">Alert Rules</h3>
+          <Button size="sm" className="gap-1.5 h-8 text-body text-primary-foreground shrink-0" onClick={() => setCreateOpen(true)}>
+            <Plus className="w-3.5 h-3.5" />
+            Create Rule
+          </Button>
+        </div>
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
               <tr className="border-b border-border">
-                <th className={cn("text-left px-3 py-2", tableHeaderClasses)}>Alert Name</th>
-                <th className={cn("text-left px-3 py-2", tableHeaderClasses)}>Domain</th>
-                <th className={cn("text-left px-3 py-2", tableHeaderClasses)}>Condition</th>
-                <th className={cn("text-left px-3 py-2", tableHeaderClasses)}>Severity</th>
-                <th className={cn("text-left px-3 py-2", tableHeaderClasses)}>Status</th>
-                <th className={cn("text-left px-3 py-2", tableHeaderClasses)}>Last Triggered</th>
-                <th className={cn("text-right px-3 py-2", tableHeaderClasses)}>Action</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Alert Name</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Domain</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Condition</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Severity</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Status</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Last Triggered</th>
+                <th className={cn("text-right px-5 py-3", tableHeaderClasses)}>Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {paginated.map((r) => (
-                <tr key={r.id} className="hover:bg-muted/30 transition-colors h-10">
-                  <td className="px-3 py-2 text-body font-medium text-foreground">{r.name}</td>
-                  <td className="px-3 py-2 text-body text-muted-foreground">{r.domain}</td>
-                  <td className="px-3 py-2 text-body text-foreground max-w-[180px] truncate" title={r.condition}>{r.condition}</td>
-                  <td className="px-3 py-2">
-                    <span className={cn("px-2 py-0.5 rounded", badgeTextClasses, severityStyles[r.severity])}>
+                <tr key={r.id} className="hover:bg-muted/30 transition-colors">
+                  <td className="px-5 py-4 text-caption font-medium text-foreground">{r.name}</td>
+                  <td className="px-5 py-4 text-caption text-muted-foreground">{r.domain}</td>
+                  <td className="px-5 py-4 text-caption text-foreground max-w-[180px] truncate" title={r.condition}>{r.condition}</td>
+                  <td className="px-5 py-4">
+                    <span className={cn("px-2.5 py-1 rounded-full", badgeTextClasses, severityStyles[r.severity])}>
                       {r.severity}
                     </span>
                   </td>
-                  <td className="px-3 py-2">
-                    <span className={cn("px-2 py-0.5 rounded", badgeTextClasses, r.status === "Enabled" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground")}>
+                  <td className="px-5 py-4">
+                    <span className={cn("px-2.5 py-1 rounded-full", badgeTextClasses, r.status === "Enabled" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground")}>
                       {r.status}
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-body text-muted-foreground whitespace-nowrap">{r.lastTriggered ?? "—"}</td>
-                  <td className="px-3 py-2 text-right">
+                  <td className="px-5 py-4 text-caption text-muted-foreground whitespace-nowrap">{r.lastTriggered ?? "—"}</td>
+                  <td className="px-5 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit"><Pencil className="w-3.5 h-3.5" /></Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8" title={r.status === "Enabled" ? "Disable" : "Enable"} onClick={() => toggleStatus(r.id)}>
@@ -311,7 +309,7 @@ export function AlertRulesDashboard() {
             </tbody>
           </table>
         </div>
-        <div className="flex items-center justify-between px-3 py-2 border-t border-border">
+        <div className="flex items-center justify-between px-5 py-3 border-t border-border">
           <span className="text-caption text-muted-foreground">
             Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, rules.length)} of {rules.length}
           </span>
