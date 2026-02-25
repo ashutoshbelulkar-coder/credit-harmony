@@ -2,14 +2,6 @@ import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -124,19 +116,12 @@ export function ReportListPage() {
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <Breadcrumb>
-          <BreadcrumbList>
-            <BreadcrumbItem>
-              <BreadcrumbLink asChild className="text-caption">
-                <Link to="/reporting">Reports</Link>
-              </BreadcrumbLink>
-            </BreadcrumbItem>
-            <BreadcrumbSeparator />
-            <BreadcrumbItem>
-              <BreadcrumbPage className="text-caption">Hybrid Credit Reports</BreadcrumbPage>
-            </BreadcrumbItem>
-          </BreadcrumbList>
-        </Breadcrumb>
+        <div>
+          <h1 className="text-h2 font-semibold text-foreground">Hybrid Credit Reports</h1>
+          <p className="text-caption text-muted-foreground mt-1">
+            View, filter, and download credit bureau reports.
+          </p>
+        </div>
         <Button asChild variant="default" size="sm" className="gap-2 shrink-0">
           <Link to="/reporting/new">
             <Plus className="w-4 h-4" /> New Report Request
@@ -248,41 +233,15 @@ export function ReportListPage() {
                     </span>
                   </td>
                   <td className="px-5 py-4 text-right">
-                    {r.status === "Completed" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 h-8"
-                        onClick={() => handleDownload(r.reportId)}
-                      >
-                        <Download className="w-3.5 h-3.5" /> Download
-                      </Button>
-                    )}
-                    {r.status === "Processing" && (
-                      <Button variant="outline" size="sm" className="gap-1.5 h-8" disabled>
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" /> Processing
-                      </Button>
-                    )}
-                    {r.status === "Failed" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 h-8"
-                        onClick={() => handleRetry(r.reportId)}
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" /> Retry
-                      </Button>
-                    )}
-                    {r.status === "Queued" && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 h-8"
-                        onClick={() => handleCancel(r.reportId)}
-                      >
-                        <X className="w-3.5 h-3.5" /> Cancel
-                      </Button>
-                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-1.5 h-8"
+                      disabled={r.status !== "Completed"}
+                      onClick={() => r.status === "Completed" && handleDownload(r.reportId)}
+                    >
+                      <Download className="w-3.5 h-3.5" /> Download
+                    </Button>
                   </td>
                 </tr>
               ))}
