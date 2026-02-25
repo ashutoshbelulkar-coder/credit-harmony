@@ -139,7 +139,7 @@ export default function Login() {
                     placeholder="you@company.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="h-11 pl-10 text-[13px] transition-all duration-200 focus-visible:ring-crif-orange/60 focus-visible:border-crif-orange"
+                    className="h-11 pl-10 text-base sm:text-[13px] transition-all duration-200 focus-visible:ring-crif-orange/60 focus-visible:border-crif-orange"
                     aria-invalid={!!errors.email}
                     aria-describedby={
                       errors.email ? "login-email-error" : undefined
@@ -178,7 +178,7 @@ export default function Login() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="h-11 pl-10 pr-10 text-[13px] transition-all duration-200 focus-visible:ring-crif-orange/60 focus-visible:border-crif-orange"
+                    className="h-11 pl-10 pr-10 text-base sm:text-[13px] transition-all duration-200 focus-visible:ring-crif-orange/60 focus-visible:border-crif-orange"
                     aria-invalid={!!errors.password}
                     aria-describedby={
                       errors.password ? "login-password-error" : undefined
