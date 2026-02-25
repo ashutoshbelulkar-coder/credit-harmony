@@ -53,7 +53,7 @@ export const slaConfigs: SlaConfig[] = [
     domain: "Inquiry API",
     metrics: [
       { metric: "Enquiry Success Rate", threshold: "≥ 99%", current: "97.1%", status: "Breach", operator: ">=", severity: "Critical", timeWindow: "1 hour rolling" },
-      { metric: "P95 Latency", threshold: "≤ 400ms", current: "420ms", status: "Breach", operator: "<=", severity: "Warning", timeWindow: "15 min" },
+      { metric: "P95 Latency", threshold: "≤ 400ms", current: "420ms", status: "Breach", operator: "<=", severity: "Warning", timeWindow: "5 min rolling" },
       { metric: "Rate Limit Breach Threshold", threshold: "≤ 5/hour", current: "3", status: "Within SLA", operator: "<=", severity: "Warning", timeWindow: "1 hour rolling" },
       { metric: "Alternate Data Latency", threshold: "≤ 1.5s", current: "1.2s", status: "Within SLA", operator: "<=", severity: "Warning", timeWindow: "5 min rolling" },
     ],
