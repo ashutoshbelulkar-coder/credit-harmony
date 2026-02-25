@@ -212,8 +212,8 @@ export default function BillingTab({ billingModel: initModel, creditBalance: ini
             </div>
           )}
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="min-w-0 overflow-x-auto">
+          <table className="w-full min-w-max">
             <thead className="bg-muted/95 backdrop-blur">
               <tr className="border-b border-border">
                 <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Source</th>

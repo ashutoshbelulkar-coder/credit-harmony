@@ -246,8 +246,8 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
               Export CSV
             </Button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          <div className="min-w-0 overflow-x-auto">
+            <table className="w-full min-w-max">
               <thead className="bg-muted/95">
                 <tr className="border-b border-border">
                   <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Record ID</th>
@@ -331,7 +331,7 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Batch Volume Trend</h4>
-          <ChartContainer config={batchVolumeConfig} className="h-[220px] w-full">
+          <ChartContainer config={batchVolumeConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
             <ComposedChart data={batchVolumeTrendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
@@ -345,7 +345,7 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
         </div>
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Processing Duration Trend</h4>
-          <ChartContainer config={durationConfig} className="h-[220px] w-full">
+          <ChartContainer config={durationConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
             <LineChart data={processingDurationTrendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
@@ -359,7 +359,7 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
 
       <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <h4 className="text-body font-semibold text-foreground mb-4">Top Batch Error Categories</h4>
-        <ChartContainer config={errorCategoriesConfig} className="h-[220px] w-full">
+        <ChartContainer config={errorCategoriesConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
           <BarChart data={topBatchErrorCategoriesData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
             <XAxis dataKey="category" tick={{ fontSize: 10 }} />
@@ -429,8 +429,8 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
             </div>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="min-w-0 overflow-x-auto">
+          <table className="w-full min-w-max">
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
               <tr className="border-b border-border">
                 <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("batch_id")}>Batch ID</th>

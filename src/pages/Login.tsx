@@ -93,7 +93,7 @@ export default function Login() {
       </div>
 
       {/* ── Right Form Panel ── */}
-      <div className="flex w-full min-h-0 flex-1 items-center justify-center bg-white px-6 py-6 overflow-y-auto lg:overflow-hidden lg:w-1/2 lg:h-full lg:py-0">
+      <div className="flex w-full min-h-0 flex-1 items-center justify-center bg-background px-6 py-6 overflow-y-auto lg:overflow-hidden lg:w-1/2 lg:h-full lg:py-0">
         <motion.div
           className="w-full max-w-[420px]"
           {...fadeUp}
@@ -101,7 +101,7 @@ export default function Login() {
           <div role="main" aria-label="Sign in">
             {/* Header */}
             <motion.div className="mb-6 lg:mb-8" {...stagger} {...staggerDelay(0)}>
-              <h1 className="font-sans text-[22px] font-bold leading-tight text-[#0B2E5B]">
+              <h1 className="font-sans text-[22px] font-bold leading-tight text-[#0B2E5B] dark:text-foreground">
                 Login
               </h1>
             </motion.div>
@@ -116,12 +116,12 @@ export default function Login() {
               >
                 <Label
                   htmlFor="login-email"
-                  className="text-[11px] font-medium text-gray-700"
+                  className="text-[11px] font-medium text-gray-700 dark:text-muted-foreground"
                 >
                   Email Address
                 </Label>
                 <div className="relative">
-                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="login-email"
                     type="email"
@@ -139,7 +139,7 @@ export default function Login() {
                 {errors.email && (
                   <p
                     id="login-email-error"
-                    className="text-[11px] text-red-500"
+                    className="text-[11px] text-destructive"
                     role="alert"
                   >
                     {errors.email}
@@ -155,12 +155,12 @@ export default function Login() {
               >
                 <Label
                   htmlFor="login-password"
-                  className="text-[11px] font-medium text-gray-700"
+                  className="text-[11px] font-medium text-gray-700 dark:text-muted-foreground"
                 >
                   Password
                 </Label>
                 <div className="relative">
-                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     id="login-password"
                     type={showPassword ? "text" : "password"}
@@ -177,7 +177,7 @@ export default function Login() {
                   <button
                     type="button"
                     onClick={() => setShowPassword((v) => !v)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded-sm transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 rounded-sm transition-colors"
                     aria-label={
                       showPassword ? "Hide password" : "Show password"
                     }
@@ -193,7 +193,7 @@ export default function Login() {
                 {errors.password && (
                   <p
                     id="login-password-error"
-                    className="text-[11px] text-red-500"
+                    className="text-[11px] text-destructive"
                     role="alert"
                   >
                     {errors.password}
@@ -212,11 +212,11 @@ export default function Login() {
                     id="remember-me"
                     checked={rememberMe}
                     onCheckedChange={(v) => setRememberMe(v === true)}
-                    className="h-4 w-4 border-gray-300 data-[state=checked]:bg-primary data-[state=checked]:border-primary"
+                    className="h-4 w-4 border-border data-[state=checked]:bg-primary data-[state=checked]:border-primary"
                   />
                   <Label
                     htmlFor="remember-me"
-                    className="cursor-pointer text-[11px] font-normal text-gray-600"
+                    className="cursor-pointer text-[11px] font-normal text-muted-foreground"
                   >
                     Remember me
                   </Label>
@@ -233,7 +233,7 @@ export default function Login() {
               <motion.div {...stagger} {...staggerDelay(4)}>
                 <Button
                   type="submit"
-                  className="h-11 w-full rounded-[10px] bg-[hsl(214,78%,20%)] text-[13px] font-medium text-white shadow-sm transition-all duration-200 hover:bg-[hsl(214,78%,16%)] focus-visible:ring-2 focus-visible:ring-crif-orange/60 focus-visible:ring-offset-2"
+                  className="h-11 w-full rounded-[10px] bg-primary text-[13px] font-medium text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-crif-orange/60 focus-visible:ring-offset-2"
                 >
                   Sign In
                 </Button>
@@ -245,11 +245,11 @@ export default function Login() {
                 {...stagger}
                 {...staggerDelay(5)}
               >
-                <div className="flex-1 border-t border-gray-200" />
-                <span className="px-3 text-[10px] font-medium uppercase tracking-wider text-gray-400">
+                <div className="flex-1 border-t border-border" />
+                <span className="px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                   or
                 </span>
-                <div className="flex-1 border-t border-gray-200" />
+                <div className="flex-1 border-t border-border" />
               </motion.div>
 
               {/* SSO Button */}
@@ -257,7 +257,7 @@ export default function Login() {
                 <Button
                   type="button"
                   variant="outline"
-                  className="h-11 w-full rounded-[10px] border-gray-200 text-[13px] font-medium text-gray-700 transition-all duration-200 hover:bg-gray-50 hover:border-gray-300"
+                  className="h-11 w-full rounded-[10px] border-border text-[13px] font-medium text-foreground transition-all duration-200 hover:bg-muted hover:border-border"
                 >
                   <Building2 className="mr-2 h-4 w-4" />
                   Sign in with SSO
@@ -275,7 +275,7 @@ export default function Login() {
             {trustIndicators.map(({ icon: Icon, label }) => (
               <div
                 key={label}
-                className="flex items-center gap-1.5 text-gray-400"
+                className="flex items-center gap-1.5 text-muted-foreground"
               >
                 <Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
                 <span className="text-[10px] font-medium">{label}</span>

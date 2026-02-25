@@ -144,7 +144,7 @@ export function VersionDiffViewer({ onBack }: VersionDiffViewerProps) {
           </div>
         </div>
 
-        <div className="overflow-x-auto">
+        <div className="min-w-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">

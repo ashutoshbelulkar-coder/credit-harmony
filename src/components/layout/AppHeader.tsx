@@ -1,5 +1,6 @@
-import { Search, Bell, ChevronDown, User, Menu } from "lucide-react";
+import { Search, Bell, ChevronDown, User, Menu, Sun, Moon, Monitor } from "lucide-react";
 import { useState } from "react";
+import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
 const institutions = [
@@ -18,9 +19,11 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   const [selectedInstitution, setSelectedInstitution] = useState(institutions[0]);
   const [showInstitutions, setShowInstitutions] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
+  const [showThemeMenu, setShowThemeMenu] = useState(false);
+  const { theme, setTheme } = useTheme();
 
   return (
-    <header className="sticky top-0 z-20 flex h-16 items-center gap-4 border-b border-border bg-card px-4 sm:px-6">
+    <header className="sticky top-0 z-20 flex h-16 min-h-[44px] items-center gap-2 sm:gap-4 border-b border-border bg-card px-4 sm:px-6 pl-[max(1rem,env(safe-area-inset-left))]">
       {/* Mobile menu */}
       <button
         type="button"
@@ -88,22 +91,60 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
         </div>
       </div>
 
+      {/* Theme toggle */}
+      <div className="relative">
+        <button
+          type="button"
+          aria-label="Toggle theme"
+          className="flex h-9 w-9 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted transition-colors duration-200"
+          onClick={() => setShowThemeMenu(!showThemeMenu)}
+        >
+          <Sun className="h-4 w-4 rotate-0 scale-100 dark:-rotate-90 dark:scale-0" />
+          <Moon className="absolute h-4 w-4 rotate-90 scale-0 dark:rotate-0 dark:scale-100" />
+        </button>
+        {showThemeMenu && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowThemeMenu(false)} aria-hidden />
+            <div className="absolute right-0 top-full mt-1 w-44 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-fade-in">
+              <button
+                onClick={() => { setTheme("light"); setShowThemeMenu(false); }}
+                className={cn("w-full flex items-center gap-2 px-4 py-2.5 text-body hover:bg-muted transition-colors", theme === "light" && "bg-muted font-medium")}
+              >
+                <Sun className="w-4 h-4" /> Light
+              </button>
+              <button
+                onClick={() => { setTheme("dark"); setShowThemeMenu(false); }}
+                className={cn("w-full flex items-center gap-2 px-4 py-2.5 text-body hover:bg-muted transition-colors", theme === "dark" && "bg-muted font-medium")}
+              >
+                <Moon className="w-4 h-4" /> Dark
+              </button>
+              <button
+                onClick={() => { setTheme("system"); setShowThemeMenu(false); }}
+                className={cn("w-full flex items-center gap-2 px-4 py-2.5 text-body hover:bg-muted transition-colors", theme === "system" && "bg-muted font-medium")}
+              >
+                <Monitor className="w-4 h-4" /> System
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+
       {/* Notifications */}
-      <button className="relative p-2 rounded-lg hover:bg-muted transition-colors">
+      <button className="relative flex h-9 w-9 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 items-center justify-center rounded-lg hover:bg-muted transition-colors duration-200" aria-label="Notifications">
         <Bell className="w-5 h-5 text-muted-foreground" />
         <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive" />
       </button>
 
       {/* User Profile */}
-      <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted transition-colors">
-        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+      <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted transition-colors min-w-0">
+        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
           <User className="w-4 h-4 text-primary-foreground" />
         </div>
-        <div className="hidden md:flex flex-col text-left">
-          <span className="text-body font-medium leading-tight">Admin User</span>
-          <span className="text-caption text-muted-foreground leading-tight">Super Admin</span>
+        <div className="hidden md:flex flex-col text-left min-w-0 overflow-hidden">
+          <span className="text-body font-medium leading-tight truncate">Admin User</span>
+          <span className="text-caption text-muted-foreground leading-tight truncate">Super Admin</span>
         </div>
-        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden md:block" />
+        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden md:block shrink-0" />
       </button>
     </header>
   );

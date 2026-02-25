@@ -191,7 +191,7 @@ const statusColors: Record<string, string> = {
 const Dashboard = () => {
   return (
     <DashboardLayout>
-      <div className="space-y-8 lg:space-y-10 animate-fade-in">
+      <div className="space-y-6 md:space-y-8 laptop:space-y-6 desktop:space-y-8 animate-fade-in min-w-0">
         {/* Page Header */}
         <div>
           <h1 className="text-h2 font-semibold text-foreground">Hybrid Credit Bureau</h1>
@@ -202,11 +202,11 @@ const Dashboard = () => {
 
         {/* Row 1: KPI Cards */}
         <section aria-label="Key performance indicators">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 laptop:grid-cols-12 laptop:gap-3">
             {kpiStats.map((stat) => (
               <div
                 key={stat.title}
-                className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
+                className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] laptop:col-span-3"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -244,7 +244,7 @@ const Dashboard = () => {
         {/* Row 2: API Usage Trend + Success vs Failure */}
         <section
           aria-label="API usage and reliability"
-          className="grid grid-cols-1 gap-4 lg:grid-cols-12"
+          className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-12"
         >
           <div className="lg:col-span-8">
             <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
@@ -261,7 +261,7 @@ const Dashboard = () => {
               <div className="mt-4 flex-1">
                 <ChartContainer
                   config={apiUsageConfig}
-                  className="h-[280px] w-full"
+                  className="h-[200px] min-h-[200px] md:h-[240px] laptop:h-[260px] desktop:h-[280px] w-full"
                 >
                   <LineChart data={apiUsageData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -331,7 +331,7 @@ const Dashboard = () => {
               <div className="mt-4 flex-1">
                 <ChartContainer
                   config={successFailureConfig}
-                  className="h-[240px] w-full"
+                  className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full"
                 >
                   <PieChart>
                     <Pie
@@ -365,9 +365,9 @@ const Dashboard = () => {
         {/* Row 3: Mapping Accuracy + Match Confidence */}
         <section
           aria-label="Data quality and matching"
-          className="grid grid-cols-1 gap-4 lg:grid-cols-2"
+          className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-2 laptop:grid-cols-12"
         >
-          <div>
+          <div className="laptop:col-span-6">
             <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
               <header>
                 <h2 className="text-h4 font-semibold text-foreground">
@@ -380,7 +380,7 @@ const Dashboard = () => {
               <div className="mt-4 flex-1">
                 <ChartContainer
                   config={mappingAccuracyConfig}
-                  className="h-[240px] w-full"
+                  className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full"
                 >
                   <LineChart
                     data={mappingAccuracyData}
@@ -415,7 +415,7 @@ const Dashboard = () => {
             </div>
           </div>
 
-          <div>
+          <div className="laptop:col-span-6">
             <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
               <header>
                 <h2 className="text-h4 font-semibold text-foreground">
@@ -428,7 +428,7 @@ const Dashboard = () => {
               <div className="mt-4 flex-1">
                 <ChartContainer
                   config={matchConfidenceConfig}
-                  className="h-[240px] w-full"
+                  className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full"
                 >
                   <BarChart
                     data={matchConfidenceData}
@@ -477,7 +477,7 @@ const Dashboard = () => {
             <div className="mt-4">
               <ChartContainer
                 config={slaLatencyConfig}
-                className="h-[260px] w-full"
+                className="h-[200px] min-h-[200px] md:h-[240px] laptop:h-[260px] w-full"
               >
                 <LineChart
                   data={slaLatencyData}
@@ -534,7 +534,7 @@ const Dashboard = () => {
             <div className="mt-4">
               <ChartContainer
                 config={rejectionOverrideConfig}
-                className="h-[260px] w-full"
+                className="h-[200px] min-h-[200px] md:h-[240px] laptop:h-[260px] w-full"
               >
                 <BarChart
                   data={rejectionOverrideData}
@@ -575,10 +575,10 @@ const Dashboard = () => {
         {/* Operational snapshot: Recent activity & top institutions */}
         <section
           aria-label="Operational snapshot"
-          className="grid grid-cols-1 gap-4 lg:grid-cols-5"
+          className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-5 laptop:grid-cols-12"
         >
           {/* Recent Activity */}
-          <div className="lg:col-span-3 bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="lg:col-span-3 laptop:col-span-7 bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <h2 className="text-label uppercase tracking-[0.08em] text-muted-foreground">
                 Recent Activity
@@ -610,7 +610,7 @@ const Dashboard = () => {
           </div>
 
           {/* Top Institutions */}
-          <div className="lg:col-span-2 bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="lg:col-span-2 laptop:col-span-5 bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <h2 className="text-label uppercase tracking-[0.08em] text-muted-foreground">
                 Top Institutions

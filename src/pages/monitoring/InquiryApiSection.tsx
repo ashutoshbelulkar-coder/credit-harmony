@@ -181,7 +181,7 @@ export function InquiryApiSection({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Enquiry Volume</h4>
-          <ChartContainer config={volumeConfig} className="h-[220px] w-full">
+          <ChartContainer config={volumeConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
             <LineChart data={enquiryVolumeData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
@@ -193,7 +193,7 @@ export function InquiryApiSection({
         </div>
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Response Time Trend</h4>
-          <ChartContainer config={responseConfig} className="h-[220px] w-full">
+          <ChartContainer config={responseConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
             <LineChart data={enquiryResponseTimeTrendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
@@ -209,7 +209,7 @@ export function InquiryApiSection({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Enquiry by Product Type</h4>
-          <ChartContainer config={{ success: { label: "Success", color: "hsl(var(--success))" }, failed: { label: "Failed", color: "hsl(var(--danger))" } }} className="h-[220px] w-full">
+          <ChartContainer config={{ success: { label: "Success", color: "hsl(var(--success))" }, failed: { label: "Failed", color: "hsl(var(--danger))" } }} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
             <BarChart data={enquiryByProductData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="product" tick={{ fontSize: 9 }} />
@@ -222,7 +222,7 @@ export function InquiryApiSection({
         </div>
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Success vs Failed Enquiries</h4>
-          <ChartContainer config={{ Success: { label: "Success", color: "hsl(var(--success))" }, Failed: { label: "Failed", color: "hsl(var(--danger))" } }} className="h-[220px] w-full">
+          <ChartContainer config={{ Success: { label: "Success", color: "hsl(var(--success))" }, Failed: { label: "Failed", color: "hsl(var(--danger))" } }} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
             <PieChart>
               <Pie data={enquirySuccessVsFailedData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80}>
                 {enquirySuccessVsFailedData.map((_, i) => (
@@ -293,8 +293,8 @@ export function InquiryApiSection({
             </div>
           </div>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="min-w-0 overflow-x-auto">
+          <table className="w-full min-w-max">
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
               <tr className="border-b border-border">
                 <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("enquiry_id")}>Enquiry ID</th>

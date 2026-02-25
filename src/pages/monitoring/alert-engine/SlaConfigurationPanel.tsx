@@ -292,8 +292,8 @@ function SlaCard({ config }: { config: SlaConfig }) {
         <div className="mb-4">
           <h4 className="text-h4 font-semibold text-foreground">{config.name}</h4>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="min-w-0 overflow-x-auto">
+          <table className="w-full min-w-max">
             <thead>
               <tr className="border-b border-border">
                 <th className={cn("text-left px-4 py-2.5", tableHeaderClasses)}>Metric</th>

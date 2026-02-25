@@ -265,8 +265,8 @@ export function AlertRulesDashboard() {
             Create Rule
           </Button>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
+        <div className="min-w-0 overflow-x-auto">
+          <table className="w-full min-w-max">
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
               <tr className="border-b border-border">
                 <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Alert Name</th>

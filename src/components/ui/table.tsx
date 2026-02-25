@@ -4,15 +4,40 @@ import { cn } from "@/lib/utils";
 
 const Table = React.forwardRef<HTMLTableElement, React.HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
-      <table ref={ref} className={cn("w-full caption-bottom text-sm", className)} {...props} />
+    <div className="relative w-full min-w-0 overflow-x-auto overflow-y-visible">
+      <table ref={ref} className={cn("w-full caption-bottom text-sm min-w-max", className)} {...props} />
     </div>
   ),
 );
 Table.displayName = "Table";
 
+/** Wraps a table in a horizontal-only scroll container with optional scroll-hint gradient. Use for native <table> or custom layouts. */
+function TableScrollWrapper({
+  className,
+  children,
+  ...props
+}: React.HTMLAttributes<HTMLDivElement>) {
+  return (
+    <div
+      className={cn("relative w-full min-w-0 overflow-x-auto overflow-y-visible table-scroll-fade", className)}
+      {...props}
+    >
+      {children}
+    </div>
+  );
+}
+
 const TableHeader = React.forwardRef<HTMLTableSectionElement, React.HTMLAttributes<HTMLTableSectionElement>>(
-  ({ className, ...props }, ref) => <thead ref={ref} className={cn("[&_tr]:border-b", className)} {...props} />,
+  ({ className, ...props }, ref) => (
+    <thead
+      ref={ref}
+      className={cn(
+        "[&_tr]:border-b sticky top-0 z-10 bg-[hsl(var(--table-header-bg))] backdrop-blur",
+        className,
+      )}
+      {...props}
+    />
+  ),
 );
 TableHeader.displayName = "TableHeader";
 
@@ -69,4 +94,4 @@ const TableCaption = React.forwardRef<HTMLTableCaptionElement, React.HTMLAttribu
 );
 TableCaption.displayName = "TableCaption";
 
-export { Table, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption };
+export { Table, TableScrollWrapper, TableHeader, TableBody, TableFooter, TableHead, TableRow, TableCell, TableCaption };

@@ -130,12 +130,12 @@ export function AlertMonitoringDashboard() {
           </div>
         </div>
 
-        {/* Table card: flex-1, only table body scrolls */}
-        <div className={cn(cardClass, "flex-1 min-h-0 flex flex-col overflow-hidden")}>
+        {/* Table card: page scroll; table scrolls horizontally only */}
+        <div className={cn(cardClass, "min-w-0")}>
           <h4 className="text-body font-semibold text-foreground mb-4 shrink-0">Active Alerts</h4>
-          <div className="flex-1 min-h-0 overflow-auto">
-            <table className="w-full border-collapse" style={{ minWidth: 720 }}>
-              <thead className="sticky top-0 z-10 bg-muted/98 backdrop-blur border-b border-border">
+          <div className="min-w-0 overflow-x-auto overflow-y-visible">
+            <table className="w-full border-collapse min-w-[720px]">
+              <thead className="sticky top-0 z-10 bg-[hsl(var(--table-header-bg))] backdrop-blur border-b border-border">
                 <tr className={TABLE_ROW_CLASS}>
                   <th className={cn(TABLE_HEADER_CLASS, "text-left w-[100px] min-w-[100px]")}>Alert ID</th>
                   <th className={cn(TABLE_HEADER_CLASS, "text-left w-[110px] min-w-[110px]")}>Domain</th>
@@ -217,14 +217,14 @@ export function AlertMonitoringDashboard() {
                 ))}
             </tbody>
           </table>
-        </div>
+          </div>
         </div>
 
         {/* Charts: same card and chart dimensions as project theme */}
         <div className="shrink-0 grid grid-cols-1 lg:grid-cols-2 gap-6">
           <div className={chartCardClass}>
             <h4 className="text-body font-semibold text-foreground mb-4">Alerts Over Time</h4>
-            <ChartContainer config={alertsOverTimeConfig} className="h-[220px] w-full">
+            <ChartContainer config={alertsOverTimeConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
               <LineChart data={alertsTriggeredOverTime} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="day" tick={{ fontSize: 10 }} />
@@ -236,7 +236,7 @@ export function AlertMonitoringDashboard() {
           </div>
           <div className={chartCardClass}>
             <h4 className="text-body font-semibold text-foreground mb-4">By Domain</h4>
-            <ChartContainer config={alertsByDomainConfig} className="h-[220px] w-full">
+            <ChartContainer config={alertsByDomainConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
               <BarChart data={alertsByDomain} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="domain" tick={{ fontSize: 10 }} />
@@ -253,7 +253,7 @@ export function AlertMonitoringDashboard() {
             <h4 className="text-body font-semibold text-foreground mb-4">Severity Distribution</h4>
             <ChartContainer
               config={{ Critical: { label: "Critical", color: "hsl(var(--destructive))" }, Warning: { label: "Warning", color: "hsl(var(--warning))" }, Info: { label: "Info", color: "hsl(var(--muted-foreground))" } }}
-              className="h-[220px] w-full"
+              className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full"
             >
               <PieChart>
                 <Pie data={severityDistribution} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80}>
@@ -267,7 +267,7 @@ export function AlertMonitoringDashboard() {
           </div>
           <div className={chartCardClass}>
             <h4 className="text-body font-semibold text-foreground mb-4">Mean Time to Resolution (MTTR)</h4>
-            <ChartContainer config={mttrConfig} className="h-[220px] w-full">
+            <ChartContainer config={mttrConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
               <LineChart data={mttrTrendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="day" tick={{ fontSize: 10 }} />

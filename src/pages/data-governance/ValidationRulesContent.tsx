@@ -121,7 +121,7 @@ export default function ValidationRulesContent() {
       </div>
 
       {/* Rule list table */}
-      <div className="overflow-x-auto rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="min-w-0 overflow-x-auto rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <Table>
           <TableHeader>
             <TableRow>

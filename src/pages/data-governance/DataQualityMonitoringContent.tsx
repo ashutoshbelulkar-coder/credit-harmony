@@ -30,6 +30,7 @@ import {
 } from "@/data/data-governance-mock";
 import { Download, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { badgeTextClasses } from "@/lib/typography";
 
 const trendConfig = {
   value: { label: "Data Quality Score %", color: "hsl(var(--primary))" },
@@ -250,7 +251,8 @@ export default function DataQualityMonitoringContent() {
                 </p>
               </div>
               <span className={cn(
-                "rounded-full px-2 py-0.5 text-caption font-medium",
+                "rounded-full px-2 py-0.5",
+                badgeTextClasses,
                 d.severity === "high" && "bg-destructive/15 text-destructive",
                 d.severity === "medium" && "bg-warning/15 text-warning",
                 d.severity === "low" && "bg-muted text-muted-foreground"

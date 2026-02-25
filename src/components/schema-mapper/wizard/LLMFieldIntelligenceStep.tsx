@@ -137,7 +137,7 @@ export function LLMFieldIntelligenceStep({
         <p className="p-3 text-caption font-medium uppercase tracking-wider text-muted-foreground">
           LLM Field Intelligence
         </p>
-        <div className="overflow-x-auto">
+        <div className="min-w-0 overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">

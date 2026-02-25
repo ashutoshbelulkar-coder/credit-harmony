@@ -23,7 +23,7 @@ export function ReportingLayout() {
   return (
     <ReportingContext.Provider value={{ reports, refreshReports }}>
       <DashboardLayout>
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-6 laptop:space-y-5 animate-fade-in min-w-0">
           <Outlet />
         </div>
       </DashboardLayout>

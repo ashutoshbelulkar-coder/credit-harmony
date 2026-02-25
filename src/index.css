@@ -87,6 +87,16 @@
     --sidebar-accent-foreground: 220 14% 90%;
     --sidebar-border: 222 30% 18%;
     --sidebar-ring: 175 60% 40%;
+
+    /* Theme alias tokens (responsive + theme optimization) */
+    --bg-primary: var(--background);
+    --bg-secondary: var(--muted);
+    --text-primary: var(--foreground);
+    --text-secondary: var(--muted-foreground);
+    --border-default: var(--border);
+    --card-bg: var(--card);
+    --table-header-bg: 220 14% 94%;
+    --hover-bg: 220 14% 92%;
   }
 
   .dark {
@@ -123,6 +133,16 @@
     --border: 222 30% 18%;
     --input: 222 30% 18%;
     --ring: 175 60% 40%;
+
+    /* Theme alias tokens (dark) */
+    --bg-primary: var(--background);
+    --bg-secondary: var(--muted);
+    --text-primary: var(--foreground);
+    --text-secondary: var(--muted-foreground);
+    --border-default: var(--border);
+    --card-bg: var(--card);
+    --table-header-bg: 222 35% 14%;
+    --hover-bg: 222 35% 16%;
   }
 }
 
@@ -169,6 +189,21 @@
 
   .stat-glow-accent {
     box-shadow: 0 4px 20px -4px hsl(175 60% 40% / 0.15);
+  }
+
+  /* Scroll hint: subtle gradient overlay on right edge for horizontal table scroll */
+  .table-scroll-fade::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 24px;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent, hsl(var(--background) / 0.6));
+  }
+  .dark .table-scroll-fade::after {
+    background: linear-gradient(to right, transparent, hsl(var(--background) / 0.8));
   }
 }
 

@@ -57,7 +57,7 @@ export function MonitoringLayout() {
           </div>
         </div>
       ) : (
-        <div className="space-y-6 animate-fade-in">
+        <div className="space-y-6 laptop:space-y-5 animate-fade-in min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-h2 font-semibold text-foreground">{title}</h1>

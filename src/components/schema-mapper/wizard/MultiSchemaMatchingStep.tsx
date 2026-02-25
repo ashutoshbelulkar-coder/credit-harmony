@@ -43,7 +43,7 @@ export function MultiSchemaMatchingStep({
       <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <h3 className="text-h4 font-semibold text-foreground mb-4">Global Schema Similarity Analysis</h3>
 
-        <div className="overflow-x-auto rounded-lg border border-border">
+        <div className="min-w-0 overflow-x-auto rounded-lg border border-border">
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">

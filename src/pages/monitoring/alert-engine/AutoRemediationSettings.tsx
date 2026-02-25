@@ -32,7 +32,7 @@ export function AutoRemediationSettings() {
     <section>
       <h3 className="text-h4 font-semibold text-foreground mb-2">Auto Remediation Settings</h3>
       <p className="text-caption text-muted-foreground mb-4">Optional: configure automatic actions when a breach occurs, per domain.</p>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 laptop:grid-cols-3 gap-6">
         {settings.map((group) => (
           <div key={group.domain} className={cardClass}>
             <h4 className="text-body font-semibold text-foreground mb-4">{group.domain}</h4>

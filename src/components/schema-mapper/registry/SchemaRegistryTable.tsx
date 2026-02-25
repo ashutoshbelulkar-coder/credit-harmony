@@ -74,7 +74,7 @@ export function SchemaRegistryTable({
 }: SchemaRegistryTableProps) {
   return (
     <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-      <div className="overflow-x-auto">
+      <div className="min-w-0 overflow-x-auto">
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">

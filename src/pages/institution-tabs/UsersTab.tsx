@@ -106,8 +106,8 @@ export default function UsersTab() {
       </div>
 
       <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
+      <div className="min-w-0 overflow-x-auto">
+        <table className="w-full min-w-max">
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
               <tr className="border-b border-border">
                 {["Name", "Email", "Role", "Status", "Last Login", ""].map((h) => (

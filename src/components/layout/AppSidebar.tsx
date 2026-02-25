@@ -113,7 +113,7 @@ export function AppSidebar() {
               <NavLink
                 to={item.path}
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 rounded-lg text-[11px] font-medium leading-[18px] transition-all duration-200 group",
+                  "flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-[11px] font-medium leading-[18px] transition-all duration-200 group",
                   isParentActive
                     ? "bg-sidebar-accent text-sidebar-primary"
                     : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
@@ -139,7 +139,7 @@ export function AppSidebar() {
                         key={sub.path}
                         to={sub.path}
                         className={cn(
-                          "flex items-center gap-2 rounded-md px-2 py-1.5 text-[11px] font-medium leading-[18px] transition-colors",
+                          "flex items-center gap-2 rounded-md px-2 py-1.5 min-h-[44px] text-[11px] font-medium leading-[18px] transition-colors duration-200",
                           isSubActive
                             ? "text-sidebar-primary bg-sidebar-accent/80"
                             : "text-sidebar-foreground/80 hover:text-sidebar-accent-foreground hover:bg-sidebar-accent/50"
@@ -164,7 +164,8 @@ export function AppSidebar() {
       {/* Collapse Toggle */}
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="flex items-center justify-center h-12 border-t border-sidebar-border text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors"
+        className="flex items-center justify-center min-h-[44px] h-12 border-t border-sidebar-border text-sidebar-foreground hover:text-sidebar-accent-foreground transition-colors duration-200"
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
         {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
       </button>
