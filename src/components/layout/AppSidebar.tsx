@@ -39,6 +39,14 @@ const dataGovernanceSubItems = [
   { title: "Governance Audit Logs", path: "/data-governance/governance-audit-logs" },
 ];
 
+const monitoringSubItems = [
+  { title: "Data Submission API", path: "/monitoring/data-submission-api" },
+  { title: "Data Submission Batch", path: "/monitoring/data-submission-batch" },
+  { title: "Inquiry API", path: "/monitoring/inquiry-api" },
+  { title: "SLA Configuration", path: "/monitoring/sla-configuration" },
+  { title: "Alert Engine", path: "/monitoring/alert-engine" },
+];
+
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
@@ -72,6 +80,7 @@ export function AppSidebar() {
         {navItems.map((item) => {
           const isDataGov = item.path === "/data-governance";
           const isInstitutions = item.path.startsWith("/institutions");
+          const isMonitoring = item.path === "/monitoring";
           const isActive =
             item.path === "/"
               ? location.pathname === "/"
@@ -83,15 +92,21 @@ export function AppSidebar() {
           const isDataGovSectionActive = dataGovernanceSubItems.some(
             (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")
           );
+          const isMonitoringSectionActive = monitoringSubItems.some(
+            (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")
+          );
           const showDataGovSub = isDataGov && (isActive || isDataGovSectionActive) && !collapsed;
           const showInstitutionsSub = isInstitutions && (isActive || isInstitutionsSectionActive) && !collapsed;
+          const showMonitoringSub = isMonitoring && (isActive || isMonitoringSectionActive) && !collapsed;
           const subItems = isDataGov
             ? dataGovernanceSubItems
             : isInstitutions
             ? institutionSubItems
+            : isMonitoring
+            ? monitoringSubItems
             : null;
-          const showSubNav = (showDataGovSub || showInstitutionsSub) && subItems;
-          const isParentActive = isActive || (isInstitutions && isInstitutionsSectionActive) || (isDataGov && isDataGovSectionActive);
+          const showSubNav = (showDataGovSub || showInstitutionsSub || showMonitoringSub) && subItems;
+          const isParentActive = isActive || (isInstitutions && isInstitutionsSectionActive) || (isDataGov && isDataGovSectionActive) || (isMonitoring && isMonitoringSectionActive);
 
           return (
             <div key={item.path}>

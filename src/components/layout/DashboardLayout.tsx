@@ -35,7 +35,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         <AppHeader
           onToggleSidebar={() => setMobileSidebarOpen((open) => !open)}
         />
-        <main className="flex-1 p-4 sm:p-6">{children}</main>
+        <main className="flex flex-1 flex-col min-h-0 p-4 sm:p-6">{children}</main>
       </div>
     </div>
   );

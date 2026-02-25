@@ -18,6 +18,15 @@ import AutoMappingReview from "./pages/data-governance/AutoMappingReview";
 import ValidationRules from "./pages/data-governance/ValidationRules";
 import MatchReview from "./pages/data-governance/MatchReview";
 import DataQualityMonitoring from "./pages/data-governance/DataQualityMonitoring";
+import { MonitoringLayout } from "./pages/monitoring/MonitoringLayout";
+import { MonitoringDataSubmissionApiPage } from "./pages/monitoring/MonitoringDataSubmissionApiPage";
+import { MonitoringDataSubmissionBatchPage } from "./pages/monitoring/MonitoringDataSubmissionBatchPage";
+import { MonitoringInquiryApiPage } from "./pages/monitoring/MonitoringInquiryApiPage";
+import { MonitoringSlaConfigurationPage } from "./pages/monitoring/MonitoringSlaConfigurationPage";
+import { MonitoringAlertEnginePage } from "./pages/monitoring/MonitoringAlertEnginePage";
+import { ReportingLayout } from "./pages/reporting/ReportingLayout";
+import { ReportListPage } from "./pages/reporting/ReportListPage";
+import { NewReportRequestPage } from "./pages/reporting/NewReportRequestPage";
 
 const queryClient = new QueryClient();
 
@@ -52,9 +61,19 @@ const App = () => (
               <Route path="data-quality-monitoring" element={<DataQualityMonitoring />} />
               <Route path="governance-audit-logs" element={<GovernanceAuditLogs />} />
             </Route>
-            <Route path="/monitoring" element={<ProtectedRoute><PlaceholderPage title="Monitoring" description="API usage, error rates, SLA health, and data quality metrics" /></ProtectedRoute>} />
+            <Route path="/monitoring" element={<ProtectedRoute><MonitoringLayout /></ProtectedRoute>}>
+              <Route index element={<Navigate to="data-submission-api" replace />} />
+              <Route path="data-submission-api" element={<MonitoringDataSubmissionApiPage />} />
+              <Route path="data-submission-batch" element={<MonitoringDataSubmissionBatchPage />} />
+              <Route path="inquiry-api" element={<MonitoringInquiryApiPage />} />
+              <Route path="sla-configuration" element={<MonitoringSlaConfigurationPage />} />
+              <Route path="alert-engine" element={<MonitoringAlertEnginePage />} />
+            </Route>
             <Route path="/cbs-integration" element={<ProtectedRoute><PlaceholderPage title="CBS Integration" description="Core banking system API configuration and batch exports" /></ProtectedRoute>} />
-            <Route path="/reporting" element={<ProtectedRoute><PlaceholderPage title="Reporting" description="Billing reports, MIS dashboards, and data exports" /></ProtectedRoute>} />
+            <Route path="/reporting" element={<ProtectedRoute><ReportingLayout /></ProtectedRoute>}>
+              <Route index element={<ReportListPage />} />
+              <Route path="new" element={<NewReportRequestPage />} />
+            </Route>
             <Route path="/audit-logs" element={<ProtectedRoute><PlaceholderPage title="Audit Logs" description="Searchable activity logs with change detail tracking" /></ProtectedRoute>} />
             <Route path="/user-management" element={<ProtectedRoute><PlaceholderPage title="User Management" description="Manage users, roles, and permissions" /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
