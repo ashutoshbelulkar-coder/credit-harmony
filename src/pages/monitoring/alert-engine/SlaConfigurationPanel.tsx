@@ -39,6 +39,13 @@ const operators: { value: ">=" | "<=" | "<" | ">"; label: string }[] = [
 const timeWindows: TimeWindow[] = ["Real-time", "5 min rolling", "1 hour rolling", "Daily"];
 const severities: SeverityLevel[] = ["Warning", "Critical"];
 
+const AI_AGENTS = [
+  { id: "schema-mapper", label: "Schema Mapper Agent" },
+  { id: "validation", label: "Validation Agent" },
+  { id: "match-review", label: "Match Review Agent" },
+  { id: "data-quality", label: "Data Quality Agent" },
+];
+
 const DEFAULT_EMAIL_BODY_HTML = `<p>An SLA breach has been detected.</p>
 <p><strong>SLA:</strong> {{slaName}}</p>
 <p><strong>Metric:</strong> {{metric}}</p>
@@ -67,6 +74,8 @@ function EditSlaDrawer({
   const [alertEmail, setAlertEmail] = useState(false);
   const [alertSms, setAlertSms] = useState(false);
   const [alertWebhook, setAlertWebhook] = useState(false);
+  const [alertAiAgent, setAlertAiAgent] = useState(false);
+  const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [emailTo, setEmailTo] = useState("");
   const [emailSubject, setEmailSubject] = useState("SLA Breach Alert — {{slaName}}");
   const [emailBodyHtml, setEmailBodyHtml] = useState(DEFAULT_EMAIL_BODY_HTML);
@@ -165,7 +174,27 @@ function EditSlaDrawer({
                   <Checkbox checked={alertWebhook} onCheckedChange={(c) => setAlertWebhook(!!c)} />
                   <span className="text-caption">Webhook</span>
                 </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <Checkbox checked={alertAiAgent} onCheckedChange={(c) => setAlertAiAgent(!!c)} />
+                  <span className="text-caption">Sent to AI agent</span>
+                </label>
               </div>
+
+              {alertAiAgent && (
+                <div className="space-y-2 pt-2 border-t border-border">
+                  <Label className="text-caption">Choose agent</Label>
+                  <Select value={selectedAgentId} onValueChange={setSelectedAgentId}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select an agent" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {AI_AGENTS.map((a) => (
+                        <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
 
               {alertEmail && (
                 <div className="space-y-3 pt-2 border-t border-border">

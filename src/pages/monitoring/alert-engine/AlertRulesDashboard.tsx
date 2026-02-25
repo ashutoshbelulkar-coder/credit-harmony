@@ -25,7 +25,7 @@ const DOMAINS: AlertRuleDomain[] = ["Submission API", "Batch", "Inquiry API", "S
 const METRICS = ["Success Rate", "Latency", "Error Count", "Failure %", "Queue Size", "Drift Severity", "Rate Limit Violations"];
 const OPERATORS = ["<", "≥", "≤", "=", "Spike % Increase"];
 const TIME_WINDOWS = ["5 minutes", "15 minutes", "1 hour", "24 hours"];
-const CHANNELS = ["Email", "SMS", "Slack/Webhook", "In-App Notification"];
+const CHANNELS = ["Email", "SMS", "Slack/Webhook", "In-App Notification", "AI agent"];
 const ESCALATION_OPTIONS = ["Immediate", "After X minutes", "Escalate to Level 2 if unresolved"];
 const SEVERITIES: SeverityLevel[] = ["Info", "Warning", "Critical"];
 

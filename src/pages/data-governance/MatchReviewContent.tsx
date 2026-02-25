@@ -50,7 +50,7 @@ export default function MatchReviewContent() {
   return (
     <div className="space-y-4 animate-fade-in">
       <div>
-        <h1 className="text-h2 font-semibold text-foreground">Match Review</h1>
+        <h1 className="text-h2 font-semibold text-foreground">Identity Resolution Agent</h1>
         <p className="mt-1 text-caption text-muted-foreground">
           Review match clusters and resolve conflicts
         </p>

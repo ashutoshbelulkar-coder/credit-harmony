@@ -152,7 +152,7 @@ export function SchemaRegistryView({ onCreateNew, onEditEntry, onViewAudit }: Sc
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-h2 font-semibold text-foreground">Schema Mapping Registry</h1>
+          <h1 className="text-h2 font-semibold text-foreground">Schema Mapper Agent</h1>
           <p className="mt-0.5 text-caption text-muted-foreground">
             Manage alternate data schema mappings to the HCB master schema
           </p>

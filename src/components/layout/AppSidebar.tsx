@@ -32,9 +32,9 @@ const institutionSubItems = [
 
 const dataGovernanceSubItems = [
   { title: "Dashboard", path: "/data-governance/dashboard" },
-  { title: "Schema Mapper", path: "/data-governance/auto-mapping-review" },
+  { title: "Schema Mapper Agent", path: "/data-governance/auto-mapping-review" },
   { title: "Validation Rules", path: "/data-governance/validation-rules" },
-  { title: "Match Review", path: "/data-governance/match-review" },
+  { title: "Identity Resolution Agent", path: "/data-governance/match-review" },
   { title: "Data Quality Monitoring", path: "/data-governance/data-quality-monitoring" },
   { title: "Governance Audit Logs", path: "/data-governance/governance-audit-logs" },
 ];
