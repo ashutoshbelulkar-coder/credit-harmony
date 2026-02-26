@@ -225,7 +225,7 @@ export function AlertMonitoringDashboard() {
           <div className={chartCardClass}>
             <h4 className="text-body font-semibold text-foreground mb-4">Alerts Over Time</h4>
             <ChartContainer config={alertsOverTimeConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-              <LineChart data={alertsTriggeredOverTime} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+              <LineChart data={alertsTriggeredOverTime} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="day" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
@@ -237,7 +237,7 @@ export function AlertMonitoringDashboard() {
           <div className={chartCardClass}>
             <h4 className="text-body font-semibold text-foreground mb-4">By Domain</h4>
             <ChartContainer config={alertsByDomainConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-              <BarChart data={alertsByDomain} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+              <BarChart data={alertsByDomain} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="domain" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />
@@ -268,7 +268,7 @@ export function AlertMonitoringDashboard() {
           <div className={chartCardClass}>
             <h4 className="text-body font-semibold text-foreground mb-4">Mean Time to Resolution (MTTR)</h4>
             <ChartContainer config={mttrConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-              <LineChart data={mttrTrendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+              <LineChart data={mttrTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                 <XAxis dataKey="day" tick={{ fontSize: 10 }} />
                 <YAxis tick={{ fontSize: 10 }} />

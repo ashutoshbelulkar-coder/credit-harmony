@@ -78,7 +78,7 @@ export function SchemaRegistryTable({
         <Table>
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className={cn(tableHeaderClasses, "sticky left-0 z-10 bg-card min-w-[140px]")}>
+              <TableHead className={cn(tableHeaderClasses, "sticky left-0 z-10 min-w-[140px] bg-[hsl(var(--table-header-bg))] shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]")}>
                 Source Name
               </TableHead>
               <TableHead className={cn(tableHeaderClasses, "min-w-[80px]")}>Source Type</TableHead>
@@ -101,7 +101,7 @@ export function SchemaRegistryTable({
             ) : (
               entries.map((entry) => (
                 <TableRow key={entry.id} className="group">
-                  <TableCell className="sticky left-0 z-10 bg-card group-hover:bg-muted/50">
+                  <TableCell className="sticky left-0 z-10 bg-card group-hover:bg-muted shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
                     <div>
                       <p className="text-body font-medium text-foreground">{entry.sourceName}</p>
                       <p className="text-[9px] leading-[12px] text-muted-foreground">{entry.version}</p>

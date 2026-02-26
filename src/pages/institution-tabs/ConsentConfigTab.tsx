@@ -238,7 +238,7 @@ export default function ConsentConfigTab() {
       <div className="bg-card rounded-xl border border-border p-6">
         <h4 className="text-body font-semibold text-foreground mb-4">Consent Failure Metrics</h4>
         <ChartContainer config={chartConfig} className="h-[250px] w-full">
-          <LineChart data={consentFailureData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+          <LineChart data={consentFailureData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
             <XAxis dataKey="day" className="text-caption" tick={{ fontSize: 10 }} />
             <YAxis className="text-caption" tick={{ fontSize: 10 }} />

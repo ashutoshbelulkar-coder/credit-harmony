@@ -247,7 +247,7 @@ export default function BillingTab({ billingModel: initModel, creditBalance: ini
         <div className="bg-card rounded-xl border border-border p-6">
           <h4 className="text-body font-semibold text-foreground mb-4">Credit Consumption Trend</h4>
           <ChartContainer config={creditConfig} className="h-[220px] w-full">
-            <LineChart data={creditTrendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <LineChart data={creditTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="month" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
@@ -259,7 +259,7 @@ export default function BillingTab({ billingModel: initModel, creditBalance: ini
         <div className="bg-card rounded-xl border border-border p-6">
           <h4 className="text-body font-semibold text-foreground mb-4">Spend by Source</h4>
           <ChartContainer config={spendConfig} className="h-[220px] w-full">
-            <BarChart data={spendBySourceData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <BarChart data={spendBySourceData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="source" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />

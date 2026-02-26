@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Building2, CheckCircle2, AlertTriangle, ExternalLink, Clock } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertTriangle, ExternalLink, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import { getInstitutionById, statusStyles } from "@/data/institutions-mock";
@@ -75,20 +75,17 @@ const InstitutionDetail = () => {
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Back + Title */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-start gap-3 sm:gap-4 min-w-0">
           <button
             onClick={() => navigate("/institutions/data-submitters")}
-            className="p-2 rounded-lg hover:bg-muted transition-colors"
+            className="p-2 rounded-lg hover:bg-muted transition-colors shrink-0"
           >
             <ArrowLeft className="w-5 h-5 text-muted-foreground" />
           </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-h2 font-semibold text-foreground">{institution.name}</h1>
-              <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 min-w-0 flex-1">
+            <div className="min-w-0">
+              <h1 className="text-h2 font-semibold text-foreground break-words">{institution.name}</h1>
+              <div className="flex flex-wrap items-center gap-2 mt-0.5">
                 <span className="text-caption text-muted-foreground">{institution.type}</span>
                 <span className="w-1 h-1 rounded-full bg-muted-foreground" />
                 <span className={cn("px-2 py-0.5 rounded-full capitalize", badgeTextClasses, statusStyles[institution.status])}>
@@ -109,23 +106,25 @@ const InstitutionDetail = () => {
           </div>
         </div>
 
-        {/* Tabs - all inline, no More dropdown */}
+        {/* Tabs - horizontal scroll on mobile, wrap on larger screens */}
         <div className="rounded-xl border border-border bg-card px-1.5 py-1.5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-          <div className="flex flex-wrap items-center gap-0.5">
-            {allTabs.map((tab) => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                className={cn(
-                  "rounded-lg px-2.5 py-1.5 text-[11px] font-medium leading-[18px] whitespace-nowrap transition-all",
-                  activeTab === tab
-                    ? "bg-primary text-primary-foreground shadow-sm"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
-                )}
-              >
-                {tab}
-              </button>
-            ))}
+          <div className="overflow-x-auto overflow-y-hidden -mx-0.5 md:overflow-visible md:mx-0">
+            <div className="flex items-center gap-0.5 min-w-0 w-max md:w-full md:flex-wrap md:min-w-0">
+              {allTabs.map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn(
+                    "rounded-lg px-2.5 py-1.5 text-[11px] font-medium leading-[18px] whitespace-nowrap transition-all shrink-0",
+                    activeTab === tab
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                  )}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -347,7 +346,7 @@ function OverviewTab({ institution }: { institution: Institution }) {
                   </div>
                   <div className="flex-1">
                     <ChartContainer config={volumeConfig} className="h-[260px] w-full">
-                      <LineChart data={submissionVolumeData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
+                      <LineChart data={submissionVolumeData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} interval={4} />
                         <YAxis tickLine={false} axisLine={false} tickMargin={8} />
@@ -390,7 +389,7 @@ function OverviewTab({ institution }: { institution: Institution }) {
                   </div>
                   <div className="flex-1">
                     <ChartContainer config={rejectionConfig} className="h-[260px] w-full">
-                      <BarChart data={rejectionReasonsData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
+                      <BarChart data={rejectionReasonsData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="reason" tickLine={false} axisLine={false} tickMargin={8} />
                         <YAxis tickLine={false} axisLine={false} tickMargin={8} />
@@ -410,7 +409,7 @@ function OverviewTab({ institution }: { institution: Institution }) {
                   </div>
                   <div className="flex-1">
                     <ChartContainer config={processingConfig} className="h-[260px] w-full">
-                      <LineChart data={processingTimeData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
+                      <LineChart data={processingTimeData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} />
                         <YAxis tickLine={false} axisLine={false} tickMargin={8} />
@@ -438,7 +437,7 @@ function OverviewTab({ institution }: { institution: Institution }) {
                   </div>
                   <div className="flex-1">
                     <ChartContainer config={enquiryConfig} className="h-[260px] w-full">
-                      <LineChart data={enquiryVolumeData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
+                      <LineChart data={enquiryVolumeData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} interval={4} />
                         <YAxis tickLine={false} axisLine={false} tickMargin={8} />
@@ -481,7 +480,7 @@ function OverviewTab({ institution }: { institution: Institution }) {
                   </div>
                   <div className="flex-1">
                     <ChartContainer config={sourceConfig} className="h-[260px] w-full">
-                      <BarChart data={usageBySourceData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
+                      <BarChart data={usageBySourceData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="source" tickLine={false} axisLine={false} tickMargin={8} />
                         <YAxis tickLine={false} axisLine={false} tickMargin={8} />
@@ -502,7 +501,7 @@ function OverviewTab({ institution }: { institution: Institution }) {
                   </div>
                   <div className="flex-1">
                     <ChartContainer config={latencyConfig} className="h-[260px] w-full">
-                      <LineChart data={responseTimeData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
+                      <LineChart data={responseTimeData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} />
                         <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} />
                         <YAxis tickLine={false} axisLine={false} tickMargin={8} />

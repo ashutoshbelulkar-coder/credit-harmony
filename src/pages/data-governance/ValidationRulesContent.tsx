@@ -174,11 +174,11 @@ export default function ValidationRulesContent() {
         <div className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h2 className="text-h4 font-semibold text-foreground">Impact analysis</h2>
           <p className="mt-1 text-caption text-muted-foreground">% of records affected by active rules</p>
-          <div className="mt-4 flex flex-wrap gap-4">
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
             {rules.filter((r) => r.impactPercent != null).map((r) => (
-              <div key={r.id} className="rounded-lg border border-border px-4 py-2">
-                <span className="text-caption text-muted-foreground">{r.name}</span>
-                <p className="text-h3 font-semibold text-foreground">{r.impactPercent}%</p>
+              <div key={r.id} className="rounded-lg border border-border px-4 py-2.5 min-w-0">
+                <span className="text-caption text-muted-foreground block truncate">{r.name}</span>
+                <p className="text-h3 font-semibold text-foreground mt-0.5">{r.impactPercent}%</p>
               </div>
             ))}
           </div>

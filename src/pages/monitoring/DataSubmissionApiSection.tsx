@@ -191,7 +191,7 @@ export function DataSubmissionApiSection({
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">API Call Volume (Last 30 Days)</h4>
           <ChartContainer config={volumeConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-            <LineChart data={apiCallVolume30Days} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <LineChart data={apiCallVolume30Days} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
@@ -203,7 +203,7 @@ export function DataSubmissionApiSection({
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Latency Trend (P95 / P99)</h4>
           <ChartContainer config={latencyConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-            <LineChart data={latencyTrendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <LineChart data={latencyTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
@@ -232,7 +232,7 @@ export function DataSubmissionApiSection({
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Top Rejection Reasons</h4>
           <ChartContainer config={rejectionConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-            <BarChart data={topRejectionReasonsData} layout="vertical" margin={{ top: 5, right: 20, bottom: 5, left: 60 }}>
+            <BarChart data={topRejectionReasonsData} layout="vertical" margin={{ top: 5, right: 8, bottom: 5, left: 40 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis type="number" tick={{ fontSize: 10 }} />
               <YAxis type="category" dataKey="reason" width={120} tick={{ fontSize: 10 }} />
@@ -354,7 +354,7 @@ export function DataSubmissionApiSection({
                 key={p}
                 onClick={() => setPage(p)}
                 className={cn(
-                  "px-3 py-1.5 rounded-md text-caption font-medium transition-colors",
+                  "px-3 py-1.5 rounded-md text-body font-medium transition-colors",
                   p === page ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
                 )}
               >

@@ -138,20 +138,22 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
         <h3 className="text-h4 font-semibold text-foreground mb-4">Upload & Analyze Source Schema</h3>
 
         <Tabs value={schemaInput} onValueChange={(v) => { setSchemaInput(v as typeof schemaInput); setIsParsed(false); }}>
-          <TabsList className="mb-4">
-            <TabsTrigger value="upload_json" className="gap-1.5 text-caption">
-              <FileJson className="h-3 w-3" /> Upload JSON
-            </TabsTrigger>
-            <TabsTrigger value="upload_csv" className="gap-1.5 text-caption">
-              <Upload className="h-3 w-3" /> Upload CSV
-            </TabsTrigger>
-            <TabsTrigger value="paste_json" className="gap-1.5 text-caption">
-              <Code className="h-3 w-3" /> Paste JSON Schema
-            </TabsTrigger>
-            <TabsTrigger value="select_previous" className="gap-1.5 text-caption">
-              <Globe className="h-3 w-3" /> Select Previously Ingested Schema
-            </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-1 mb-4">
+            <TabsList className="mb-0 w-max min-w-0 h-auto min-h-10 flex flex-nowrap">
+                <TabsTrigger value="upload_json" className="gap-1.5 text-caption shrink-0">
+                <FileJson className="h-3 w-3" /> Upload JSON
+              </TabsTrigger>
+              <TabsTrigger value="upload_csv" className="gap-1.5 text-caption shrink-0">
+                <Upload className="h-3 w-3" /> Upload CSV
+              </TabsTrigger>
+              <TabsTrigger value="paste_json" className="gap-1.5 text-caption shrink-0">
+                <Code className="h-3 w-3" /> Paste JSON Schema
+              </TabsTrigger>
+              <TabsTrigger value="select_previous" className="gap-1.5 text-caption shrink-0">
+                <Globe className="h-3 w-3" /> Select Previously Ingested Schema
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
           <TabsContent value="upload_json">
             <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-border bg-muted/30 p-8">
@@ -273,7 +275,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
       )}
 
       {isParsed && (
-        <div className="flex justify-end">
+        <div className="flex justify-center sm:justify-end">
           <Button onClick={handleProceed} disabled={!isFormValid} className="gap-1.5">
             Proceed to Similarity Analysis
             <ArrowRight className="h-3.5 w-3.5" />

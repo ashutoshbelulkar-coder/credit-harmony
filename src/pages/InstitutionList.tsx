@@ -90,7 +90,7 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-h2 font-semibold text-foreground">
               {roleFilter ? roleLabels[roleFilter] : "Institutions"}
@@ -103,7 +103,7 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
           </div>
           <button
             onClick={() => navigate("/institutions/register")}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-body font-medium hover:bg-primary/90 transition-colors"
+            className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-body font-medium hover:bg-primary/90 transition-colors sm:w-auto"
           >
             <Plus className="w-4 h-4" />
             Register Institution
@@ -271,7 +271,7 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                   key={p}
                   onClick={() => setPage(p)}
                   className={cn(
-                    "px-3 py-1.5 rounded-md text-caption font-medium transition-colors",
+                    "px-3 py-1.5 rounded-md text-body font-medium transition-colors",
                     p === currentPage
                       ? "bg-primary text-primary-foreground"
                       : "text-muted-foreground hover:bg-muted"

@@ -121,7 +121,7 @@ export default function MonitoringTab({ isDataSubmitter, isSubscriber }: { isDat
             <div className="bg-card rounded-xl border border-border p-6">
               <h4 className="text-body font-semibold text-foreground mb-4">Ingestion Trend (7d)</h4>
               <ChartContainer config={ingestionConfig} className="h-[220px] w-full">
-                <LineChart data={ingestionTrendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <LineChart data={ingestionTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="day" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 10 }} />
@@ -134,7 +134,7 @@ export default function MonitoringTab({ isDataSubmitter, isSubscriber }: { isDat
             <div className="bg-card rounded-xl border border-border p-6">
               <h4 className="text-body font-semibold text-foreground mb-4">Schema Drift Alerts</h4>
               <ChartContainer config={driftConfig} className="h-[220px] w-full">
-                <BarChart data={schemaDriftData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <BarChart data={schemaDriftData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="field" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 10 }} />
@@ -160,7 +160,7 @@ export default function MonitoringTab({ isDataSubmitter, isSubscriber }: { isDat
             <div className="bg-card rounded-xl border border-border p-6">
               <h4 className="text-body font-semibold text-foreground mb-4">API Error Trend (7d)</h4>
               <ChartContainer config={errorConfig} className="h-[220px] w-full">
-                <LineChart data={apiErrorTrendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <LineChart data={apiErrorTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="day" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 10 }} />
@@ -172,7 +172,7 @@ export default function MonitoringTab({ isDataSubmitter, isSubscriber }: { isDat
             <div className="bg-card rounded-xl border border-border p-6">
               <h4 className="text-body font-semibold text-foreground mb-4">Rate Limit Breaches (Today)</h4>
               <ChartContainer config={breachConfig} className="h-[220px] w-full">
-                <BarChart data={rateLimitBreachData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                <BarChart data={rateLimitBreachData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="hour" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 10 }} />

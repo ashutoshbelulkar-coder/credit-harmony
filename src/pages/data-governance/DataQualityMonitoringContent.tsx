@@ -117,7 +117,7 @@ export default function DataQualityMonitoringContent() {
           <ChartContainer config={trendConfig} className="h-full w-full">
             <LineChart
               data={dataQualityTrendWithAnomaly}
-              margin={{ top: 8, right: 24, left: 0, bottom: 8 }}
+              margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={8} />

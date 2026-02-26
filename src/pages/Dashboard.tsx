@@ -206,7 +206,7 @@ const Dashboard = () => {
             {kpiStats.map((stat) => (
               <div
                 key={stat.title}
-                className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] laptop:col-span-3"
+                className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] laptop:col-span-3"
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -247,7 +247,7 @@ const Dashboard = () => {
           className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-12"
         >
           <div className="lg:col-span-8">
-            <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
+            <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
               <header className="flex items-center justify-between gap-2">
                 <div>
                   <h2 className="text-h4 font-semibold text-foreground">
@@ -258,12 +258,12 @@ const Dashboard = () => {
                   </p>
                 </div>
               </header>
-              <div className="mt-4 flex-1">
+              <div className="mt-3 flex-1">
                 <ChartContainer
                   config={apiUsageConfig}
                   className="h-[200px] min-h-[200px] md:h-[240px] laptop:h-[260px] desktop:h-[280px] w-full"
                 >
-                  <LineChart data={apiUsageData} margin={{ top: 8, right: 24, left: 0, bottom: 8 }}>
+                  <LineChart data={apiUsageData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis
                       dataKey="day"
@@ -317,7 +317,7 @@ const Dashboard = () => {
           </div>
 
           <div className="lg:col-span-4">
-            <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
+            <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
               <header className="flex items-center justify-between gap-2">
                 <div>
                   <h2 className="text-h4 font-semibold text-foreground">
@@ -328,7 +328,7 @@ const Dashboard = () => {
                   </p>
                 </div>
               </header>
-              <div className="mt-4 flex-1">
+              <div className="mt-3 flex-1">
                 <ChartContainer
                   config={successFailureConfig}
                   className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full"
@@ -368,7 +368,7 @@ const Dashboard = () => {
           className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-2 laptop:grid-cols-12"
         >
           <div className="laptop:col-span-6">
-            <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
+            <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
               <header>
                 <h2 className="text-h4 font-semibold text-foreground">
                   Mapping Accuracy Trend
@@ -377,14 +377,14 @@ const Dashboard = () => {
                   Weekly auto-mapping accuracy across active integrations
                 </p>
               </header>
-              <div className="mt-4 flex-1">
+              <div className="mt-3 flex-1">
                 <ChartContainer
                   config={mappingAccuracyConfig}
                   className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full"
                 >
                   <LineChart
                     data={mappingAccuracyData}
-                    margin={{ top: 8, right: 16, left: 0, bottom: 8 }}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis
@@ -416,7 +416,7 @@ const Dashboard = () => {
           </div>
 
           <div className="laptop:col-span-6">
-            <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
+            <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
               <header>
                 <h2 className="text-h4 font-semibold text-foreground">
                   Match Confidence Distribution
@@ -425,14 +425,14 @@ const Dashboard = () => {
                   Histogram of entity match confidence across recent decisions
                 </p>
               </header>
-              <div className="mt-4 flex-1">
+              <div className="mt-3 flex-1">
                 <ChartContainer
                   config={matchConfidenceConfig}
                   className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full"
                 >
                   <BarChart
                     data={matchConfidenceData}
-                    margin={{ top: 8, right: 16, left: 0, bottom: 8 }}
+                    margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
                     <XAxis
@@ -463,7 +463,7 @@ const Dashboard = () => {
 
         {/* Row 4: SLA Latency Trend */}
         <section aria-label="SLA latency trend">
-          <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
             <header className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-h4 font-semibold text-foreground">
@@ -474,14 +474,14 @@ const Dashboard = () => {
                 </p>
               </div>
             </header>
-            <div className="mt-4">
+            <div className="mt-3">
               <ChartContainer
                 config={slaLatencyConfig}
                 className="h-[200px] min-h-[200px] md:h-[240px] laptop:h-[260px] w-full"
               >
                 <LineChart
                   data={slaLatencyData}
-                  margin={{ top: 8, right: 24, left: 0, bottom: 8 }}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis
@@ -520,7 +520,7 @@ const Dashboard = () => {
 
         {/* Row 5: Rejection & Override Trends */}
         <section aria-label="Rejection and override trends">
-          <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
             <header className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h2 className="text-h4 font-semibold text-foreground">
@@ -531,14 +531,14 @@ const Dashboard = () => {
                 </p>
               </div>
             </header>
-            <div className="mt-4">
+            <div className="mt-3">
               <ChartContainer
                 config={rejectionOverrideConfig}
                 className="h-[200px] min-h-[200px] md:h-[240px] laptop:h-[260px] w-full"
               >
                 <BarChart
                   data={rejectionOverrideData}
-                  margin={{ top: 8, right: 24, left: 0, bottom: 8 }}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis
@@ -578,7 +578,7 @@ const Dashboard = () => {
           className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-5 laptop:grid-cols-12"
         >
           {/* Recent Activity */}
-          <div className="lg:col-span-3 laptop:col-span-7 bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="lg:col-span-3 laptop:col-span-7 bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <h2 className="text-label uppercase tracking-[0.08em] text-muted-foreground">
                 Recent Activity
@@ -610,7 +610,7 @@ const Dashboard = () => {
           </div>
 
           {/* Top Institutions */}
-          <div className="lg:col-span-2 laptop:col-span-5 bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="lg:col-span-2 laptop:col-span-5 bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
             <div className="flex items-center justify-between border-b border-border pb-4">
               <h2 className="text-label uppercase tracking-[0.08em] text-muted-foreground">
                 Top Institutions
@@ -653,7 +653,7 @@ const Dashboard = () => {
 
 function MetricCard({ title, value, subtitle, trend }: { title: string; value: string; subtitle: string; trend: string }) {
   return (
-    <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+    <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
       <p className="text-caption font-medium uppercase tracking-[0.08em] text-muted-foreground">
         {title}
       </p>

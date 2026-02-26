@@ -319,7 +319,7 @@ export function AlertRulesDashboard() {
                 key={p}
                 onClick={() => setPage(p)}
                 className={cn(
-                  "px-3 py-1.5 rounded-md text-caption font-medium transition-colors",
+                  "px-3 py-1.5 rounded-md text-body font-medium transition-colors",
                   p === page ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
                 )}
               >

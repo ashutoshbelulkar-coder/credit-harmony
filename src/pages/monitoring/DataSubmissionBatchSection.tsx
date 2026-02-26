@@ -332,7 +332,7 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Batch Volume Trend</h4>
           <ChartContainer config={batchVolumeConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-            <ComposedChart data={batchVolumeTrendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <ComposedChart data={batchVolumeTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
@@ -346,7 +346,7 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Processing Duration Trend</h4>
           <ChartContainer config={durationConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-            <LineChart data={processingDurationTrendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <LineChart data={processingDurationTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
@@ -360,7 +360,7 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
       <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <h4 className="text-body font-semibold text-foreground mb-4">Top Batch Error Categories</h4>
         <ChartContainer config={errorCategoriesConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-          <BarChart data={topBatchErrorCategoriesData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+          <BarChart data={topBatchErrorCategoriesData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
             <XAxis dataKey="category" tick={{ fontSize: 10 }} />
             <YAxis tick={{ fontSize: 10 }} />
@@ -514,7 +514,7 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
                 key={p}
                 onClick={() => setPage(p)}
                 className={cn(
-                  "px-3 py-1.5 rounded-md text-caption font-medium transition-colors",
+                  "px-3 py-1.5 rounded-md text-body font-medium transition-colors",
                   p === page ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
                 )}
               >

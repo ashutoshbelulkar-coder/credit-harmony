@@ -29,15 +29,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Mobile sidebar drawer */}
       {mobileSidebarOpen && (
-        <div className="fixed inset-0 z-40 flex md:hidden transition-opacity duration-200">
-          <div className="h-full w-72 max-w-[80%] flex flex-col overflow-hidden">
+        <div className="fixed inset-0 z-40 flex md:hidden min-h-screen w-full">
+          <div className="h-full w-72 max-w-[80%] flex flex-col overflow-hidden shrink-0">
             <AppSidebar />
           </div>
           <button
             type="button"
             aria-label="Close navigation"
             onClick={() => setMobileSidebarOpen(false)}
-            className="flex-1 bg-black/30 transition-opacity duration-200"
+            className="flex-1 min-w-0 min-h-full bg-black/50 cursor-pointer touch-manipulation"
           />
         </div>
       )}

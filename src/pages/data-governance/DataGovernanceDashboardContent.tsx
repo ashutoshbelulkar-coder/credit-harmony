@@ -153,7 +153,7 @@ export function DataGovernanceDashboard() {
             </div>
             <div className="mt-4 h-[260px]">
               <ChartContainer config={mappingAccuracyConfig} className="h-full w-full">
-                <LineChart data={mappingData} margin={{ top: 8, right: 16, left: -8, bottom: 8 }}>
+                <LineChart data={mappingData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={8} fontSize={10} />
                   <YAxis
@@ -222,7 +222,7 @@ export function DataGovernanceDashboard() {
               <ChartContainer config={matchConfidenceConfig} className="h-full w-full">
                 <BarChart
                   data={matchConfidenceDistribution}
-                  margin={{ top: 8, right: 12, left: -8, bottom: 8 }}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="bucket" tickLine={false} axisLine={false} tickMargin={8} fontSize={10} />
@@ -247,7 +247,7 @@ export function DataGovernanceDashboard() {
               <ChartContainer config={overrideTrendConfig} className="h-full w-full">
                 <BarChart
                   data={overrideVsAutoAcceptTrend}
-                  margin={{ top: 8, right: 12, left: -8, bottom: 8 }}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={8} fontSize={10} />
@@ -276,7 +276,7 @@ export function DataGovernanceDashboard() {
             <p className="mt-1 text-caption text-muted-foreground">Quality score over time</p>
             <div className="mt-4 h-[260px]">
               <ChartContainer config={dataQualityConfig} className="h-full w-full">
-                <LineChart data={dataQualityScoreTrend} margin={{ top: 8, right: 16, left: -8, bottom: 8 }}>
+                <LineChart data={dataQualityScoreTrend} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={8} fontSize={10} />
                   <YAxis

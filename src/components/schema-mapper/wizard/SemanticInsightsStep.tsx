@@ -49,24 +49,24 @@ export function SemanticInsightsStep({
           {clusters.map((cluster) => (
             <div
               key={cluster.id}
-              className="rounded-lg border border-border p-3 space-y-2"
+              className="rounded-lg border border-border p-3 space-y-2.5 sm:space-y-2"
             >
               <p className="text-body font-medium text-foreground">{cluster.canonicalLabel}</p>
-              <p className="text-caption text-muted-foreground">
-                Fields found across platform:{" "}
+              <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1.5">
+                <span className="text-caption text-muted-foreground">Fields found across platform:</span>
                 {cluster.fieldNames.map((f) => (
-                  <Badge key={f} variant="secondary" className="mr-1 text-[9px] font-normal">
+                  <Badge key={f} variant="secondary" className="text-[9px] font-normal">
                     {f}
                   </Badge>
                 ))}
-              </p>
-              <div className="flex items-center gap-2">
+              </div>
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
                 <span className="text-caption text-muted-foreground">Action:</span>
                 <Select
                   value={cluster.action ?? ""}
                   onValueChange={(v) => setClusterAction(cluster.id, v as FieldClusterAction)}
                 >
-                  <SelectTrigger className="h-8 w-[200px] text-caption">
+                  <SelectTrigger className="h-8 w-full min-w-0 sm:w-[200px] text-caption">
                     <SelectValue placeholder="Select action..." />
                   </SelectTrigger>
                   <SelectContent>

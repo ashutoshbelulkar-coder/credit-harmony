@@ -182,7 +182,7 @@ export function InquiryApiSection({
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Enquiry Volume</h4>
           <ChartContainer config={volumeConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-            <LineChart data={enquiryVolumeData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <LineChart data={enquiryVolumeData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
@@ -194,7 +194,7 @@ export function InquiryApiSection({
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Response Time Trend</h4>
           <ChartContainer config={responseConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-            <LineChart data={enquiryResponseTimeTrendData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <LineChart data={enquiryResponseTimeTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
@@ -210,7 +210,7 @@ export function InquiryApiSection({
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Enquiry by Product Type</h4>
           <ChartContainer config={{ success: { label: "Success", color: "hsl(var(--success))" }, failed: { label: "Failed", color: "hsl(var(--danger))" } }} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-            <BarChart data={enquiryByProductData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+            <BarChart data={enquiryByProductData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="product" tick={{ fontSize: 9 }} />
               <YAxis tick={{ fontSize: 10 }} />
@@ -236,10 +236,10 @@ export function InquiryApiSection({
       </div>
 
       <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-        <div className="px-6 pt-6 pb-4 border-b border-border">
-          <h4 className="text-body font-semibold text-foreground mb-4">Detailed Enquiry Log</h4>
-          <div className="flex flex-wrap items-end gap-4">
-            <div className="space-y-1.5">
+        <div className="px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-border">
+          <h4 className="text-body font-semibold text-foreground mb-3 sm:mb-4">Detailed Enquiry Log</h4>
+          <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end sm:gap-4">
+            <div className="space-y-1.5 min-w-0">
               <Label className="text-caption text-muted-foreground">Enquiry ID</Label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
@@ -247,14 +247,14 @@ export function InquiryApiSection({
                   placeholder="Search..."
                   value={enquiryIdSearch}
                   onChange={(e) => { setEnquiryIdSearch(e.target.value); setPage(1); }}
-                  className="h-9 pl-8 w-[180px] text-caption"
+                  className="h-9 pl-8 w-full min-w-0 sm:w-[180px] text-caption"
                 />
               </div>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <Label className="text-caption text-muted-foreground">Status</Label>
               <Select value={filters.status} onValueChange={(v) => { set({ status: v }); setPage(1); }}>
-                <SelectTrigger className="h-9 w-[140px] text-caption">
+                <SelectTrigger className="h-9 w-full min-w-0 sm:w-[140px] text-caption">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -264,10 +264,10 @@ export function InquiryApiSection({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <Label className="text-caption text-muted-foreground">Institute</Label>
               <Select value={filters.subscriberId} onValueChange={(v) => { set({ subscriberId: v }); setPage(1); }}>
-                <SelectTrigger className="h-9 min-w-[180px] max-w-[220px] text-caption">
+                <SelectTrigger className="h-9 w-full min-w-0 sm:min-w-[180px] sm:max-w-[220px] text-caption">
                   <SelectValue placeholder="Institute" />
                 </SelectTrigger>
                 <SelectContent>
@@ -278,10 +278,10 @@ export function InquiryApiSection({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <Label className="text-caption text-muted-foreground">Time</Label>
               <Select value={timeRange} onValueChange={(v) => { setTimeRange(v as TimeRangeValue); setPage(1); }}>
-                <SelectTrigger className="h-9 w-[140px] text-caption">
+                <SelectTrigger className="h-9 w-full min-w-0 sm:w-[140px] text-caption">
                   <SelectValue placeholder="Time" />
                 </SelectTrigger>
                 <SelectContent>
@@ -343,7 +343,7 @@ export function InquiryApiSection({
                 key={p}
                 onClick={() => setPage(p)}
                 className={cn(
-                  "px-3 py-1.5 rounded-md text-caption font-medium transition-colors",
+                  "px-3 py-1.5 rounded-md text-body font-medium transition-colors",
                   p === page ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
                 )}
               >

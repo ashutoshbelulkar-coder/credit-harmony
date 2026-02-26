@@ -141,7 +141,7 @@ export function LLMFieldIntelligenceStep({
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
-                <TableHead className={cn(tableHeaderClasses, "sticky left-0 z-10 bg-card min-w-[130px] px-4 align-middle text-left")}>
+                <TableHead className={cn(tableHeaderClasses, "sticky left-0 z-10 min-w-[130px] px-4 align-middle text-left bg-[hsl(var(--table-header-bg))] shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]")}>
                   Source Field
                 </TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[140px] px-4 align-middle text-left")}>
@@ -170,7 +170,7 @@ export function LLMFieldIntelligenceStep({
 
                 return (
                   <TableRow key={row.id}>
-                    <TableCell className="sticky left-0 bg-card px-4 align-middle py-2">
+                    <TableCell className="sticky left-0 z-10 bg-card px-4 align-middle py-2 shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
                       <div className="flex items-center gap-2 flex-nowrap min-w-0">
                         <span className="text-body font-medium truncate min-w-0">{row.sourceField}</span>
                         <Badge variant="secondary" className="text-[8px] font-normal shrink-0 flex-shrink-0">

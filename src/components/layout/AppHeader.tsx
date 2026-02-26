@@ -73,7 +73,7 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
       <div className="ml-auto flex-1 max-w-md">
         <div
           className={cn(
-            "flex items-center gap-2 px-3 py-2 rounded-lg border transition-all duration-200",
+            "flex h-9 items-center gap-2 px-3 rounded-lg border transition-all duration-200",
             searchFocused ? "border-primary bg-card shadow-sm" : "border-border bg-background"
           )}
         >
@@ -96,7 +96,7 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
         <button
           type="button"
           aria-label="Toggle theme"
-          className="flex h-9 w-9 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted transition-colors duration-200"
+          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted transition-colors duration-200"
           onClick={() => setShowThemeMenu(!showThemeMenu)}
         >
           <Sun className="h-4 w-4 rotate-0 scale-100 dark:-rotate-90 dark:scale-0" />
