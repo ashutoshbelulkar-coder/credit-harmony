@@ -28,6 +28,10 @@ import { MonitoringAlertEnginePage } from "./pages/monitoring/MonitoringAlertEng
 import { ReportingLayout } from "./pages/reporting/ReportingLayout";
 import { ReportListPage } from "./pages/reporting/ReportListPage";
 import { NewReportRequestPage } from "./pages/reporting/NewReportRequestPage";
+import { AgentsLayout } from "./pages/agents/AgentsLayout";
+import AgentsLandingPage from "./pages/agents/AgentsLandingPage";
+import AgentDetailPage from "./pages/agents/AgentDetailPage";
+import AgentConfigurationPage from "./pages/agents/AgentConfigurationPage";
 
 const queryClient = new QueryClient();
 
@@ -77,6 +81,11 @@ const App = () => (
               <Route path="alert-engine" element={<MonitoringAlertEnginePage />} />
             </Route>
             <Route path="/cbs-integration" element={<ProtectedRoute><PlaceholderPage title="CBS Integration" description="Core banking system API configuration and batch exports" /></ProtectedRoute>} />
+            <Route path="/agents" element={<ProtectedRoute><AgentsLayout /></ProtectedRoute>}>
+              <Route index element={<AgentsLandingPage />} />
+              <Route path=":agentId" element={<AgentDetailPage />} />
+              <Route path="configuration" element={<AgentConfigurationPage />} />
+            </Route>
             <Route path="/reporting" element={<ProtectedRoute><ReportingLayout /></ProtectedRoute>}>
               <Route index element={<ReportListPage />} />
               <Route path="new" element={<NewReportRequestPage />} />

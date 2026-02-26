@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   Building2,
-
+  Brain,
   ShieldCheck,
   Activity,
   FileBarChart,
@@ -17,7 +17,7 @@ import {
 const navItems = [
   { title: "Dashboard", path: "/", icon: LayoutDashboard },
   { title: "Institution Management", path: "/institutions/data-submitters", icon: Building2 },
-
+  { title: "Agents", path: "/agents", icon: Brain },
   { title: "Data Governance", path: "/data-governance", icon: ShieldCheck },
   { title: "Monitoring", path: "/monitoring", icon: Activity },
   { title: "Reporting", path: "/reporting", icon: FileBarChart },
