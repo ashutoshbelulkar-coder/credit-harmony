@@ -1,0 +1,6 @@
+# Node binary
+node-v24.11.1-win-x64.zip
+*.zip
+
+# Dependencies
+node_modules/
