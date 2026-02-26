@@ -114,6 +114,118 @@ export interface SuggestedAction {
   toolId: string;
 }
 
+export interface BureauApiHealth {
+  bureau: string;
+  uptime: number;
+  avgLatency: number;
+  failRate: number;
+  status: "Healthy" | "Warning" | "Critical";
+}
+
+export interface SLAMetrics {
+  overall: number;
+  activeBreaches: number;
+  critical: number;
+  avgResponseTime: number;
+}
+
+/** CRIF-only SLA: extends base with p95, timeout %, retry % */
+export interface CRIFSLAMetrics extends SLAMetrics {
+  p95Latency: number;
+  timeoutPct: number;
+  retryPct: number;
+}
+
+export interface CRIFRequestFlow {
+  totalEnquiries: number;
+  dataSubmissions: number;
+  alternateDataPulls: number;
+  hardEnquiries: number;
+  softEnquiries: number;
+  failedPct: number;
+}
+
+export interface CRIFDataSubmission {
+  filesSubmitted: number;
+  recordsProcessed: number;
+  recordsRejected: number;
+  schemaValidationErrors: number;
+  hilMappingPending: number;
+  ackPending: number;
+}
+
+export interface CRIFAlternateData {
+  bankStatementRequests: number;
+  gstPulls: number;
+  ocrParsingJobs: number;
+  alternateDataFailures: number;
+  avgProcessingTimeMs: number;
+}
+
+export interface CRIFDataQuality {
+  missingMandatoryFields: number;
+  panMismatchPct: number;
+  dpdInconsistencyCount: number;
+  tradelineMappingErrors: number;
+  duplicateRecordCount: number;
+  scoreMissingCases: number;
+}
+
+export interface CRIFConsentOps {
+  successRate: number;
+  otpFailurePct: number;
+  expiredConsentPct: number;
+  consentLatencyAvgMs: number;
+  revokedConsentCount: number;
+}
+
+export type SegmentFilter = "All" | "Enquiry" | "Data Submission" | "Alternate Data" | "Consent" | "Parsing";
+
+export interface OperationsAlert {
+  id: string;
+  type: string;
+  message: string;
+  bureau: string | null;
+  institution: string | null;
+  timestamp: string;
+  severity: "Low" | "Medium" | "Critical";
+}
+
+export interface VolumeStats {
+  totalRequests: number;
+  hardInquiryPct: number;
+  softInquiryPct: number;
+  retryCount: number;
+  failedPct: number;
+  requestsPerMinute: number;
+  peakHour: string;
+}
+
+export interface ConsentMetrics {
+  successRate: number;
+  otpFailurePct: number;
+  expiredConsentPct: number;
+  avgConsentLatencyMs: number;
+  topDropOffInstitution: string;
+}
+
+export interface DataQualityIssue {
+  id: string;
+  issue: string;
+  count: number;
+  bureau: string;
+  severity: "Low" | "Medium" | "High";
+  trend: "up" | "down" | "stable";
+}
+
+export interface DisputeStats {
+  active: number;
+  avgTATDays: number;
+  pendingOverSLA: number;
+  rejectedPct: number;
+  bureauBreakdown: { bureau: string; count: number }[];
+}
+
 export interface BureauEnquiryForm {
   fullName: string;
   pan: string;

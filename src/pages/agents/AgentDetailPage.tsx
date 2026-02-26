@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AgentChatWorkspace } from "@/components/agents/AgentChatWorkspace";
+import { BureauOperatorWorkspace } from "@/components/agents/bureau-operator/BureauOperatorWorkspace";
 
 const iconMap: Record<string, React.ElementType> = {
   Search, FileSearch, FileSignature, BarChart3, ShieldAlert, UserCheck,
@@ -29,6 +30,16 @@ export default function AgentDetailPage() {
       <div className="flex items-center justify-center h-64">
         <p className="text-muted-foreground">Agent not found.</p>
       </div>
+    );
+  }
+
+  // Bureau Operations Intelligence: skip detail step, go straight to CRIF Operations workspace
+  if (agent.id === "bureau-operator") {
+    return (
+      <BureauOperatorWorkspace
+        agent={agent}
+        onBack={() => navigate("/agents")}
+      />
     );
   }
 
