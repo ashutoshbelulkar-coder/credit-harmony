@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useLocation } from "react-router-dom";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 
@@ -8,6 +9,8 @@ interface DashboardLayoutProps {
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const location = useLocation();
+  const isAgentsSection = location.pathname.startsWith("/agents");
 
   useEffect(() => {
     if (mobileSidebarOpen && window.matchMedia("(max-width: 767px)").matches) {
@@ -43,10 +46,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       )}
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <AppHeader
-          onToggleSidebar={() => setMobileSidebarOpen((open) => !open)}
-        />
-        <main className="flex flex-1 flex-col min-h-0 p-4 sm:p-6 pr-[max(1rem,env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)]">{children}</main>
+        {!isAgentsSection && (
+          <AppHeader
+            onToggleSidebar={() => setMobileSidebarOpen((open) => !open)}
+          />
+        )}
+        <main className="flex flex-1 flex-col min-h-0 overflow-hidden p-4 sm:p-6 pr-[max(1rem,env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)]">
+          {isAgentsSection ? (
+            <div className="flex flex-1 flex-col min-h-0 overflow-hidden">{children}</div>
+          ) : (
+            children
+          )}
+        </main>
       </div>
     </div>
   );

@@ -53,12 +53,12 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      <DialogContent className="flex max-h-[90dvh] max-w-[calc(100vw-2rem)] flex-col gap-4 overflow-hidden px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-w-lg sm:p-6">
+        <DialogHeader className="shrink-0">
           <DialogTitle className="text-h4 font-semibold">Run Bureau Enquiry</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-2">
           <h3 className="text-body font-medium text-foreground">Personal Details</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -141,9 +141,9 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
           </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSubmit}>Submit</Button>
+        <DialogFooter className="shrink-0 flex-wrap gap-2">
+          <Button variant="outline" onClick={handleClose} className="min-w-0 flex-1 sm:flex-initial">Cancel</Button>
+          <Button onClick={handleSubmit} className="min-w-0 flex-1 sm:flex-initial">Submit</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -42,8 +42,6 @@ export default function AgentDetailPage() {
     );
   }
 
-  const AgentIcon = iconMap[agent.icon] || Brain;
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -51,18 +49,10 @@ export default function AgentDetailPage() {
         <Button variant="ghost" size="icon" onClick={() => navigate("/agents")} className="shrink-0">
           <ArrowLeft className="w-5 h-5" />
         </Button>
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="w-10 h-10 rounded-lg bg-secondary/10 flex items-center justify-center shrink-0">
-            <AgentIcon className="w-5 h-5 text-secondary" />
-          </div>
-          <div className="min-w-0">
-            <h1 className="text-h2 font-semibold text-foreground truncate">{agent.name}</h1>
-            <p className="text-caption text-muted-foreground">{agent.description}</p>
-          </div>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-h2 font-semibold text-foreground truncate">{agent.name}</h1>
+          <p className="text-caption text-muted-foreground">{agent.description}</p>
         </div>
-        <Badge variant="outline" className="border-success/40 text-success bg-success/10 text-[9px] uppercase font-semibold tracking-wider shrink-0">
-          ● Agent Online
-        </Badge>
       </div>
 
       {/* Services Grid */}
@@ -76,31 +66,35 @@ export default function AgentDetailPage() {
                 <Card
                   key={sub.id}
                   className={cn(
-                    "group border border-border transition-all duration-200",
+                    "group bg-card border border-border text-card-foreground transition-all duration-200",
                     sub.comingSoon
                       ? "opacity-60 cursor-default"
-                      : "cursor-pointer hover:border-secondary/50 hover:shadow-md"
+                      : cn(
+                          "cursor-pointer",
+                          "hover:border-primary/30 hover:shadow-[0_4px_12px_hsl(var(--foreground)/0.06)]",
+                          "dark:hover:shadow-[0_4px_12px_hsl(var(--foreground)/0.12)]"
+                        )
                   )}
                   onClick={() => !sub.comingSoon && setActiveSubAgent(sub.id)}
                 >
                   <CardContent className="p-5 flex flex-col gap-3">
                     <div className="flex items-start justify-between">
-                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center">
+                      <div className="w-10 h-10 shrink-0 rounded-lg bg-primary/10 dark:bg-primary/20 border border-primary/20 flex items-center justify-center">
                         <SubIcon className="w-5 h-5 text-primary" />
                       </div>
                       {sub.comingSoon && (
-                        <Badge variant="outline" className="text-[9px] uppercase font-semibold text-muted-foreground border-muted">
+                        <Badge variant="outline" className="text-[9px] uppercase font-semibold text-muted-foreground border-border bg-muted/50">
                           Coming Soon
                         </Badge>
                       )}
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <h3 className="text-body font-semibold text-foreground mb-1">{sub.name}</h3>
                       <p className="text-caption text-muted-foreground line-clamp-2">{sub.description}</p>
                     </div>
                     {!sub.comingSoon && (
                       <div className="flex justify-end pt-1">
-                        <ArrowRight className="w-4 h-4 text-secondary opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
                       </div>
                     )}
                   </CardContent>
@@ -109,9 +103,11 @@ export default function AgentDetailPage() {
             })}
           </div>
         ) : (
-          <Card className="border border-border">
+          <Card className="bg-card border border-border text-card-foreground">
             <CardContent className="p-8 flex flex-col items-center gap-4 text-center">
-              <Brain className="w-10 h-10 text-muted-foreground" />
+              <div className="w-12 h-12 rounded-lg bg-muted flex items-center justify-center">
+                <Brain className="w-6 h-6 text-muted-foreground" />
+              </div>
               <p className="text-body text-muted-foreground">
                 This agent operates directly without sub-services.
               </p>

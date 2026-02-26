@@ -1,5 +1,5 @@
 import type { Customer } from "@/types/agents";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -18,8 +18,8 @@ export function CustomerContextPanel({ customer }: Props) {
   if (!customer) {
     return (
       <div className="flex flex-col items-center justify-center h-full text-center px-6">
-        <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
-          <Brain className="w-8 h-8 text-muted-foreground" />
+        <div className="w-16 h-16 rounded-lg bg-primary/10 dark:bg-primary/20 border border-primary/20 flex items-center justify-center mb-4">
+          <Brain className="w-8 h-8 text-primary" />
         </div>
         <h3 className="text-body font-medium text-foreground mb-1">No Customer Profile</h3>
         <p className="text-caption text-muted-foreground">
@@ -30,24 +30,24 @@ export function CustomerContextPanel({ customer }: Props) {
   }
 
   const riskColor: Record<string, string> = {
-    Low: "text-success bg-success/10 border-success/30",
-    Medium: "text-warning bg-warning/10 border-warning/30",
-    High: "text-destructive bg-destructive/10 border-destructive/30",
-    Critical: "text-destructive bg-destructive/15 border-destructive/40",
+    Low: "text-success bg-success/10 dark:bg-success/20 border-success/40",
+    Medium: "text-warning bg-warning/10 dark:bg-warning/20 border-warning/40",
+    High: "text-destructive bg-destructive/10 dark:bg-destructive/20 border-destructive/40",
+    Critical: "text-destructive bg-destructive/15 dark:bg-destructive/25 border-destructive/50",
   };
 
   const scoreColor = customer.bureauScore >= 750 ? "text-success" : customer.bureauScore >= 650 ? "text-warning" : "text-destructive";
   const scoreLabel = customer.bureauScore >= 750 ? "Excellent" : customer.bureauScore >= 650 ? "Good" : "Poor";
 
   return (
-    <ScrollArea className="h-full">
+    <ScrollArea className="flex-1 min-h-0 h-0 basis-0">
       <div className="space-y-4 pr-2 pb-4">
-        {/* CRIF Header Card */}
-        <Card className="border border-secondary/30 bg-secondary/5">
+        {/* CRIF Header Card - theme primary */}
+        <Card className="border border-primary/20 bg-primary/5 dark:bg-primary/10 text-card-foreground">
           <CardContent className="p-4">
             <div className="flex items-start justify-between mb-3">
               <div>
-                <p className="text-[9px] uppercase tracking-wider text-secondary font-semibold">CRIF Analysis</p>
+                <p className="text-[9px] uppercase tracking-wider text-primary font-semibold">CRIF Analysis</p>
                 <p className="text-[9px] text-muted-foreground mt-0.5">Report Date: {new Date().toLocaleDateString()}</p>
               </div>
               <Badge variant="outline" className={cn("text-[9px] font-semibold", riskColor[customer.riskTag])}>
@@ -59,9 +59,9 @@ export function CustomerContextPanel({ customer }: Props) {
                 <p className={cn("text-3xl font-bold", scoreColor)}>{customer.bureauScore}</p>
                 <p className="text-[9px] text-muted-foreground">{scoreLabel}</p>
               </div>
-              <div className="flex-1 space-y-1.5">
+              <div className="flex-1 space-y-1.5 min-w-0">
                 <div className="flex items-center justify-between text-caption">
-                  <span className="text-muted-foreground">{customer.fullName}</span>
+                  <span className="text-muted-foreground truncate">{customer.fullName}</span>
                 </div>
                 <div className="flex items-center justify-between text-caption">
                   <span className="text-muted-foreground">PAN: {customer.pan}</span>
@@ -85,9 +85,9 @@ export function CustomerContextPanel({ customer }: Props) {
         </div>
 
         {/* Financial Summary */}
-        <Card className="border border-border">
+        <Card className="border border-border bg-card text-card-foreground">
           <CardHeader className="pb-2 pt-3 px-4">
-            <CardTitle className="text-caption font-semibold text-foreground uppercase tracking-wider">Financial Summary</CardTitle>
+            <h3 className="text-h4 font-semibold leading-tight text-foreground">Financial Summary</h3>
           </CardHeader>
           <CardContent className="px-4 pb-3">
             <div className="grid grid-cols-2 gap-2">
@@ -117,7 +117,7 @@ export function CustomerContextPanel({ customer }: Props) {
             <AccordionContent className="pb-3">
               <div className="space-y-2">
                 {customer.tradelines.map((t, i) => (
-                  <div key={i} className="flex items-center justify-between text-caption p-2 rounded bg-muted/50">
+                  <div key={i} className="flex items-center justify-between text-caption p-2 rounded-lg bg-muted/50 dark:bg-muted/30 border border-border/50">
                     <div>
                       <p className="font-medium text-foreground">{t.lender}</p>
                       <p className="text-[9px] text-muted-foreground">{t.type} · ₹{(t.sanctionedAmount / 100000).toFixed(1)}L</p>
@@ -125,7 +125,7 @@ export function CustomerContextPanel({ customer }: Props) {
                     <div className="text-right">
                       <Badge variant="outline" className={cn(
                         "text-[9px]",
-                        t.status === "Active" ? "text-success border-success/30" : t.status === "Closed" ? "text-muted-foreground" : "text-destructive border-destructive/30"
+                        t.status === "Active" ? "text-success bg-success/10 dark:bg-success/20 border-success/40" : t.status === "Closed" ? "text-muted-foreground border-border" : "text-destructive bg-destructive/10 dark:bg-destructive/20 border-destructive/40"
                       )}>
                         {t.status}
                       </Badge>
@@ -144,7 +144,7 @@ export function CustomerContextPanel({ customer }: Props) {
             <AccordionContent className="pb-3">
               <div className="space-y-2">
                 {customer.enquiryHistory.map((e, i) => (
-                  <div key={i} className="flex items-center justify-between text-caption p-2 rounded bg-muted/50">
+                  <div key={i} className="flex items-center justify-between text-caption p-2 rounded-lg bg-muted/50 dark:bg-muted/30 border border-border/50">
                     <div>
                       <p className="font-medium text-foreground">{e.institution}</p>
                       <p className="text-[9px] text-muted-foreground">{e.purpose}</p>
@@ -166,7 +166,7 @@ export function CustomerContextPanel({ customer }: Props) {
             <AccordionContent className="pb-3">
               <div className="space-y-2">
                 {customer.alerts.map((a, i) => (
-                  <div key={i} className="flex items-center gap-2 text-caption p-2 rounded bg-warning/5 border border-warning/20">
+                  <div key={i} className="flex items-center gap-2 text-caption p-2 rounded-lg bg-warning/10 dark:bg-warning/20 border border-warning/30">
                     <AlertTriangle className="w-3.5 h-3.5 text-warning shrink-0" />
                     <span className="text-foreground">{a}</span>
                   </div>
@@ -182,14 +182,14 @@ export function CustomerContextPanel({ customer }: Props) {
             <AccordionContent className="pb-3">
               <div className="space-y-2">
                 {customer.documents.map((d, i) => (
-                  <div key={i} className="flex items-center justify-between text-caption p-2 rounded bg-muted/50">
+                  <div key={i} className="flex items-center justify-between text-caption p-2 rounded-lg bg-muted/50 dark:bg-muted/30 border border-border/50">
                     <div className="flex items-center gap-2">
                       <FileCheck className="w-3.5 h-3.5 text-muted-foreground" />
                       <span className="font-medium text-foreground">{d.name}</span>
                     </div>
                     <Badge variant="outline" className={cn(
                       "text-[9px]",
-                      d.status === "Verified" ? "text-success border-success/30" : "text-warning border-warning/30"
+                      d.status === "Verified" ? "text-success bg-success/10 dark:bg-success/20 border-success/40" : "text-warning bg-warning/10 dark:bg-warning/20 border-warning/40"
                     )}>
                       {d.status}
                     </Badge>
@@ -206,8 +206,8 @@ export function CustomerContextPanel({ customer }: Props) {
 
 function MetricCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-border bg-card p-2.5 text-center">
-      <Icon className="w-3.5 h-3.5 text-muted-foreground mx-auto mb-1" />
+    <div className="rounded-lg border border-border bg-card text-card-foreground p-2.5 text-center">
+      <Icon className="w-3.5 h-3.5 text-primary mx-auto mb-1" />
       <p className="text-body font-semibold text-foreground leading-tight">{value}</p>
       <p className="text-[9px] text-muted-foreground">{label}</p>
     </div>
@@ -216,9 +216,9 @@ function MetricCard({ icon: Icon, label, value }: { icon: React.ElementType; lab
 
 function FinCard({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-2 rounded-md bg-muted/50 p-2">
-      <Icon className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-      <div>
+    <div className="flex items-center gap-2 rounded-lg bg-muted/50 dark:bg-muted/30 border border-border/50 p-2">
+      <Icon className="w-3.5 h-3.5 text-primary shrink-0" />
+      <div className="min-w-0">
         <p className="text-caption font-medium text-foreground leading-tight">{value}</p>
         <p className="text-[9px] text-muted-foreground">{label}</p>
       </div>

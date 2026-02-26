@@ -191,6 +191,19 @@
     box-shadow: 0 4px 20px -4px hsl(175 60% 40% / 0.15);
   }
 
+  /* Mobile-style horizontal scroll: no scrollbar, smooth touch, no vertical scroll */
+  .scroll-touch-x {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scroll-touch-x::-webkit-scrollbar {
+    display: none;
+  }
+
   /* Scroll hint: subtle gradient overlay on right edge for horizontal table scroll */
   .table-scroll-fade::after {
     content: "";

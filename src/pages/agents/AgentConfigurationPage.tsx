@@ -100,18 +100,26 @@ export default function AgentConfigurationPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/agents")}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <h1 className="text-h2 font-semibold text-foreground">Create Agent</h1>
-          <p className="text-caption text-muted-foreground">Configure a new AI agent for your institution</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/agents")}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="text-h2 font-semibold text-foreground">Create Agent</h1>
+            <p className="text-caption text-muted-foreground">Configure a new AI agent for your institution</p>
+          </div>
+        </div>
+        <div className="flex justify-end gap-3 shrink-0">
+          <Button variant="outline" onClick={() => navigate("/agents")}>Cancel</Button>
+          <Button onClick={handleCreate} className="gap-1.5">
+            <Plus className="w-4 h-4" /> Create Agent
+          </Button>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="w-fit shrink-0 flex-wrap">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
+        <TabsList className="flex w-full min-w-0 sm:w-fit shrink-0 flex-nowrap gap-1 sm:overflow-visible overflow-y-hidden scroll-touch-x px-3 sm:px-1">
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
           <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
@@ -390,14 +398,6 @@ export default function AgentConfigurationPage() {
           </div>
         </ScrollArea>
       </Tabs>
-
-      {/* Sticky Footer */}
-      <div className="sticky bottom-0 bg-background border-t border-border py-3 -mx-4 sm:-mx-6 px-4 sm:px-6 flex justify-end gap-3 mt-4">
-        <Button variant="outline" onClick={() => navigate("/agents")}>Cancel</Button>
-        <Button onClick={handleCreate} className="gap-1.5">
-          <Plus className="w-4 h-4" /> Create Agent
-        </Button>
-      </div>
     </div>
   );
 }

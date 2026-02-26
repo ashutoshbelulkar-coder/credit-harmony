@@ -13,6 +13,7 @@ export const mockAgents: Agent[] = [
     modelConfig: { model: "GPT Enterprise", temperature: 0.3, maxTokens: 4096 },
     tools: [
       { id: "bureau-enquiry", name: "Bureau Enquiry", description: "Pull credit bureau report for a customer", icon: "Search" },
+      { id: "open-banking", name: "Open Banking", description: "Pull data from open banking", icon: "Landmark" },
       { id: "bank-upload", name: "Upload Bank Statement", description: "Analyze bank statement for cash flow insights", icon: "Upload" },
       { id: "gst-fetch", name: "Fetch GST Data", description: "Retrieve GST filing data for business assessment", icon: "FileText" },
       { id: "fraud-check", name: "Fraud Check", description: "Run fraud detection checks on customer profile", icon: "ShieldAlert" },
@@ -29,10 +30,9 @@ export const mockAgents: Agent[] = [
     subAgents: [
       { id: "bureau-inquiry", name: "Bureau Inquiry", description: "Pull and analyze credit bureau reports with deep insights", icon: "Search" },
       { id: "lender-doc", name: "Lender Document Analysis", description: "Analyze financial documents for lending decisions", icon: "FileSearch" },
-      { id: "loan-origination", name: "Loan Origination", description: "End-to-end loan origination workflow automation", icon: "FileSignature" },
-      { id: "risk-analytics", name: "Risk Analytics", description: "Advanced risk modeling and portfolio analytics", icon: "BarChart3" },
-      { id: "fraud-detection", name: "Fraud Detection", description: "AI-powered fraud detection and alert system", icon: "ShieldAlert" },
-      { id: "kyc-verification", name: "KYC Verification", description: "Automated KYC document verification and compliance", icon: "UserCheck" },
+      { id: "risk-analytics", name: "Risk Analytics", description: "Advanced risk modeling and portfolio analytics", icon: "BarChart3", comingSoon: true },
+      { id: "fraud-detection", name: "Fraud Detection", description: "AI-powered fraud detection and alert system", icon: "ShieldAlert", comingSoon: true },
+      { id: "kyc-verification", name: "KYC Verification", description: "Automated KYC document verification and compliance", icon: "UserCheck", comingSoon: true },
       { id: "business-credit", name: "Business Credit", description: "Commercial credit assessment and monitoring", icon: "Building2", comingSoon: true },
     ],
   },
