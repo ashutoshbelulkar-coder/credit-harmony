@@ -5,6 +5,8 @@ export interface Agent {
   instructions: string;
   icon: string;
   tags: string[];
+  status: "active" | "draft";
+  subscribed?: boolean;
   modelConfig: {
     model: string;
     temperature: number;
@@ -14,7 +16,15 @@ export interface Agent {
   capabilities: Record<string, boolean>;
   sources: Record<string, boolean>;
   suggestedPrompts: SuggestedPrompt[];
-  status: "active" | "draft";
+  subAgents?: SubAgent[];
+}
+
+export interface SubAgent {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  comingSoon?: boolean;
 }
 
 export interface AgentTool {
@@ -42,14 +52,29 @@ export interface Customer {
   riskTag: "Low" | "Medium" | "High" | "Critical";
   bureauScore: number;
   activeLoans: number;
+  totalDebt: number;
   dpdStatus: string;
   enquiries6m: number;
   utilizationPct: number;
+  creditMix: string;
+  worstStatus: string;
+  oldestAccount: string;
   riskFlags: string[];
+  balance: number;
+  income: number;
+  spending: number;
+  savings: number;
+  regularIncome: number;
+  monthlyEmi: number;
+  savingsRatio: number;
+  incomeExpenseRatio: number;
+  runway: string;
+  negativeSavings: boolean;
   tradelines: Tradeline[];
   enquiryHistory: EnquiryRecord[];
   alerts: string[];
   documents: CustomerDocument[];
+  executiveSummary: string;
 }
 
 export interface Tradeline {
@@ -87,15 +112,6 @@ export interface ChatMessage {
 export interface SuggestedAction {
   label: string;
   toolId: string;
-  icon: string;
-}
-
-export interface ChatSession {
-  id: string;
-  agentId: string;
-  customerId?: string;
-  messages: ChatMessage[];
-  createdAt: string;
 }
 
 export interface BureauEnquiryForm {
@@ -105,4 +121,12 @@ export interface BureauEnquiryForm {
   dob: string;
   address: string;
   consent: boolean;
+}
+
+export interface RecentActivity {
+  id: string;
+  date: string;
+  title: string;
+  agentId: string;
+  agentName: string;
 }
