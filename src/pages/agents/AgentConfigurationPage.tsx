@@ -144,7 +144,7 @@ export default function AgentConfigurationPage() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-4 sm:px-0 sm:pt-0 sm:pb-0">
       {/* Header */}
       <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex min-w-0 items-start gap-3 sm:items-center">
@@ -174,14 +174,14 @@ export default function AgentConfigurationPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0 min-w-0 overflow-hidden">
-        <TabsList className="flex w-full min-w-0 sm:w-fit shrink-0 flex-nowrap gap-1 sm:overflow-visible overflow-y-hidden scroll-touch-x px-3 sm:px-1">
-          <TabsTrigger value="details">Details</TabsTrigger>
-          <TabsTrigger value="knowledge">Knowledge</TabsTrigger>
-          <TabsTrigger value="capabilities">Capabilities</TabsTrigger>
-          <TabsTrigger value="tools">Tools</TabsTrigger>
-          <TabsTrigger value="prompts">Prompts</TabsTrigger>
-          <TabsTrigger value="model">GenAI Model</TabsTrigger>
-          <TabsTrigger value="preview">Preview</TabsTrigger>
+        <TabsList className="flex w-full min-w-0 sm:w-fit shrink-0 flex-nowrap gap-1 overflow-x-auto overflow-y-hidden scroll-smooth px-3 sm:px-1 sm:overflow-visible [scrollbar-width:none] [-webkit-overflow-scrolling:touch]">
+          <TabsTrigger value="details" className="shrink-0">Details</TabsTrigger>
+          <TabsTrigger value="knowledge" className="shrink-0">Knowledge</TabsTrigger>
+          <TabsTrigger value="capabilities" className="shrink-0">Capabilities</TabsTrigger>
+          <TabsTrigger value="tools" className="shrink-0">Tools</TabsTrigger>
+          <TabsTrigger value="prompts" className="shrink-0">Prompts</TabsTrigger>
+          <TabsTrigger value="model" className="shrink-0">GenAI Model</TabsTrigger>
+          <TabsTrigger value="preview" className="shrink-0">Preview</TabsTrigger>
         </TabsList>
 
         <ScrollArea className="flex-1 mt-4">

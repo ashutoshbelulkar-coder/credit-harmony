@@ -85,10 +85,11 @@ export function AppSidebar() {
             item.path === "/"
               ? location.pathname === "/"
               : location.pathname.startsWith(item.path);
-          // Keep sub-nav visible when on any sub-route (e.g. Data Submitters OR Subscribers)
-          const isInstitutionsSectionActive = institutionSubItems.some(
-            (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")
-          );
+          // Keep sub-nav visible when on any sub-route or institution detail (/institutions/:id)
+          const isInstitutionsSectionActive =
+            institutionSubItems.some(
+              (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")
+            ) || (location.pathname.startsWith("/institutions/") && location.pathname !== "/institutions/register");
           const isDataGovSectionActive = dataGovernanceSubItems.some(
             (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")
           );
