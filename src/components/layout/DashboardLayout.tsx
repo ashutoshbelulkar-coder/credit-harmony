@@ -26,6 +26,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     };
   }, [mobileSidebarOpen]);
 
+  // Scroll to top when route changes (e.g. opening a new section from sidebar)
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [location.pathname]);
+
   return (
     <div className="flex h-dvh overflow-hidden w-full bg-background">
       {/* Desktop / tablet sidebar */}
