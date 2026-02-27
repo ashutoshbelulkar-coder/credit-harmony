@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 
@@ -50,9 +51,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {showHeader && (
           <AppHeader onToggleSidebar={() => setMobileSidebarOpen((open) => !open)} />
         )}
-        <main className="flex flex-1 flex-col min-h-0 overflow-hidden p-4 sm:p-6 pr-[max(1rem,env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)]">
+        <main className={cn("flex flex-1 flex-col min-h-0 overflow-hidden pr-[max(1rem,env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)]", isAgentsSection ? "p-0 sm:p-4 sm:p-6" : "p-4 sm:p-6")}>
           {isAgentsSection ? (
-            <div className="flex flex-1 flex-col min-h-0 overflow-hidden">{children}</div>
+            <div className="flex flex-1 flex-col min-h-0 overflow-hidden max-h-[100dvh] sm:max-h-none">{children}</div>
           ) : (
             children
           )}

@@ -199,9 +199,9 @@ export function BureauOperatorWorkspace({ agent, onBack }: Props) {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex flex-col min-h-0 flex-1 overflow-hidden h-full max-h-[100dvh] sm:max-h-none">
-      {/* Header */}
-      <header className="flex flex-wrap items-center gap-1.5 sm:gap-2 pb-2 sm:pb-2.5 border-b border-border shrink-0 px-0">
+    <div className="flex flex-col min-h-0 flex-1 overflow-hidden h-full px-4 sm:px-0 pb-[env(safe-area-inset-bottom)]">
+      {/* Header - sticky at top on mobile */}
+      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-1.5 sm:gap-2 pb-2 sm:pb-2.5 border-b border-border shrink-0 px-0 bg-background">
         <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0 h-8 w-8" aria-label="Back">
           <ArrowLeft className="w-4 h-4" />
         </Button>
@@ -355,8 +355,8 @@ export function BureauOperatorWorkspace({ agent, onBack }: Props) {
                 </div>
               )}
 
-              {/* Input bar - always visible on mobile, safe area padding */}
-              <div className="shrink-0 flex flex-wrap gap-2 items-center pt-1 pb-1 bg-background pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+              {/* Input bar - sticky at bottom on mobile */}
+              <div className="sticky bottom-0 z-10 shrink-0 flex flex-wrap gap-2 items-center pt-1 pb-1 border-t border-border bg-background pb-[max(0.25rem,env(safe-area-inset-bottom))]">
                 <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9 text-muted-foreground hover:text-foreground" aria-label="Attach file">
                   <Paperclip className="w-4 h-4" />
                 </Button>
