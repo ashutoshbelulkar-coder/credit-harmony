@@ -31,6 +31,16 @@ const toolIcons: Record<string, React.ElementType> = {
   "tradeline-sim": GitBranch,
 };
 
+const DEFAULT_RECOMMENDED_TOOLS = [
+  { id: "bureau-enquiry", name: "Bureau Enquiry", description: "Pull credit bureau report", icon: "Search" },
+  { id: "open-banking", name: "Open Banking", description: "Pull data from open banking", icon: "Landmark" },
+  { id: "bank-upload", name: "Upload Bank Statement", description: "Analyze bank statement", icon: "Upload" },
+  { id: "gst-fetch", name: "Fetch GST Data", description: "Retrieve GST filing data", icon: "FileText" },
+  { id: "fraud-check", name: "Fraud Check", description: "Run fraud detection", icon: "ShieldAlert" },
+  { id: "risk-simulation", name: "Risk Simulation", description: "Simulate risk scenarios", icon: "BarChart3" },
+  { id: "tradeline-sim", name: "What-if Simulation", description: "Model trade line impact", icon: "GitBranch" },
+];
+
 interface Props {
   agent: Agent;
   subAgentId: string;
@@ -55,6 +65,9 @@ export function AgentChatWorkspace({ agent, subAgentId, onBack }: Props) {
   const [activeTab, setActiveTab] = useState("chat");
   const [sources, setSources] = useState<Record<string, boolean>>(agent.sources);
   const chatEndRef = useRef<HTMLDivElement>(null);
+
+  const baseToolsList = (agent.tools.length > 0 ? agent.tools : DEFAULT_RECOMMENDED_TOOLS).slice(0, 6);
+  const [recommendedToolOrder, setRecommendedToolOrder] = useState<string[]>(() => baseToolsList.map((t) => t.id));
 
   // Mock list of past chat sessions (replace with API later)
   const chatHistoryList = [
@@ -98,6 +111,14 @@ export function AgentChatWorkspace({ agent, subAgentId, onBack }: Props) {
   }, [inputValue]);
 
   const handleToolClick = useCallback((toolId: string) => {
+    setRecommendedToolOrder((prev) => {
+      const i = prev.indexOf(toolId);
+      if (i === -1) return prev;
+      const next = [...prev];
+      next.splice(i, 1);
+      next.push(toolId);
+      return next;
+    });
     if (toolId === "bureau-enquiry") {
       setShowBureauModal(true);
     } else if (toolId === "bank-upload") {
@@ -167,17 +188,9 @@ export function AgentChatWorkspace({ agent, subAgentId, onBack }: Props) {
     }, 800);
   }, []);
 
-  const recommendedTools = agent.tools.length > 0
-    ? agent.tools.filter((t) => sources[Object.keys(sources).find((k) => t.id.includes(k.replace(/([A-Z])/g, "-$1").toLowerCase())) || ""] !== false || true).slice(0, 6)
-    : [
-        { id: "bureau-enquiry", name: "Bureau Enquiry", description: "Pull credit bureau report", icon: "Search" },
-        { id: "open-banking", name: "Open Banking", description: "Pull data from open banking", icon: "Landmark" },
-        { id: "bank-upload", name: "Upload Bank Statement", description: "Analyze bank statement", icon: "Upload" },
-        { id: "gst-fetch", name: "Fetch GST Data", description: "Retrieve GST filing data", icon: "FileText" },
-        { id: "fraud-check", name: "Fraud Check", description: "Run fraud detection", icon: "ShieldAlert" },
-        { id: "risk-simulation", name: "Risk Simulation", description: "Simulate risk scenarios", icon: "BarChart3" },
-        { id: "tradeline-sim", name: "What-if Simulation", description: "Model trade line impact", icon: "GitBranch" },
-      ];
+  const recommendedTools = recommendedToolOrder
+    .map((id) => baseToolsList.find((t) => t.id === id))
+    .filter((t): t is (typeof baseToolsList)[number] => t != null);
 
   return (
     <div className="flex flex-col min-h-0 flex-1 overflow-hidden h-full min-h-0 px-4 sm:px-0">

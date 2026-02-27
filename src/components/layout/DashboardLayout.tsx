@@ -27,7 +27,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }, [mobileSidebarOpen]);
 
   return (
-    <div className="flex min-h-screen w-full bg-background">
+    <div className="flex h-dvh overflow-hidden w-full bg-background">
       {/* Desktop / tablet sidebar */}
       <div className="hidden md:flex">
         <AppSidebar />
@@ -52,9 +52,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {showHeader && (
           <AppHeader onToggleSidebar={() => setMobileSidebarOpen((open) => !open)} />
         )}
-        <main className={cn("flex flex-1 flex-col min-h-0 overflow-hidden p-4 sm:p-6 pr-[max(1rem,env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)]", isAgentSubscreen && "p-0 pb-0 sm:p-4 sm:p-6")}>
+        <main className={cn("flex flex-1 flex-col min-h-0 p-4 sm:p-6 pr-[max(1rem,env(safe-area-inset-right))] pb-[max(1rem,env(safe-area-inset-bottom))]", isAgentSubscreen ? "overflow-hidden p-0 pb-0 sm:p-4 sm:p-6" : "overflow-y-auto")}>
           {isAgentSubscreen ? (
-            <div className="flex flex-1 flex-col min-h-0 overflow-hidden max-h-[100dvh] sm:max-h-none">{children}</div>
+            <div className="flex flex-1 flex-col min-h-0 overflow-hidden">{children}</div>
           ) : (
             children
           )}

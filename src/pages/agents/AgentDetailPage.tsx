@@ -55,7 +55,7 @@ export default function AgentDetailPage() {
   }
 
   return (
-    <div className="space-y-6 px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-0 sm:pt-0 sm:pb-0">
+    <div className="flex flex-col min-h-0 flex-1 overflow-hidden px-4 pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:px-0 sm:pt-0 sm:pb-0">
       {/* Header - same style as AgentChatWorkspace */}
       <header className="flex flex-wrap items-center gap-1.5 sm:gap-2 pb-2 sm:pb-2.5 border-b border-border shrink-0 px-0">
         <Button variant="ghost" size="icon" onClick={() => navigate("/agents")} className="shrink-0 h-8 w-8" aria-label="Back">
@@ -80,8 +80,8 @@ export default function AgentDetailPage() {
         </div>
       </header>
 
-      {/* Services Grid */}
-      <div>
+      {/* Services Grid - scrollable on mobile */}
+      <div className="flex-1 min-h-0 overflow-y-auto">
         <h2 className="text-h4 font-semibold text-foreground mb-4">Services</h2>
         {agent.subAgents && agent.subAgents.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

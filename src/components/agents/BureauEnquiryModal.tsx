@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,8 +20,12 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
     dob: "",
     address: "",
   });
-  const [consent, setConsent] = useState(false);
+  const [consent, setConsent] = useState(true);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (open) setConsent(true);
+  }, [open]);
 
   const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
@@ -125,8 +129,8 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
                 type="date"
                 value={form.dob}
                 onChange={(e) => setForm((f) => ({ ...f, dob: e.target.value }))}
-                onFocus={scrollFocusedInputIntoView}
-                className="min-h-11 w-full min-w-0 text-base touch-manipulation sm:min-h-10 sm:text-sm box-border"
+                max={new Date().toISOString().slice(0, 10)}
+                className="min-h-11 w-full min-w-0 text-base touch-manipulation sm:min-h-10 sm:text-sm box-border [color-scheme:light] dark:[color-scheme:dark]"
               />
               {errors.dob && <p className="text-[10px] text-destructive">{errors.dob}</p>}
             </div>
@@ -145,15 +149,15 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
             {errors.address && <p className="text-[10px] text-destructive">{errors.address}</p>}
           </div>
 
-          <div className="flex items-start gap-3 p-3 rounded-xl border border-warning/30 bg-warning/5 touch-manipulation">
+          <div className="flex items-center justify-center gap-3 p-3 rounded-xl border border-warning/30 bg-warning/5 touch-manipulation text-center">
             <Checkbox
               id="consent"
               checked={consent}
               onCheckedChange={(c) => setConsent(!!c)}
-              className="mt-0.5 size-5 shrink-0"
+              className="size-5 shrink-0"
             />
-            <div className="min-w-0">
-              <Label htmlFor="consent" className="text-xs cursor-pointer leading-tight block truncate">
+            <div className="min-w-0 flex-1">
+              <Label htmlFor="consent" className="text-xs cursor-pointer leading-tight block">
                 I confirm that explicit consent has been obtained from the customer for this bureau enquiry as per regulatory requirements.
               </Label>
               {errors.consent && (
