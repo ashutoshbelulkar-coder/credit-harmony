@@ -12,7 +12,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const location = useLocation();
   const isAgentsSection = location.pathname.startsWith("/agents");
-  const showHeader = location.pathname === "/agents" || !location.pathname.startsWith("/agents");
+  const isAgentSubscreen = isAgentsSection && location.pathname !== "/agents";
+  const showHeader = location.pathname === "/agents" || !isAgentsSection;
 
   useEffect(() => {
     if (mobileSidebarOpen && window.matchMedia("(max-width: 767px)").matches) {
@@ -51,8 +52,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {showHeader && (
           <AppHeader onToggleSidebar={() => setMobileSidebarOpen((open) => !open)} />
         )}
-        <main className={cn("flex flex-1 flex-col min-h-0 overflow-hidden pr-[max(1rem,env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)]", isAgentsSection ? "p-0 sm:p-4 sm:p-6" : "p-4 sm:p-6")}>
-          {isAgentsSection ? (
+        <main className={cn("flex flex-1 flex-col min-h-0 overflow-hidden p-4 sm:p-6 pr-[max(1rem,env(safe-area-inset-right))] pb-[env(safe-area-inset-bottom)]", isAgentSubscreen && "p-0 sm:p-4 sm:p-6")}>
+          {isAgentSubscreen ? (
             <div className="flex flex-1 flex-col min-h-0 overflow-hidden max-h-[100dvh] sm:max-h-none">{children}</div>
           ) : (
             children
