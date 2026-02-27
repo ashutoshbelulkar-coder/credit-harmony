@@ -3,21 +3,11 @@ import { useState } from "react";
 import { useTheme } from "next-themes";
 import { cn } from "@/lib/utils";
 
-const institutions = [
-  "All Institutions",
-  "First National Bank",
-  "Metro Credit Union",
-  "Pacific Finance Corp",
-  "Southern Trust Bank",
-];
-
 interface AppHeaderProps {
   onToggleSidebar?: () => void;
 }
 
 export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
-  const [selectedInstitution, setSelectedInstitution] = useState(institutions[0]);
-  const [showInstitutions, setShowInstitutions] = useState(false);
   const [searchFocused, setSearchFocused] = useState(false);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const { theme, setTheme } = useTheme();
@@ -33,41 +23,6 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
       >
         <Menu className="h-4 w-4" />
       </button>
-
-      {/* Institution Selector */}
-      <div className="relative hidden md:block">
-        <button
-          onClick={() => setShowInstitutions(!showInstitutions)}
-          className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-background hover:bg-muted transition-colors text-body font-medium"
-        >
-          <Building2Icon />
-          <span className="max-w-[160px] truncate">{selectedInstitution}</span>
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
-        </button>
-
-        {showInstitutions && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowInstitutions(false)} />
-            <div className="absolute top-full left-0 mt-1 w-64 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-fade-in">
-              {institutions.map((inst) => (
-                <button
-                  key={inst}
-                  onClick={() => {
-                    setSelectedInstitution(inst);
-                    setShowInstitutions(false);
-                  }}
-                  className={cn(
-                    "w-full text-left px-4 py-2.5 text-body hover:bg-muted transition-colors",
-                    selectedInstitution === inst && "bg-muted font-medium text-foreground"
-                  )}
-                >
-                  {inst}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
 
       {/* Global Search */}
       <div className="ml-auto flex-1 max-w-md">
@@ -147,16 +102,5 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
         <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden md:block shrink-0" />
       </button>
     </header>
-  );
-}
-
-function Building2Icon() {
-  return (
-    <svg className="w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" />
-      <path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" />
-      <path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" />
-      <path d="M10 6h4" /><path d="M10 10h4" /><path d="M10 14h4" /><path d="M10 18h4" />
-    </svg>
   );
 }

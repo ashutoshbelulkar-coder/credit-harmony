@@ -11,7 +11,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const location = useLocation();
   const isAgentsSection = location.pathname.startsWith("/agents");
-  const showHeader = location.pathname === "/agents";
+  const showHeader = location.pathname === "/agents" || !location.pathname.startsWith("/agents");
 
   useEffect(() => {
     if (mobileSidebarOpen && window.matchMedia("(max-width: 767px)").matches) {
