@@ -1,0 +1,229 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 97%;
+    --foreground: 222 47% 11%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+
+    --primary: 214 78% 20%;
+    --primary-foreground: 210 40% 98%;
+    --primary-light: 214 78% 95%;
+
+    --secondary: 175 60% 40%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 220 14% 92%;
+    --muted-foreground: 220 9% 46%;
+
+    --accent: 175 50% 45%;
+    --accent-foreground: 0 0% 100%;
+    --accent-light: 175 50% 95%;
+
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 210 40% 98%;
+
+    --danger: 0 72% 51%;
+    --danger-foreground: 0 0% 100%;
+    --danger-light: 0 72% 96%;
+    --danger-subtle: 0 65% 92%;
+
+    --border: 220 13% 88%;
+    --input: 220 13% 88%;
+    --ring: 214 78% 20%;
+
+    --radius: 0.5rem;
+
+    /* Custom tokens */
+    --sidebar-bg: 222 47% 11%;
+    --sidebar-fg: 220 14% 80%;
+    --sidebar-active: 175 60% 40%;
+    --sidebar-hover: 222 40% 16%;
+    --sidebar-border: 222 30% 18%;
+
+    --success: 152 60% 42%;
+    --success-foreground: 0 0% 100%;
+    --success-light: 152 60% 96%;
+    --success-subtle: 152 50% 92%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --warning-light: 38 92% 96%;
+    --warning-subtle: 38 85% 88%;
+    --info: 210 80% 52%;
+    --info-foreground: 0 0% 100%;
+    --info-light: 210 80% 96%;
+    --info-subtle: 210 70% 90%;
+
+    --header-bg: 0 0% 100%;
+    --header-border: 220 13% 90%;
+
+    --badge-sandbox: 38 92% 50%;
+    --badge-uat: 262 52% 47%;
+    --badge-prod: 152 60% 42%;
+
+    --crif-orange: 24 95% 53%;
+    --crif-orange-foreground: 0 0% 100%;
+
+    --chart-1: 214 78% 20%;
+    --chart-2: 152 55% 40%;
+    --chart-3: 38 92% 50%;
+    --chart-4: 225 20% 65%;
+    --chart-5: 210 16% 35%;
+
+    --sidebar-background: 222 47% 11%;
+    --sidebar-foreground: 220 14% 80%;
+    --sidebar-primary: 175 60% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 222 40% 16%;
+    --sidebar-accent-foreground: 220 14% 90%;
+    --sidebar-border: 222 30% 18%;
+    --sidebar-ring: 175 60% 40%;
+
+    /* Theme alias tokens (responsive + theme optimization) */
+    --bg-primary: var(--background);
+    --bg-secondary: var(--muted);
+    --text-primary: var(--foreground);
+    --text-secondary: var(--muted-foreground);
+    --border-default: var(--border);
+    --card-bg: var(--card);
+    --table-header-bg: 220 14% 94%;
+    --hover-bg: 220 14% 92%;
+  }
+
+  .dark {
+    --background: 222 47% 8%;
+    --foreground: 210 40% 95%;
+    --card: 222 47% 11%;
+    --card-foreground: 210 40% 95%;
+    --popover: 222 47% 11%;
+    --popover-foreground: 210 40% 95%;
+    --primary: 175 60% 40%;
+    --primary-foreground: 0 0% 100%;
+    --primary-light: 175 60% 20%;
+    --secondary: 214 78% 20%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 222 30% 18%;
+    --muted-foreground: 220 14% 60%;
+    --accent: 175 50% 35%;
+    --accent-foreground: 0 0% 100%;
+    --accent-light: 175 50% 20%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 210 40% 98%;
+    --danger: 0 72% 55%;
+    --danger-foreground: 0 0% 100%;
+    --danger-light: 0 72% 15%;
+    --danger-subtle: 0 65% 20%;
+    --success-light: 152 60% 15%;
+    --success-subtle: 152 50% 20%;
+    --warning-light: 38 92% 15%;
+    --warning-subtle: 38 85% 22%;
+    --info-light: 210 80% 15%;
+    --info-subtle: 210 70% 22%;
+    --crif-orange: 24 90% 55%;
+    --crif-orange-foreground: 0 0% 100%;
+    --border: 222 30% 18%;
+    --input: 222 30% 18%;
+    --ring: 175 60% 40%;
+
+    /* Theme alias tokens (dark) */
+    --bg-primary: var(--background);
+    --bg-secondary: var(--muted);
+    --text-primary: var(--foreground);
+    --text-secondary: var(--muted-foreground);
+    --border-default: var(--border);
+    --card-bg: var(--card);
+    --table-header-bg: 222 35% 14%;
+    --hover-bg: 222 35% 16%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@layer utilities {
+  .sidebar-gradient {
+    background: linear-gradient(180deg, hsl(222 47% 11%) 0%, hsl(222 47% 8%) 100%);
+  }
+
+  .card-shine {
+    background: linear-gradient(135deg, hsl(0 0% 100% / 0.05) 0%, transparent 50%);
+  }
+
+  .stat-glow-primary {
+    box-shadow: 0 4px 20px -4px hsl(214 78% 20% / 0.15);
+  }
+
+  .stat-glow-success {
+    box-shadow: 0 4px 20px -4px hsl(152 60% 42% / 0.15);
+  }
+
+  .stat-glow-warning {
+    box-shadow: 0 4px 20px -4px hsl(38 92% 50% / 0.15);
+  }
+
+  .stat-glow-accent {
+    box-shadow: 0 4px 20px -4px hsl(175 60% 40% / 0.15);
+  }
+
+  /* Mobile-style horizontal scroll: no scrollbar, smooth touch, no vertical scroll */
+  .scroll-touch-x {
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  .scroll-touch-x::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Scroll hint: subtle gradient overlay on right edge for horizontal table scroll */
+  .table-scroll-fade::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 24px;
+    pointer-events: none;
+    background: linear-gradient(to right, transparent, hsl(var(--background) / 0.6));
+  }
+  .dark .table-scroll-fade::after {
+    background: linear-gradient(to right, transparent, hsl(var(--background) / 0.8));
+  }
+}
+
+@media print {
+  aside,
+  [data-sidebar],
+  .no-print {
+    display: none !important;
+  }
+}
