@@ -68,6 +68,14 @@ export default function AgentsLandingPage() {
                           aria-label="Online"
                         />
                       </div>
+                      {agent.subscribed && (
+                        <Badge
+                          variant="outline"
+                          className="mt-1.5 text-[9px] uppercase font-semibold border-success text-success bg-success/10 dark:bg-success/20"
+                        >
+                          Subscribed
+                        </Badge>
+                      )}
                     </div>
                   </div>
                   <p className="text-caption text-muted-foreground line-clamp-2">
@@ -84,23 +92,26 @@ export default function AgentsLandingPage() {
                       </Badge>
                     ))}
                   </div>
-                  <div className="flex items-center justify-between pt-2 mt-auto border-t border-border">
-                    {agent.subscribed ? (
-                      <Badge
-                        variant="outline"
-                        className="text-[9px] uppercase font-semibold border-success text-success bg-success/10 dark:bg-success/20"
-                      >
-                        Subscribed
-                      </Badge>
-                    ) : (
-                      <span />
-                    )}
+                  <div className="flex items-stretch gap-2 pt-2 mt-auto border-t border-border">
                     <Button
                       variant="outline"
                       size="sm"
-                      className="gap-1.5 text-caption border-border bg-transparent text-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                      className="flex-1 min-w-0 gap-1.5 text-caption border-border bg-transparent text-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate("/agents/configuration");
+                      }}
                     >
-                      Explore <ArrowRight className="w-3.5 h-3.5" />
+                      <Settings className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Configure</span>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 min-w-0 gap-1.5 text-caption border-border bg-transparent text-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                    >
+                      <span className="truncate">Explore</span>
+                      <ArrowRight className="w-3.5 h-3.5 shrink-0" />
                     </Button>
                   </div>
                 </CardContent>

@@ -100,20 +100,19 @@ export default function AgentConfigurationPage() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate("/agents")}>
+      <div className="flex flex-col gap-4 mb-6 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3 sm:items-center">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/agents")} className="shrink-0">
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <div>
+          <div className="min-w-0 flex-1">
             <h1 className="text-h2 font-semibold text-foreground">Create Agent</h1>
-            <p className="text-caption text-muted-foreground">Configure a new AI agent for your institution</p>
+            <p className="text-caption text-muted-foreground mt-0.5">Configure a new AI agent for your institution</p>
           </div>
         </div>
-        <div className="flex justify-end gap-3 shrink-0">
-          <Button variant="outline" onClick={() => navigate("/agents")}>Cancel</Button>
-          <Button onClick={handleCreate} className="gap-1.5">
-            <Plus className="w-4 h-4" /> Create Agent
+        <div className="flex w-full flex-shrink-0 justify-end sm:w-auto">
+          <Button onClick={handleCreate} className="w-full gap-1.5 sm:w-auto">
+            <Plus className="w-4 h-4" /> Deploy Agent
           </Button>
         </div>
       </div>

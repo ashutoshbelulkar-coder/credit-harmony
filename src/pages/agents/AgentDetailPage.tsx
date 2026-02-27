@@ -8,6 +8,7 @@ import {
   ArrowLeft, ArrowRight, Search, FileSearch, FileSignature, BarChart3,
   ShieldAlert, UserCheck, Building2, Brain, Home, MapPin, Building,
   Landmark, Shield, Wifi, Car, Handshake, Settings, ClipboardCheck, User,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AgentChatWorkspace } from "@/components/agents/AgentChatWorkspace";
@@ -55,16 +56,29 @@ export default function AgentDetailPage() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/agents")} className="shrink-0">
-          <ArrowLeft className="w-5 h-5" />
+      {/* Header - same style as AgentChatWorkspace */}
+      <header className="flex flex-wrap items-center gap-1.5 sm:gap-2 pb-2 sm:pb-2.5 border-b border-border shrink-0 px-0">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/agents")} className="shrink-0 h-8 w-8" aria-label="Back">
+          <ArrowLeft className="w-4 h-4" />
         </Button>
-        <div className="flex-1 min-w-0">
-          <h1 className="text-h2 font-semibold text-foreground truncate">{agent.name}</h1>
-          <p className="text-caption text-muted-foreground">{agent.description}</p>
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-1 min-w-0">
+          <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-primary/10 dark:bg-primary/20 border border-primary/20 flex items-center justify-center shrink-0">
+            <Brain className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-primary" />
+          </div>
+          <h1 className="text-body font-semibold text-foreground truncate">{agent.name}</h1>
+          <span
+            className="w-2 h-2 rounded-full bg-success shrink-0 hidden sm:block"
+            title="Online"
+            aria-hidden
+          />
         </div>
-      </div>
+        <div className="flex items-center gap-0.5 sm:gap-1">
+          <Button variant="ghost" size="sm" className="gap-1 text-caption h-7 px-2 sm:px-2.5 text-muted-foreground hover:text-foreground">
+            <History className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Chat History</span>
+          </Button>
+        </div>
+      </header>
 
       {/* Services Grid */}
       <div>

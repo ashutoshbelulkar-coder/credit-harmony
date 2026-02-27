@@ -199,7 +199,7 @@ export function BureauOperatorWorkspace({ agent, onBack }: Props) {
   const isEmpty = messages.length === 0;
 
   return (
-    <div className="flex flex-col min-h-0 flex-1 overflow-hidden">
+    <div className="flex flex-col min-h-0 flex-1 overflow-hidden h-full max-h-[100dvh] sm:max-h-none">
       {/* Header */}
       <header className="flex flex-wrap items-center gap-1.5 sm:gap-2 pb-2 sm:pb-2.5 border-b border-border shrink-0 px-0">
         <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0 h-8 w-8" aria-label="Back">
@@ -267,7 +267,7 @@ export function BureauOperatorWorkspace({ agent, onBack }: Props) {
         </aside>
 
         {/* Right — AI Operations Assistant */}
-        <div className="flex-1 flex flex-col min-h-0 overflow-hidden pl-0 lg:pl-4">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden pl-0 lg:pl-4 min-w-0">
           {/* Filters bar */}
           <div className="shrink-0 flex flex-wrap items-center gap-2 pb-2.5 border-b border-border">
             <Filter className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
@@ -284,7 +284,7 @@ export function BureauOperatorWorkspace({ agent, onBack }: Props) {
           {executiveMode ? (
             <ExecutiveDashboard onExit={() => setExecutiveMode(false)} />
           ) : (
-            <>
+            <div className="flex flex-col flex-1 min-h-0 overflow-hidden min-w-0">
               {/* Daily Ops Summary card (proactive on load) */}
               {showBanner && (
                 <div className="shrink-0 mt-3 rounded-lg border border-primary/20 bg-muted/30 dark:bg-muted/20 px-3 py-2.5 flex items-start gap-2.5">
@@ -317,14 +317,14 @@ export function BureauOperatorWorkspace({ agent, onBack }: Props) {
                 </div>
               )}
 
-              {/* Messages area */}
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col mt-3">
+              {/* Messages area - scrollable so input stays visible on mobile */}
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col mt-3 min-w-0">
                 {isEmpty ? (
-                  <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                  <div className="flex-1 min-h-0 overflow-auto flex flex-col min-w-0">
                     <ActionCardsGrid onCardClick={handleActionCard} />
                   </div>
                 ) : (
-                  <ScrollArea className="flex-1 min-h-0 h-0 basis-0">
+                  <ScrollArea className="flex-1 min-h-0 h-0 basis-0 min-w-0">
                     <div className="space-y-4 px-1 sm:px-2 pr-2 pb-4">
                       {messages.map((msg) => (
                         <ChatBubble key={msg.id} message={msg} onActionClick={handleInlineAction} />
@@ -355,8 +355,8 @@ export function BureauOperatorWorkspace({ agent, onBack }: Props) {
                 </div>
               )}
 
-              {/* Input bar */}
-              <div className="shrink-0 flex flex-wrap gap-2 items-center pt-1 pb-1">
+              {/* Input bar - always visible on mobile, safe area padding */}
+              <div className="shrink-0 flex flex-wrap gap-2 items-center pt-1 pb-1 bg-background pb-[max(0.25rem,env(safe-area-inset-bottom))]">
                 <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9 text-muted-foreground hover:text-foreground" aria-label="Attach file">
                   <Paperclip className="w-4 h-4" />
                 </Button>
@@ -382,7 +382,7 @@ export function BureauOperatorWorkspace({ agent, onBack }: Props) {
                   <Send className="w-4 h-4" />
                 </Button>
               </div>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -439,7 +439,7 @@ export function BureauOperatorWorkspace({ agent, onBack }: Props) {
 /* ─── Action Cards Grid ──────────────────────────────────────── */
 function ActionCardsGrid({ onCardClick }: { onCardClick: (id: string, label: string) => void }) {
   return (
-    <div className="flex flex-col gap-3 px-1">
+    <div className="flex flex-col gap-3 px-1 pb-6">
       <div>
         <p className="text-caption font-semibold text-muted-foreground mb-1">AI Operations Assistant</p>
         <p className="text-[9px] text-muted-foreground">
@@ -464,7 +464,6 @@ function ActionCardsGrid({ onCardClick }: { onCardClick: (id: string, label: str
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-[11px] font-semibold text-foreground leading-tight">{card.label}</p>
-                <p className="text-[9px] text-muted-foreground leading-tight line-clamp-1">{card.description}</p>
               </div>
             </button>
           );
