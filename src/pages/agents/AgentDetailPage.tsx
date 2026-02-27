@@ -81,7 +81,7 @@ export default function AgentDetailPage() {
       </header>
 
       {/* Services Grid - scrollable on mobile */}
-      <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="flex-1 min-h-0 overflow-y-auto pt-4 sm:pt-6">
         <h2 className="text-h4 font-semibold text-foreground mb-4">Services</h2>
         {agent.subAgents && agent.subAgents.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">

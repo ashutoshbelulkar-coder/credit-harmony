@@ -193,9 +193,9 @@ export function AgentChatWorkspace({ agent, subAgentId, onBack }: Props) {
     .filter((t): t is (typeof baseToolsList)[number] => t != null);
 
   return (
-    <div className="flex flex-col min-h-0 flex-1 overflow-hidden h-full min-h-0 px-4 sm:px-0">
-      {/* Header - sticky at top on mobile */}
-      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-1.5 sm:gap-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 sm:pb-2.5 border-b border-border shrink-0 px-0 bg-background">
+    <div className="flex flex-col min-h-0 flex-1 overflow-hidden h-full min-h-0 px-4 pt-4 sm:px-0 sm:pt-0">
+      {/* Header - sticky at top on mobile; top padding from container to match AgentDetailPage */}
+      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-1.5 sm:gap-2 pb-2 sm:pb-2.5 border-b border-border shrink-0 px-0 bg-background">
         <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0 h-8 w-8" aria-label="Back">
           <ArrowLeft className="w-4 h-4" />
         </Button>
