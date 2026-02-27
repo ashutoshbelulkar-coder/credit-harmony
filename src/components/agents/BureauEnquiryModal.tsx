@@ -53,12 +53,24 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
-      <DialogContent className="flex max-h-[90dvh] max-w-[calc(100vw-2rem)] flex-col gap-4 overflow-hidden px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))] sm:max-w-lg sm:p-6">
-        <DialogHeader className="shrink-0">
-          <DialogTitle className="text-h4 font-semibold">Run Bureau Enquiry</DialogTitle>
+      <DialogContent
+        className={[
+          "flex w-full max-w-none flex-col gap-4 overflow-hidden",
+          "bottom-0 left-0 right-0 top-auto max-h-[92dvh] translate-x-0 translate-y-0 rounded-t-2xl rounded-b-none border-b-0",
+          "px-4 pt-[max(0.75rem,env(safe-area-inset-top))] pb-[max(1rem,env(safe-area-inset-bottom))]",
+          "pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]",
+          "sm:bottom-auto sm:left-1/2 sm:right-auto sm:top-1/2 sm:max-h-[90dvh] sm:w-full sm:max-w-lg sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-lg sm:rounded-t-2xl sm:border-b sm:p-6",
+        ].join(" ")}
+      >
+        {/* Drag handle – mobile only */}
+        <div className="sm:hidden shrink-0 flex justify-center pt-1 pb-2" aria-hidden>
+          <div className="h-1.5 w-12 rounded-full bg-muted-foreground/30" />
+        </div>
+        <DialogHeader className="shrink-0 pt-0 sm:pt-0">
+          <DialogTitle className="text-h4 font-semibold text-left">Run Bureau Enquiry</DialogTitle>
         </DialogHeader>
 
-        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto py-2">
+        <div className="min-h-0 flex-1 space-y-4 overflow-y-auto overflow-x-visible py-2 px-0.5 -mx-0.5 overscroll-contain">
           <h3 className="text-body font-medium text-foreground">Personal Details</h3>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -69,7 +81,7 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
                 value={form.fullName}
                 onChange={(e) => setForm((f) => ({ ...f, fullName: e.target.value }))}
                 placeholder="Enter full name"
-                className="text-base sm:text-sm"
+                className="min-h-11 text-base touch-manipulation sm:min-h-10 sm:text-sm"
               />
               {errors.fullName && <p className="text-[10px] text-destructive">{errors.fullName}</p>}
             </div>
@@ -81,7 +93,7 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
                 onChange={(e) => setForm((f) => ({ ...f, pan: e.target.value.toUpperCase() }))}
                 placeholder="ABCDE1234F"
                 maxLength={10}
-                className="text-base sm:text-sm uppercase"
+                className="min-h-11 text-base touch-manipulation uppercase sm:min-h-10 sm:text-sm"
               />
               {errors.pan && <p className="text-[10px] text-destructive">{errors.pan}</p>}
             </div>
@@ -92,7 +104,7 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
                 value={form.mobile}
                 onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))}
                 placeholder="+91 98765 43210"
-                className="text-base sm:text-sm"
+                className="min-h-11 text-base touch-manipulation sm:min-h-10 sm:text-sm"
               />
               {errors.mobile && <p className="text-[10px] text-destructive">{errors.mobile}</p>}
             </div>
@@ -103,7 +115,7 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
                 type="date"
                 value={form.dob}
                 onChange={(e) => setForm((f) => ({ ...f, dob: e.target.value }))}
-                className="text-base sm:text-sm"
+                className="min-h-11 text-base touch-manipulation sm:min-h-10 sm:text-sm"
               />
               {errors.dob && <p className="text-[10px] text-destructive">{errors.dob}</p>}
             </div>
@@ -116,34 +128,38 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
               value={form.address}
               onChange={(e) => setForm((f) => ({ ...f, address: e.target.value }))}
               placeholder="Enter full address"
-              className="text-base sm:text-sm"
+              className="min-h-11 text-base touch-manipulation sm:min-h-10 sm:text-sm"
             />
             {errors.address && <p className="text-[10px] text-destructive">{errors.address}</p>}
           </div>
 
-          <div className="flex items-start gap-2 p-3 rounded-lg border border-warning/30 bg-warning/5">
+          <div className="flex items-start gap-3 p-3 rounded-xl border border-warning/30 bg-warning/5 touch-manipulation">
             <Checkbox
               id="consent"
               checked={consent}
               onCheckedChange={(c) => setConsent(!!c)}
-              className="mt-0.5"
+              className="mt-0.5 size-5 shrink-0"
             />
-            <div>
-              <Label htmlFor="consent" className="text-caption cursor-pointer">
+            <div className="min-w-0">
+              <Label htmlFor="consent" className="text-xs cursor-pointer leading-tight block truncate">
                 I confirm that explicit consent has been obtained from the customer for this bureau enquiry as per regulatory requirements.
               </Label>
               {errors.consent && (
                 <p className="text-[10px] text-destructive flex items-center gap-1 mt-1">
-                  <AlertTriangle className="w-3 h-3" /> {errors.consent}
+                  <AlertTriangle className="w-3 h-3 shrink-0" /> {errors.consent}
                 </p>
               )}
             </div>
           </div>
         </div>
 
-        <DialogFooter className="shrink-0 flex-wrap gap-2">
-          <Button variant="outline" onClick={handleClose} className="min-w-0 flex-1 sm:flex-initial">Cancel</Button>
-          <Button onClick={handleSubmit} className="min-w-0 flex-1 sm:flex-initial">Submit</Button>
+        <DialogFooter className="shrink-0 flex flex-col-reverse gap-3 sm:flex-row sm:flex-wrap sm:justify-end sm:gap-2">
+          <Button variant="outline" onClick={handleClose} className="w-full min-h-11 touch-manipulation sm:min-h-10 sm:w-auto sm:flex-initial">
+            Cancel
+          </Button>
+          <Button onClick={handleSubmit} className="w-full min-h-11 touch-manipulation sm:min-h-10 sm:w-auto sm:flex-initial">
+            Submit
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -247,7 +247,7 @@ export function AgentChatWorkspace({ agent, subAgentId, onBack }: Props) {
                   <ScrollArea className="flex-1 min-h-0 h-0 basis-0 min-w-0">
                   <div className="space-y-4 px-1 sm:px-2 pr-2 pb-4">
                     {messages.map((msg) => (
-                      <ChatBubble key={msg.id} message={msg} onToolClick={handleToolClick} />
+                      <ChatBubble key={msg.id} message={msg} />
                     ))}
                     <div ref={chatEndRef} />
                   </div>
@@ -369,7 +369,7 @@ export function AgentChatWorkspace({ agent, subAgentId, onBack }: Props) {
   );
 }
 
-function ChatBubble({ message, onToolClick }: { message: ChatMessage; onToolClick: (id: string) => void }) {
+function ChatBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   const time = new Date(message.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -402,21 +402,6 @@ function ChatBubble({ message, onToolClick }: { message: ChatMessage; onToolClic
         >
           <SimpleMarkdown text={message.content} />
         </div>
-        {message.actions && message.actions.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 justify-end">
-            {message.actions.map((action) => (
-              <Button
-                key={action.toolId}
-                variant="outline"
-                size="sm"
-                className="text-body font-medium gap-1.5 h-8 px-3 border-border hover:border-primary/30 hover:bg-primary/10 hover:text-primary"
-                onClick={() => onToolClick(action.toolId)}
-              >
-                {action.label}
-              </Button>
-            ))}
-          </div>
-        )}
         <span className="text-[9px] text-muted-foreground">{time}</span>
       </div>
     </div>
