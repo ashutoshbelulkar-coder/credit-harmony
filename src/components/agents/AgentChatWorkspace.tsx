@@ -180,9 +180,9 @@ export function AgentChatWorkspace({ agent, subAgentId, onBack }: Props) {
       ];
 
   return (
-    <div className="flex flex-col min-h-0 flex-1 overflow-hidden h-full px-4 sm:px-0 pb-[env(safe-area-inset-bottom)]">
+    <div className="flex flex-col min-h-0 flex-1 overflow-hidden h-full min-h-0 px-4 sm:px-0">
       {/* Header - sticky at top on mobile */}
-      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-1.5 sm:gap-2 pb-2 sm:pb-2.5 border-b border-border shrink-0 px-0 bg-background">
+      <header className="sticky top-0 z-10 flex flex-wrap items-center gap-1.5 sm:gap-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-2 sm:pb-2.5 border-b border-border shrink-0 px-0 bg-background">
         <Button variant="ghost" size="icon" onClick={onBack} className="shrink-0 h-8 w-8" aria-label="Back">
           <ArrowLeft className="w-4 h-4" />
         </Button>
@@ -254,8 +254,8 @@ export function AgentChatWorkspace({ agent, subAgentId, onBack }: Props) {
                   </ScrollArea>
                 </div>
 
-                {/* Recommended tools - horizontal scroll on small screens */}
-                <div className="shrink-0 py-3 sm:py-4 border-t border-border">
+                {/* Recommended tools - horizontal scroll on small screens; no bottom border above input */}
+                <div className="shrink-0 py-3 sm:py-4 border-b-0">
                 <p className="text-[9px] sm:text-caption font-medium text-muted-foreground mb-2 px-1">Recommended tools</p>
                 <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
                   {recommendedTools.map((tool) => {
@@ -283,8 +283,8 @@ export function AgentChatWorkspace({ agent, subAgentId, onBack }: Props) {
               <SourcesConfigTab sources={sources} onToggle={(key) => setSources((s) => ({ ...s, [key]: !s[key] }))} />
             </TabsContent>
 
-            {/* Bottom bar: Attach + Input + Send - sticky at bottom on mobile */}
-            <div className="sticky bottom-0 z-10 shrink-0 flex flex-wrap gap-2 items-center pt-1 pb-1 border-t border-border bg-background pb-[max(0.25rem,env(safe-area-inset-bottom))]">
+            {/* Bottom bar: Attach + Input + Send - sticky at bottom on mobile; no top border */}
+            <div className="sticky bottom-0 z-10 shrink-0 flex flex-wrap gap-2 items-center pt-1 pb-1 bg-background border-t-0 pb-[max(0.25rem,env(safe-area-inset-bottom))]">
               <Button variant="ghost" size="icon" className="shrink-0 h-9 w-9 text-muted-foreground hover:text-foreground" aria-label="Attach file">
                 <Paperclip className="w-4 h-4" />
               </Button>
