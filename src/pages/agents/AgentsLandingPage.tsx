@@ -154,7 +154,7 @@ export default function AgentsLandingPage() {
                       className="flex-1 min-w-0 gap-1.5 text-caption border-border bg-transparent text-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30"
                       onClick={(e) => {
                         e.stopPropagation();
-                        navigate("/agents/configuration");
+                        navigate(`/agents/configuration?agentId=${agent.id}`);
                       }}
                     >
                       <Settings className="w-3.5 h-3.5 shrink-0" />

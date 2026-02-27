@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,7 +15,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
 import {
-  ArrowLeft, Plus, Trash2, Brain, Eye, Sparkles,
+  ArrowLeft, Plus, Trash2, Brain, Eye, Sparkles, Save,
 } from "lucide-react";
 import { mockAgents } from "@/data/agents-mock";
 import { cn } from "@/lib/utils";
@@ -48,8 +48,23 @@ const availableTools = [
   { id: "risk-simulation", name: "Risk Simulation" },
 ];
 
+function modelLabelToValue(label: string): string {
+  const map: Record<string, string> = {
+    "GPT Enterprise": "gpt-enterprise",
+    "Lightweight Model": "lightweight",
+    "Risk-Optimized Model": "risk-optimized",
+    "Custom Endpoint": "custom",
+  };
+  return map[label] ?? "gpt-enterprise";
+}
+
 export default function AgentConfigurationPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const agentId = searchParams.get("agentId");
+  const editingAgent = agentId ? mockAgents.find((a) => a.id === agentId) ?? null : null;
+  const isEditMode = Boolean(editingAgent);
+
   const [activeTab, setActiveTab] = useState("details");
 
   // Details
@@ -76,6 +91,28 @@ export default function AgentConfigurationPage() {
   const [temperature, setTemperature] = useState([0.3]);
   const [maxTokens, setMaxTokens] = useState("4096");
 
+  useEffect(() => {
+    if (!agentId) return;
+    const agent = mockAgents.find((a) => a.id === agentId);
+    if (!agent) return;
+    setName(agent.name);
+    setDescription(agent.description);
+    setInstructions(agent.instructions);
+    setTemplate(agent.id);
+    setSources({ ...agent.sources });
+    setCapabilities({ ...agent.capabilities });
+    const toolIds = agent.tools.map((t) => t.id).filter((id) => availableTools.some((at) => at.id === id));
+    setSelectedTools(toolIds.length > 0 ? toolIds : ["bureau-enquiry"]);
+    setPrompts(
+      agent.suggestedPrompts?.length
+        ? agent.suggestedPrompts.map((p) => ({ title: p.title, message: p.message }))
+        : []
+    );
+    setModel(modelLabelToValue(agent.modelConfig.model));
+    setTemperature([agent.modelConfig.temperature]);
+    setMaxTokens(String(agent.modelConfig.maxTokens));
+  }, [agentId]);
+
   const handleTemplateSelect = (val: string) => {
     setTemplate(val);
     const agent = mockAgents.find((a) => a.id === val);
@@ -97,6 +134,15 @@ export default function AgentConfigurationPage() {
     navigate("/agents");
   };
 
+  const handleSave = () => {
+    if (!name.trim()) {
+      toast({ title: "Validation Error", description: "Agent name is required.", variant: "destructive" });
+      return;
+    }
+    toast({ title: "Agent updated", description: `Changes to "${name}" have been saved.` });
+    navigate("/agents");
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
@@ -106,14 +152,24 @@ export default function AgentConfigurationPage() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <div className="min-w-0 flex-1">
-            <h1 className="text-h2 font-semibold text-foreground">Create Agent</h1>
-            <p className="text-caption text-muted-foreground mt-0.5">Configure a new AI agent for your institution</p>
+            <h1 className="text-h2 font-semibold text-foreground">
+              {isEditMode ? "Configure Agent" : "Create Agent"}
+            </h1>
+            <p className="text-caption text-muted-foreground mt-0.5">
+              {isEditMode ? "Edit existing agent configuration" : "Configure a new AI agent for your institution"}
+            </p>
           </div>
         </div>
         <div className="flex w-full flex-shrink-0 justify-end sm:w-auto">
-          <Button onClick={handleCreate} className="w-full gap-1.5 sm:w-auto">
-            <Plus className="w-4 h-4" /> Deploy Agent
-          </Button>
+          {isEditMode ? (
+            <Button onClick={handleSave} className="w-full gap-1.5 sm:w-auto">
+              <Save className="w-4 h-4" /> Save
+            </Button>
+          ) : (
+            <Button onClick={handleCreate} className="w-full gap-1.5 sm:w-auto">
+              <Plus className="w-4 h-4" /> Deploy Agent
+            </Button>
+          )}
         </div>
       </div>
 
