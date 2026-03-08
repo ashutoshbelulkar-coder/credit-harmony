@@ -15,8 +15,7 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
-  const [showThemeMenu, setShowThemeMenu] = useState(false);
-  const { theme, setTheme } = useTheme();
+  const { setTheme } = useTheme();
   const { logout } = useAuth();
   const navigate = useNavigate();
   const { open: openCommandPalette } = useCommandPalette();
