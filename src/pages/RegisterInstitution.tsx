@@ -154,8 +154,8 @@ const RegisterInstitution = () => {
       toast.error(`Please upload all ${requiredDocs.length} required documents`);
       return;
     }
-    toast.success("Institution submitted for review");
-    navigate("/institutions");
+    toast.success("Institution submitted for Super Admin approval. Track status in the Approval Queue.");
+    navigate("/approval-queue");
   };
 
   const values = form.watch();

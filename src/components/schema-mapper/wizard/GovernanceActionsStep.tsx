@@ -86,10 +86,10 @@ export function GovernanceActionsStep({
               <CheckCircle2 className="h-4 w-4 text-success shrink-0" />
               <div>
                 <p className="text-body font-semibold text-foreground">
-                  Schema submitted to Global Schema Evolution Queue
+                  Schema submitted to Super Admin Approval Queue
                 </p>
                 <p className="text-caption text-muted-foreground">
-                  Status: <Badge className="bg-info/15 text-info text-[9px] border-0 font-medium">AI Proposed</Badge>
+                  Status: <Badge className="bg-warning/15 text-warning text-[9px] border-0 font-medium">Pending Approval</Badge> — Track in <a href="/approval-queue" className="underline text-primary">Approval Queue</a>
                 </p>
               </div>
             </div>

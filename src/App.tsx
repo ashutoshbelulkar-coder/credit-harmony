@@ -43,6 +43,8 @@ const routeImports = {
   AgentsLandingPage: () => import("./pages/agents/AgentsLandingPage"),
   AgentDetailPage: () => import("./pages/agents/AgentDetailPage"),
   AgentConfigurationPage: () => import("./pages/agents/AgentConfigurationPage"),
+  ApprovalQueueLayout: () => import("./pages/approval-queue/ApprovalQueueLayout").then(m => ({ default: m.ApprovalQueueLayout })),
+  ApprovalQueuePage: () => import("./pages/approval-queue/ApprovalQueuePage").then(m => ({ default: m.ApprovalQueuePage })),
 };
 
 // Lazy-loaded route components
@@ -77,6 +79,8 @@ const AgentsLayout = lazy(routeImports.AgentsLayout);
 const AgentsLandingPage = lazy(routeImports.AgentsLandingPage);
 const AgentDetailPage = lazy(routeImports.AgentDetailPage);
 const AgentConfigurationPage = lazy(routeImports.AgentConfigurationPage);
+const ApprovalQueueLayout = lazy(routeImports.ApprovalQueueLayout);
+const ApprovalQueuePage = lazy(routeImports.ApprovalQueuePage);
 
 // Preload all route chunks after initial page load
 function preloadAllRoutes() {
@@ -170,6 +174,9 @@ const App = () => (
                 <Route path="new" element={<NewReportRequestPage />} />
               </Route>
               <Route path="/audit-logs" element={<ProtectedRoute><PlaceholderPage title="Audit Logs" description="Searchable activity logs with change detail tracking" /></ProtectedRoute>} />
+              <Route path="/approval-queue" element={<ProtectedRoute><ApprovalQueueLayout /></ProtectedRoute>}>
+                <Route index element={<ApprovalQueuePage />} />
+              </Route>
               <Route path="/user-management" element={<ProtectedRoute><UserManagementLayout /></ProtectedRoute>}>
                 <Route index element={<Navigate to="users" replace />} />
                 <Route path="users" element={<UsersListPage />} />
