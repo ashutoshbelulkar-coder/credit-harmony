@@ -1,7 +1,12 @@
-import { Search, Bell, ChevronDown, User, Menu, Sun, Moon, Monitor } from "lucide-react";
+import { Search, Bell, ChevronDown, User, Menu, Sun, Moon, Monitor, LogOut, Settings } from "lucide-react";
 import { useState } from "react";
 import { useTheme } from "next-themes";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface AppHeaderProps {
   onToggleSidebar?: () => void;
