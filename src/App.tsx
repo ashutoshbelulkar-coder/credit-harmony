@@ -10,38 +10,88 @@ import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CommandPalette } from "@/components/CommandPalette";
 import { Skeleton } from "@/components/ui/skeleton";
 
+// Route import functions (reused for lazy + preload)
+const routeImports = {
+  Dashboard: () => import("./pages/Dashboard"),
+  InstitutionList: () => import("./pages/InstitutionList"),
+  InstitutionDetail: () => import("./pages/InstitutionDetail"),
+  RegisterInstitution: () => import("./pages/RegisterInstitution"),
+  Login: () => import("./pages/Login"),
+  NotFound: () => import("./pages/NotFound"),
+  PlaceholderPage: () => import("./components/PlaceholderPage").then(m => ({ default: m.PlaceholderPage })),
+  UserManagementLayout: () => import("./pages/user-management/UserManagementLayout").then(m => ({ default: m.UserManagementLayout })),
+  UsersListPage: () => import("./pages/user-management/UsersListPage").then(m => ({ default: m.UsersListPage })),
+  RolesPermissionsPage: () => import("./pages/user-management/RolesPermissionsPage").then(m => ({ default: m.RolesPermissionsPage })),
+  ActivityLogPage: () => import("./pages/user-management/ActivityLogPage").then(m => ({ default: m.ActivityLogPage })),
+  DataGovernanceLayout: () => import("./pages/data-governance/DataGovernanceLayout").then(m => ({ default: m.DataGovernanceLayout })),
+  DataGovernanceDashboard: () => import("./pages/data-governance/DataGovernanceDashboard"),
+  GovernanceAuditLogs: () => import("./pages/data-governance/GovernanceAuditLogs"),
+  AutoMappingReview: () => import("./pages/data-governance/AutoMappingReview"),
+  ValidationRules: () => import("./pages/data-governance/ValidationRules"),
+  MatchReview: () => import("./pages/data-governance/MatchReview"),
+  DataQualityMonitoring: () => import("./pages/data-governance/DataQualityMonitoring"),
+  MonitoringLayout: () => import("./pages/monitoring/MonitoringLayout").then(m => ({ default: m.MonitoringLayout })),
+  MonitoringDataSubmissionApiPage: () => import("./pages/monitoring/MonitoringDataSubmissionApiPage").then(m => ({ default: m.MonitoringDataSubmissionApiPage })),
+  MonitoringDataSubmissionBatchPage: () => import("./pages/monitoring/MonitoringDataSubmissionBatchPage").then(m => ({ default: m.MonitoringDataSubmissionBatchPage })),
+  MonitoringInquiryApiPage: () => import("./pages/monitoring/MonitoringInquiryApiPage").then(m => ({ default: m.MonitoringInquiryApiPage })),
+  MonitoringSlaConfigurationPage: () => import("./pages/monitoring/MonitoringSlaConfigurationPage").then(m => ({ default: m.MonitoringSlaConfigurationPage })),
+  MonitoringAlertEnginePage: () => import("./pages/monitoring/MonitoringAlertEnginePage").then(m => ({ default: m.MonitoringAlertEnginePage })),
+  ReportingLayout: () => import("./pages/reporting/ReportingLayout").then(m => ({ default: m.ReportingLayout })),
+  ReportListPage: () => import("./pages/reporting/ReportListPage").then(m => ({ default: m.ReportListPage })),
+  NewReportRequestPage: () => import("./pages/reporting/NewReportRequestPage").then(m => ({ default: m.NewReportRequestPage })),
+  AgentsLayout: () => import("./pages/agents/AgentsLayout").then(m => ({ default: m.AgentsLayout })),
+  AgentsLandingPage: () => import("./pages/agents/AgentsLandingPage"),
+  AgentDetailPage: () => import("./pages/agents/AgentDetailPage"),
+  AgentConfigurationPage: () => import("./pages/agents/AgentConfigurationPage"),
+};
+
 // Lazy-loaded route components
-const Dashboard = lazy(() => import("./pages/Dashboard"));
-const InstitutionList = lazy(() => import("./pages/InstitutionList"));
-const InstitutionDetail = lazy(() => import("./pages/InstitutionDetail"));
-const RegisterInstitution = lazy(() => import("./pages/RegisterInstitution"));
-const Login = lazy(() => import("./pages/Login"));
-const NotFound = lazy(() => import("./pages/NotFound"));
-const PlaceholderPage = lazy(() => import("./components/PlaceholderPage").then(m => ({ default: m.PlaceholderPage })));
-const UserManagementLayout = lazy(() => import("./pages/user-management/UserManagementLayout").then(m => ({ default: m.UserManagementLayout })));
-const UsersListPage = lazy(() => import("./pages/user-management/UsersListPage").then(m => ({ default: m.UsersListPage })));
-const RolesPermissionsPage = lazy(() => import("./pages/user-management/RolesPermissionsPage").then(m => ({ default: m.RolesPermissionsPage })));
-const ActivityLogPage = lazy(() => import("./pages/user-management/ActivityLogPage").then(m => ({ default: m.ActivityLogPage })));
-const DataGovernanceLayout = lazy(() => import("./pages/data-governance/DataGovernanceLayout").then(m => ({ default: m.DataGovernanceLayout })));
-const DataGovernanceDashboard = lazy(() => import("./pages/data-governance/DataGovernanceDashboard"));
-const GovernanceAuditLogs = lazy(() => import("./pages/data-governance/GovernanceAuditLogs"));
-const AutoMappingReview = lazy(() => import("./pages/data-governance/AutoMappingReview"));
-const ValidationRules = lazy(() => import("./pages/data-governance/ValidationRules"));
-const MatchReview = lazy(() => import("./pages/data-governance/MatchReview"));
-const DataQualityMonitoring = lazy(() => import("./pages/data-governance/DataQualityMonitoring"));
-const MonitoringLayout = lazy(() => import("./pages/monitoring/MonitoringLayout").then(m => ({ default: m.MonitoringLayout })));
-const MonitoringDataSubmissionApiPage = lazy(() => import("./pages/monitoring/MonitoringDataSubmissionApiPage").then(m => ({ default: m.MonitoringDataSubmissionApiPage })));
-const MonitoringDataSubmissionBatchPage = lazy(() => import("./pages/monitoring/MonitoringDataSubmissionBatchPage").then(m => ({ default: m.MonitoringDataSubmissionBatchPage })));
-const MonitoringInquiryApiPage = lazy(() => import("./pages/monitoring/MonitoringInquiryApiPage").then(m => ({ default: m.MonitoringInquiryApiPage })));
-const MonitoringSlaConfigurationPage = lazy(() => import("./pages/monitoring/MonitoringSlaConfigurationPage").then(m => ({ default: m.MonitoringSlaConfigurationPage })));
-const MonitoringAlertEnginePage = lazy(() => import("./pages/monitoring/MonitoringAlertEnginePage").then(m => ({ default: m.MonitoringAlertEnginePage })));
-const ReportingLayout = lazy(() => import("./pages/reporting/ReportingLayout").then(m => ({ default: m.ReportingLayout })));
-const ReportListPage = lazy(() => import("./pages/reporting/ReportListPage").then(m => ({ default: m.ReportListPage })));
-const NewReportRequestPage = lazy(() => import("./pages/reporting/NewReportRequestPage").then(m => ({ default: m.NewReportRequestPage })));
-const AgentsLayout = lazy(() => import("./pages/agents/AgentsLayout").then(m => ({ default: m.AgentsLayout })));
-const AgentsLandingPage = lazy(() => import("./pages/agents/AgentsLandingPage"));
-const AgentDetailPage = lazy(() => import("./pages/agents/AgentDetailPage"));
-const AgentConfigurationPage = lazy(() => import("./pages/agents/AgentConfigurationPage"));
+const Dashboard = lazy(routeImports.Dashboard);
+const InstitutionList = lazy(routeImports.InstitutionList);
+const InstitutionDetail = lazy(routeImports.InstitutionDetail);
+const RegisterInstitution = lazy(routeImports.RegisterInstitution);
+const Login = lazy(routeImports.Login);
+const NotFound = lazy(routeImports.NotFound);
+const PlaceholderPage = lazy(routeImports.PlaceholderPage);
+const UserManagementLayout = lazy(routeImports.UserManagementLayout);
+const UsersListPage = lazy(routeImports.UsersListPage);
+const RolesPermissionsPage = lazy(routeImports.RolesPermissionsPage);
+const ActivityLogPage = lazy(routeImports.ActivityLogPage);
+const DataGovernanceLayout = lazy(routeImports.DataGovernanceLayout);
+const DataGovernanceDashboard = lazy(routeImports.DataGovernanceDashboard);
+const GovernanceAuditLogs = lazy(routeImports.GovernanceAuditLogs);
+const AutoMappingReview = lazy(routeImports.AutoMappingReview);
+const ValidationRules = lazy(routeImports.ValidationRules);
+const MatchReview = lazy(routeImports.MatchReview);
+const DataQualityMonitoring = lazy(routeImports.DataQualityMonitoring);
+const MonitoringLayout = lazy(routeImports.MonitoringLayout);
+const MonitoringDataSubmissionApiPage = lazy(routeImports.MonitoringDataSubmissionApiPage);
+const MonitoringDataSubmissionBatchPage = lazy(routeImports.MonitoringDataSubmissionBatchPage);
+const MonitoringInquiryApiPage = lazy(routeImports.MonitoringInquiryApiPage);
+const MonitoringSlaConfigurationPage = lazy(routeImports.MonitoringSlaConfigurationPage);
+const MonitoringAlertEnginePage = lazy(routeImports.MonitoringAlertEnginePage);
+const ReportingLayout = lazy(routeImports.ReportingLayout);
+const ReportListPage = lazy(routeImports.ReportListPage);
+const NewReportRequestPage = lazy(routeImports.NewReportRequestPage);
+const AgentsLayout = lazy(routeImports.AgentsLayout);
+const AgentsLandingPage = lazy(routeImports.AgentsLandingPage);
+const AgentDetailPage = lazy(routeImports.AgentDetailPage);
+const AgentConfigurationPage = lazy(routeImports.AgentConfigurationPage);
+
+// Preload all route chunks after initial page load
+function preloadAllRoutes() {
+  Object.values(routeImports).forEach(importFn => {
+    importFn().catch(() => {});
+  });
+}
+
+if (typeof window !== "undefined") {
+  if ("requestIdleCallback" in window) {
+    (window as any).requestIdleCallback(preloadAllRoutes);
+  } else {
+    setTimeout(preloadAllRoutes, 1500);
+  }
+}
 
 const queryClient = new QueryClient();
 
