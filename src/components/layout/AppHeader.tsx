@@ -53,26 +53,22 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
         <Menu className="h-4 w-4" />
       </button>
 
-      {/* Global Search */}
+      {/* Global Search — opens command palette */}
       <div className="ml-auto flex-1 max-w-md">
-        <div
+        <button
+          type="button"
+          onClick={openCommandPalette}
           className={cn(
-            "flex h-9 items-center gap-2 px-3 rounded-lg border transition-all duration-200",
-            searchFocused ? "border-primary bg-card shadow-sm" : "border-border bg-background"
+            "flex h-9 w-full items-center gap-2 px-3 rounded-lg border transition-all duration-200 cursor-pointer",
+            "border-border bg-background hover:border-primary hover:bg-card"
           )}
         >
           <Search className="w-4 h-4 text-muted-foreground shrink-0" />
-          <input
-            type="text"
-            placeholder="Search institutions, APIs, logs..."
-            className="flex-1 bg-transparent text-body outline-none placeholder:text-muted-foreground"
-            onFocus={() => setSearchFocused(true)}
-            onBlur={() => setSearchFocused(false)}
-          />
+          <span className="flex-1 text-left text-body text-muted-foreground">Search institutions, APIs, logs...</span>
           <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded border border-border bg-muted text-caption text-muted-foreground">
             ⌘K
           </kbd>
-        </div>
+        </button>
       </div>
 
       {/* Theme toggle */}

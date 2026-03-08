@@ -77,7 +77,7 @@ const InstitutionDetail = () => {
         {/* Back + Title */}
         <div className="flex items-start gap-3 sm:gap-4 min-w-0">
           <button
-            onClick={() => navigate("/institutions/data-submitters")}
+            onClick={() => navigate(-1)}
             className="p-2 rounded-lg hover:bg-muted transition-colors shrink-0"
           >
             <ArrowLeft className="w-5 h-5 text-muted-foreground" />
