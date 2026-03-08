@@ -119,43 +119,22 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
         <div className="flex items-center gap-3">
           <div className="flex-1 max-w-sm relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
+            <Input
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               placeholder="Search institutions..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-card text-body outline-none focus:border-primary transition-colors placeholder:text-muted-foreground"
+              className="pl-10"
             />
           </div>
-
-          <div className="relative">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border bg-card text-body font-medium hover:bg-muted transition-colors"
-            >
-              <Filter className="w-4 h-4 text-muted-foreground" />
-              Status
-              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
-            {showFilters && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowFilters(false)} />
-                <div className="absolute top-full left-0 mt-1 w-44 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-fade-in">
-                  {["all", "active", "pending", "suspended", "draft"].map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => { setStatusFilter(s); setShowFilters(false); setPage(1); }}
-                      className={cn(
-                        "w-full text-left px-4 py-2 text-body capitalize hover:bg-muted transition-colors",
-                        statusFilter === s && "bg-muted font-medium"
-                      )}
-                    >
-                      {s === "all" ? "All Statuses" : s}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {["active", "pending", "suspended", "draft"].map((s) => (
+                <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Table */}
