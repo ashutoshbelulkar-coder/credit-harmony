@@ -1,13 +1,16 @@
 import { useState } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Upload, Building2, FileText, Eye, CheckCircle2, AlertCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Upload, Building2, FileText, Eye, CheckCircle2, AlertCircle, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { institutionTypes } from "@/data/institutions-mock";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -25,11 +28,12 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 
 const steps = [
-  { title: "Corporate Details", icon: Building2 },
-  { title: "Compliance Documents", icon: FileText },
-  { title: "Review & Submit", icon: Eye },
+  { title: "Corporate Details", shortTitle: "Details", icon: Building2, description: "Basic institution information" },
+  { title: "Compliance Documents", shortTitle: "Documents", icon: FileText, description: "Upload required documents" },
+  { title: "Review & Submit", shortTitle: "Review", icon: Eye, description: "Verify and submit" },
 ];
 
 const corporateDetailsSchema = z.object({
@@ -155,102 +159,180 @@ const RegisterInstitution = () => {
   };
 
   const values = form.watch();
+  const requiredDocs = getRequiredDocs(values.isDataSubmitter, values.isSubscriber);
+  const completionPct = Math.round(((currentStep) / 2) * 100);
 
   return (
     <DashboardLayout>
-      <div className="max-w-3xl mx-auto space-y-8 animate-fade-in">
-        {/* Back */}
-        <button
-          onClick={() => navigate("/institutions")}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Institutions
-        </button>
+      <div className="animate-fade-in space-y-4 sm:space-y-6">
+        <PageBreadcrumb segments={[
+          { label: "Institutions", href: "/institutions" },
+          { label: "Register Institution" },
+        ]} />
 
-        <h1 className="text-2xl font-bold text-foreground">Register Institution</h1>
+        {/* Header row */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-foreground sm:text-2xl">Register Institution</h1>
+            <p className="text-caption text-muted-foreground mt-0.5">Complete all steps to register a new institution</p>
+          </div>
+          <Button variant="outline" size="sm" onClick={handleSaveDraft} className="gap-1.5 self-start">
+            <Save className="w-3.5 h-3.5" /> Save Draft
+          </Button>
+        </div>
 
-        {/* Step Indicator */}
-        <div className="flex items-center gap-2">
-          {steps.map((step, i) => (
-            <div key={i} className="flex items-center gap-2 flex-1">
-              <div className={cn(
-                "w-8 h-8 rounded-full flex items-center justify-center shrink-0 text-sm font-medium transition-colors",
-                i < currentStep
-                  ? "bg-success text-success-foreground"
-                  : i === currentStep
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground"
-              )}>
-                {i < currentStep ? <Check className="w-4 h-4" /> : i + 1}
-              </div>
-              <span className={cn(
-                "text-sm font-medium hidden sm:block",
-                i <= currentStep ? "text-foreground" : "text-muted-foreground"
-              )}>
-                {step.title}
-              </span>
-              {i < steps.length - 1 && (
-                <div className={cn(
-                  "flex-1 h-px",
-                  i < currentStep ? "bg-success" : "bg-border"
-                )} />
-              )}
+        {/* Stepper + Content layout */}
+        <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
+          {/* Vertical stepper sidebar (horizontal on mobile) */}
+          <div className="shrink-0 lg:w-56 xl:w-64">
+            {/* Mobile: horizontal compact stepper */}
+            <div className="flex items-center gap-1 lg:hidden">
+              {steps.map((step, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => i < currentStep && setCurrentStep(i)}
+                  className={cn(
+                    "flex items-center gap-2 flex-1 rounded-lg px-3 py-2.5 transition-all text-left",
+                    i === currentStep
+                      ? "bg-primary/10 border border-primary/30"
+                      : i < currentStep
+                      ? "bg-success/10 border border-success/30 cursor-pointer"
+                      : "bg-muted/50 border border-transparent"
+                  )}
+                >
+                  <div className={cn(
+                    "w-7 h-7 rounded-full flex items-center justify-center shrink-0 text-xs font-semibold",
+                    i < currentStep ? "bg-success text-success-foreground"
+                      : i === currentStep ? "bg-primary text-primary-foreground"
+                      : "bg-muted text-muted-foreground"
+                  )}>
+                    {i < currentStep ? <Check className="w-3.5 h-3.5" /> : i + 1}
+                  </div>
+                  <span className={cn(
+                    "text-xs font-medium truncate",
+                    i <= currentStep ? "text-foreground" : "text-muted-foreground"
+                  )}>
+                    {step.shortTitle}
+                  </span>
+                </button>
+              ))}
             </div>
-          ))}
-        </div>
 
-        {/* Step Content */}
-        <div className="bg-card rounded-xl border border-border p-6">
-          {currentStep === 0 && <Step1Corporate form={form} />}
-          {currentStep === 1 && (
-            <Step2Documents
-              uploadedDocs={uploadedDocs}
-              onUpload={handleFileUpload}
-              isDataSubmitter={values.isDataSubmitter}
-              isSubscriber={values.isSubscriber}
-            />
-          )}
-          {currentStep === 2 && (
-            <Step3Review values={values} uploadedDocs={uploadedDocs} />
-          )}
-        </div>
+            {/* Desktop: vertical stepper */}
+            <Card className="hidden lg:block border-border">
+              <CardContent className="p-3 space-y-1">
+                {steps.map((step, i) => {
+                  const Icon = step.icon;
+                  return (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => i < currentStep && setCurrentStep(i)}
+                      className={cn(
+                        "flex items-start gap-3 w-full rounded-lg px-3 py-3 transition-all text-left",
+                        i === currentStep
+                          ? "bg-primary/10 border border-primary/20"
+                          : i < currentStep
+                          ? "hover:bg-muted/50 cursor-pointer border border-transparent"
+                          : "opacity-50 border border-transparent cursor-default"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5",
+                        i < currentStep ? "bg-success/15 text-success"
+                          : i === currentStep ? "bg-primary/15 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      )}>
+                        {i < currentStep ? <Check className="w-4 h-4" /> : <Icon className="w-4 h-4" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className={cn(
+                          "text-body font-medium leading-tight",
+                          i <= currentStep ? "text-foreground" : "text-muted-foreground"
+                        )}>
+                          {step.title}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{step.description}</p>
+                      </div>
+                    </button>
+                  );
+                })}
 
-        {/* Actions */}
-        <div className="flex items-center justify-between">
-          <button
-            onClick={handlePrevious}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors",
-              currentStep > 0
-                ? "bg-muted text-foreground hover:bg-muted/80"
-                : "invisible"
-            )}
-          >
-            <ArrowLeft className="w-4 h-4" /> Previous
-          </button>
+                {/* Progress */}
+                <div className="pt-3 mt-2 border-t border-border px-3">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-[10px] font-medium text-muted-foreground">Progress</span>
+                    <span className="text-[10px] font-semibold text-foreground">{completionPct}%</span>
+                  </div>
+                  <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-500"
+                      style={{ width: `${completionPct}%` }}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
 
-          <div className="flex gap-3">
-            <button
-              onClick={handleSaveDraft}
-              className="px-4 py-2.5 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
-            >
-              Save Draft
-            </button>
-            {currentStep < 2 ? (
-              <button
-                onClick={handleNext}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+          {/* Main content area */}
+          <div className="flex-1 min-w-0 space-y-4">
+            <Card className="border-border">
+              <CardContent className="p-4 sm:p-6">
+                {/* Step header */}
+                <div className="flex items-center gap-3 mb-5 pb-4 border-b border-border">
+                  <div className={cn(
+                    "w-9 h-9 rounded-lg flex items-center justify-center shrink-0",
+                    "bg-primary/10 text-primary"
+                  )}>
+                    {(() => { const Icon = steps[currentStep].icon; return <Icon className="w-4.5 h-4.5" />; })()}
+                  </div>
+                  <div>
+                    <h2 className="text-base font-semibold text-foreground">{steps[currentStep].title}</h2>
+                    <p className="text-caption text-muted-foreground">
+                      Step {currentStep + 1} of {steps.length} · {steps[currentStep].description}
+                    </p>
+                  </div>
+                </div>
+
+                {currentStep === 0 && <Step1Corporate form={form} />}
+                {currentStep === 1 && (
+                  <Step2Documents
+                    uploadedDocs={uploadedDocs}
+                    onUpload={handleFileUpload}
+                    isDataSubmitter={values.isDataSubmitter}
+                    isSubscriber={values.isSubscriber}
+                  />
+                )}
+                {currentStep === 2 && (
+                  <Step3Review values={values} uploadedDocs={uploadedDocs} />
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Actions footer */}
+            <div className="flex items-center justify-between gap-3">
+              <Button
+                variant="outline"
+                onClick={handlePrevious}
+                className={cn("gap-1.5", currentStep === 0 && "invisible")}
               >
-                Next <ArrowRight className="w-4 h-4" />
-              </button>
-            ) : (
-              <button
-                onClick={handleSubmit}
-                className="px-4 py-2.5 rounded-lg bg-secondary text-secondary-foreground text-sm font-medium hover:bg-secondary/90 transition-colors"
-              >
-                Submit for Review
-              </button>
-            )}
+                <ArrowLeft className="w-4 h-4" /> Previous
+              </Button>
+
+              <div className="flex gap-2">
+                {currentStep < 2 ? (
+                  <Button onClick={handleNext} className="gap-1.5">
+                    Next <ArrowRight className="w-4 h-4" />
+                  </Button>
+                ) : (
+                  <Button onClick={handleSubmit} variant="default" className="gap-1.5 bg-success hover:bg-success/90 text-success-foreground">
+                    <CheckCircle2 className="w-4 h-4" /> Submit for Review
+                  </Button>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -258,62 +340,42 @@ const RegisterInstitution = () => {
   );
 };
 
+/* ─── Step 1: Corporate Details ─── */
 function Step1Corporate({ form }: { form: ReturnType<typeof useForm<CorporateDetailsFormData>> }) {
   return (
-    <div className="space-y-5">
-      <h3 className="text-sm font-semibold text-foreground">Corporate Details</h3>
-      <Form {...form}>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="legalName"
-            render={({ field }) => (
+    <Form {...form}>
+      <div className="space-y-6">
+        {/* Entity Information */}
+        <fieldset>
+          <legend className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Entity Information</legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
+            <FormField control={form.control} name="legalName" render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Legal Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter legal entity name" {...field} />
-                </FormControl>
+                <FormLabel className="text-xs text-muted-foreground">Legal Name *</FormLabel>
+                <FormControl><Input placeholder="Enter legal entity name" className="h-10" {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="tradingName"
-            render={({ field }) => (
+            )} />
+            <FormField control={form.control} name="tradingName" render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Trading Name</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter trading name" {...field} />
-                </FormControl>
+                <FormLabel className="text-xs text-muted-foreground">Trading Name *</FormLabel>
+                <FormControl><Input placeholder="Enter trading name" className="h-10" {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="registrationNumber"
-            render={({ field }) => (
+            )} />
+            <FormField control={form.control} name="registrationNumber" render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Registration Number</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g. BK-2024-00142" {...field} />
-                </FormControl>
+                <FormLabel className="text-xs text-muted-foreground">Registration Number *</FormLabel>
+                <FormControl><Input placeholder="e.g. BK-2024-00142" className="h-10" {...field} /></FormControl>
                 <FormMessage />
               </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="institutionType"
-            render={({ field }) => (
+            )} />
+            <FormField control={form.control} name="institutionType" render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Institution Type</FormLabel>
+                <FormLabel className="text-xs text-muted-foreground">Institution Type *</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select type" />
-                    </SelectTrigger>
+                    <SelectTrigger className="h-10"><SelectValue placeholder="Select type" /></SelectTrigger>
                   </FormControl>
                   <SelectContent>
                     {institutionTypes.map((t) => (
@@ -323,111 +385,105 @@ function Step1Corporate({ form }: { form: ReturnType<typeof useForm<CorporateDet
                 </Select>
                 <FormMessage />
               </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="jurisdiction"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Jurisdiction</FormLabel>
-                <FormControl>
-                  <Input placeholder="e.g. Kenya" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="licenseNumber"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">License Number</FormLabel>
-                <FormControl>
-                  <Input placeholder="Enter license number" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="contactEmail"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Contact Email</FormLabel>
-                <FormControl>
-                  <Input type="email" placeholder="compliance@institution.com" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-          <FormField
-            control={form.control}
-            name="contactPhone"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Contact Phone</FormLabel>
-                <FormControl>
-                  <Input placeholder="+254 700 000 000" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
-
-        <div className="mt-6 pt-5 border-t border-border">
-          <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider mb-3">Participation Type</h4>
-          <div className="space-y-3">
-            <FormField
-              control={form.control}
-              name="isDataSubmitter"
-              render={({ field }) => (
-                <FormItem className="flex items-center gap-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormLabel className="text-sm text-foreground font-medium cursor-pointer">
-                    Data Submission Institution
-                  </FormLabel>
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="isSubscriber"
-              render={({ field }) => (
-                <FormItem className="flex items-center gap-3 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormLabel className="text-sm text-foreground font-medium cursor-pointer">
-                    Subscriber Institution
-                  </FormLabel>
-                </FormItem>
-              )}
-            />
-            {form.formState.errors.isDataSubmitter && (
-              <p className="text-xs text-destructive font-medium">
-                {form.formState.errors.isDataSubmitter.message}
-              </p>
-            )}
+            )} />
           </div>
-        </div>
-      </Form>
-    </div>
+        </fieldset>
+
+        {/* Regulatory */}
+        <fieldset>
+          <legend className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Regulatory Details</legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
+            <FormField control={form.control} name="jurisdiction" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-muted-foreground">Jurisdiction *</FormLabel>
+                <FormControl><Input placeholder="e.g. Kenya" className="h-10" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="licenseNumber" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-muted-foreground">License Number *</FormLabel>
+                <FormControl><Input placeholder="Enter license number" className="h-10" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+          </div>
+        </fieldset>
+
+        {/* Contact */}
+        <fieldset>
+          <legend className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Contact Information</legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
+            <FormField control={form.control} name="contactEmail" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-muted-foreground">Contact Email *</FormLabel>
+                <FormControl><Input type="email" placeholder="compliance@institution.com" className="h-10" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="contactPhone" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-xs text-muted-foreground">Contact Phone *</FormLabel>
+                <FormControl><Input placeholder="+254 700 000 000" className="h-10" {...field} /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+          </div>
+        </fieldset>
+
+        {/* Participation Type */}
+        <fieldset>
+          <legend className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Participation Type</legend>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <FormField control={form.control} name="isDataSubmitter" render={({ field }) => (
+              <FormItem>
+                <label
+                  htmlFor="participation-ds"
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border p-3.5 cursor-pointer transition-all",
+                    field.value ? "border-primary/40 bg-primary/5" : "border-border hover:border-primary/20"
+                  )}
+                >
+                  <FormControl>
+                    <Checkbox id="participation-ds" checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Data Submission</p>
+                    <p className="text-[10px] text-muted-foreground">Submit credit data to the bureau</p>
+                  </div>
+                </label>
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="isSubscriber" render={({ field }) => (
+              <FormItem>
+                <label
+                  htmlFor="participation-sub"
+                  className={cn(
+                    "flex items-center gap-3 rounded-lg border p-3.5 cursor-pointer transition-all",
+                    field.value ? "border-primary/40 bg-primary/5" : "border-border hover:border-primary/20"
+                  )}
+                >
+                  <FormControl>
+                    <Checkbox id="participation-sub" checked={field.value} onCheckedChange={field.onChange} />
+                  </FormControl>
+                  <div>
+                    <p className="text-sm font-medium text-foreground">Subscriber</p>
+                    <p className="text-[10px] text-muted-foreground">Query credit reports from the bureau</p>
+                  </div>
+                </label>
+              </FormItem>
+            )} />
+          </div>
+          {form.formState.errors.isDataSubmitter && (
+            <p className="text-xs text-destructive font-medium mt-2">{form.formState.errors.isDataSubmitter.message}</p>
+          )}
+        </fieldset>
+      </div>
+    </Form>
   );
 }
 
+/* ─── Step 2: Documents ─── */
 function Step2Documents({
   uploadedDocs,
   onUpload,
@@ -440,50 +496,47 @@ function Step2Documents({
   isSubscriber: boolean;
 }) {
   const requiredDocs = getRequiredDocs(isDataSubmitter, isSubscriber);
+  const uploadedCount = uploadedDocs.length;
+
   return (
-    <div className="space-y-5">
-      <h3 className="text-sm font-semibold text-foreground">Compliance Documents</h3>
-      <p className="text-xs text-muted-foreground">Upload required regulatory documents for verification.</p>
-      <div className="space-y-3">
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <p className="text-caption text-muted-foreground">Upload required regulatory documents for verification.</p>
+        <Badge variant="outline" className="text-[10px] shrink-0">
+          {uploadedCount}/{requiredDocs.length} uploaded
+        </Badge>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {requiredDocs.map((doc) => {
           const uploaded = uploadedDocs.find((d) => d.name === doc);
           return (
-            <div
+            <button
               key={doc}
+              type="button"
+              onClick={() => onUpload(doc)}
               className={cn(
-                "flex items-center justify-between p-4 rounded-lg border transition-colors",
+                "flex items-start gap-3 p-3.5 rounded-lg border text-left transition-all group",
                 uploaded
-                  ? "border-success/40 bg-success/5"
-                  : "border-dashed border-border hover:border-primary/40"
+                  ? "border-success/40 bg-success/5 hover:bg-success/10"
+                  : "border-dashed border-border hover:border-primary/40 hover:bg-muted/30"
               )}
             >
-              <div className="flex items-center gap-3">
-                {uploaded ? (
-                  <CheckCircle2 className="w-5 h-5 text-success" />
-                ) : (
-                  <FileText className="w-5 h-5 text-muted-foreground" />
-                )}
-                <div>
-                  <p className="text-sm font-medium text-foreground">{doc}</p>
-                  {uploaded ? (
-                    <p className="text-xs text-success">{uploaded.fileName} ({(uploaded.size / 1024).toFixed(0)} KB)</p>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">PDF, JPG or PNG up to 10MB</p>
-                  )}
-                </div>
+              <div className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center shrink-0 mt-0.5",
+                uploaded ? "bg-success/15 text-success" : "bg-muted text-muted-foreground group-hover:text-primary"
+              )}>
+                {uploaded ? <CheckCircle2 className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
               </div>
-              <button
-                onClick={() => onUpload(doc)}
-                className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors",
-                  uploaded
-                    ? "border-success/30 text-success hover:bg-success/10"
-                    : "border-border text-muted-foreground hover:bg-muted"
+              <div className="min-w-0 flex-1">
+                <p className="text-body font-medium text-foreground leading-tight">{doc}</p>
+                {uploaded ? (
+                  <p className="text-[10px] text-success mt-0.5 truncate">{uploaded.fileName} · {(uploaded.size / 1024).toFixed(0)} KB</p>
+                ) : (
+                  <p className="text-[10px] text-muted-foreground mt-0.5">PDF, JPG or PNG · up to 10MB</p>
                 )}
-              >
-                <Upload className="w-3.5 h-3.5" /> {uploaded ? "Replace" : "Upload"}
-              </button>
-            </div>
+              </div>
+            </button>
           );
         })}
       </div>
@@ -491,6 +544,7 @@ function Step2Documents({
   );
 }
 
+/* ─── Step 3: Review ─── */
 function Step3Review({
   values,
   uploadedDocs,
@@ -505,66 +559,93 @@ function Step3Review({
   const allDocsUploaded = uploadedDocs.length >= requiredDocs.length;
   const isReady = allFieldsFilled && allDocsUploaded && participationSelected;
 
-  const summaryFields: [string, string][] = [
-    ["Legal Name", values.legalName || "—"],
-    ["Trading Name", values.tradingName || "—"],
-    ["Registration No.", values.registrationNumber || "—"],
-    ["Institution Type", values.institutionType || "—"],
-    ["Jurisdiction", values.jurisdiction || "—"],
-    ["License Number", values.licenseNumber || "—"],
-    ["Contact Email", values.contactEmail || "—"],
-    ["Contact Phone", values.contactPhone || "—"],
-    ["Documents Uploaded", `${uploadedDocs.length} / ${requiredDocs.length}`],
+  const sections = [
+    {
+      title: "Entity Information",
+      fields: [
+        ["Legal Name", values.legalName],
+        ["Trading Name", values.tradingName],
+        ["Registration No.", values.registrationNumber],
+        ["Institution Type", values.institutionType],
+      ],
+    },
+    {
+      title: "Regulatory Details",
+      fields: [
+        ["Jurisdiction", values.jurisdiction],
+        ["License Number", values.licenseNumber],
+      ],
+    },
+    {
+      title: "Contact",
+      fields: [
+        ["Email", values.contactEmail],
+        ["Phone", values.contactPhone],
+      ],
+    },
   ];
 
   return (
     <div className="space-y-5">
-      <h3 className="text-sm font-semibold text-foreground">Review & Submit</h3>
-      <p className="text-xs text-muted-foreground">Please review all information before submitting.</p>
-      <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-        {summaryFields.map(([label, value]) => (
-          <div key={label} className="flex justify-between">
-            <span className="text-xs text-muted-foreground">{label}</span>
-            <span className={cn(
-              "text-xs font-medium",
-              value === "—" ? "text-muted-foreground" : "text-foreground"
-            )}>{value}</span>
+      {/* Status banner */}
+      {isReady ? (
+        <div className="p-3 rounded-lg border border-success/30 bg-success/5 flex items-center gap-2.5">
+          <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
+          <p className="text-caption text-success font-medium">All information is complete. Ready to submit.</p>
+        </div>
+      ) : (
+        <div className="p-3 rounded-lg border border-warning/30 bg-warning/5 flex items-center gap-2.5">
+          <AlertCircle className="w-4 h-4 text-warning shrink-0" />
+          <p className="text-caption text-warning font-medium">Please complete all required fields and upload all documents.</p>
+        </div>
+      )}
+
+      {/* Info sections */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        {sections.map((section) => (
+          <div key={section.title} className="rounded-lg border border-border p-3.5 space-y-2.5">
+            <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{section.title}</h4>
+            {section.fields.map(([label, value]) => (
+              <div key={label}>
+                <p className="text-[10px] text-muted-foreground">{label}</p>
+                <p className={cn("text-body font-medium", value ? "text-foreground" : "text-muted-foreground")}>{value || "—"}</p>
+              </div>
+            ))}
           </div>
         ))}
       </div>
 
-      <div className="bg-muted/50 rounded-lg p-4 space-y-3">
-        <h4 className="text-xs font-semibold text-foreground uppercase tracking-wider">Participation Summary</h4>
-        <div className="flex justify-between">
-          <span className="text-xs text-muted-foreground">Data Submission</span>
-          <span className={cn("text-xs font-medium", values.isDataSubmitter ? "text-success" : "text-muted-foreground")}>
-            {values.isDataSubmitter ? "Yes" : "No"}
-          </span>
+      {/* Participation + Documents */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="rounded-lg border border-border p-3.5 space-y-2.5">
+          <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Participation</h4>
+          <div className="flex flex-wrap gap-2">
+            {values.isDataSubmitter && <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">Data Submission</Badge>}
+            {values.isSubscriber && <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">Subscriber</Badge>}
+            {!values.isDataSubmitter && !values.isSubscriber && <span className="text-caption text-muted-foreground">None selected</span>}
+          </div>
         </div>
-        <div className="flex justify-between">
-          <span className="text-xs text-muted-foreground">Subscriber</span>
-          <span className={cn("text-xs font-medium", values.isSubscriber ? "text-success" : "text-muted-foreground")}>
-            {values.isSubscriber ? "Yes" : "No"}
-          </span>
+        <div className="rounded-lg border border-border p-3.5 space-y-2.5">
+          <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            Documents ({uploadedDocs.length}/{requiredDocs.length})
+          </h4>
+          <div className="space-y-1">
+            {requiredDocs.map((doc) => {
+              const uploaded = uploadedDocs.find((d) => d.name === doc);
+              return (
+                <div key={doc} className="flex items-center gap-2 text-caption">
+                  {uploaded ? (
+                    <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
+                  ) : (
+                    <AlertCircle className="w-3 h-3 text-warning shrink-0" />
+                  )}
+                  <span className={uploaded ? "text-foreground" : "text-muted-foreground"}>{doc}</span>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
-
-      {!isReady && (
-        <div className="p-4 rounded-lg border border-warning/30 bg-warning/5 flex items-start gap-2">
-          <AlertCircle className="w-4 h-4 text-warning mt-0.5 shrink-0" />
-          <p className="text-xs text-warning font-medium">
-            Please fill in all required fields and upload all documents before submitting.
-          </p>
-        </div>
-      )}
-      {isReady && (
-        <div className="p-4 rounded-lg border border-success/30 bg-success/5 flex items-start gap-2">
-          <CheckCircle2 className="w-4 h-4 text-success mt-0.5 shrink-0" />
-          <p className="text-xs text-success font-medium">
-            All information is complete. Ready to submit for review.
-          </p>
-        </div>
-      )}
     </div>
   );
 }
