@@ -12,6 +12,10 @@ import RegisterInstitution from "./pages/RegisterInstitution";
 import Login from "./pages/Login";
 import NotFound from "./pages/NotFound";
 import { PlaceholderPage } from "./components/PlaceholderPage";
+import { UserManagementLayout } from "./pages/user-management/UserManagementLayout";
+import { UsersListPage } from "./pages/user-management/UsersListPage";
+import { RolesPermissionsPage } from "./pages/user-management/RolesPermissionsPage";
+import { ActivityLogPage } from "./pages/user-management/ActivityLogPage";
 import { DataGovernanceLayout } from "./pages/data-governance/DataGovernanceLayout";
 import DataGovernanceDashboard from "./pages/data-governance/DataGovernanceDashboard";
 import GovernanceAuditLogs from "./pages/data-governance/GovernanceAuditLogs";
@@ -91,7 +95,12 @@ const App = () => (
               <Route path="new" element={<NewReportRequestPage />} />
             </Route>
             <Route path="/audit-logs" element={<ProtectedRoute><PlaceholderPage title="Audit Logs" description="Searchable activity logs with change detail tracking" /></ProtectedRoute>} />
-            <Route path="/user-management" element={<ProtectedRoute><PlaceholderPage title="User Management" description="Manage users, roles, and permissions" /></ProtectedRoute>} />
+            <Route path="/user-management" element={<ProtectedRoute><UserManagementLayout /></ProtectedRoute>}>
+              <Route index element={<Navigate to="users" replace />} />
+              <Route path="users" element={<UsersListPage />} />
+              <Route path="roles" element={<RolesPermissionsPage />} />
+              <Route path="activity" element={<ActivityLogPage />} />
+            </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>
           </BrowserRouter>
