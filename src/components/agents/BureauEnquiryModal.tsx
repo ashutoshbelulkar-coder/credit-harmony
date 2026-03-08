@@ -140,6 +140,7 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
               <Input
                 id="dob"
                 type="text"
+                inputMode="numeric"
                 value={form.dob}
                 onChange={(e) => {
                   const v = e.target.value.replace(/\D/g, "");
