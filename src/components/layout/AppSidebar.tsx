@@ -22,7 +22,7 @@ const navItems = [
   { title: "Monitoring", path: "/monitoring", icon: Activity },
   { title: "Reporting", path: "/reporting", icon: FileBarChart },
   { title: "Audit Logs", path: "/audit-logs", icon: ScrollText },
-  { title: "User Management", path: "/user-management", icon: Users },
+  { title: "User Management", path: "/user-management/users", icon: Users },
 ];
 
 const institutionSubItems = [
