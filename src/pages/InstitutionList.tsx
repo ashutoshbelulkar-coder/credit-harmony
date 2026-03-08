@@ -4,25 +4,33 @@ import { useNavigate } from "react-router-dom";
 import {
   Search,
   Plus,
-  Filter,
-  ChevronDown,
   Eye,
   Pencil,
   Ban,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
-import { institutions, statusStyles, type Institution, type InstitutionStatus } from "@/data/institutions-mock";
+import { institutions, statusStyles } from "@/data/institutions-mock";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { EmptyState } from "@/components/EmptyState";
+import { toast } from "sonner";
 
 type SortKey = "name" | "type" | "status" | "apisEnabled" | "slaHealth" | "lastUpdated";
 type SortDir = "asc" | "desc";
