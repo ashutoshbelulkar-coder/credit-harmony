@@ -109,13 +109,10 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                 : "Manage onboarded institutions and their configurations"}
             </p>
           </div>
-          <button
-            onClick={() => navigate("/institutions/register")}
-            className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-body font-medium hover:bg-primary/90 transition-colors sm:w-auto"
-          >
+          <Button onClick={() => navigate("/institutions/register")} className="w-full sm:w-auto">
             <Plus className="w-4 h-4" />
             Register Institution
-          </button>
+          </Button>
         </div>
 
         {/* Filters */}
