@@ -194,6 +194,7 @@ const statusColors: Record<string, string> = {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   return (
     <DashboardLayout>
       <div className="space-y-6 md:space-y-8 laptop:space-y-6 desktop:space-y-8 animate-fade-in min-w-0">
