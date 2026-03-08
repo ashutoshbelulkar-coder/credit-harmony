@@ -37,6 +37,7 @@ const kpiStats = [
     change: "+12.3%",
     trend: "up" as const,
     icon: Activity,
+    href: "/monitoring/data-submission-api",
   },
   {
     title: "Error Rate",
@@ -44,6 +45,7 @@ const kpiStats = [
     change: "-0.05%",
     trend: "down" as const,
     icon: AlertTriangle,
+    href: "/monitoring/alert-engine",
   },
   {
     title: "SLA Health",
@@ -51,6 +53,7 @@ const kpiStats = [
     change: "+0.1%",
     trend: "up" as const,
     icon: CheckCircle2,
+    href: "/monitoring/sla-configuration",
   },
   {
     title: "Data Quality Score",
@@ -58,6 +61,7 @@ const kpiStats = [
     change: "+1.8%",
     trend: "up" as const,
     icon: TrendingUp,
+    href: "/data-governance/data-quality-monitoring",
   },
 ];
 
