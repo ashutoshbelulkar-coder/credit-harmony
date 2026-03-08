@@ -75,6 +75,15 @@ const InstitutionDetail = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
+        {/* Breadcrumb */}
+        <PageBreadcrumb
+          segments={[
+            { label: "Dashboard", href: "/" },
+            { label: "Institutions", href: "/institutions" },
+            { label: institution.name },
+          ]}
+        />
+
         {/* Back + Title */}
         <div className="flex items-start gap-3 sm:gap-4 min-w-0">
           <button

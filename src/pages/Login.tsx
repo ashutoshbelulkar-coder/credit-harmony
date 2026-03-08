@@ -49,7 +49,7 @@ export default function Login() {
     if (!password) next.password = "Password is required";
     setErrors(next);
     if (Object.keys(next).length > 0) return;
-    login(email, password);
+    login(email, password, rememberMe);
     navigate("/", { replace: true });
   };
 

@@ -76,9 +76,28 @@ export function UsersListPage() {
             Manage platform users, roles, and access across institutions.
           </p>
         </div>
-        <Button onClick={() => setInviteOpen(true)}>
-          <UserPlus className="w-4 h-4 mr-1.5" /> Invite User
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              exportToCsv("users", filtered, [
+                { key: "name", label: "Name" },
+                { key: "email", label: "Email" },
+                { key: "role", label: "Role" },
+                { key: "institution", label: "Institution" },
+                { key: "status", label: "Status" },
+                { key: "lastActive", label: "Last Active" },
+              ])
+            }
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </Button>
+          <Button onClick={() => setInviteOpen(true)}>
+            <UserPlus className="w-4 h-4 mr-1.5" /> Invite User
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}

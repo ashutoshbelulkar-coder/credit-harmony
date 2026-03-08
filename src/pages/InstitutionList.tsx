@@ -111,10 +111,29 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                 : "Manage onboarded institutions and their configurations"}
             </p>
           </div>
-          <Button onClick={() => navigate("/institutions/register")} className="w-full sm:w-auto">
-            <Plus className="w-4 h-4" />
-            Register Institution
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                exportToCsv("institutions", filtered, [
+                  { key: "name", label: "Name" },
+                  { key: "type", label: "Type" },
+                  { key: "status", label: "Status" },
+                  { key: "apisEnabled", label: "APIs Enabled" },
+                  { key: "slaHealth", label: "SLA Health %" },
+                  { key: "lastUpdated", label: "Last Updated" },
+                ])
+              }
+            >
+              <Download className="w-4 h-4" />
+              Export CSV
+            </Button>
+            <Button onClick={() => navigate("/institutions/register")} className="w-full sm:w-auto">
+              <Plus className="w-4 h-4" />
+              Register Institution
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
