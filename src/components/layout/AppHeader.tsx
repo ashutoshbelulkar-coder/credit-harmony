@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { useCommandPalette } from "@/components/CommandPalette";
 
 interface AppHeaderProps {
   onToggleSidebar?: () => void;
