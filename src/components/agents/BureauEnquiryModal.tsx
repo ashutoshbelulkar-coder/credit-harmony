@@ -48,6 +48,7 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
     if (!form.pan.trim()) errs.pan = "PAN is required";
     else if (!panRegex.test(form.pan.toUpperCase())) errs.pan = "Invalid PAN format (e.g., ABCDE1234F)";
     if (!form.mobile.trim()) errs.mobile = "Mobile number is required";
+    else if (!/^\d{10}$/.test(form.mobile.trim())) errs.mobile = "Enter a valid 10-digit mobile number";
     const dobErr = validateDob(form.dob);
     if (dobErr) errs.dob = dobErr;
     if (!form.address.trim()) errs.address = "Address is required";
