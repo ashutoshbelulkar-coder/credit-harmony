@@ -112,10 +112,50 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
       </div>
 
       {/* Notifications */}
-      <button className="relative flex h-9 w-9 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 items-center justify-center rounded-lg hover:bg-muted transition-colors duration-200" aria-label="Notifications">
-        <Bell className="w-5 h-5 text-muted-foreground" />
-        <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-destructive" />
-      </button>
+      <Popover>
+        <PopoverTrigger asChild>
+          <button className="relative flex h-9 w-9 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 items-center justify-center rounded-lg hover:bg-muted transition-colors duration-200" aria-label="Notifications">
+            <Bell className="w-5 h-5 text-muted-foreground" />
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 min-w-[16px] h-4 rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1">
+                {unreadCount}
+              </span>
+            )}
+          </button>
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-80 p-0">
+          <div className="flex items-center justify-between px-4 py-3 border-b">
+            <h4 className="text-sm font-semibold text-foreground">Notifications</h4>
+            {unreadCount > 0 && (
+              <button onClick={markAllRead} className="text-xs text-primary hover:underline">Mark all read</button>
+            )}
+          </div>
+          <div className="max-h-[360px] overflow-y-auto divide-y">
+            {notifications.map((n) => {
+              const isUnread = n.unread && !readIds.includes(n.id);
+              return (
+                <div
+                  key={n.id}
+                  className={cn("flex gap-3 px-4 py-3 hover:bg-muted/50 cursor-pointer transition-colors", isUnread && "bg-primary/5")}
+                  onClick={() => !readIds.includes(n.id) && setReadIds((prev) => [...prev, n.id])}
+                >
+                  <div className={cn("mt-0.5 shrink-0", n.iconColor)}>
+                    <n.icon className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-foreground truncate">{n.title}</span>
+                      {isUnread && <span className="w-1.5 h-1.5 rounded-full bg-primary shrink-0" />}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{n.desc}</p>
+                    <span className="text-[10px] text-muted-foreground/70 mt-1 block">{n.time}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </PopoverContent>
+      </Popover>
 
       {/* User Profile */}
       <DropdownMenu>
