@@ -79,6 +79,8 @@ const AgentsLayout = lazy(routeImports.AgentsLayout);
 const AgentsLandingPage = lazy(routeImports.AgentsLandingPage);
 const AgentDetailPage = lazy(routeImports.AgentDetailPage);
 const AgentConfigurationPage = lazy(routeImports.AgentConfigurationPage);
+const ApprovalQueueLayout = lazy(routeImports.ApprovalQueueLayout);
+const ApprovalQueuePage = lazy(routeImports.ApprovalQueuePage);
 
 // Preload all route chunks after initial page load
 function preloadAllRoutes() {
