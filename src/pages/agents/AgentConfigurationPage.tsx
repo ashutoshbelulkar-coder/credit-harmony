@@ -99,8 +99,8 @@ export default function AgentConfigurationPage() {
     setDescription(agent.description);
     setInstructions(agent.instructions);
     setTemplate(agent.id);
-    setSources({ ...agent.sources });
-    setCapabilities({ ...agent.capabilities });
+    setSources({ ...agent.sources } as any);
+    setCapabilities({ ...agent.capabilities } as any);
     const toolIds = agent.tools.map((t) => t.id).filter((id) => availableTools.some((at) => at.id === id));
     setSelectedTools(toolIds.length > 0 ? toolIds : ["bureau-enquiry"]);
     setPrompts(
