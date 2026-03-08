@@ -171,7 +171,18 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {paginated.map((inst) => (
+                {paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-5 py-0">
+                      <EmptyState
+                        title="No institutions found"
+                        description="Try adjusting your search or status filter."
+                        actionLabel="Clear filters"
+                        onAction={() => { setSearch(""); setStatusFilter("all"); setPage(1); }}
+                      />
+                    </td>
+                  </tr>
+                ) : paginated.map((inst) => (
                   <tr
                     key={inst.id}
                     onClick={() => navigate(`/institutions/${inst.id}`)}
@@ -215,12 +226,14 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                     <td className="px-5 py-4">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
                             onClick={(e) => e.stopPropagation()}
-                            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
                           >
                             <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                          </button>
+                          </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40">
                           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/institutions/${inst.id}`); }}>
@@ -230,7 +243,7 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                             <Pencil className="w-3.5 h-3.5 mr-2" /> Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e) => { e.stopPropagation(); setSuspendTarget({ id: inst.id, name: inst.name }); }}
                             className="text-destructive focus:text-destructive"
                           >
                             <Ban className="w-3.5 h-3.5 mr-2" /> Suspend
