@@ -126,6 +126,7 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
               <Label htmlFor="mobile">Mobile Number *</Label>
               <Input
                 id="mobile"
+                inputMode="tel"
                 value={form.mobile}
                 onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))}
                 onFocus={scrollFocusedInputIntoView}
@@ -139,6 +140,7 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
               <Input
                 id="dob"
                 type="text"
+                inputMode="numeric"
                 value={form.dob}
                 onChange={(e) => {
                   const v = e.target.value.replace(/\D/g, "");
