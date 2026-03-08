@@ -170,7 +170,6 @@ export function AppSidebar() {
                 )}
               </NavLink>
               )}
-              </NavLink>
               {showSubNav && subItems && (
                 <div className="mt-1 ml-4 pl-3 border-l border-sidebar-border space-y-0.5">
                   {subItems.map((sub) => {
