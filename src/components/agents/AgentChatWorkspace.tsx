@@ -41,13 +41,19 @@ const DEFAULT_RECOMMENDED_TOOLS = [
   { id: "tradeline-sim", name: "What-if Simulation", description: "Model trade line impact", icon: "GitBranch" },
 ];
 
+type BureauFormData = { fullName: string; pan: string; mobile: string; dob: string; address: string };
+
 interface Props {
   agent: Agent;
   subAgentId: string;
   onBack: () => void;
+  initialBureauForm?: BureauFormData | null;
+  onBureauFormConsumed?: () => void;
+  initialBankUploadFile?: File | null;
+  onBankUploadConsumed?: () => void;
 }
 
-export function AgentChatWorkspace({ agent, subAgentId, onBack }: Props) {
+export function AgentChatWorkspace({ agent, subAgentId, onBack, initialBureauForm, onBureauFormConsumed, initialBankUploadFile, onBankUploadConsumed }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -67,7 +73,13 @@ export function AgentChatWorkspace({ agent, subAgentId, onBack }: Props) {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const baseToolsList = (agent.tools.length > 0 ? agent.tools : DEFAULT_RECOMMENDED_TOOLS).slice(0, 6);
-  const [recommendedToolOrder, setRecommendedToolOrder] = useState<string[]>(() => baseToolsList.map((t) => t.id));
+  const [recommendedToolOrder, setRecommendedToolOrder] = useState<string[]>(() => {
+    const ids = baseToolsList.map((t) => t.id);
+    const bureauIndex = ids.indexOf("bureau-enquiry");
+    if (bureauIndex === -1) return ids;
+    const rest = ids.filter((id) => id !== "bureau-enquiry");
+    return [...rest, "bureau-enquiry"];
+  });
 
   // Mock list of past chat sessions (replace with API later)
   const chatHistoryList = [
@@ -81,6 +93,51 @@ export function AgentChatWorkspace({ agent, subAgentId, onBack }: Props) {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // When opened from AgentDetailPage with pre-filled bureau form, run bureau flow once then clear
+  useEffect(() => {
+    if (!initialBureauForm) return;
+    const form = initialBureauForm;
+    setShowBureauModal(false);
+    const systemMsg: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      role: "system",
+      content: `Bureau enquiry initiated for **${form.fullName}** (PAN: ${form.pan})`,
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, systemMsg]);
+    setTimeout(() => {
+      const cust = generateMockCustomer(form);
+      setCustomer(cust);
+      const bureauMsg = generateBureauResponse(cust);
+      setMessages((prev) => [...prev, bureauMsg]);
+    }, 1200);
+    onBureauFormConsumed?.();
+  }, [initialBureauForm, onBureauFormConsumed]);
+
+  // When opened from AgentDetailPage with pre-uploaded bank file (Lender Document), run bank upload flow once then clear
+  useEffect(() => {
+    if (!initialBankUploadFile) return;
+    const file = initialBankUploadFile;
+    setShowBankUploadModal(false);
+    const systemMsg: ChatMessage = {
+      id: `msg-${Date.now()}`,
+      role: "system",
+      content: `Bank statement uploaded: **${file.name}**`,
+      timestamp: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, systemMsg]);
+    setTimeout(() => {
+      const agentMsg: ChatMessage = {
+        id: `msg-${Date.now() + 1}`,
+        role: "agent",
+        content: `I've received the bank statement. Running cash flow analysis—this will help assess income stability, spending patterns, and savings behavior for a complete credit view.`,
+        timestamp: new Date().toISOString(),
+      };
+      setMessages((prev) => [...prev, agentMsg]);
+    }, 800);
+    onBankUploadConsumed?.();
+  }, [initialBankUploadFile, onBankUploadConsumed]);
 
   const handleSend = useCallback(() => {
     if (!inputValue.trim()) return;

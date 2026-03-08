@@ -41,14 +41,13 @@ export function CustomerContextPanel({ customer }: Props) {
 
   return (
     <ScrollArea className="flex-1 min-h-0 h-0 basis-0">
-      <div className="space-y-4 pr-2 pb-4">
-        {/* CRIF Header Card - theme primary */}
+      <div className="space-y-4 pl-3 pr-2 pb-4">
+        {/* CRIF Header Card - at top */}
         <Card className="border border-primary/20 bg-primary/5 dark:bg-primary/10 text-card-foreground">
           <CardContent className="p-4">
             <div className="flex items-start justify-between mb-3">
               <div>
-                <p className="text-[9px] uppercase tracking-wider text-primary font-semibold">CRIF Analysis</p>
-                <p className="text-[9px] text-muted-foreground mt-0.5">Report Date: {new Date().toLocaleDateString()}</p>
+                <p className="text-[9px] text-muted-foreground">Report Date: {new Date().toLocaleDateString()}</p>
               </div>
               <Badge variant="outline" className={cn("text-[9px] font-semibold", riskColor[customer.riskTag])}>
                 {customer.riskTag} Risk
@@ -71,6 +70,16 @@ export function CustomerContextPanel({ customer }: Props) {
                 </div>
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Executive Summary - below CRIF Analysis */}
+        <Card className="border border-border bg-card text-card-foreground">
+          <CardHeader className="pb-2 pt-3 px-4">
+            <h3 className="text-h4 font-semibold leading-tight text-foreground">Executive Summary</h3>
+          </CardHeader>
+          <CardContent className="px-4 pb-3">
+            <p className="text-caption text-muted-foreground leading-relaxed">{customer.executiveSummary}</p>
           </CardContent>
         </Card>
 
@@ -103,13 +112,6 @@ export function CustomerContextPanel({ customer }: Props) {
 
         {/* Accordion Sections */}
         <Accordion type="multiple" className="space-y-1">
-          <AccordionItem value="exec-summary" className="border border-border rounded-lg px-3">
-            <AccordionTrigger className="text-caption font-semibold py-2.5 hover:no-underline">Executive Summary</AccordionTrigger>
-            <AccordionContent className="text-caption text-muted-foreground leading-relaxed pb-3">
-              {customer.executiveSummary}
-            </AccordionContent>
-          </AccordionItem>
-
           <AccordionItem value="tradelines" className="border border-border rounded-lg px-3">
             <AccordionTrigger className="text-caption font-semibold py-2.5 hover:no-underline">
               Tradelines ({customer.tradelines.length})

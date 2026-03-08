@@ -12,7 +12,17 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AgentChatWorkspace } from "@/components/agents/AgentChatWorkspace";
+import { BankStatementUploadModal } from "@/components/agents/BankStatementUploadModal";
+import { BureauEnquiryModal } from "@/components/agents/BureauEnquiryModal";
 import { BureauOperatorWorkspace } from "@/components/agents/bureau-operator/BureauOperatorWorkspace";
+
+export type BureauFormData = {
+  fullName: string;
+  pan: string;
+  mobile: string;
+  dob: string;
+  address: string;
+};
 
 const iconMap: Record<string, React.ElementType> = {
   Search, FileSearch, FileSignature, BarChart3, ShieldAlert, UserCheck,
@@ -25,6 +35,10 @@ export default function AgentDetailPage() {
   const navigate = useNavigate();
   const agent = mockAgents.find((a) => a.id === agentId);
   const [activeSubAgent, setActiveSubAgent] = useState<string | null>(null);
+  const [showBureauModal, setShowBureauModal] = useState(false);
+  const [pendingBureauForm, setPendingBureauForm] = useState<BureauFormData | null>(null);
+  const [showBankUploadModal, setShowBankUploadModal] = useState(false);
+  const [pendingBankUploadFile, setPendingBankUploadFile] = useState<File | null>(null);
 
   if (!agent) {
     return (
@@ -50,6 +64,10 @@ export default function AgentDetailPage() {
         agent={agent}
         subAgentId={activeSubAgent}
         onBack={() => setActiveSubAgent(null)}
+        initialBureauForm={pendingBureauForm}
+        onBureauFormConsumed={() => setPendingBureauForm(null)}
+        initialBankUploadFile={pendingBankUploadFile}
+        onBankUploadConsumed={() => setPendingBankUploadFile(null)}
       />
     );
   }
@@ -100,7 +118,16 @@ export default function AgentDetailPage() {
                           "dark:hover:shadow-[0_4px_12px_hsl(var(--foreground)/0.12)]"
                         )
                   )}
-                  onClick={() => !sub.comingSoon && setActiveSubAgent(sub.id)}
+                  onClick={() => {
+                    if (sub.comingSoon) return;
+                    if (sub.id === "bureau-inquiry") {
+                      setShowBureauModal(true);
+                    } else if (sub.id === "lender-doc") {
+                      setShowBankUploadModal(true);
+                    } else {
+                      setActiveSubAgent(sub.id);
+                    }
+                  }}
                 >
                   <CardContent className="p-5 flex flex-col gap-3">
                     <div className="flex items-start justify-between">
@@ -143,6 +170,26 @@ export default function AgentDetailPage() {
           </Card>
         )}
       </div>
+
+      <BureauEnquiryModal
+        open={showBureauModal}
+        onClose={() => setShowBureauModal(false)}
+        onSubmit={(form) => {
+          setShowBureauModal(false);
+          setPendingBureauForm(form);
+          setActiveSubAgent("bureau-inquiry");
+        }}
+      />
+
+      <BankStatementUploadModal
+        open={showBankUploadModal}
+        onClose={() => setShowBankUploadModal(false)}
+        onSubmit={(file) => {
+          setShowBankUploadModal(false);
+          setPendingBankUploadFile(file);
+          setActiveSubAgent("lender-doc");
+        }}
+      />
     </div>
   );
 }

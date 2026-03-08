@@ -28,6 +28,19 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
   }, [open]);
 
   const panRegex = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+  const dobRegex = /^\d{2}-\d{2}-\d{4}$/;
+
+  const validateDob = (value: string): string | undefined => {
+    if (!value.trim()) return "Date of birth is required";
+    if (!dobRegex.test(value.trim())) return "Use format dd-mm-yyyy";
+    const [d, m, y] = value.trim().split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    if (date.getFullYear() !== y || date.getMonth() !== m - 1 || date.getDate() !== d) return "Enter a valid date";
+    const today = new Date();
+    today.setHours(23, 59, 59, 999);
+    if (date > today) return "Date of birth cannot be in the future";
+    return undefined;
+  };
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -35,7 +48,8 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
     if (!form.pan.trim()) errs.pan = "PAN is required";
     else if (!panRegex.test(form.pan.toUpperCase())) errs.pan = "Invalid PAN format (e.g., ABCDE1234F)";
     if (!form.mobile.trim()) errs.mobile = "Mobile number is required";
-    if (!form.dob.trim()) errs.dob = "Date of birth is required";
+    const dobErr = validateDob(form.dob);
+    if (dobErr) errs.dob = dobErr;
     if (!form.address.trim()) errs.address = "Address is required";
     if (!consent) errs.consent = "Consent is mandatory for bureau access";
     setErrors(errs);
@@ -82,8 +96,6 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
 
         <div className="min-h-0 flex-1 min-w-0 overflow-y-auto overflow-x-hidden overscroll-contain py-2 px-3">
           <div className="space-y-4 pb-4 min-w-0">
-          <h3 className="text-body font-medium text-foreground">Personal Details</h3>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
             <div className="space-y-1.5 min-w-0">
               <Label htmlFor="fullName">Full Name *</Label>
@@ -126,11 +138,19 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
               <Label htmlFor="dob">Date of Birth *</Label>
               <Input
                 id="dob"
-                type="date"
+                type="text"
                 value={form.dob}
-                onChange={(e) => setForm((f) => ({ ...f, dob: e.target.value }))}
-                max={new Date().toISOString().slice(0, 10)}
-                className="min-h-11 w-full min-w-0 text-base touch-manipulation sm:min-h-10 sm:text-sm box-border [color-scheme:light] dark:[color-scheme:dark]"
+                onChange={(e) => {
+                  const v = e.target.value.replace(/\D/g, "");
+                  let next = v.slice(0, 8);
+                  if (next.length > 2) next = `${next.slice(0, 2)}-${next.slice(2)}`;
+                  if (next.length > 5) next = `${next.slice(0, 5)}-${next.slice(5)}`;
+                  setForm((f) => ({ ...f, dob: next }));
+                }}
+                onFocus={scrollFocusedInputIntoView}
+                placeholder="dd-mm-yyyy"
+                maxLength={10}
+                className="min-h-11 w-full min-w-0 text-base touch-manipulation sm:min-h-10 sm:text-sm box-border"
               />
               {errors.dob && <p className="text-[10px] text-destructive">{errors.dob}</p>}
             </div>
