@@ -126,6 +126,7 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
               <Label htmlFor="mobile">Mobile Number *</Label>
               <Input
                 id="mobile"
+                inputMode="tel"
                 value={form.mobile}
                 onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))}
                 onFocus={scrollFocusedInputIntoView}
