@@ -260,27 +260,42 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
           {/* Pagination */}
           <div className="flex items-center justify-between px-5 py-3 border-t border-border">
             <span className="text-caption text-muted-foreground">
-              Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length} institutions
+              {filtered.length > 0
+                ? `Showing ${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, filtered.length)} of ${filtered.length} institutions`
+                : "0 institutions"}
             </span>
             <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-md text-body font-medium transition-colors",
-                    p === currentPage
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  {p}
-                </button>
-              ))}
+              <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>Previous</Button>
+              <span className="text-caption text-muted-foreground px-2">{currentPage} / {totalPages}</span>
+              <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>Next</Button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Suspend Confirmation Dialog */}
+      <AlertDialog open={!!suspendTarget} onOpenChange={(open) => !open && setSuspendTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Suspend Institution</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to suspend <strong>{suspendTarget?.name}</strong>? This will disable all API access and data submissions for this institution.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast.success(`${suspendTarget?.name} has been suspended`);
+                setSuspendTarget(null);
+              }}
+            >
+              Suspend
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };

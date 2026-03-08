@@ -11,6 +11,7 @@ import {
   ClipboardCheck, User, Brain, ArrowRight, Plus, Clock, Lock, Mail, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const iconMap: Record<string, React.ElementType> = {
   Landmark, Home, Shield, UserCheck, Wifi, Car, Handshake, Settings,

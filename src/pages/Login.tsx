@@ -260,6 +260,7 @@ export default function Login() {
                   type="button"
                   variant="outline"
                   className="h-11 w-full rounded-[10px] border-border text-[13px] font-medium text-foreground transition-all duration-200 hover:bg-muted hover:border-border"
+                  onClick={() => toast.info("SSO integration is not available in demo mode.")}
                 >
                   <Building2 className="mr-2 h-4 w-4" />
                   Sign in with SSO

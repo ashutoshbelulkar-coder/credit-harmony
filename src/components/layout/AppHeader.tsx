@@ -120,7 +120,15 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
                 <div
                   key={n.id}
                   className={cn("flex gap-3 px-4 py-3 hover:bg-muted/50 cursor-pointer transition-colors", isUnread && "bg-primary/5")}
-                  onClick={() => !readIds.includes(n.id) && setReadIds((prev) => [...prev, n.id])}
+                  onClick={() => {
+                    if (!readIds.includes(n.id)) setReadIds((prev) => [...prev, n.id]);
+                    // Navigate based on notification type
+                    if (n.title.includes("SLA")) navigate("/monitoring/sla-configuration");
+                    else if (n.title.includes("Schema") || n.title.includes("Mapping")) navigate("/data-governance/auto-mapping-review");
+                    else if (n.title.includes("Login") || n.title.includes("User")) navigate("/user-management/users");
+                    else if (n.title.includes("Batch")) navigate("/monitoring/data-submission-batch");
+                    else if (n.title.includes("Quality")) navigate("/data-governance/data-quality-monitoring");
+                  }}
                 >
                   <div className={cn("mt-0.5 shrink-0", n.iconColor)}>
                     <n.icon className="w-4 h-4" />
