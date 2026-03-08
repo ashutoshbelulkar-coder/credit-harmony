@@ -147,7 +147,7 @@ export default function AgentsLandingPage() {
                       </Badge>
                     ))}
                   </div>
-                  <div className="flex items-stretch gap-2 pt-2 mt-auto border-t border-border">
+                  <div className="flex items-stretch gap-2 pt-2 mt-auto">
                     <Button
                       variant="outline"
                       size="sm"
