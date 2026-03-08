@@ -124,6 +124,31 @@ export function AppSidebar() {
 
           return (
             <div key={item.path}>
+              {collapsed ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <NavLink
+                      to={item.path}
+                      className={cn(
+                        "flex items-center justify-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-[11px] font-medium leading-[18px] transition-all duration-200 group",
+                        isParentActive
+                          ? "bg-sidebar-accent text-sidebar-primary"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                      )}
+                    >
+                      <item.icon
+                        className={cn(
+                          "w-5 h-5 shrink-0 transition-colors",
+                          isParentActive ? "text-sidebar-primary" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                        )}
+                      />
+                    </NavLink>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" sideOffset={8}>
+                    {item.title}
+                  </TooltipContent>
+                </Tooltip>
+              ) : (
               <NavLink
                 to={item.path}
                 className={cn(
@@ -139,10 +164,12 @@ export function AppSidebar() {
                     isParentActive ? "text-sidebar-primary" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
                   )}
                 />
-                {!collapsed && <span className="truncate">{item.title}</span>}
+                <span className="truncate">{item.title}</span>
                 {isParentActive && !showSubNav && (
                   <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sidebar-primary shrink-0" />
                 )}
+              </NavLink>
+              )}
               </NavLink>
               {showSubNav && subItems && (
                 <div className="mt-1 ml-4 pl-3 border-l border-sidebar-border space-y-0.5">
