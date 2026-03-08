@@ -20,6 +20,7 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   const { theme, setTheme } = useTheme();
   const { logout } = useAuth();
   const navigate = useNavigate();
+  const { open: openCommandPalette } = useCommandPalette();
 
   const notifications = [
     { id: 1, icon: AlertTriangle, iconColor: "text-warning", title: "SLA Breach Alert", desc: "P95 latency exceeded 300ms for Data Submission API", time: "2 min ago", unread: true },
