@@ -165,7 +165,7 @@ const RegisterInstitution = () => {
   return (
     <DashboardLayout>
       <div className="animate-fade-in space-y-4 sm:space-y-6">
-        <PageBreadcrumb items={[
+        <PageBreadcrumb segments={[
           { label: "Institutions", href: "/institutions" },
           { label: "Register Institution" },
         ]} />
