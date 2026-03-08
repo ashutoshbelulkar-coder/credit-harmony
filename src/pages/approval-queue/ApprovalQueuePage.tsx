@@ -67,7 +67,7 @@ export function ApprovalQueuePage() {
 
   return (
     <>
-      <PageBreadcrumb items={[{ label: "Approval Queue" }]} />
+      <PageBreadcrumb segments={[{ label: "Approval Queue" }]} />
 
       <div className="space-y-5">
         <div>
