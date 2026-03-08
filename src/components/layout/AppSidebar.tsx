@@ -47,6 +47,12 @@ const monitoringSubItems = [
   { title: "Alert Engine", path: "/monitoring/alert-engine" },
 ];
 
+const userManagementSubItems = [
+  { title: "Users", path: "/user-management/users" },
+  { title: "Roles & Permissions", path: "/user-management/roles" },
+  { title: "Activity Log", path: "/user-management/activity" },
+];
+
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
