@@ -174,6 +174,9 @@ const App = () => (
                 <Route path="new" element={<NewReportRequestPage />} />
               </Route>
               <Route path="/audit-logs" element={<ProtectedRoute><PlaceholderPage title="Audit Logs" description="Searchable activity logs with change detail tracking" /></ProtectedRoute>} />
+              <Route path="/approval-queue" element={<ProtectedRoute><ApprovalQueueLayout /></ProtectedRoute>}>
+                <Route index element={<ApprovalQueuePage />} />
+              </Route>
               <Route path="/user-management" element={<ProtectedRoute><UserManagementLayout /></ProtectedRoute>}>
                 <Route index element={<Navigate to="users" replace />} />
                 <Route path="users" element={<UsersListPage />} />
