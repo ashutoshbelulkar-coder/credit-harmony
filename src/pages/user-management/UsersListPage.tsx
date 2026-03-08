@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { UserPlus, Search, MoreHorizontal, Eye, Shield, ShieldOff, XCircle } from "lucide-react";
+import { UserPlus, Search, MoreHorizontal, Eye, Shield, ShieldOff, XCircle, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
