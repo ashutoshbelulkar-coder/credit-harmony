@@ -221,12 +221,13 @@ export default function Login() {
                     Remember me
                   </Label>
                 </div>
-                <a
-                  href="#"
+                <button
+                  type="button"
+                  onClick={() => toast.info("Password reset is not available in demo mode.")}
                   className="text-[11px] font-medium text-crif-orange hover:text-crif-orange/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded transition-colors"
                 >
                   Forgot password?
-                </a>
+                </button>
               </motion.div>
 
               {/* Sign In */}
