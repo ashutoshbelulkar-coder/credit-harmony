@@ -2,7 +2,7 @@
  * Generic CSV export utility.
  * Converts an array of objects to CSV and triggers a browser download.
  */
-export function exportToCsv<T extends Record<string, unknown>>(
+export function exportToCsv<T>(
   filename: string,
   data: T[],
   columns: { key: keyof T; label: string }[]
