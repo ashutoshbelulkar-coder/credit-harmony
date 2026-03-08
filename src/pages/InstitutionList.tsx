@@ -46,10 +46,10 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [showFilters, setShowFilters] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("lastUpdated");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
+  const [suspendTarget, setSuspendTarget] = useState<{ id: string; name: string } | null>(null);
 
   const filtered = useMemo(() => {
     let result = institutions.filter((inst) => {
