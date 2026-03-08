@@ -82,7 +82,7 @@ export function AppSidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
+      <nav className="flex-1 py-4 px-2 space-y-0.5 overflow-y-auto">
         {navItems.map((item) => {
           const isDataGov = item.path === "/data-governance";
           const isInstitutions = item.path.startsWith("/institutions");
