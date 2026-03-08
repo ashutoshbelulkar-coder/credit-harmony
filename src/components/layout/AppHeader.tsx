@@ -16,6 +16,13 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   const [searchFocused, setSearchFocused] = useState(false);
   const [showThemeMenu, setShowThemeMenu] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
+  };
 
   return (
     <header className="sticky top-0 z-20 flex h-16 min-h-[44px] items-center gap-2 sm:gap-4 border-b border-border bg-card px-4 sm:px-6 pl-[max(1rem,env(safe-area-inset-left))]">
