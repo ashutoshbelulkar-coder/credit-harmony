@@ -1,4 +1,5 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { useNavigate } from "react-router-dom";
 import {
   Activity,
   AlertTriangle,
