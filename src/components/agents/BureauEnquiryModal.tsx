@@ -48,6 +48,7 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
     if (!form.pan.trim()) errs.pan = "PAN is required";
     else if (!panRegex.test(form.pan.toUpperCase())) errs.pan = "Invalid PAN format (e.g., ABCDE1234F)";
     if (!form.mobile.trim()) errs.mobile = "Mobile number is required";
+    else if (!/^\d{10}$/.test(form.mobile.trim())) errs.mobile = "Enter a valid 10-digit mobile number";
     const dobErr = validateDob(form.dob);
     if (dobErr) errs.dob = dobErr;
     if (!form.address.trim()) errs.address = "Address is required";
@@ -128,7 +129,10 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
                 id="mobile"
                 inputMode="tel"
                 value={form.mobile}
-                onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                  setForm((f) => ({ ...f, mobile: digits }));
+                }}
                 onFocus={scrollFocusedInputIntoView}
                 placeholder="+91 98765 43210"
                 className="min-h-11 w-full min-w-0 text-base touch-manipulation sm:min-h-10 sm:text-sm box-border"
