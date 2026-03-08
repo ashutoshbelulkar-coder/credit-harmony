@@ -16,10 +16,6 @@ import { BankStatementUploadModal } from "@/components/agents/BankStatementUploa
 import { BureauEnquiryModal } from "@/components/agents/BureauEnquiryModal";
 import { BureauOperatorWorkspace } from "@/components/agents/bureau-operator/BureauOperatorWorkspace";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
-import { AgentChatWorkspace } from "@/components/agents/AgentChatWorkspace";
-import { BankStatementUploadModal } from "@/components/agents/BankStatementUploadModal";
-import { BureauEnquiryModal } from "@/components/agents/BureauEnquiryModal";
-import { BureauOperatorWorkspace } from "@/components/agents/bureau-operator/BureauOperatorWorkspace";
 
 export type BureauFormData = {
   fullName: string;
