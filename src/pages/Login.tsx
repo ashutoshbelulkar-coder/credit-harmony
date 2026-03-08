@@ -17,6 +17,7 @@ import {
   KeyRound,
   Users,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
