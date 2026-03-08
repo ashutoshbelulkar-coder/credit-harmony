@@ -43,6 +43,8 @@ const routeImports = {
   AgentsLandingPage: () => import("./pages/agents/AgentsLandingPage"),
   AgentDetailPage: () => import("./pages/agents/AgentDetailPage"),
   AgentConfigurationPage: () => import("./pages/agents/AgentConfigurationPage"),
+  ApprovalQueueLayout: () => import("./pages/approval-queue/ApprovalQueueLayout").then(m => ({ default: m.ApprovalQueueLayout })),
+  ApprovalQueuePage: () => import("./pages/approval-queue/ApprovalQueuePage").then(m => ({ default: m.ApprovalQueuePage })),
 };
 
 // Lazy-loaded route components
