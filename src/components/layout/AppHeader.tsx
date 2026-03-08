@@ -103,16 +103,29 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
       </button>
 
       {/* User Profile */}
-      <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted transition-colors min-w-0">
-        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
-          <User className="w-4 h-4 text-primary-foreground" />
-        </div>
-        <div className="hidden md:flex flex-col text-left min-w-0 overflow-hidden">
-          <span className="text-body font-medium leading-tight truncate">Admin User</span>
-          <span className="text-caption text-muted-foreground leading-tight truncate">Super Admin</span>
-        </div>
-        <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden md:block shrink-0" />
-      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted transition-colors min-w-0">
+            <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0">
+              <User className="w-4 h-4 text-primary-foreground" />
+            </div>
+            <div className="hidden md:flex flex-col text-left min-w-0 overflow-hidden">
+              <span className="text-body font-medium leading-tight truncate">Admin User</span>
+              <span className="text-caption text-muted-foreground leading-tight truncate">Super Admin</span>
+            </div>
+            <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden md:block shrink-0" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48">
+          <DropdownMenuItem onClick={() => navigate("/user-management/users")}>
+            <Settings className="w-4 h-4 mr-2" /> Settings
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
+            <LogOut className="w-4 h-4 mr-2" /> Log Out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     </header>
   );
 }
