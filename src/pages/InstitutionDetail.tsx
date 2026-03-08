@@ -1,11 +1,12 @@
 import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, AlertTriangle, ExternalLink, Clock } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertTriangle, ExternalLink, Clock, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import { getInstitutionById, statusStyles } from "@/data/institutions-mock";
 import type { Institution } from "@/data/institutions-mock";
+import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import {
   Dialog,
   DialogContent,
@@ -74,6 +75,15 @@ const InstitutionDetail = () => {
   return (
     <DashboardLayout>
       <div className="space-y-6 animate-fade-in">
+        {/* Breadcrumb */}
+        <PageBreadcrumb
+          segments={[
+            { label: "Dashboard", href: "/" },
+            { label: "Institutions", href: "/institutions" },
+            { label: institution.name },
+          ]}
+        />
+
         {/* Back + Title */}
         <div className="flex items-start gap-3 sm:gap-4 min-w-0">
           <button

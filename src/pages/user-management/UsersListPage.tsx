@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { UserPlus, Search, MoreHorizontal, Eye, Shield, ShieldOff, XCircle } from "lucide-react";
+import { UserPlus, Search, MoreHorizontal, Eye, Shield, ShieldOff, XCircle, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { mockUsers, institutionOptions, type ManagedUser, type UserRole, type UserStatus } from "@/data/user-management-mock";
 import { InviteUserModal } from "@/components/user-management/InviteUserModal";
 import { UserDetailDrawer } from "@/components/user-management/UserDetailDrawer";
+import { exportToCsv } from "@/lib/csv-export";
 
 const statusColor: Record<string, string> = {
   Active: "bg-success/20 text-success",
@@ -75,9 +76,28 @@ export function UsersListPage() {
             Manage platform users, roles, and access across institutions.
           </p>
         </div>
-        <Button onClick={() => setInviteOpen(true)}>
-          <UserPlus className="w-4 h-4 mr-1.5" /> Invite User
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() =>
+              exportToCsv("users", filtered, [
+                { key: "name", label: "Name" },
+                { key: "email", label: "Email" },
+                { key: "role", label: "Role" },
+                { key: "institution", label: "Institution" },
+                { key: "status", label: "Status" },
+                { key: "lastActive", label: "Last Active" },
+              ])
+            }
+          >
+            <Download className="w-4 h-4" />
+            Export CSV
+          </Button>
+          <Button onClick={() => setInviteOpen(true)}>
+            <UserPlus className="w-4 h-4 mr-1.5" /> Invite User
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
