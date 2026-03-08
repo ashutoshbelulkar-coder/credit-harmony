@@ -1,4 +1,5 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
+import { useNavigate } from "react-router-dom";
 import {
   Activity,
   AlertTriangle,
@@ -36,6 +37,7 @@ const kpiStats = [
     change: "+12.3%",
     trend: "up" as const,
     icon: Activity,
+    href: "/monitoring/data-submission-api",
   },
   {
     title: "Error Rate",
@@ -43,6 +45,7 @@ const kpiStats = [
     change: "-0.05%",
     trend: "down" as const,
     icon: AlertTriangle,
+    href: "/monitoring/alert-engine",
   },
   {
     title: "SLA Health",
@@ -50,6 +53,7 @@ const kpiStats = [
     change: "+0.1%",
     trend: "up" as const,
     icon: CheckCircle2,
+    href: "/monitoring/sla-configuration",
   },
   {
     title: "Data Quality Score",
@@ -57,6 +61,7 @@ const kpiStats = [
     change: "+1.8%",
     trend: "up" as const,
     icon: TrendingUp,
+    href: "/data-governance/data-quality-monitoring",
   },
 ];
 
@@ -189,6 +194,7 @@ const statusColors: Record<string, string> = {
 };
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   return (
     <DashboardLayout>
       <div className="space-y-6 md:space-y-8 laptop:space-y-6 desktop:space-y-8 animate-fade-in min-w-0">
@@ -206,7 +212,8 @@ const Dashboard = () => {
             {kpiStats.map((stat) => (
               <div
                 key={stat.title}
-                className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] laptop:col-span-3"
+                className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] laptop:col-span-3 cursor-pointer hover:border-primary/30 transition-colors"
+                onClick={() => navigate(stat.href)}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">

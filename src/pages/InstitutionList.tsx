@@ -4,25 +4,33 @@ import { useNavigate } from "react-router-dom";
 import {
   Search,
   Plus,
-  Filter,
-  ChevronDown,
   Eye,
   Pencil,
   Ban,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
-import { institutions, statusStyles, type Institution, type InstitutionStatus } from "@/data/institutions-mock";
+import { institutions, statusStyles } from "@/data/institutions-mock";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from "@/components/ui/select";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { MoreHorizontal } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { EmptyState } from "@/components/EmptyState";
+import { toast } from "sonner";
 
 type SortKey = "name" | "type" | "status" | "apisEnabled" | "slaHealth" | "lastUpdated";
 type SortDir = "asc" | "desc";
@@ -38,10 +46,10 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [showFilters, setShowFilters] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("lastUpdated");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [page, setPage] = useState(1);
+  const [suspendTarget, setSuspendTarget] = useState<{ id: string; name: string } | null>(null);
 
   const filtered = useMemo(() => {
     let result = institutions.filter((inst) => {
@@ -101,56 +109,32 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                 : "Manage onboarded institutions and their configurations"}
             </p>
           </div>
-          <button
-            onClick={() => navigate("/institutions/register")}
-            className="flex w-full items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-body font-medium hover:bg-primary/90 transition-colors sm:w-auto"
-          >
+          <Button onClick={() => navigate("/institutions/register")} className="w-full sm:w-auto">
             <Plus className="w-4 h-4" />
             Register Institution
-          </button>
+          </Button>
         </div>
 
         {/* Filters */}
         <div className="flex items-center gap-3">
           <div className="flex-1 max-w-sm relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
+            <Input
               value={search}
               onChange={(e) => { setSearch(e.target.value); setPage(1); }}
               placeholder="Search institutions..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-card text-body outline-none focus:border-primary transition-colors placeholder:text-muted-foreground"
+              className="pl-10"
             />
           </div>
-
-          <div className="relative">
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-border bg-card text-body font-medium hover:bg-muted transition-colors"
-            >
-              <Filter className="w-4 h-4 text-muted-foreground" />
-              Status
-              <ChevronDown className="w-3.5 h-3.5 text-muted-foreground" />
-            </button>
-            {showFilters && (
-              <>
-                <div className="fixed inset-0 z-40" onClick={() => setShowFilters(false)} />
-                <div className="absolute top-full left-0 mt-1 w-44 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-fade-in">
-                  {["all", "active", "pending", "suspended", "draft"].map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => { setStatusFilter(s); setShowFilters(false); setPage(1); }}
-                      className={cn(
-                        "w-full text-left px-4 py-2 text-body capitalize hover:bg-muted transition-colors",
-                        statusFilter === s && "bg-muted font-medium"
-                      )}
-                    >
-                      {s === "all" ? "All Statuses" : s}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
+          <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+            <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Statuses</SelectItem>
+              {["active", "pending", "suspended", "draft"].map((s) => (
+                <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Table */}
@@ -187,7 +171,18 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {paginated.map((inst) => (
+                {paginated.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="px-5 py-0">
+                      <EmptyState
+                        title="No institutions found"
+                        description="Try adjusting your search or status filter."
+                        actionLabel="Clear filters"
+                        onAction={() => { setSearch(""); setStatusFilter("all"); setPage(1); }}
+                      />
+                    </td>
+                  </tr>
+                ) : paginated.map((inst) => (
                   <tr
                     key={inst.id}
                     onClick={() => navigate(`/institutions/${inst.id}`)}
@@ -231,12 +226,14 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                     <td className="px-5 py-4">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
                             onClick={(e) => e.stopPropagation()}
-                            className="p-1.5 rounded-lg hover:bg-muted transition-colors"
                           >
                             <MoreHorizontal className="w-4 h-4 text-muted-foreground" />
-                          </button>
+                          </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-40">
                           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); navigate(`/institutions/${inst.id}`); }}>
@@ -246,7 +243,7 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                             <Pencil className="w-3.5 h-3.5 mr-2" /> Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
-                            onClick={(e) => e.stopPropagation()}
+                            onClick={(e) => { e.stopPropagation(); setSuspendTarget({ id: inst.id, name: inst.name }); }}
                             className="text-destructive focus:text-destructive"
                           >
                             <Ban className="w-3.5 h-3.5 mr-2" /> Suspend
@@ -263,27 +260,42 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
           {/* Pagination */}
           <div className="flex items-center justify-between px-5 py-3 border-t border-border">
             <span className="text-caption text-muted-foreground">
-              Showing {(currentPage - 1) * PAGE_SIZE + 1}–{Math.min(currentPage * PAGE_SIZE, filtered.length)} of {filtered.length} institutions
+              {filtered.length > 0
+                ? `Showing ${(currentPage - 1) * PAGE_SIZE + 1}–${Math.min(currentPage * PAGE_SIZE, filtered.length)} of ${filtered.length} institutions`
+                : "0 institutions"}
             </span>
             <div className="flex items-center gap-1">
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setPage(p)}
-                  className={cn(
-                    "px-3 py-1.5 rounded-md text-body font-medium transition-colors",
-                    p === currentPage
-                      ? "bg-primary text-primary-foreground"
-                      : "text-muted-foreground hover:bg-muted"
-                  )}
-                >
-                  {p}
-                </button>
-              ))}
+              <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => setPage(currentPage - 1)}>Previous</Button>
+              <span className="text-caption text-muted-foreground px-2">{currentPage} / {totalPages}</span>
+              <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => setPage(currentPage + 1)}>Next</Button>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Suspend Confirmation Dialog */}
+      <AlertDialog open={!!suspendTarget} onOpenChange={(open) => !open && setSuspendTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Suspend Institution</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to suspend <strong>{suspendTarget?.name}</strong>? This will disable all API access and data submissions for this institution.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                toast.success(`${suspendTarget?.name} has been suspended`);
+                setSuspendTarget(null);
+              }}
+            >
+              Suspend
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </DashboardLayout>
   );
 };

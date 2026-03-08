@@ -1,6 +1,6 @@
 import { Search, Bell, ChevronDown, User, Menu, Sun, Moon, Monitor, LogOut, Settings, AlertTriangle, CheckCircle2, Info, Shield } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useTheme } from "next-themes";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,8 +15,7 @@ interface AppHeaderProps {
 }
 
 export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
-  const [showThemeMenu, setShowThemeMenu] = useState(false);
-  const { theme, setTheme } = useTheme();
+  const { setTheme } = useTheme();
   const { logout } = useAuth();
   const navigate = useNavigate();
   const { open: openCommandPalette } = useCommandPalette();
@@ -71,42 +70,29 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
       </div>
 
       {/* Theme toggle */}
-      <div className="relative">
-        <button
-          type="button"
-          aria-label="Toggle theme"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted transition-colors duration-200"
-          onClick={() => setShowThemeMenu(!showThemeMenu)}
-        >
-          <Sun className="h-4 w-4 rotate-0 scale-100 dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-4 w-4 rotate-90 scale-0 dark:rotate-0 dark:scale-100" />
-        </button>
-        {showThemeMenu && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowThemeMenu(false)} aria-hidden />
-            <div className="absolute right-0 top-full mt-1 w-44 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-fade-in">
-              <button
-                onClick={() => { setTheme("light"); setShowThemeMenu(false); }}
-                className={cn("w-full flex items-center gap-2 px-4 py-2.5 text-body hover:bg-muted transition-colors", theme === "light" && "bg-muted font-medium")}
-              >
-                <Sun className="w-4 h-4" /> Light
-              </button>
-              <button
-                onClick={() => { setTheme("dark"); setShowThemeMenu(false); }}
-                className={cn("w-full flex items-center gap-2 px-4 py-2.5 text-body hover:bg-muted transition-colors", theme === "dark" && "bg-muted font-medium")}
-              >
-                <Moon className="w-4 h-4" /> Dark
-              </button>
-              <button
-                onClick={() => { setTheme("system"); setShowThemeMenu(false); }}
-                className={cn("w-full flex items-center gap-2 px-4 py-2.5 text-body hover:bg-muted transition-colors", theme === "system" && "bg-muted font-medium")}
-              >
-                <Monitor className="w-4 h-4" /> System
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="Toggle theme"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted transition-colors duration-200"
+          >
+            <Sun className="h-4 w-4 rotate-0 scale-100 dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-4 w-4 rotate-90 scale-0 dark:rotate-0 dark:scale-100" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-36">
+          <DropdownMenuItem onClick={() => setTheme("light")}>
+            <Sun className="w-4 h-4 mr-2" /> Light
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setTheme("dark")}>
+            <Moon className="w-4 h-4 mr-2" /> Dark
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setTheme("system")}>
+            <Monitor className="w-4 h-4 mr-2" /> System
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Notifications */}
       <Popover>
@@ -134,7 +120,15 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
                 <div
                   key={n.id}
                   className={cn("flex gap-3 px-4 py-3 hover:bg-muted/50 cursor-pointer transition-colors", isUnread && "bg-primary/5")}
-                  onClick={() => !readIds.includes(n.id) && setReadIds((prev) => [...prev, n.id])}
+                  onClick={() => {
+                    if (!readIds.includes(n.id)) setReadIds((prev) => [...prev, n.id]);
+                    // Navigate based on notification type
+                    if (n.title.includes("SLA")) navigate("/monitoring/sla-configuration");
+                    else if (n.title.includes("Schema") || n.title.includes("Mapping")) navigate("/data-governance/auto-mapping-review");
+                    else if (n.title.includes("Login") || n.title.includes("User")) navigate("/user-management/users");
+                    else if (n.title.includes("Batch")) navigate("/monitoring/data-submission-batch");
+                    else if (n.title.includes("Quality")) navigate("/data-governance/data-quality-monitoring");
+                  }}
                 >
                   <div className={cn("mt-0.5 shrink-0", n.iconColor)}>
                     <n.icon className="w-4 h-4" />

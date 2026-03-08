@@ -11,6 +11,7 @@ import {
   ClipboardCheck, User, Brain, ArrowRight, Plus, Clock, Lock, Mail, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 const iconMap: Record<string, React.ElementType> = {
   Landmark, Home, Shield, UserCheck, Wifi, Car, Handshake, Settings,
@@ -296,6 +297,7 @@ export default function AgentsLandingPage() {
                 <Button
                   className="w-full gap-2"
                   onClick={() => {
+                    toast.info("Access request sent to your administrator. You'll be notified once approved.");
                     setRequestAccessAgent(null);
                   }}
                 >

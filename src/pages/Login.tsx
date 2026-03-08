@@ -17,6 +17,7 @@ import {
   KeyRound,
   Users,
 } from "lucide-react";
+import { toast } from "sonner";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -221,12 +222,13 @@ export default function Login() {
                     Remember me
                   </Label>
                 </div>
-                <a
-                  href="#"
+                <button
+                  type="button"
+                  onClick={() => toast.info("Password reset is not available in demo mode.")}
                   className="text-[11px] font-medium text-crif-orange hover:text-crif-orange/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded transition-colors"
                 >
                   Forgot password?
-                </a>
+                </button>
               </motion.div>
 
               {/* Sign In */}
@@ -258,6 +260,7 @@ export default function Login() {
                   type="button"
                   variant="outline"
                   className="h-11 w-full rounded-[10px] border-border text-[13px] font-medium text-foreground transition-all duration-200 hover:bg-muted hover:border-border"
+                  onClick={() => toast.info("SSO integration is not available in demo mode.")}
                 >
                   <Building2 className="mr-2 h-4 w-4" />
                   Sign in with SSO
