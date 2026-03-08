@@ -1,6 +1,6 @@
 import { Search, Bell, ChevronDown, User, Menu, Sun, Moon, Monitor, LogOut, Settings, AlertTriangle, CheckCircle2, Info, Shield } from "lucide-react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useTheme } from "next-themes";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
