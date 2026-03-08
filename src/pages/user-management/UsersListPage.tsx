@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { mockUsers, institutionOptions, type ManagedUser, type UserRole, type UserStatus } from "@/data/user-management-mock";
 import { InviteUserModal } from "@/components/user-management/InviteUserModal";
 import { UserDetailDrawer } from "@/components/user-management/UserDetailDrawer";
+import { exportToCsv } from "@/lib/csv-export";
 
 const statusColor: Record<string, string> = {
   Active: "bg-success/20 text-success",
