@@ -71,42 +71,29 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
       </div>
 
       {/* Theme toggle */}
-      <div className="relative">
-        <button
-          type="button"
-          aria-label="Toggle theme"
-          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted transition-colors duration-200"
-          onClick={() => setShowThemeMenu(!showThemeMenu)}
-        >
-          <Sun className="h-4 w-4 rotate-0 scale-100 dark:-rotate-90 dark:scale-0" />
-          <Moon className="absolute h-4 w-4 rotate-90 scale-0 dark:rotate-0 dark:scale-100" />
-        </button>
-        {showThemeMenu && (
-          <>
-            <div className="fixed inset-0 z-40" onClick={() => setShowThemeMenu(false)} aria-hidden />
-            <div className="absolute right-0 top-full mt-1 w-44 bg-popover border border-border rounded-lg shadow-lg z-50 py-1 animate-fade-in">
-              <button
-                onClick={() => { setTheme("light"); setShowThemeMenu(false); }}
-                className={cn("w-full flex items-center gap-2 px-4 py-2.5 text-body hover:bg-muted transition-colors", theme === "light" && "bg-muted font-medium")}
-              >
-                <Sun className="w-4 h-4" /> Light
-              </button>
-              <button
-                onClick={() => { setTheme("dark"); setShowThemeMenu(false); }}
-                className={cn("w-full flex items-center gap-2 px-4 py-2.5 text-body hover:bg-muted transition-colors", theme === "dark" && "bg-muted font-medium")}
-              >
-                <Moon className="w-4 h-4" /> Dark
-              </button>
-              <button
-                onClick={() => { setTheme("system"); setShowThemeMenu(false); }}
-                className={cn("w-full flex items-center gap-2 px-4 py-2.5 text-body hover:bg-muted transition-colors", theme === "system" && "bg-muted font-medium")}
-              >
-                <Monitor className="w-4 h-4" /> System
-              </button>
-            </div>
-          </>
-        )}
-      </div>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            type="button"
+            aria-label="Toggle theme"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground hover:bg-muted transition-colors duration-200"
+          >
+            <Sun className="h-4 w-4 rotate-0 scale-100 dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-4 w-4 rotate-90 scale-0 dark:rotate-0 dark:scale-100" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-36">
+          <DropdownMenuItem onClick={() => setTheme("light")}>
+            <Sun className="w-4 h-4 mr-2" /> Light
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setTheme("dark")}>
+            <Moon className="w-4 h-4 mr-2" /> Dark
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setTheme("system")}>
+            <Monitor className="w-4 h-4 mr-2" /> System
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
 
       {/* Notifications */}
       <Popover>
