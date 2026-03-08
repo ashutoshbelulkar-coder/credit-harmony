@@ -129,7 +129,10 @@ export function BureauEnquiryModal({ open, onClose, onSubmit }: Props) {
                 id="mobile"
                 inputMode="tel"
                 value={form.mobile}
-                onChange={(e) => setForm((f) => ({ ...f, mobile: e.target.value }))}
+                onChange={(e) => {
+                  const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+                  setForm((f) => ({ ...f, mobile: digits }));
+                }}
                 onFocus={scrollFocusedInputIntoView}
                 placeholder="+91 98765 43210"
                 className="min-h-11 w-full min-w-0 text-base touch-manipulation sm:min-h-10 sm:text-sm box-border"
