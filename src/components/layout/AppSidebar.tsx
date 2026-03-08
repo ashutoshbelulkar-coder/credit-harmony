@@ -24,6 +24,7 @@ const navItems = [
   { title: "Monitoring", path: "/monitoring", icon: Activity },
   { title: "Reporting", path: "/reporting", icon: FileBarChart },
   { title: "Audit Logs", path: "/audit-logs", icon: ScrollText },
+  { title: "Approval Queue", path: "/approval-queue", icon: ClipboardCheck },
   { title: "User Management", path: "/user-management/users", icon: Users },
 ];
 
