@@ -181,10 +181,126 @@ const RegisterInstitution = () => {
           </Button>
         </div>
 
-        {/* Stepper + Content layout */}
-        <div className="flex flex-col gap-4 lg:flex-row lg:gap-6">
-          {/* Vertical stepper sidebar (horizontal on mobile) */}
-          <div className="shrink-0 lg:w-56 xl:w-64">
+        {/* Horizontal stepper at top */}
+        <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <CardContent className="p-3 sm:p-4">
+            <div className="flex items-center gap-1 sm:gap-2">
+              {steps.map((step, i) => {
+                const Icon = step.icon;
+                const isActive = i === currentStep;
+                const isCompleted = i < currentStep;
+                return (
+                  <div key={i} className="flex items-center flex-1 min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => isCompleted && setCurrentStep(i)}
+                      className={cn(
+                        "flex items-center gap-2 sm:gap-3 w-full rounded-lg px-2.5 py-2 sm:px-3 sm:py-2.5 transition-all text-left",
+                        isActive
+                          ? "bg-primary/10 border border-primary/20"
+                          : isCompleted
+                          ? "hover:bg-muted/50 cursor-pointer border border-transparent"
+                          : "opacity-50 border border-transparent cursor-default"
+                      )}
+                    >
+                      <div className={cn(
+                        "w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0",
+                        isCompleted ? "bg-success/15 text-success"
+                          : isActive ? "bg-primary/15 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      )}>
+                        {isCompleted ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                      </div>
+                      <div className="min-w-0 hidden sm:block">
+                        <p className={cn(
+                          "text-caption font-medium leading-tight truncate",
+                          isActive || isCompleted ? "text-foreground" : "text-muted-foreground"
+                        )}>
+                          {step.title}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5 truncate hidden md:block">{step.description}</p>
+                      </div>
+                      <span className={cn(
+                        "text-[11px] font-medium sm:hidden truncate",
+                        isActive || isCompleted ? "text-foreground" : "text-muted-foreground"
+                      )}>
+                        {step.shortTitle}
+                      </span>
+                    </button>
+                    {i < steps.length - 1 && (
+                      <div className={cn(
+                        "w-4 sm:w-8 h-px mx-0.5 sm:mx-1 shrink-0",
+                        isCompleted ? "bg-success/40" : "bg-border"
+                      )} />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-3 pt-3 border-t border-border flex items-center gap-3">
+              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-primary transition-all duration-500"
+                  style={{ width: `${completionPct}%` }}
+                />
+              </div>
+              <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">{completionPct}%</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Main content area */}
+        <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <CardContent className="p-4 sm:p-6">
+            <div className="flex items-center gap-3 mb-5 pb-4 border-b border-border">
+              <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary">
+                {(() => { const Icon = steps[currentStep].icon; return <Icon className="w-4.5 h-4.5" />; })()}
+              </div>
+              <div>
+                <h2 className="text-base font-semibold text-foreground">{steps[currentStep].title}</h2>
+                <p className="text-caption text-muted-foreground">
+                  Step {currentStep + 1} of {steps.length} · {steps[currentStep].description}
+                </p>
+              </div>
+            </div>
+
+            {currentStep === 0 && <Step1Corporate form={form} />}
+            {currentStep === 1 && (
+              <Step2Documents
+                uploadedDocs={uploadedDocs}
+                onUpload={handleFileUpload}
+                isDataSubmitter={values.isDataSubmitter}
+                isSubscriber={values.isSubscriber}
+              />
+            )}
+            {currentStep === 2 && (
+              <Step3Review values={values} uploadedDocs={uploadedDocs} />
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Actions footer */}
+        <div className="flex items-center justify-between gap-3">
+          <Button
+            variant="outline"
+            onClick={handlePrevious}
+            className={cn("gap-1.5", currentStep === 0 && "invisible")}
+          >
+            <ArrowLeft className="w-4 h-4" /> Previous
+          </Button>
+
+          <div className="flex gap-2">
+            {currentStep < 2 ? (
+              <Button onClick={handleNext} className="gap-1.5">
+                Next <ArrowRight className="w-4 h-4" />
+              </Button>
+            ) : (
+              <Button onClick={handleSubmit} variant="default" className="gap-1.5 bg-success hover:bg-success/90 text-success-foreground">
+                <CheckCircle2 className="w-4 h-4" /> Submit for Review
+              </Button>
+            )}
+          </div>
+        </div>
             {/* Mobile: horizontal compact stepper */}
             <div className="flex items-center gap-1 lg:hidden">
               {steps.map((step, i) => (
