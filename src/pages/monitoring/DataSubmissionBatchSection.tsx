@@ -34,13 +34,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   AlertTriangle,
-  ArrowLeft,
   CheckCircle2,
   Clock,
-  Download,
-  Eye,
   FileStack,
-  RotateCcw,
   Search,
   Upload,
   XCircle,
@@ -52,12 +48,14 @@ import {
   processingDurationTrendData,
   topBatchErrorCategoriesData,
   batchDetails,
+  batchConsoleByBatchId,
   type BatchJob,
   type BatchStatus,
   type BatchDetail,
 } from "@/data/monitoring-mock";
 import { institutions } from "@/data/institutions-mock";
 import { ProcessingTimeline } from "./ProcessingTimeline";
+import { BatchExecutionConsole } from "./BatchExecutionConsole";
 import type { MonitoringFilters } from "./MonitoringFilterBar";
 
 function getInstitutionName(id: string): string {
@@ -70,6 +68,7 @@ const statusStyles: Record<BatchStatus, string> = {
   Processing: "bg-primary/15 text-primary",
   Failed: "bg-destructive/15 text-destructive",
   Queued: "bg-muted text-muted-foreground",
+  Suspended: "bg-warning/15 text-warning",
 };
 
 const PAGE_SIZE = 10;
@@ -203,111 +202,18 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
     : undefined;
 
   if (detail) {
+    const consoleData = batchConsoleByBatchId[detail.batch_id];
+    const institutionName = selectedJob ? getInstitutionName(selectedJob.institution_id) : "—";
+    const batchStatus = (selectedJob?.status ?? "Queued") as import("@/data/monitoring-mock").BatchStatus;
     return (
-      <div className="space-y-6 animate-fade-in">
-        <Button variant="ghost" size="sm" className="gap-2 -ml-2" onClick={() => setSelectedBatchId(null)}>
-          <ArrowLeft className="w-4 h-4" />
-          Back to Batch Jobs
-        </Button>
-
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-            <p className="text-caption text-muted-foreground">Batch ID</p>
-            <p className="text-body font-semibold mt-1">{detail.batch_id}</p>
-          </div>
-          <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-            <p className="text-caption text-muted-foreground">File Name</p>
-            <p className="text-body font-semibold mt-1">{detail.file_name}</p>
-          </div>
-          <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-            <p className="text-caption text-muted-foreground">Upload Time</p>
-            <p className="text-body font-semibold mt-1">{detail.upload_time}</p>
-          </div>
-          <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-            <p className="text-caption text-muted-foreground">Duration</p>
-            <p className="text-body font-semibold mt-1">{detail.duration_seconds}s</p>
-          </div>
-          <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-            <p className="text-caption text-muted-foreground">Total / Success / Failed</p>
-            <p className="text-body font-semibold mt-1">{detail.total_records} / {detail.success_records} / {detail.failed_records}</p>
-          </div>
-        </div>
-
-        <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-          <h4 className="text-body font-semibold text-foreground mb-4">Processing Timeline</h4>
-          <ProcessingTimeline steps={detail.timeline} />
-        </div>
-
-        <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-          <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-            <h4 className="text-h4 font-semibold text-foreground">Record-Level Failures</h4>
-            <Button variant="outline" size="sm" className="gap-2" onClick={() => exportFailuresCSV(detail.record_failures)}>
-              <Download className="w-3.5 h-3.5" />
-              Export CSV
-            </Button>
-          </div>
-          <div className="min-w-0 overflow-x-auto">
-            <table className="w-full min-w-max">
-              <thead className="bg-muted/95">
-                <tr className="border-b border-border">
-                  <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Record ID</th>
-                  <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Field</th>
-                  <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Error Type</th>
-                  <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Error Message</th>
-                  <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Severity</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border">
-                {detail.record_failures.map((f) => (
-                  <tr key={f.record_id} className="hover:bg-muted/30">
-                    <td className="px-5 py-4 text-caption font-medium">{f.record_id}</td>
-                    <td className="px-5 py-4 text-caption">{f.field}</td>
-                    <td className="px-5 py-4 text-caption">{f.error_type}</td>
-                    <td className="px-5 py-4 text-caption">{f.error_message}</td>
-                    <td className="px-5 py-4">
-                      <span className={cn("px-2 py-0.5 rounded-full", badgeTextClasses, f.severity === "Error" ? "bg-destructive/15 text-destructive" : "bg-warning/15 text-warning")}>
-                        {f.severity}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {detail.schema_drift && detail.schema_drift.length > 0 && (
-          <>
-            <Alert className="border-warning/50 bg-warning/5">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle>New Fields Detected – Review Required</AlertTitle>
-              <AlertDescription>This batch introduced new fields. Review suggested mappings below.</AlertDescription>
-            </Alert>
-            <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-              <table className="w-full">
-                <thead className="bg-muted/95">
-                  <tr className="border-b border-border">
-                    <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Field</th>
-                    <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Suggested Mapping</th>
-                    <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Confidence</th>
-                    <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Action</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {detail.schema_drift.map((d) => (
-                    <tr key={d.field} className="hover:bg-muted/30">
-                      <td className="px-5 py-4 text-caption font-medium">{d.field}</td>
-                      <td className="px-5 py-4 text-caption">{d.suggested_mapping}</td>
-                      <td className="px-5 py-4 text-caption">{(d.confidence * 100).toFixed(0)}%</td>
-                      <td className="px-5 py-4 text-caption">{d.action}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </div>
+      <BatchExecutionConsole
+        key={detail.batch_id}
+        detail={detail}
+        status={batchStatus}
+        consoleData={consoleData}
+        institutionName={institutionName}
+        onBack={() => setSelectedBatchId(null)}
+      />
     );
   }
 
@@ -469,35 +375,13 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
                   <td className="px-5 py-4 text-caption">{b.duration_seconds > 0 ? `${b.duration_seconds}s` : "-"}</td>
                   <td className="px-5 py-4 text-caption text-muted-foreground">{b.uploaded}</td>
                   <td className="px-5 py-4 text-right">
-                    <div className="flex items-center justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        title="View details"
-                        onClick={() => setSelectedBatchId(b.batch_id)}
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        title="Download error file"
-                        disabled={b.failed === 0}
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                        title="Reprocess"
-                        disabled={b.status !== "Failed"}
-                      >
-                        <RotateCcw className="w-3.5 h-3.5" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSelectedBatchId(b.batch_id)}
+                    >
+                      View
+                    </Button>
                   </td>
                 </tr>
               ))}
