@@ -74,19 +74,19 @@ export function SchemaRegistryTable({
 }: SchemaRegistryTableProps) {
   return (
     <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden">
-      <div className="min-w-0 overflow-x-auto pb-4">
-        <Table className="table-fixed w-full min-w-0 !min-w-0 border-separate border-spacing-0">
+      <div className="min-w-0 overflow-x-auto overflow-y-visible table-scroll-fade pb-4">
+        <Table className="w-full min-w-max border-separate border-spacing-0">
           <TableHeader>
             <TableRow className="hover:bg-transparent border-b border-border">
               <TableHead className={cn(tableHeaderClasses, "sticky left-0 z-10 min-w-[140px] rounded-tl-xl overflow-hidden border-r border-border bg-[hsl(var(--table-header-bg))] shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] text-center")}>
                 Source Name
               </TableHead>
-              <TableHead className={cn(tableHeaderClasses, "min-w-[80px] text-center")}>Source Type</TableHead>
-              <TableHead className={cn(tableHeaderClasses, "min-w-[150px] text-center")}>Coverage</TableHead>
-              <TableHead className={cn(tableHeaderClasses, "min-w-[80px] text-center")}>Unmapped</TableHead>
-              <TableHead className={cn(tableHeaderClasses, "min-w-[70px] text-center")}>Rules</TableHead>
+              <TableHead className={cn(tableHeaderClasses, "min-w-[80px] text-center hidden sm:table-cell")}>Source Type</TableHead>
+              <TableHead className={cn(tableHeaderClasses, "min-w-[150px] text-center hidden md:table-cell")}>Coverage</TableHead>
+              <TableHead className={cn(tableHeaderClasses, "min-w-[80px] text-center hidden md:table-cell")}>Unmapped</TableHead>
+              <TableHead className={cn(tableHeaderClasses, "min-w-[70px] text-center hidden md:table-cell")}>Rules</TableHead>
               <TableHead className={cn(tableHeaderClasses, "min-w-[100px] text-center")}>Status</TableHead>
-              <TableHead className={cn(tableHeaderClasses, "min-w-[100px] text-center")}>Last Modified</TableHead>
+              <TableHead className={cn(tableHeaderClasses, "min-w-[100px] text-center hidden lg:table-cell")}>Last Modified</TableHead>
               <TableHead className={cn(tableHeaderClasses, "min-w-[60px] text-center")}>Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -106,15 +106,15 @@ export function SchemaRegistryTable({
                       <p className="text-[9px] leading-[12px] text-muted-foreground">{entry.version}</p>
                     </div>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden sm:table-cell">
                     <Badge variant="secondary" className="text-[9px] leading-[12px] font-normal">
                       {SOURCE_LABELS[entry.sourceType]}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden md:table-cell">
                     <MappingCoverageBar value={entry.mappingCoverage} />
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="text-center hidden md:table-cell">
                     <span
                       className={cn(
                         "text-body tabular-nums font-medium",
@@ -124,7 +124,7 @@ export function SchemaRegistryTable({
                       {entry.unmappedFields}
                     </span>
                   </TableCell>
-                  <TableCell className="text-center text-body tabular-nums text-foreground">
+                  <TableCell className="text-center text-body tabular-nums text-foreground hidden md:table-cell">
                     {entry.ruleCount}
                   </TableCell>
                   <TableCell>
@@ -132,7 +132,7 @@ export function SchemaRegistryTable({
                       {STATUS_LABELS[entry.status]}
                     </Badge>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="hidden lg:table-cell">
                     <div>
                       <p className="text-body text-foreground">{formatDate(entry.lastModifiedAt)}</p>
                       <p className="text-[9px] leading-[12px] text-muted-foreground">{entry.lastModifiedBy}</p>

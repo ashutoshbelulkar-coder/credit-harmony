@@ -181,73 +181,83 @@ const RegisterInstitution = () => {
           </Button>
         </div>
 
-        {/* Horizontal stepper at top */}
-        <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-          <CardContent className="p-3 sm:p-4">
-            <div className="flex items-center gap-1 sm:gap-2">
+        {/* Horizontal stepper at top — matches StepIndicator design */}
+        <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden">
+          <div className="overflow-x-auto">
+            <div className="flex items-stretch flex-nowrap min-w-0">
               {steps.map((step, i) => {
-                const Icon = step.icon;
                 const isActive = i === currentStep;
                 const isCompleted = i < currentStep;
+                const isPast = i < currentStep;
                 return (
-                  <div key={i} className="flex items-center flex-1 min-w-0">
+                  <div key={i} className="flex shrink-0 items-stretch min-w-[100px]">
+                    {i > 0 && (
+                      <div className="flex items-center shrink-0">
+                        <div
+                          className={cn(
+                            "h-px w-3 lg:w-5",
+                            isPast || isCompleted ? "bg-secondary" : "bg-border",
+                          )}
+                        />
+                      </div>
+                    )}
+
                     <button
                       type="button"
                       onClick={() => isCompleted && setCurrentStep(i)}
                       className={cn(
-                        "flex items-center gap-2 sm:gap-3 w-full rounded-lg px-2.5 py-2 sm:px-3 sm:py-2.5 transition-all text-left",
-                        isActive
-                          ? "bg-primary/10 border border-primary/20"
-                          : isCompleted
-                          ? "hover:bg-muted/50 cursor-pointer border border-transparent"
-                          : "opacity-50 border border-transparent cursor-default"
+                        "flex items-center gap-2 px-2.5 py-2 transition-colors shrink-0 text-left w-full min-w-0",
+                        isActive && "bg-primary/8",
+                        isCompleted && "cursor-pointer hover:bg-muted/50",
+                        !isActive && !isCompleted && "cursor-default opacity-60",
                       )}
                     >
-                      <div className={cn(
-                        "w-7 h-7 sm:w-8 sm:h-8 rounded-lg flex items-center justify-center shrink-0",
-                        isCompleted ? "bg-success/15 text-success"
-                          : isActive ? "bg-primary/15 text-primary"
-                          : "bg-muted text-muted-foreground"
-                      )}>
-                        {isCompleted ? <Check className="w-3.5 h-3.5" /> : <Icon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+                      <div
+                        className={cn(
+                          "flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-[10px] font-bold leading-none transition-colors",
+                          isActive
+                            ? "bg-primary text-primary-foreground"
+                            : isCompleted
+                              ? "bg-success text-success-foreground"
+                              : "bg-muted text-muted-foreground",
+                        )}
+                      >
+                        {isCompleted ? <Check className="h-3 w-3" /> : i + 1}
                       </div>
-                      <div className="min-w-0 hidden sm:block">
-                        <p className={cn(
-                          "text-caption font-medium leading-tight truncate",
-                          isActive || isCompleted ? "text-foreground" : "text-muted-foreground"
-                        )}>
-                          {step.title}
+
+                      <div className="min-w-0 max-w-[140px]">
+                        <p
+                          className={cn(
+                            "text-[11px] font-medium leading-[18px] truncate whitespace-nowrap",
+                            isActive || isCompleted ? "text-foreground" : "text-muted-foreground",
+                          )}
+                          title={step.title}
+                        >
+                          <span className="hidden 2xl:inline">{step.title}</span>
+                          <span className="2xl:hidden">{step.shortTitle}</span>
                         </p>
-                        <p className="text-[10px] text-muted-foreground mt-0.5 truncate hidden md:block">{step.description}</p>
                       </div>
-                      <span className={cn(
-                        "text-[11px] font-medium sm:hidden truncate",
-                        isActive || isCompleted ? "text-foreground" : "text-muted-foreground"
-                      )}>
-                        {step.shortTitle}
-                      </span>
+
+                      {isActive && (
+                        <div className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                      )}
                     </button>
-                    {i < steps.length - 1 && (
-                      <div className={cn(
-                        "w-4 sm:w-8 h-px mx-0.5 sm:mx-1 shrink-0",
-                        isCompleted ? "bg-success/40" : "bg-border"
-                      )} />
-                    )}
                   </div>
                 );
               })}
             </div>
-            <div className="mt-3 pt-3 border-t border-border flex items-center gap-3">
-              <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                <div
-                  className="h-full rounded-full bg-primary transition-all duration-500"
-                  style={{ width: `${completionPct}%` }}
-                />
-              </div>
-              <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">{completionPct}%</span>
+          </div>
+
+          <div className="border-t border-border flex items-center gap-3 px-2.5 py-2">
+            <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-500"
+                style={{ width: `${completionPct}%` }}
+              />
             </div>
-          </CardContent>
-        </Card>
+            <span className="text-[10px] font-semibold text-muted-foreground tabular-nums">{completionPct}%</span>
+          </div>
+        </div>
 
         {/* Main content area */}
         <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
