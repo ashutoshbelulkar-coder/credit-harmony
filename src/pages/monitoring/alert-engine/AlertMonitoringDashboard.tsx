@@ -248,7 +248,7 @@ export function AlertMonitoringDashboard() {
           </div>
         </div>
 
-        <div className="shrink-0 grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="shrink-0 grid grid-cols-1 lg:grid-cols-2 gap-6 pb-6">
           <div className={chartCardClass}>
             <h4 className="text-body font-semibold text-foreground mb-4">Severity Distribution</h4>
             <ChartContainer

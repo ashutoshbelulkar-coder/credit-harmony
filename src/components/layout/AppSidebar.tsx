@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
@@ -59,6 +59,8 @@ const userManagementSubItems = [
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const registerFrom = searchParams.get("from");
 
   return (
     <aside
@@ -98,7 +100,7 @@ export function AppSidebar() {
           const isInstitutionsSectionActive =
             institutionSubItems.some(
               (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")
-            ) || (location.pathname.startsWith("/institutions/") && location.pathname !== "/institutions/register");
+            ) || location.pathname.startsWith("/institutions/");
           const isDataGovSectionActive = dataGovernanceSubItems.some(
             (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")
           );
@@ -175,7 +177,12 @@ export function AppSidebar() {
               {showSubNav && subItems && (
                 <div className="mt-1 ml-4 pl-3 border-l border-sidebar-border space-y-0.5">
                   {subItems.map((sub) => {
-                    const isSubActive = location.pathname === sub.path;
+                    const isSubActive =
+                      location.pathname === sub.path ||
+                      (location.pathname === "/institutions/register" &&
+                        (sub.path === "/institutions/data-submitters"
+                          ? registerFrom !== "subscribers"
+                          : sub.path === "/institutions/subscribers" && registerFrom === "subscribers"));
                     return (
                       <NavLink
                         key={sub.path}

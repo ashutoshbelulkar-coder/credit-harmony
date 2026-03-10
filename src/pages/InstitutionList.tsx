@@ -129,7 +129,16 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
               <Download className="w-4 h-4" />
               Export CSV
             </Button>
-            <Button onClick={() => navigate("/institutions/register")} className="w-full sm:w-auto">
+            <Button
+              onClick={() =>
+                navigate(
+                  roleFilter === "subscriber"
+                    ? "/institutions/register?from=subscribers"
+                    : "/institutions/register?from=data-submitters"
+                )
+              }
+              className="w-full sm:w-auto"
+            >
               <Plus className="w-4 h-4" />
               Register Institution
             </Button>

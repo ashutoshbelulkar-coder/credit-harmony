@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import {
@@ -200,6 +200,13 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
           }
         : undefined)
     : undefined;
+
+  // Scroll to top when opening batch detail (View) so the new content is visible at top
+  useEffect(() => {
+    if (!selectedBatchId) return;
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    document.querySelector("main")?.scrollTo({ top: 0, left: 0, behavior: "instant" });
+  }, [selectedBatchId]);
 
   if (detail) {
     const consoleData = batchConsoleByBatchId[detail.batch_id];

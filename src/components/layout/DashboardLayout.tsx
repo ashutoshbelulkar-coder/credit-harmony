@@ -26,9 +26,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     };
   }, [mobileSidebarOpen]);
 
-  // Scroll to top when route changes (e.g. opening a new section from sidebar)
+  // Scroll to top when route changes (e.g. opening a new section from sidebar).
+  // Scroll both window and the main content area (main has overflow-y-auto and may hold the scroll).
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+    document.querySelector("main")?.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [location.pathname]);
 
   return (
