@@ -73,35 +73,34 @@ export function SchemaRegistryTable({
   onAuditHistory,
 }: SchemaRegistryTableProps) {
   return (
-    <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-      <div className="min-w-0 overflow-x-auto">
-        <Table>
+    <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden">
+      <div className="min-w-0 overflow-x-auto pb-4">
+        <Table className="table-fixed w-full min-w-0 !min-w-0 border-separate border-spacing-0">
           <TableHeader>
-            <TableRow className="hover:bg-transparent">
-              <TableHead className={cn(tableHeaderClasses, "sticky left-0 z-10 min-w-[140px] bg-[hsl(var(--table-header-bg))] shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]")}>
+            <TableRow className="hover:bg-transparent border-b border-border">
+              <TableHead className={cn(tableHeaderClasses, "sticky left-0 z-10 min-w-[140px] rounded-tl-xl overflow-hidden border-r border-border bg-[hsl(var(--table-header-bg))] shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)] text-center")}>
                 Source Name
               </TableHead>
-              <TableHead className={cn(tableHeaderClasses, "min-w-[80px]")}>Source Type</TableHead>
-              <TableHead className={cn(tableHeaderClasses, "min-w-[120px]")}>Master Version</TableHead>
-              <TableHead className={cn(tableHeaderClasses, "min-w-[150px]")}>Mapping Coverage</TableHead>
+              <TableHead className={cn(tableHeaderClasses, "min-w-[80px] text-center")}>Source Type</TableHead>
+              <TableHead className={cn(tableHeaderClasses, "min-w-[150px] text-center")}>Coverage</TableHead>
               <TableHead className={cn(tableHeaderClasses, "min-w-[80px] text-center")}>Unmapped</TableHead>
               <TableHead className={cn(tableHeaderClasses, "min-w-[70px] text-center")}>Rules</TableHead>
-              <TableHead className={cn(tableHeaderClasses, "min-w-[100px]")}>Status</TableHead>
-              <TableHead className={cn(tableHeaderClasses, "min-w-[100px]")}>Last Modified</TableHead>
+              <TableHead className={cn(tableHeaderClasses, "min-w-[100px] text-center")}>Status</TableHead>
+              <TableHead className={cn(tableHeaderClasses, "min-w-[100px] text-center")}>Last Modified</TableHead>
               <TableHead className={cn(tableHeaderClasses, "min-w-[60px] text-center")}>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {entries.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="h-32 text-center text-body text-muted-foreground">
+                <TableCell colSpan={8} className="h-32 text-center text-body text-muted-foreground">
                   No schema mappings found. Create a new mapping to get started.
                 </TableCell>
               </TableRow>
             ) : (
               entries.map((entry) => (
                 <TableRow key={entry.id} className="group">
-                  <TableCell className="sticky left-0 z-10 bg-card group-hover:bg-muted shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
+                  <TableCell className="sticky left-0 z-10 min-w-0 overflow-hidden border-r border-border bg-card group-hover:bg-muted shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
                     <div>
                       <p className="text-body font-medium text-foreground">{entry.sourceName}</p>
                       <p className="text-[9px] leading-[12px] text-muted-foreground">{entry.version}</p>
@@ -111,9 +110,6 @@ export function SchemaRegistryTable({
                     <Badge variant="secondary" className="text-[9px] leading-[12px] font-normal">
                       {SOURCE_LABELS[entry.sourceType]}
                     </Badge>
-                  </TableCell>
-                  <TableCell className="text-body text-foreground">
-                    {entry.masterSchemaVersion}
                   </TableCell>
                   <TableCell>
                     <MappingCoverageBar value={entry.mappingCoverage} />

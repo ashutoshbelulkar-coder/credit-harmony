@@ -57,7 +57,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
         {showHeader && (
           <AppHeader onToggleSidebar={() => setMobileSidebarOpen((open) => !open)} />
         )}
-        <main className={cn("flex flex-1 flex-col min-h-0 p-4 sm:p-6 pr-[max(1rem,env(safe-area-inset-right))] pb-[max(1rem,env(safe-area-inset-bottom))]", isAgentSubscreen ? "overflow-hidden p-0 pb-0 sm:p-4 sm:p-6" : "overflow-y-auto")}>
+        <main className={cn("flex flex-1 flex-col min-h-0 p-4 sm:p-6 pr-[max(1rem,env(safe-area-inset-right))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pb-[max(2rem,env(safe-area-inset-bottom))]", isAgentSubscreen ? "overflow-hidden p-0 pb-0 sm:p-4 sm:p-6" : "overflow-y-auto")}>
           {isAgentSubscreen ? (
             <div className="flex flex-1 flex-col min-h-0 overflow-hidden">{children}</div>
           ) : (

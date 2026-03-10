@@ -148,7 +148,7 @@ export function SchemaRegistryView({ onCreateNew, onEditEntry, onViewAudit }: Sc
   );
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4 animate-fade-in pb-4 sm:pb-6">
       {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
