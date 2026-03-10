@@ -30,15 +30,24 @@ export const subscriberIdByApiKey: Record<string, string> = {
   "sk_sub_***8c": "3",
 };
 
+function recentTs(minutesAgo: number): string {
+  const d = new Date(Date.now() - minutesAgo * 60 * 1000);
+  return d.toISOString().replace("T", " ").slice(0, 19);
+}
+
 export const apiSubmissionRequests: ApiSubmissionRequest[] = [
-  { request_id: "REQ-991212", api_key: "sk_live_***7x2k", endpoint: "/submission", status: "Failed", response_time_ms: 210, records: 0, error_code: "INVALID_SCHEMA", timestamp: "2026-02-25 10:32:15" },
-  { request_id: "REQ-991211", api_key: "sk_live_***9a1m", endpoint: "/submission", status: "Success", response_time_ms: 145, records: 1200, error_code: null, timestamp: "2026-02-25 10:28:44" },
-  { request_id: "REQ-991210", api_key: "sk_live_***7x2k", endpoint: "/submission/bulk", status: "Partial", response_time_ms: 3200, records: 2500, error_code: "MISSING_MANDATORY_FIELD", timestamp: "2026-02-25 10:15:22" },
-  { request_id: "REQ-991209", api_key: "sk_live_***3b4n", endpoint: "/submission", status: "Rate Limited", response_time_ms: 89, records: 0, error_code: "RATE_LIMIT_EXCEEDED", timestamp: "2026-02-25 10:12:08" },
-  { request_id: "REQ-991208", api_key: "sk_live_***9a1m", endpoint: "/submission", status: "Success", response_time_ms: 198, records: 800, error_code: null, timestamp: "2026-02-25 09:58:33" },
-  { request_id: "REQ-991207", api_key: "sk_live_***7x2k", endpoint: "/submission", status: "Failed", response_time_ms: 52, records: 0, error_code: "AUTHENTICATION_FAILURE", timestamp: "2026-02-25 09:45:11" },
-  { request_id: "REQ-991206", api_key: "sk_live_***3b4n", endpoint: "/submission", status: "Success", response_time_ms: 176, records: 950, error_code: null, timestamp: "2026-02-25 09:30:00" },
-  { request_id: "REQ-991205", api_key: "sk_live_***9a1m", endpoint: "/submission/bulk", status: "Success", response_time_ms: 4100, records: 5000, error_code: null, timestamp: "2026-02-25 09:00:00" },
+  { request_id: "REQ-991212", api_key: "sk_live_***7x2k", endpoint: "/submission", status: "Failed", response_time_ms: 210, records: 0, error_code: "INVALID_SCHEMA", timestamp: recentTs(5) },
+  { request_id: "REQ-991211", api_key: "sk_live_***9a1m", endpoint: "/submission", status: "Success", response_time_ms: 145, records: 1200, error_code: null, timestamp: recentTs(12) },
+  { request_id: "REQ-991210", api_key: "sk_live_***7x2k", endpoint: "/submission/bulk", status: "Partial", response_time_ms: 3200, records: 2500, error_code: "MISSING_MANDATORY_FIELD", timestamp: recentTs(25) },
+  { request_id: "REQ-991209", api_key: "sk_live_***3b4n", endpoint: "/submission", status: "Rate Limited", response_time_ms: 89, records: 0, error_code: "RATE_LIMIT_EXCEEDED", timestamp: recentTs(30) },
+  { request_id: "REQ-991208", api_key: "sk_live_***9a1m", endpoint: "/submission", status: "Success", response_time_ms: 198, records: 800, error_code: null, timestamp: recentTs(45) },
+  { request_id: "REQ-991207", api_key: "sk_live_***7x2k", endpoint: "/submission", status: "Failed", response_time_ms: 52, records: 0, error_code: "AUTHENTICATION_FAILURE", timestamp: recentTs(60) },
+  { request_id: "REQ-991206", api_key: "sk_live_***3b4n", endpoint: "/submission", status: "Success", response_time_ms: 176, records: 950, error_code: null, timestamp: recentTs(90) },
+  { request_id: "REQ-991205", api_key: "sk_live_***9a1m", endpoint: "/submission/bulk", status: "Success", response_time_ms: 4100, records: 5000, error_code: null, timestamp: recentTs(120) },
+  { request_id: "REQ-991204", api_key: "sk_live_***7x2k", endpoint: "/submission", status: "Success", response_time_ms: 167, records: 340, error_code: null, timestamp: recentTs(180) },
+  { request_id: "REQ-991203", api_key: "sk_live_***3b4n", endpoint: "/submission", status: "Failed", response_time_ms: 310, records: 0, error_code: "SCHEMA_VERSION_MISMATCH", timestamp: recentTs(240) },
+  { request_id: "REQ-991202", api_key: "sk_live_***9a1m", endpoint: "/submission", status: "Success", response_time_ms: 132, records: 620, error_code: null, timestamp: recentTs(300) },
+  { request_id: "REQ-991201", api_key: "sk_live_***7x2k", endpoint: "/submission/bulk", status: "Partial", response_time_ms: 2800, records: 1800, error_code: "DUPLICATE_RECORDS", timestamp: recentTs(360) },
 ];
 
 export const apiSubmissionKpis = {
