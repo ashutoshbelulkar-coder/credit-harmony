@@ -34,7 +34,7 @@ export function DashboardDateRangePicker({ className }: DashboardDateRangePicker
           key={p.label}
           variant={selectedPreset === p.label && !showCustom ? "default" : "outline"}
           size="sm"
-          className="h-7 px-2.5 text-caption"
+          className={cn("h-7 px-2.5 text-caption", selectedPreset === p.label && !showCustom && "text-primary-foreground")}
           onClick={() => {
             setSelectedPreset(p.label);
             setShowCustom(false);
