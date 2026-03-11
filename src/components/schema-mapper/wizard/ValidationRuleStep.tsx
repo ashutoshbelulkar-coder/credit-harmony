@@ -96,7 +96,7 @@ export function ValidationRuleStep({ initialRules, onComplete }: ValidationRuleS
       </div>
 
       {/* Rules Table */}
-      <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="min-w-0 overflow-x-auto">
           <Table>
             <TableHeader>

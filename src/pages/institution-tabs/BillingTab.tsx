@@ -2,7 +2,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import { Download, Pencil } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -102,11 +102,11 @@ export default function BillingTab({ billingModel: initModel, creditBalance: ini
         <div className="flex flex-wrap items-end gap-4">
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">From</label>
-            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="font-sans" />
+            <DatePicker value={dateFrom} onChange={setDateFrom} className="h-8 font-sans" />
           </div>
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">To</label>
-            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="font-sans" />
+            <DatePicker value={dateTo} onChange={setDateTo} className="h-8 font-sans" />
           </div>
           <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-body font-medium text-foreground hover:bg-muted transition-colors">
             <Download className="w-4 h-4" /> Export CSV

@@ -73,7 +73,7 @@ export function SchemaRegistryTable({
   onAuditHistory,
 }: SchemaRegistryTableProps) {
   return (
-    <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden min-h-0 flex flex-col">
+    <div className="bg-card rounded-xl border border-border overflow-hidden min-h-0 flex flex-col">
       <div className="min-w-0 min-h-0 overflow-x-auto overflow-y-visible table-scroll-fade pb-4 [-webkit-overflow-scrolling:touch]">
         <Table className="w-full min-w-max border-separate border-spacing-0">
           <TableHeader>

@@ -8,6 +8,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -365,11 +366,11 @@ function RuleForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Effective date</Label>
-          <Input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} className="h-8" />
+          <DatePicker value={effectiveDate} onChange={setEffectiveDate} className="h-8" />
         </div>
         <div className="space-y-2">
           <Label>Expiry date (optional)</Label>
-          <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="h-8" />
+          <DatePicker value={expiryDate} onChange={setExpiryDate} className="h-8" />
         </div>
       </div>
 

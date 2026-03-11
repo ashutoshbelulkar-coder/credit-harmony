@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -160,11 +161,11 @@ export function ReportListPage() {
             <div className="border-t border-border pt-3 mt-2 space-y-3">
               <div className="space-y-1.5">
                 <Label htmlFor="report-date-from-m" className="text-caption text-muted-foreground">Date From</Label>
-                <Input id="report-date-from-m" type="date" value={filterInputs.dateFrom} onChange={(e) => setFilterInputs((f) => ({ ...f, dateFrom: e.target.value }))} className="h-8 w-full text-caption" />
+                <DatePicker id="report-date-from-m" value={filterInputs.dateFrom} onChange={(v) => setFilterInputs((f) => ({ ...f, dateFrom: v }))} className="h-8 w-full text-caption" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="report-date-to-m" className="text-caption text-muted-foreground">Date To</Label>
-                <Input id="report-date-to-m" type="date" value={filterInputs.dateTo} onChange={(e) => setFilterInputs((f) => ({ ...f, dateTo: e.target.value }))} className="h-8 w-full text-caption" />
+                <DatePicker id="report-date-to-m" value={filterInputs.dateTo} onChange={(v) => setFilterInputs((f) => ({ ...f, dateTo: v }))} className="h-8 w-full text-caption" />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="report-id-m" className="text-caption text-muted-foreground">Report ID</Label>
@@ -198,11 +199,11 @@ export function ReportListPage() {
         <div className="hidden md:flex flex-wrap items-end gap-3">
           <div className="flex items-center gap-2">
             <Label htmlFor="report-date-from" className="text-caption text-muted-foreground whitespace-nowrap">Date From</Label>
-            <Input id="report-date-from" type="date" value={filterInputs.dateFrom} onChange={(e) => setFilterInputs((f) => ({ ...f, dateFrom: e.target.value }))} className="h-8 w-[140px] text-caption" />
+            <DatePicker id="report-date-from" value={filterInputs.dateFrom} onChange={(v) => setFilterInputs((f) => ({ ...f, dateFrom: v }))} className="h-8 w-[140px] text-caption" />
           </div>
           <div className="flex items-center gap-2">
             <Label htmlFor="report-date-to" className="text-caption text-muted-foreground whitespace-nowrap">Date To</Label>
-            <Input id="report-date-to" type="date" value={filterInputs.dateTo} onChange={(e) => setFilterInputs((f) => ({ ...f, dateTo: e.target.value }))} className="h-8 w-[140px] text-caption" />
+            <DatePicker id="report-date-to" value={filterInputs.dateTo} onChange={(v) => setFilterInputs((f) => ({ ...f, dateTo: v }))} className="h-8 w-[140px] text-caption" />
           </div>
           <div className="flex items-center gap-2">
             <Label htmlFor="report-id" className="text-caption text-muted-foreground whitespace-nowrap">Report ID</Label>

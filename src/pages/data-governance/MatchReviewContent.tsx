@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -105,11 +105,11 @@ export default function MatchReviewContent() {
           </div>
           <div className="space-y-2">
             <Label className="text-caption">Date from</Label>
-            <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8" />
+            <DatePicker value={dateFrom} onChange={setDateFrom} className="h-8" />
           </div>
           <div className="space-y-2">
             <Label className="text-caption">Date to</Label>
-            <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8" />
+            <DatePicker value={dateTo} onChange={setDateTo} className="h-8" />
           </div>
         </div>
       </div>

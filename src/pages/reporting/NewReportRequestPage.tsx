@@ -4,6 +4,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import {
   Select,
@@ -205,7 +206,7 @@ export function NewReportRequestPage() {
                   <FormItem>
                     <FormLabel className="text-caption">Date From *</FormLabel>
                     <FormControl>
-                      <Input type="date" className="h-8 text-caption" {...field} />
+                      <DatePicker value={field.value ?? ""} onChange={field.onChange} className="h-8 text-caption" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -218,7 +219,7 @@ export function NewReportRequestPage() {
                   <FormItem>
                     <FormLabel className="text-caption">Date To *</FormLabel>
                     <FormControl>
-                      <Input type="date" className="h-8 text-caption" {...field} />
+                      <DatePicker value={field.value ?? ""} onChange={field.onChange} className="h-8 text-caption" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { Upload, FileJson, Code, Globe, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
@@ -92,12 +93,7 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
           </div>
           <div className="space-y-1.5">
             <Label className="text-caption text-muted-foreground">Effective Date</Label>
-            <Input
-              type="date"
-              value={effectiveDate}
-              onChange={(e) => setEffectiveDate(e.target.value)}
-              className="h-8"
-            />
+            <DatePicker value={effectiveDate} onChange={setEffectiveDate} className="h-8" />
           </div>
           <div className="space-y-1.5">
             <Label className="text-caption text-muted-foreground">Version</Label>

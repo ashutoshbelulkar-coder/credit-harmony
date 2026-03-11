@@ -5,7 +5,7 @@ import { tableHeaderClasses } from "@/lib/typography";
 import { slaBreachHistory, type SlaBreachRecord, type SeverityLevel } from "@/data/alert-engine-mock";
 import { institutions } from "@/data/institutions-mock";
 import type { MonitoringFilters } from "../MonitoringFilterBar";
-import { Input } from "@/components/ui/input";
+import { DatePicker } from "@/components/ui/date-picker";
 import {
   Select,
   SelectContent,
@@ -83,11 +83,11 @@ export function SlaBreachHistory({ filters }: { filters: MonitoringFilters }) {
               <div className="border-t border-border pt-3 mt-2 space-y-3">
                 <div className="space-y-1.5">
                   <Label className="text-caption">Date from</Label>
-                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-full" />
+                  <DatePicker value={dateFrom} onChange={setDateFrom} className="h-8 w-full" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-caption">Date to</Label>
-                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-full" />
+                  <DatePicker value={dateTo} onChange={setDateTo} className="h-8 w-full" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-caption">Domain</Label>
@@ -123,11 +123,11 @@ export function SlaBreachHistory({ filters }: { filters: MonitoringFilters }) {
           <div className="hidden md:flex flex-wrap items-end gap-4">
             <div className="space-y-1.5">
               <Label className="text-caption">Date from</Label>
-              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-[160px]" />
+              <DatePicker value={dateFrom} onChange={setDateFrom} className="h-8 w-[160px]" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-caption">Date to</Label>
-              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-[160px]" />
+              <DatePicker value={dateTo} onChange={setDateTo} className="h-8 w-[160px]" />
             </div>
             <div className="space-y-1.5">
               <Label className="text-caption">Domain</Label>
