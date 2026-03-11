@@ -136,7 +136,7 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
   const stepLabel = STEPS[currentIdx]?.label ?? "";
 
   return (
-    <div className="flex flex-col gap-4 animate-fade-in">
+    <div className="flex flex-col gap-4 animate-fade-in pb-4 md:pb-6">
       <div className="flex items-center justify-between gap-2">
         <Breadcrumb>
           <BreadcrumbList>

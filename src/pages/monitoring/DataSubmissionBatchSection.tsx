@@ -35,8 +35,11 @@ import { Label } from "@/components/ui/label";
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
   FileStack,
+  Filter,
   Search,
   Upload,
   XCircle,
@@ -150,6 +153,13 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
   const [institutionFilter, setInstitutionFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [timePeriod, setTimePeriod] = useState<BatchTimePeriod>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const activeFilterCount = [
+    batchIdSearch.trim().length > 0,
+    institutionFilter !== "all",
+    statusFilter !== "all",
+  ].filter(Boolean).length;
 
   const filtered = batchJobs.filter((b) => {
     if (batchIdSearch.trim() && !b.batch_id.toLowerCase().includes(batchIdSearch.trim().toLowerCase())) return false;
@@ -284,59 +294,100 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
       </div>
 
       <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-        <div className="px-6 pt-6 pb-4 border-b border-border">
+        <div className="px-4 pt-4 pb-4 border-b border-border md:px-6 md:pt-6">
           <h4 className="text-body font-semibold text-foreground mb-4">Batch Jobs</h4>
-          <div className="flex flex-wrap items-end gap-4">
+          <div className="md:hidden">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left rounded-md hover:bg-muted/50 transition-colors"
+            >
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-body font-medium text-foreground">Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground">
+                  {activeFilterCount}
+                </span>
+              )}
+              <span className="ml-auto">
+                {filtersOpen ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+              </span>
+            </button>
+            {filtersOpen && (
+              <div className="border-t border-border pt-3 mt-2 space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-caption text-muted-foreground">Batch ID</Label>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input placeholder="Search..." value={batchIdSearch} onChange={(e) => { setBatchIdSearch(e.target.value); setPage(1); }} className="h-8 pl-8 w-full text-caption" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-caption text-muted-foreground">Institution</Label>
+                  <Select value={institutionFilter} onValueChange={(v) => { setInstitutionFilter(v); setPage(1); }}>
+                    <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Institution" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-caption">All institutions</SelectItem>
+                      {dataSubmitters.map((i) => <SelectItem key={i.id} value={i.id} className="text-caption">{i.tradingName ?? i.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-caption text-muted-foreground">Status</Label>
+                  <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+                    <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-caption">All statuses</SelectItem>
+                      {(["Completed", "Processing", "Failed", "Queued"] as const).map((s) => <SelectItem key={s} value={s} className="text-caption">{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-caption text-muted-foreground">Time period</Label>
+                  <Select value={timePeriod} onValueChange={(v) => { setTimePeriod(v as BatchTimePeriod); setPage(1); }}>
+                    <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Time period" /></SelectTrigger>
+                    <SelectContent>
+                      {BATCH_TIME_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="hidden md:flex flex-wrap items-end gap-4">
             <div className="space-y-1.5">
               <Label className="text-caption text-muted-foreground">Batch ID</Label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Search..."
-                  value={batchIdSearch}
-                  onChange={(e) => { setBatchIdSearch(e.target.value); setPage(1); }}
-                  className="h-9 pl-8 w-[180px] text-caption"
-                />
+                <Input placeholder="Search..." value={batchIdSearch} onChange={(e) => { setBatchIdSearch(e.target.value); setPage(1); }} className="h-8 pl-8 w-[180px] text-caption" />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-caption text-muted-foreground">Institution</Label>
               <Select value={institutionFilter} onValueChange={(v) => { setInstitutionFilter(v); setPage(1); }}>
-                <SelectTrigger className="h-9 min-w-[180px] max-w-[220px] text-caption">
-                  <SelectValue placeholder="Institution" />
-                </SelectTrigger>
+                <SelectTrigger className="h-8 min-w-[180px] max-w-[220px] text-caption"><SelectValue placeholder="Institution" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-caption">All institutions</SelectItem>
-                  {dataSubmitters.map((i) => (
-                    <SelectItem key={i.id} value={i.id} className="text-caption">{i.tradingName ?? i.name}</SelectItem>
-                  ))}
+                  {dataSubmitters.map((i) => <SelectItem key={i.id} value={i.id} className="text-caption">{i.tradingName ?? i.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-caption text-muted-foreground">Status</Label>
               <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-                <SelectTrigger className="h-9 w-[140px] text-caption">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
+                <SelectTrigger className="h-8 w-[140px] text-caption"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-caption">All statuses</SelectItem>
-                  {(["Completed", "Processing", "Failed", "Queued"] as const).map((s) => (
-                    <SelectItem key={s} value={s} className="text-caption">{s}</SelectItem>
-                  ))}
+                  {(["Completed", "Processing", "Failed", "Queued"] as const).map((s) => <SelectItem key={s} value={s} className="text-caption">{s}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5">
               <Label className="text-caption text-muted-foreground">Time period</Label>
               <Select value={timePeriod} onValueChange={(v) => { setTimePeriod(v as BatchTimePeriod); setPage(1); }}>
-                <SelectTrigger className="h-9 w-[140px] text-caption">
-                  <SelectValue placeholder="Time period" />
-                </SelectTrigger>
+                <SelectTrigger className="h-8 w-[140px] text-caption"><SelectValue placeholder="Time period" /></SelectTrigger>
                 <SelectContent>
-                  {BATCH_TIME_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>
-                  ))}
+                  {BATCH_TIME_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -397,21 +448,14 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-t border-border">
           <span className="text-caption text-muted-foreground">
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, sorted.length)} of {sorted.length}
+            {sorted.length > 0
+              ? `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, sorted.length)} of ${sorted.length} batch jobs`
+              : "0 batch jobs"}
           </span>
           <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className={cn(
-                  "px-3 py-1.5 rounded-md text-body font-medium transition-colors",
-                  p === page ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                )}
-              >
-                {p}
-              </button>
-            ))}
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
+            <span className="text-caption text-muted-foreground px-2">{page} / {totalPages}</span>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
           </div>
         </div>
       </div>

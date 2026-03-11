@@ -188,7 +188,7 @@ export function LLMFieldIntelligenceStep({
                             handleCanonicalChange(row.id, v, opt?.label ?? null);
                           }}
                         >
-                          <SelectTrigger className="h-7 text-[11px] w-full">
+                          <SelectTrigger className="h-6 text-[9px] w-full font-medium">
                             <SelectValue placeholder="Select..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -228,7 +228,7 @@ export function LLMFieldIntelligenceStep({
                           value={row.action ?? ""}
                           onValueChange={(v) => handleActionChange(row.id, v as LLMFieldAction)}
                         >
-                          <SelectTrigger className="h-7 text-[11px] w-full">
+                          <SelectTrigger className="h-6 text-[9px] w-full font-medium">
                             <SelectValue placeholder="Action..." />
                           </SelectTrigger>
                           <SelectContent>
@@ -241,16 +241,6 @@ export function LLMFieldIntelligenceStep({
                         </Select>
                       ) : (
                         <span className="text-caption text-muted-foreground">—</span>
-                      )}
-                      {row.action === "create_new" && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="ml-1 h-6 text-[9px]"
-                          onClick={() => openCreateNewDrawer(row.id)}
-                        >
-                          New Field
-                        </Button>
                       )}
                     </TableCell>
                   </TableRow>

@@ -20,7 +20,7 @@ import {
   type ReportRow,
   type ReportStatus,
 } from "./reporting-store";
-import { Download, Loader2, RotateCcw, X, Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, Download, Filter, Loader2, Plus, RotateCcw, X } from "lucide-react";
 
 const statusStyles: Record<ReportStatus, string> = {
   Queued: "bg-muted text-muted-foreground",
@@ -87,6 +87,15 @@ export function ReportListPage() {
   const { reports, refreshReports } = useReporting();
   const [filterInputs, setFilterInputs] = useState<FilterState>(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(defaultFilters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const activeFilterCount = [
+    appliedFilters.dateFrom !== "",
+    appliedFilters.dateTo !== "",
+    appliedFilters.reportId.trim().length > 0,
+    appliedFilters.reportType !== "all",
+    appliedFilters.status !== "all",
+  ].filter(Boolean).length;
 
   const filtered = useMemo(
     () => applyFilters(reports, appliedFilters),
@@ -130,80 +139,89 @@ export function ReportListPage() {
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="flex items-center gap-2">
-            <Label htmlFor="report-date-from" className="text-caption text-muted-foreground whitespace-nowrap">
-              Date From
-            </Label>
-            <Input
-              id="report-date-from"
-              type="date"
-              value={filterInputs.dateFrom}
-              onChange={(e) => setFilterInputs((f) => ({ ...f, dateFrom: e.target.value }))}
-              className="h-9 w-[140px] text-caption"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="report-date-to" className="text-caption text-muted-foreground whitespace-nowrap">
-              Date To
-            </Label>
-            <Input
-              id="report-date-to"
-              type="date"
-              value={filterInputs.dateTo}
-              onChange={(e) => setFilterInputs((f) => ({ ...f, dateTo: e.target.value }))}
-              className="h-9 w-[140px] text-caption"
-            />
-          </div>
-          <div className="flex items-center gap-2">
-            <Label htmlFor="report-id" className="text-caption text-muted-foreground whitespace-nowrap">
-              Report ID
-            </Label>
-            <Input
-              id="report-id"
-              type="text"
-              placeholder="Report ID"
-              value={filterInputs.reportId}
-              onChange={(e) => setFilterInputs((f) => ({ ...f, reportId: e.target.value }))}
-              className="h-9 w-[180px] text-caption"
-            />
-          </div>
-          <Select
-            value={filterInputs.reportType}
-            onValueChange={(v) => setFilterInputs((f) => ({ ...f, reportType: v }))}
+        <div className="md:hidden">
+          <button
+            type="button"
+            onClick={() => setFiltersOpen(!filtersOpen)}
+            className="flex w-full items-center gap-2 px-4 py-2.5 text-left rounded-md hover:bg-muted/50 transition-colors"
           >
-            <SelectTrigger className="h-9 w-[200px] text-caption">
-              <SelectValue placeholder="Report Type" />
-            </SelectTrigger>
+            <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-body font-medium text-foreground">Filters</span>
+            {activeFilterCount > 0 && (
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground">
+                {activeFilterCount}
+              </span>
+            )}
+            <span className="ml-auto">
+              {filtersOpen ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+            </span>
+          </button>
+          {filtersOpen && (
+            <div className="border-t border-border pt-3 mt-2 space-y-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="report-date-from-m" className="text-caption text-muted-foreground">Date From</Label>
+                <Input id="report-date-from-m" type="date" value={filterInputs.dateFrom} onChange={(e) => setFilterInputs((f) => ({ ...f, dateFrom: e.target.value }))} className="h-8 w-full text-caption" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="report-date-to-m" className="text-caption text-muted-foreground">Date To</Label>
+                <Input id="report-date-to-m" type="date" value={filterInputs.dateTo} onChange={(e) => setFilterInputs((f) => ({ ...f, dateTo: e.target.value }))} className="h-8 w-full text-caption" />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="report-id-m" className="text-caption text-muted-foreground">Report ID</Label>
+                <Input id="report-id-m" type="text" placeholder="Report ID" value={filterInputs.reportId} onChange={(e) => setFilterInputs((f) => ({ ...f, reportId: e.target.value }))} className="h-8 w-full text-caption" />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-caption text-muted-foreground">Report Type</Label>
+                <Select value={filterInputs.reportType} onValueChange={(v) => setFilterInputs((f) => ({ ...f, reportType: v }))}>
+                  <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Report Type" /></SelectTrigger>
+                  <SelectContent>
+                    {getReportTypesForFilter().map((o) => <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-caption text-muted-foreground">Status</Label>
+                <Select value={filterInputs.status} onValueChange={(v) => setFilterInputs((f) => ({ ...f, status: v }))}>
+                  <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Status" /></SelectTrigger>
+                  <SelectContent>
+                    {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex gap-2 pt-1">
+                <Button variant="default" size="sm" className="h-8 flex-1" onClick={handleSearch}>Search</Button>
+                <Button variant="outline" size="sm" className="h-8 flex-1" onClick={handleReset}>Reset</Button>
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="hidden md:flex flex-wrap items-end gap-3">
+          <div className="flex items-center gap-2">
+            <Label htmlFor="report-date-from" className="text-caption text-muted-foreground whitespace-nowrap">Date From</Label>
+            <Input id="report-date-from" type="date" value={filterInputs.dateFrom} onChange={(e) => setFilterInputs((f) => ({ ...f, dateFrom: e.target.value }))} className="h-8 w-[140px] text-caption" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="report-date-to" className="text-caption text-muted-foreground whitespace-nowrap">Date To</Label>
+            <Input id="report-date-to" type="date" value={filterInputs.dateTo} onChange={(e) => setFilterInputs((f) => ({ ...f, dateTo: e.target.value }))} className="h-8 w-[140px] text-caption" />
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="report-id" className="text-caption text-muted-foreground whitespace-nowrap">Report ID</Label>
+            <Input id="report-id" type="text" placeholder="Report ID" value={filterInputs.reportId} onChange={(e) => setFilterInputs((f) => ({ ...f, reportId: e.target.value }))} className="h-8 w-[180px] text-caption" />
+          </div>
+          <Select value={filterInputs.reportType} onValueChange={(v) => setFilterInputs((f) => ({ ...f, reportType: v }))}>
+            <SelectTrigger className="h-8 w-[200px] text-caption"><SelectValue placeholder="Report Type" /></SelectTrigger>
             <SelectContent>
-              {getReportTypesForFilter().map((o) => (
-                <SelectItem key={o.value} value={o.value} className="text-caption">
-                  {o.label}
-                </SelectItem>
-              ))}
+              {getReportTypesForFilter().map((o) => <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select
-            value={filterInputs.status}
-            onValueChange={(v) => setFilterInputs((f) => ({ ...f, status: v }))}
-          >
-            <SelectTrigger className="h-9 w-[130px] text-caption">
-              <SelectValue placeholder="Status" />
-            </SelectTrigger>
+          <Select value={filterInputs.status} onValueChange={(v) => setFilterInputs((f) => ({ ...f, status: v }))}>
+            <SelectTrigger className="h-8 w-[130px] text-caption"><SelectValue placeholder="Status" /></SelectTrigger>
             <SelectContent>
-              {STATUS_OPTIONS.map((o) => (
-                <SelectItem key={o.value} value={o.value} className="text-caption">
-                  {o.label}
-                </SelectItem>
-              ))}
+              {STATUS_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Button variant="default" size="sm" className="h-9" onClick={handleSearch}>
-            Search
-          </Button>
-          <Button variant="outline" size="sm" className="h-9" onClick={handleReset}>
-            Reset
-          </Button>
+          <Button variant="default" size="sm" className="h-8" onClick={handleSearch}>Search</Button>
+          <Button variant="outline" size="sm" className="h-8" onClick={handleReset}>Reset</Button>
         </div>
       </div>
 

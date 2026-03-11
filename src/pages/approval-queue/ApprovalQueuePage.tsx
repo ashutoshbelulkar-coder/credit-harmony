@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ClipboardCheck, Clock, CheckCircle2, XCircle, AlertTriangle, Eye, ThumbsUp, ThumbsDown, MessageSquare, Building2, ScrollText } from "lucide-react";
+import { ClipboardCheck, Clock, CheckCircle2, XCircle, AlertTriangle, ThumbsUp, ThumbsDown, MessageSquare, Building2, ScrollText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -126,7 +126,7 @@ export function ApprovalQueuePage() {
                   <TableHead className="text-caption hidden md:table-cell">Submitted By</TableHead>
                   <TableHead className="text-caption hidden lg:table-cell">Date</TableHead>
                   <TableHead className="text-caption">Status</TableHead>
-                  <TableHead className="text-caption text-right">Actions</TableHead>
+                  <TableHead className="text-caption text-left">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -160,24 +160,9 @@ export function ApprovalQueuePage() {
                         </Badge>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDetailItem(item)}>
-                            <Eye className="w-3.5 h-3.5" />
-                          </Button>
-                          {item.status === "pending" && (
-                            <>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-success hover:text-success" onClick={() => handleApprove(item)}>
-                                <ThumbsUp className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive" onClick={() => setRejectDialog({ open: true, item, mode: "reject" })}>
-                                <ThumbsDown className="w-3.5 h-3.5" />
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-info hover:text-info" onClick={() => setRejectDialog({ open: true, item, mode: "changes" })}>
-                                <MessageSquare className="w-3.5 h-3.5" />
-                              </Button>
-                            </>
-                          )}
-                        </div>
+                        <Button variant="outline" size="sm" onClick={() => setDetailItem(item)}>
+                          View
+                        </Button>
                       </TableCell>
                     </TableRow>
                   );

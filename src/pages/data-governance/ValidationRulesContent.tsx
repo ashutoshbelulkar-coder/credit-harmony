@@ -365,11 +365,11 @@ function RuleForm({
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label>Effective date</Label>
-          <Input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} className="h-9" />
+          <Input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} className="h-8" />
         </div>
         <div className="space-y-2">
           <Label>Expiry date (optional)</Label>
-          <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="h-9" />
+          <Input type="date" value={expiryDate} onChange={(e) => setExpiryDate(e.target.value)} className="h-8" />
         </div>
       </div>
 

@@ -22,7 +22,10 @@ import {
 import {
   Activity,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
+  Filter,
   Key,
   XCircle,
 } from "lucide-react";
@@ -142,6 +145,7 @@ export function DataSubmissionApiSection({
   const [sortKey, setSortKey] = useState<keyof ApiSubmissionRequest | "">("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedRequest, setSelectedRequest] = useState<ApiSubmissionRequest | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const set = (partial: Partial<MonitoringFilters>) =>
     onFiltersChange({ ...filters, ...partial });
@@ -169,6 +173,12 @@ export function DataSubmissionApiSection({
     else setSortKey(key);
     setPage(1);
   };
+
+  const activeFilterCount = [
+    filters.requestIdSearch.trim().length > 0,
+    filters.status !== "all",
+    filters.dataSubmitterId !== "all",
+  ].filter(Boolean).length;
 
   const kpis = [
     { label: "Total API Calls (Today)", value: apiSubmissionKpis.totalCallsToday.toLocaleString(), icon: Activity, color: "text-foreground" },
@@ -244,9 +254,90 @@ export function DataSubmissionApiSection({
       </div>
 
       <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-        <div className="px-6 pt-6 pb-4 border-b border-border">
+        <div className="px-4 pt-4 pb-4 border-b border-border md:px-6 md:pt-6">
           <h4 className="text-body font-semibold text-foreground mb-4">Live Request Monitoring</h4>
-          <div className="flex flex-wrap items-end gap-4">
+          {/* Mobile: Filters button (RegistryFilters-style) */}
+          <div className="md:hidden">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left rounded-md hover:bg-muted/50 transition-colors"
+            >
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-body font-medium text-foreground">Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground">
+                  {activeFilterCount}
+                </span>
+              )}
+              <span className="ml-auto">
+                {filtersOpen ? (
+                  <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+                )}
+              </span>
+            </button>
+            {filtersOpen && (
+              <div className="border-t border-border pt-3 mt-2 space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-caption text-muted-foreground">Request ID</Label>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input
+                      placeholder="Search..."
+                      value={filters.requestIdSearch}
+                      onChange={(e) => set({ requestIdSearch: e.target.value })}
+                      className="h-8 pl-8 w-full text-caption"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-caption text-muted-foreground">Status</Label>
+                  <Select value={filters.status} onValueChange={(v) => set({ status: v })}>
+                    <SelectTrigger className="h-8 w-full text-caption">
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-caption">All statuses</SelectItem>
+                      {(["Success", "Failed", "Partial", "Rate Limited"] as const).map((s) => (
+                        <SelectItem key={s} value={s} className="text-caption">{s}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-caption text-muted-foreground">Institute</Label>
+                  <Select value={filters.dataSubmitterId} onValueChange={(v) => set({ dataSubmitterId: v })}>
+                    <SelectTrigger className="h-8 w-full text-caption">
+                      <SelectValue placeholder="Institute" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-caption">All data submission institutes</SelectItem>
+                      {dataSubmitters.map((i) => (
+                        <SelectItem key={i.id} value={i.id} className="text-caption">{i.tradingName ?? i.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-caption text-muted-foreground">Time</Label>
+                  <Select value={filters.timeRange} onValueChange={(v) => set({ timeRange: v as TimeRangeValue })}>
+                    <SelectTrigger className="h-8 w-full text-caption">
+                      <SelectValue placeholder="Time" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {TIME_RANGE_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
+          {/* Desktop: inline filters */}
+          <div className="hidden md:flex flex-wrap items-end gap-4">
             <div className="space-y-1.5">
               <Label className="text-caption text-muted-foreground">Request ID</Label>
               <div className="relative">
@@ -255,14 +346,14 @@ export function DataSubmissionApiSection({
                   placeholder="Search..."
                   value={filters.requestIdSearch}
                   onChange={(e) => set({ requestIdSearch: e.target.value })}
-                  className="h-9 pl-8 w-[180px] text-caption"
+                  className="h-8 pl-8 w-[180px] text-caption"
                 />
               </div>
             </div>
             <div className="space-y-1.5">
               <Label className="text-caption text-muted-foreground">Status</Label>
               <Select value={filters.status} onValueChange={(v) => set({ status: v })}>
-                <SelectTrigger className="h-9 w-[140px] text-caption">
+                <SelectTrigger className="h-8 w-[140px] text-caption">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -276,7 +367,7 @@ export function DataSubmissionApiSection({
             <div className="space-y-1.5">
               <Label className="text-caption text-muted-foreground">Institute</Label>
               <Select value={filters.dataSubmitterId} onValueChange={(v) => set({ dataSubmitterId: v })}>
-                <SelectTrigger className="h-9 min-w-[180px] max-w-[220px] text-caption">
+                <SelectTrigger className="h-8 min-w-[180px] max-w-[220px] text-caption">
                   <SelectValue placeholder="Institute" />
                 </SelectTrigger>
                 <SelectContent>
@@ -290,7 +381,7 @@ export function DataSubmissionApiSection({
             <div className="space-y-1.5">
               <Label className="text-caption text-muted-foreground">Time</Label>
               <Select value={filters.timeRange} onValueChange={(v) => set({ timeRange: v as TimeRangeValue })}>
-                <SelectTrigger className="h-9 w-[140px] text-caption">
+                <SelectTrigger className="h-8 w-[140px] text-caption">
                   <SelectValue placeholder="Time" />
                 </SelectTrigger>
                 <SelectContent>
@@ -346,21 +437,14 @@ export function DataSubmissionApiSection({
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-t border-border">
           <span className="text-caption text-muted-foreground">
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, sorted.length)} of {sorted.length}
+            {sorted.length > 0
+              ? `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, sorted.length)} of ${sorted.length} requests`
+              : "0 requests"}
           </span>
           <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className={cn(
-                  "px-3 py-1.5 rounded-md text-body font-medium transition-colors",
-                  p === page ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                )}
-              >
-                {p}
-              </button>
-            ))}
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
+            <span className="text-caption text-muted-foreground px-2">{page} / {totalPages}</span>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
           </div>
         </div>
       </div>

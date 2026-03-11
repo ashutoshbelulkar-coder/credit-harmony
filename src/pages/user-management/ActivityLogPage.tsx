@@ -71,58 +71,62 @@ export function ActivityLogPage() {
       </div>
 
       {/* Table */}
-      <div className="border rounded-lg mt-4 overflow-x-auto">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Timestamp</TableHead>
-              <TableHead>User</TableHead>
-              <TableHead>Action</TableHead>
-              <TableHead>Details</TableHead>
-              <TableHead>IP Address</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {paged.length === 0 ? (
-              <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-10">No activity found</TableCell></TableRow>
-            ) : paged.map((a) => {
-              const initials = a.userName.split(" ").map((n) => n[0]).join("").slice(0, 2);
-              return (
-                <TableRow key={a.id}>
-                  <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{formatTimestamp(a.timestamp)}</TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2">
-                      <Avatar className="h-6 w-6">
-                        <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-medium">{initials}</AvatarFallback>
-                      </Avatar>
-                      <span className="text-sm text-foreground">{a.userName}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell><Badge variant="outline" className="text-[10px]">{a.action}</Badge></TableCell>
-                  <TableCell className="text-sm text-muted-foreground max-w-[300px] truncate">{a.details}</TableCell>
-                  <TableCell className="text-sm text-muted-foreground font-mono text-xs">{a.ipAddress}</TableCell>
-                  <TableCell>
-                    <Badge className={`border-0 text-[10px] ${a.status === "Success" ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"}`}>
-                      {a.status}
-                    </Badge>
-                  </TableCell>
-                </TableRow>
-              );
-            })}
-          </TableBody>
-        </Table>
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex items-center justify-between mt-3">
-          <p className="text-xs text-muted-foreground">{filtered.length} entries</p>
-          <div className="flex gap-1">
-            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setPage(page - 1)}>Previous</Button>
+      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)] mt-4">
+        <div className="min-w-0 overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Timestamp</TableHead>
+                <TableHead>User</TableHead>
+                <TableHead>Action</TableHead>
+                <TableHead>Details</TableHead>
+                <TableHead>IP Address</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {paged.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-10">No activity found</TableCell></TableRow>
+              ) : paged.map((a) => {
+                const initials = a.userName.split(" ").map((n) => n[0]).join("").slice(0, 2);
+                return (
+                  <TableRow key={a.id}>
+                    <TableCell className="text-sm text-muted-foreground whitespace-nowrap">{formatTimestamp(a.timestamp)}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Avatar className="h-6 w-6">
+                          <AvatarFallback className="bg-primary/10 text-primary text-[10px] font-medium">{initials}</AvatarFallback>
+                        </Avatar>
+                        <span className="text-sm text-foreground">{a.userName}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell><Badge variant="outline" className="text-[10px]">{a.action}</Badge></TableCell>
+                    <TableCell className="text-sm text-muted-foreground max-w-[300px] truncate">{a.details}</TableCell>
+                    <TableCell className="text-sm text-muted-foreground font-mono text-xs">{a.ipAddress}</TableCell>
+                    <TableCell>
+                      <Badge className={`border-0 text-[10px] ${a.status === "Success" ? "bg-success/20 text-success" : "bg-destructive/20 text-destructive"}`}>
+                        {a.status}
+                      </Badge>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+        <div className="flex items-center justify-between px-5 py-3 border-t border-border">
+          <span className="text-caption text-muted-foreground">
+            {filtered.length > 0
+              ? `Showing ${page * PAGE_SIZE + 1}–${Math.min((page + 1) * PAGE_SIZE, filtered.length)} of ${filtered.length} entries`
+              : "0 entries"}
+          </span>
+          <div className="flex items-center gap-1">
+            <Button variant="outline" size="sm" disabled={page <= 0} onClick={() => setPage(page - 1)}>Previous</Button>
+            <span className="text-caption text-muted-foreground px-2">{page + 1} / {Math.max(1, totalPages)}</span>
             <Button variant="outline" size="sm" disabled={page >= totalPages - 1} onClick={() => setPage(page + 1)}>Next</Button>
           </div>
         </div>
-      )}
+      </div>
     </>
   );
 }

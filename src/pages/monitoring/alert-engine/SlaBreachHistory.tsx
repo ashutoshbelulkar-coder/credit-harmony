@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses } from "@/lib/typography";
 import { slaBreachHistory, type SlaBreachRecord, type SeverityLevel } from "@/data/alert-engine-mock";
@@ -34,6 +35,15 @@ export function SlaBreachHistory({ filters }: { filters: MonitoringFilters }) {
   const [domainFilter, setDomainFilter] = useState<string>("All");
   const [severityFilter, setSeverityFilter] = useState<string>("All");
   const [institutionFilter, setInstitutionFilter] = useState<string>("all");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const activeFilterCount = [
+    dateFrom !== "",
+    dateTo !== "",
+    domainFilter !== "All",
+    severityFilter !== "All",
+    institutionFilter !== "all",
+  ].filter(Boolean).length;
 
   const filtered = useMemo(() => {
     return slaBreachHistory.filter((row) => {
@@ -51,64 +61,102 @@ export function SlaBreachHistory({ filters }: { filters: MonitoringFilters }) {
     <section>
       <h3 className="text-h4 font-semibold text-foreground mb-4">SLA Breach History</h3>
       <div className={cardClass}>
-        <div className="flex flex-wrap items-end gap-4 px-6 pt-6 pb-4 border-b border-border">
-          <div className="space-y-1.5">
-            <Label className="text-caption">Date from</Label>
-            <Input
-              type="date"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-              className="h-9 w-[160px]"
-            />
+        <div className="px-4 pt-4 pb-4 border-b border-border md:px-6 md:pt-6">
+          <div className="md:hidden">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left rounded-md hover:bg-muted/50 transition-colors"
+            >
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-body font-medium text-foreground">Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground">
+                  {activeFilterCount}
+                </span>
+              )}
+              <span className="ml-auto">
+                {filtersOpen ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+              </span>
+            </button>
+            {filtersOpen && (
+              <div className="border-t border-border pt-3 mt-2 space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-caption">Date from</Label>
+                  <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-full" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-caption">Date to</Label>
+                  <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-full" />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-caption">Domain</Label>
+                  <Select value={domainFilter} onValueChange={setDomainFilter}>
+                    <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {DOMAINS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-caption">Severity</Label>
+                  <Select value={severityFilter} onValueChange={setSeverityFilter}>
+                    <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {SEVERITIES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-caption">Institution</Label>
+                  <Select value={institutionFilter} onValueChange={setInstitutionFilter}>
+                    <SelectTrigger className="h-8 w-full"><SelectValue placeholder="All institutions" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All institutions</SelectItem>
+                      {institutionsList.map((i) => <SelectItem key={i.id} value={i.id}>{i.tradingName ?? i.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
           </div>
-          <div className="space-y-1.5">
-            <Label className="text-caption">Date to</Label>
-            <Input
-              type="date"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-              className="h-9 w-[160px]"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-caption">Domain</Label>
-            <Select value={domainFilter} onValueChange={setDomainFilter}>
-              <SelectTrigger className="h-9 w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {DOMAINS.map((d) => (
-                  <SelectItem key={d} value={d}>{d}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-caption">Severity</Label>
-            <Select value={severityFilter} onValueChange={setSeverityFilter}>
-              <SelectTrigger className="h-9 w-[120px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SEVERITIES.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-caption">Institution</Label>
-            <Select value={institutionFilter} onValueChange={setInstitutionFilter}>
-              <SelectTrigger className="h-9 min-w-[180px] max-w-[220px]">
-                <SelectValue placeholder="All institutions" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All institutions</SelectItem>
-                {institutionsList.map((i) => (
-                  <SelectItem key={i.id} value={i.id}>{i.tradingName ?? i.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="hidden md:flex flex-wrap items-end gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-caption">Date from</Label>
+              <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="h-8 w-[160px]" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-caption">Date to</Label>
+              <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="h-8 w-[160px]" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-caption">Domain</Label>
+              <Select value={domainFilter} onValueChange={setDomainFilter}>
+                <SelectTrigger className="h-8 w-[180px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {DOMAINS.map((d) => <SelectItem key={d} value={d}>{d}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-caption">Severity</Label>
+              <Select value={severityFilter} onValueChange={setSeverityFilter}>
+                <SelectTrigger className="h-8 w-[120px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {SEVERITIES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-caption">Institution</Label>
+              <Select value={institutionFilter} onValueChange={setInstitutionFilter}>
+                <SelectTrigger className="h-8 min-w-[180px] max-w-[220px]"><SelectValue placeholder="All institutions" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All institutions</SelectItem>
+                  {institutionsList.map((i) => <SelectItem key={i.id} value={i.id}>{i.tradingName ?? i.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </div>
         <div className="min-w-0 overflow-x-auto">

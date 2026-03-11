@@ -311,21 +311,14 @@ export function AlertRulesDashboard() {
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-t border-border">
           <span className="text-caption text-muted-foreground">
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, rules.length)} of {rules.length}
+            {rules.length > 0
+              ? `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, rules.length)} of ${rules.length} rules`
+              : "0 rules"}
           </span>
           <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className={cn(
-                  "px-3 py-1.5 rounded-md text-body font-medium transition-colors",
-                  p === page ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                )}
-              >
-                {p}
-              </button>
-            ))}
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
+            <span className="text-caption text-muted-foreground px-2">{page} / {totalPages}</span>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
           </div>
         </div>
       </div>

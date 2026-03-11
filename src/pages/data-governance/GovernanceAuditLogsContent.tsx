@@ -91,7 +91,7 @@ export default function GovernanceAuditLogsContent() {
                   type="date"
                   value={dateFrom}
                   onChange={(e) => setDateFrom(e.target.value)}
-                  className="h-9"
+                  className="h-8"
                 />
               </div>
               <div className="space-y-2">
@@ -100,13 +100,13 @@ export default function GovernanceAuditLogsContent() {
                   type="date"
                   value={dateTo}
                   onChange={(e) => setDateTo(e.target.value)}
-                  className="h-9"
+                  className="h-8"
                 />
               </div>
               <div className="space-y-2">
                 <Label className="text-caption">User</Label>
                 <Select value={userFilter} onValueChange={setUserFilter}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8">
                     <SelectValue placeholder="All users" />
                   </SelectTrigger>
                   <SelectContent>
@@ -122,7 +122,7 @@ export default function GovernanceAuditLogsContent() {
               <div className="space-y-2">
                 <Label className="text-caption">Action type</Label>
                 <Select value={actionFilter} onValueChange={setActionFilter}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8">
                     <SelectValue placeholder="All actions" />
                   </SelectTrigger>
                   <SelectContent>
@@ -138,7 +138,7 @@ export default function GovernanceAuditLogsContent() {
               <div className="space-y-2">
                 <Label className="text-caption">Institution</Label>
                 <Select value={institutionFilter} onValueChange={setInstitutionFilter}>
-                  <SelectTrigger className="h-9">
+                  <SelectTrigger className="h-8">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
                   <SelectContent>
@@ -165,7 +165,7 @@ export default function GovernanceAuditLogsContent() {
               type="date"
               value={dateFrom}
               onChange={(e) => setDateFrom(e.target.value)}
-              className="h-9"
+              className="h-8"
             />
           </div>
           <div className="space-y-2">
@@ -174,13 +174,13 @@ export default function GovernanceAuditLogsContent() {
               type="date"
               value={dateTo}
               onChange={(e) => setDateTo(e.target.value)}
-              className="h-9"
+              className="h-8"
             />
           </div>
           <div className="space-y-2">
             <Label className="text-caption">User</Label>
             <Select value={userFilter} onValueChange={setUserFilter}>
-              <SelectTrigger className="h-9">
+              <SelectTrigger className="h-8">
                 <SelectValue placeholder="All users" />
               </SelectTrigger>
               <SelectContent>
@@ -196,7 +196,7 @@ export default function GovernanceAuditLogsContent() {
           <div className="space-y-2">
             <Label className="text-caption">Action type</Label>
             <Select value={actionFilter} onValueChange={setActionFilter}>
-              <SelectTrigger className="h-9">
+              <SelectTrigger className="h-8">
                 <SelectValue placeholder="All actions" />
               </SelectTrigger>
               <SelectContent>
@@ -212,7 +212,7 @@ export default function GovernanceAuditLogsContent() {
           <div className="space-y-2">
             <Label className="text-caption">Institution</Label>
             <Select value={institutionFilter} onValueChange={setInstitutionFilter}>
-              <SelectTrigger className="h-9">
+              <SelectTrigger className="h-8">
                 <SelectValue placeholder="All" />
               </SelectTrigger>
               <SelectContent>

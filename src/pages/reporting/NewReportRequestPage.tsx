@@ -205,7 +205,7 @@ export function NewReportRequestPage() {
                   <FormItem>
                     <FormLabel className="text-caption">Date From *</FormLabel>
                     <FormControl>
-                      <Input type="date" className="h-9 text-caption" {...field} />
+                      <Input type="date" className="h-8 text-caption" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -218,7 +218,7 @@ export function NewReportRequestPage() {
                   <FormItem>
                     <FormLabel className="text-caption">Date To *</FormLabel>
                     <FormControl>
-                      <Input type="date" className="h-9 text-caption" {...field} />
+                      <Input type="date" className="h-8 text-caption" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

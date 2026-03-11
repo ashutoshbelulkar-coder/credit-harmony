@@ -73,8 +73,8 @@ export function SchemaRegistryTable({
   onAuditHistory,
 }: SchemaRegistryTableProps) {
   return (
-    <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden">
-      <div className="min-w-0 overflow-x-auto overflow-y-visible table-scroll-fade pb-4">
+    <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden min-h-0 flex flex-col">
+      <div className="min-w-0 min-h-0 overflow-x-auto overflow-y-visible table-scroll-fade pb-4 [-webkit-overflow-scrolling:touch]">
         <Table className="w-full min-w-max border-separate border-spacing-0">
           <TableHeader>
             <TableRow className="hover:bg-transparent border-b border-border">
@@ -92,14 +92,14 @@ export function SchemaRegistryTable({
           </TableHeader>
           <TableBody>
             {entries.length === 0 ? (
-              <TableRow>
+              <TableRow className="border-b border-border">
                 <TableCell colSpan={8} className="h-32 text-center text-body text-muted-foreground">
                   No schema mappings found. Create a new mapping to get started.
                 </TableCell>
               </TableRow>
             ) : (
               entries.map((entry) => (
-                <TableRow key={entry.id} className="group">
+                <TableRow key={entry.id} className="group border-b border-border last:border-b-0">
                   <TableCell className="sticky left-0 z-10 min-w-0 overflow-hidden border-r border-border bg-card group-hover:bg-muted shadow-[4px_0_8px_-2px_rgba(0,0,0,0.06)]">
                     <div>
                       <p className="text-body font-medium text-foreground">{entry.sourceName}</p>

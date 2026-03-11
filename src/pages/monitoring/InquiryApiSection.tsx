@@ -23,8 +23,11 @@ import {
   Activity,
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   CreditCard,
   Clock,
+  Filter,
   Search,
   Zap,
 } from "lucide-react";
@@ -133,6 +136,13 @@ export function InquiryApiSection({
   const [selectedEnquiry, setSelectedEnquiry] = useState<EnquiryLogEntry | null>(null);
   const [enquiryIdSearch, setEnquiryIdSearch] = useState("");
   const [timeRange, setTimeRange] = useState<TimeRangeValue>("24h");
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const activeFilterCount = [
+    enquiryIdSearch.trim().length > 0,
+    filters.status !== "all",
+    filters.subscriberId !== "all",
+  ].filter(Boolean).length;
 
   const set = (partial: Partial<MonitoringFilters>) =>
     onFiltersChange?.({ ...filters, ...partial });
@@ -236,27 +246,79 @@ export function InquiryApiSection({
       </div>
 
       <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-        <div className="px-4 pt-4 pb-3 sm:px-6 sm:pt-6 sm:pb-4 border-b border-border">
+        <div className="px-4 pt-4 pb-3 border-b border-border sm:px-6 sm:pt-6 sm:pb-4">
           <h4 className="text-body font-semibold text-foreground mb-3 sm:mb-4">Detailed Enquiry Log</h4>
-          <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap sm:items-end sm:gap-4">
+          <div className="sm:hidden">
+            <button
+              type="button"
+              onClick={() => setFiltersOpen(!filtersOpen)}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-left rounded-md hover:bg-muted/50 transition-colors"
+            >
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-body font-medium text-foreground">Filters</span>
+              {activeFilterCount > 0 && (
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-semibold text-primary-foreground">
+                  {activeFilterCount}
+                </span>
+              )}
+              <span className="ml-auto">
+                {filtersOpen ? <ChevronUp className="h-3.5 w-3.5 text-muted-foreground" /> : <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />}
+              </span>
+            </button>
+            {filtersOpen && (
+              <div className="border-t border-border pt-3 mt-2 space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-caption text-muted-foreground">Enquiry ID</Label>
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
+                    <Input placeholder="Search..." value={enquiryIdSearch} onChange={(e) => { setEnquiryIdSearch(e.target.value); setPage(1); }} className="h-8 pl-8 w-full text-caption" />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-caption text-muted-foreground">Status</Label>
+                  <Select value={filters.status} onValueChange={(v) => { set({ status: v }); setPage(1); }}>
+                    <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Status" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-caption">All statuses</SelectItem>
+                      <SelectItem value="Success" className="text-caption">Success</SelectItem>
+                      <SelectItem value="Failed" className="text-caption">Failed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-caption text-muted-foreground">Institute</Label>
+                  <Select value={filters.subscriberId} onValueChange={(v) => { set({ subscriberId: v }); setPage(1); }}>
+                    <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Institute" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all" className="text-caption">All subscribers</SelectItem>
+                      {subscribers.map((i) => <SelectItem key={i.id} value={i.id} className="text-caption">{i.tradingName ?? i.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-caption text-muted-foreground">Time</Label>
+                  <Select value={timeRange} onValueChange={(v) => { setTimeRange(v as TimeRangeValue); setPage(1); }}>
+                    <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Time" /></SelectTrigger>
+                    <SelectContent>
+                      {ENQUIRY_TIME_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="hidden sm:flex flex-wrap items-end gap-4">
             <div className="space-y-1.5 min-w-0">
               <Label className="text-caption text-muted-foreground">Enquiry ID</Label>
               <div className="relative">
                 <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground" />
-                <Input
-                  placeholder="Search..."
-                  value={enquiryIdSearch}
-                  onChange={(e) => { setEnquiryIdSearch(e.target.value); setPage(1); }}
-                  className="h-9 pl-8 w-full min-w-0 sm:w-[180px] text-caption"
-                />
+                <Input placeholder="Search..." value={enquiryIdSearch} onChange={(e) => { setEnquiryIdSearch(e.target.value); setPage(1); }} className="h-8 pl-8 w-[180px] text-caption" />
               </div>
             </div>
             <div className="space-y-1.5 min-w-0">
               <Label className="text-caption text-muted-foreground">Status</Label>
               <Select value={filters.status} onValueChange={(v) => { set({ status: v }); setPage(1); }}>
-                <SelectTrigger className="h-9 w-full min-w-0 sm:w-[140px] text-caption">
-                  <SelectValue placeholder="Status" />
-                </SelectTrigger>
+                <SelectTrigger className="h-8 w-[140px] text-caption"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-caption">All statuses</SelectItem>
                   <SelectItem value="Success" className="text-caption">Success</SelectItem>
@@ -267,27 +329,19 @@ export function InquiryApiSection({
             <div className="space-y-1.5 min-w-0">
               <Label className="text-caption text-muted-foreground">Institute</Label>
               <Select value={filters.subscriberId} onValueChange={(v) => { set({ subscriberId: v }); setPage(1); }}>
-                <SelectTrigger className="h-9 w-full min-w-0 sm:min-w-[180px] sm:max-w-[220px] text-caption">
-                  <SelectValue placeholder="Institute" />
-                </SelectTrigger>
+                <SelectTrigger className="h-8 min-w-[180px] max-w-[220px] text-caption"><SelectValue placeholder="Institute" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-caption">All subscribers</SelectItem>
-                  {subscribers.map((i) => (
-                    <SelectItem key={i.id} value={i.id} className="text-caption">{i.tradingName ?? i.name}</SelectItem>
-                  ))}
+                  {subscribers.map((i) => <SelectItem key={i.id} value={i.id} className="text-caption">{i.tradingName ?? i.name}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-1.5 min-w-0">
               <Label className="text-caption text-muted-foreground">Time</Label>
               <Select value={timeRange} onValueChange={(v) => { setTimeRange(v as TimeRangeValue); setPage(1); }}>
-                <SelectTrigger className="h-9 w-full min-w-0 sm:w-[140px] text-caption">
-                  <SelectValue placeholder="Time" />
-                </SelectTrigger>
+                <SelectTrigger className="h-8 w-[140px] text-caption"><SelectValue placeholder="Time" /></SelectTrigger>
                 <SelectContent>
-                  {ENQUIRY_TIME_OPTIONS.map((o) => (
-                    <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>
-                  ))}
+                  {ENQUIRY_TIME_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -335,21 +389,14 @@ export function InquiryApiSection({
         </div>
         <div className="flex items-center justify-between px-5 py-3 border-t border-border">
           <span className="text-caption text-muted-foreground">
-            Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, sorted.length)} of {sorted.length}
+            {sorted.length > 0
+              ? `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, sorted.length)} of ${sorted.length} enquiries`
+              : "0 enquiries"}
           </span>
           <div className="flex items-center gap-1">
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-              <button
-                key={p}
-                onClick={() => setPage(p)}
-                className={cn(
-                  "px-3 py-1.5 rounded-md text-body font-medium transition-colors",
-                  p === page ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
-                )}
-              >
-                {p}
-              </button>
-            ))}
+            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
+            <span className="text-caption text-muted-foreground px-2">{page} / {totalPages}</span>
+            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
           </div>
         </div>
       </div>
