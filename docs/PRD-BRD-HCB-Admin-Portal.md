@@ -594,14 +594,14 @@ Step 5: Reviewed items remain in queue with updated status
 | Tab | Route Segment | Key Elements |
 |-----|---------------|--------------|
 | Overview | Default | Institution info card, compliance docs, KPI summary |
-| Alternate Data | Tab 2 | Alternate data source configuration |
-| API & Access | Tab 3 | API key management, rate limits |
-| Consent Config | Tab 4 | Consent rules per product type |
-| Billing | Tab 5 | Billing model (Prepaid/Postpaid/Hybrid), credit balance |
-| Monitoring | Tab 6 | Institution-specific API metrics |
+| Alternate Data | Tab 2 | Alternate data source configuration (bank statements, GST, telecom, utility) with toggles |
+| API & Access | Tab 3 | API key management, rate limits, environment selector (Sandbox/UAT/Production) |
+| Consent Config | Tab 4 | Consent rules per product type with toggle switches and duration config |
+| Billing | Tab 5 | Billing model selector (Prepaid/Postpaid/Hybrid), credit balance display, top-up history table, consumption summary, search and export |
+| Monitoring | Tab 6 | Institution-specific API metrics and SLA health |
 | Reports | Tab 7 | Institution-specific report generation |
-| Audit Trail | Tab 8 | Institution-specific activity log |
-| Users | Tab 9 | Institution-scoped user list |
+| Audit Trail | Tab 8 | Institution-specific activity log with timeline view |
+| Users | Tab 9 | Institution-scoped user list with role and status filters |
 
 ### 6.6 Data Governance Dashboard (`/data-governance/dashboard`)
 
