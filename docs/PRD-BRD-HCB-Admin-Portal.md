@@ -1388,50 +1388,63 @@ Example:
 
 ```
 src/
-├── App.tsx                    # Route definitions, providers
+├── App.tsx                    # Route definitions, providers, lazy loading
 ├── main.tsx                   # Entry point
-├── index.css                  # Design tokens (CSS variables)
+├── index.css                  # Design tokens (CSS variables, light/dark)
 ├── contexts/                  # React Context providers
 │   └── AuthContext.tsx
 ├── components/
 │   ├── layout/                # DashboardLayout, AppSidebar, AppHeader
 │   ├── ui/                    # shadcn/ui components
 │   ├── agents/                # Agent-specific components
+│   │   └── bureau-operator/   # Bureau Operator workspace
 │   ├── data-governance/       # Governance workflow components
 │   ├── schema-mapper/         # Schema mapping wizard components
-│   │   ├── registry/          # Registry table, filters, detail dialog
-│   │   ├── wizard/            # 7-step wizard components
+│   │   ├── registry/          # Registry table, filters, detail dialog, SchemaRegistryView
+│   │   ├── wizard/            # 7-step wizard + GovernanceActionsStep
 │   │   └── shared/            # Reusable schema components
-│   └── user-management/       # User management components
+│   ├── user-management/       # InviteUserModal, UserDetailDrawer
+│   ├── CommandPalette.tsx     # ⌘K command palette
+│   ├── EmptyState.tsx         # Reusable empty state
+│   ├── ErrorBoundary.tsx      # React error boundary
+│   ├── NavLink.tsx            # Navigation link helper
+│   ├── PageBreadcrumb.tsx     # Breadcrumb component
+│   └── PlaceholderPage.tsx    # Placeholder for unimplemented pages
 ├── pages/
 │   ├── Dashboard.tsx           # Main dashboard
 │   ├── Login.tsx               # Authentication
 │   ├── InstitutionList.tsx     # Institution registry
-│   ├── InstitutionDetail.tsx   # Institution detail (tabs)
+│   ├── InstitutionDetail.tsx   # Institution detail (9 tabs)
 │   ├── RegisterInstitution.tsx # Registration wizard
-│   ├── agents/                 # Agent pages
-│   ├── data-governance/        # Governance pages
-│   ├── monitoring/             # Monitoring pages
-│   ├── reporting/              # Reporting pages
-│   └── user-management/        # User management pages
+│   ├── agents/                 # AgentsLandingPage, AgentDetailPage, AgentConfigurationPage
+│   ├── approval-queue/         # ApprovalQueueLayout, ApprovalQueuePage
+│   ├── data-governance/        # Dashboard, Schema Mapper, Validation Rules, Match Review, Data Quality, Audit Logs
+│   ├── institution-tabs/       # AlternateDataTab, AuditTrailTab, BillingTab, ConsentConfigTab, MonitoringTab, ReportsTab, UsersTab
+│   ├── monitoring/             # Data Submission API/Batch, Inquiry API, SLA Config, Alert Engine, FilterBar
+│   ├── reporting/              # ReportListPage, NewReportRequestPage, reporting-store.ts
+│   └── user-management/        # UsersListPage, RolesPermissionsPage, ActivityLogPage
 ├── data/                       # Mock data modules
 │   ├── institutions-mock.ts
 │   ├── user-management-mock.ts
-│   ├── monitoring-mock.ts
+│   ├── monitoring-mock.ts      # Uses dynamic relative timestamps via recentTs()
 │   ├── data-governance-mock.ts
+│   ├── schema-mapper-mock.ts
 │   ├── agents-mock.ts
 │   ├── alert-engine-mock.ts
-│   └── bureau-operator-mock.ts
+│   ├── bureau-operator-mock.ts
+│   └── approval-queue-mock.ts  # Approval queue mock items (6 entries)
 ├── types/                      # TypeScript interfaces
 │   ├── agents.ts
 │   ├── data-governance.ts
-│   └── schema-mapper.ts
+│   ├── schema-mapper.ts
+│   └── approval-queue.ts       # ApprovalType, ApprovalStatus, ApprovalItem
 ├── hooks/                      # Custom hooks
 │   ├── use-mobile.tsx
 │   └── use-toast.ts
 └── lib/                        # Utilities
     ├── utils.ts                # cn() helper
-    └── typography.ts           # Type scale tokens
+    ├── typography.ts           # Type scale tokens
+    └── csv-export.ts           # CSV export utility
 ```
 
 ### 13.6 Routing Architecture
