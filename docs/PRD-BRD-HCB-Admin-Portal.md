@@ -2445,7 +2445,7 @@ GovernanceAuditLogEntry (standalone)
 | NAV-09 | 404 page | Navigate to "/nonexistent" | NotFound page renders | P0 |
 | NAV-10 | Scroll to top | Navigate between pages | Page scrolls to top on route change | P1 |
 
-### 18.10 Cross-Cutting
+### 18.11 Cross-Cutting
 
 | TC ID | Scenario | Steps | Expected Result | Priority |
 |-------|----------|-------|-----------------|----------|
