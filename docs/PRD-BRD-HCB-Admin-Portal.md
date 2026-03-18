@@ -1453,18 +1453,37 @@ src/
 |-------|-----------|--------|------|
 | `/login` | Login | None | Public |
 | `/` | Dashboard | DashboardLayout | Protected |
-| `/institutions/data-submitters` | InstitutionList | DashboardLayout | Protected |
-| `/institutions/subscribers` | InstitutionList | DashboardLayout | Protected |
+| `/institutions` | InstitutionList | DashboardLayout | Protected |
+| `/institutions/data-submitters` | InstitutionList (roleFilter="dataSubmitter") | DashboardLayout | Protected |
+| `/institutions/subscribers` | InstitutionList (roleFilter="subscriber") | DashboardLayout | Protected |
 | `/institutions/register` | RegisterInstitution | DashboardLayout | Protected |
 | `/institutions/:id` | InstitutionDetail | DashboardLayout | Protected |
-| `/data-governance/*` | DataGovernanceLayout → Outlet | DashboardLayout | Protected |
-| `/monitoring/*` | MonitoringLayout → Outlet | DashboardLayout | Protected |
+| `/data-governance` | DataGovernanceLayout → Outlet | DashboardLayout | Protected |
+| `/data-governance/dashboard` | DataGovernanceDashboard | — (nested) | Protected |
+| `/data-governance/auto-mapping-review` | AutoMappingReview (Schema Mapper) | — (nested) | Protected |
+| `/data-governance/validation-rules` | ValidationRules | — (nested) | Protected |
+| `/data-governance/match-review` | MatchReview | — (nested) | Protected |
+| `/data-governance/data-quality-monitoring` | DataQualityMonitoring | — (nested) | Protected |
+| `/data-governance/governance-audit-logs` | GovernanceAuditLogs | — (nested) | Protected |
+| `/monitoring` | MonitoringLayout → Outlet | DashboardLayout | Protected |
+| `/monitoring/data-submission-api` | MonitoringDataSubmissionApiPage | — (nested) | Protected |
+| `/monitoring/data-submission-batch` | MonitoringDataSubmissionBatchPage | — (nested) | Protected |
+| `/monitoring/inquiry-api` | MonitoringInquiryApiPage | — (nested) | Protected |
+| `/monitoring/sla-configuration` | MonitoringSlaConfigurationPage | — (nested) | Protected |
+| `/monitoring/alert-engine` | MonitoringAlertEnginePage | — (nested) | Protected |
 | `/agents` | AgentsLayout → AgentsLandingPage | DashboardLayout | Protected |
 | `/agents/:agentId` | AgentsLayout → AgentDetailPage | DashboardLayout | Protected |
 | `/agents/configuration` | AgentsLayout → AgentConfigurationPage | DashboardLayout | Protected |
 | `/reporting` | ReportingLayout → ReportListPage | DashboardLayout | Protected |
 | `/reporting/new` | ReportingLayout → NewReportRequestPage | DashboardLayout | Protected |
-| `/user-management/*` | UserManagementLayout → Outlet | DashboardLayout | Protected |
+| `/approval-queue` | ApprovalQueueLayout → ApprovalQueuePage | DashboardLayout | Protected |
+| `/user-management` | UserManagementLayout → Outlet | DashboardLayout | Protected |
+| `/user-management/users` | UsersListPage | — (nested) | Protected |
+| `/user-management/roles` | RolesPermissionsPage | — (nested) | Protected |
+| `/user-management/activity` | ActivityLogPage | — (nested) | Protected |
+| `/api-access` | PlaceholderPage | DashboardLayout | Protected |
+| `/cbs-integration` | PlaceholderPage | DashboardLayout | Protected |
+| `/audit-logs` | PlaceholderPage | DashboardLayout | Protected |
 | `*` | NotFound | None | Public |
 
 ### 13.7 Theme System
