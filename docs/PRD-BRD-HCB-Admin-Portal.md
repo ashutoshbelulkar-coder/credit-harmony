@@ -1146,7 +1146,16 @@ Example:
 | Data Quality | ≥94% | 90-94% | <90% |
 | Mapping Accuracy | ≥97% | 94-97% | <94% |
 
-### 9.12 Role Colors
+### 9.12 Approval Queue Status
+
+| Status | Color | Icon | Description |
+|--------|-------|------|-------------|
+| Pending | Warning (yellow) | Clock | Awaiting Super Admin review |
+| Approved | Success (green) | CheckCircle2 | Approved by Super Admin |
+| Rejected | Destructive (red) | XCircle | Rejected with mandatory reason |
+| Changes Requested | Info (blue) | AlertTriangle | Sent back with change description |
+
+### 9.13 Role Colors
 
 | Role | HSL Color | Usage |
 |------|-----------|-------|
