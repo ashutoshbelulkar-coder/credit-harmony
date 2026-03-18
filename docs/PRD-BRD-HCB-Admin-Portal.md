@@ -1184,14 +1184,21 @@ Example:
 | Status | Select | "All" | draft, under_review, approved, active, archived | Single-select |
 | Search | Text Input | Empty | Free text | Filters by source name |
 
-### 10.8 Global Header Search
+### 10.8 Approval Queue
+
+| Filter | Type | Default | Options | Behaviour |
+|--------|------|---------|---------|-----------|
+| Type Tab | Tab Selector | "All" | All, Institutions, Schema Mappings | Filters by item type |
+| Status | Select | "All" | All, Pending, Approved, Rejected, Changes Requested | Single-select |
+
+### 10.9 Global Header Search & Command Palette
 
 | Attribute | Detail |
 |-----------|--------|
-| Type | Text Input with ⌘K shortcut |
-| Placeholder | "Search institutions, APIs, logs..." |
-| Behaviour | V1: Visual only (no search execution). Future: Command palette with cross-module search |
-| Scope | Institutions, API keys, audit logs, users |
+| Type | Command Palette (⌘K / Ctrl+K shortcut) |
+| Implementation | `cmdk` library-based palette with search across modules |
+| Behaviour | Opens modal overlay; supports searching institutions, pages, actions |
+| Scope | Institutions, pages, navigation commands |
 
 ### 10.9 Sorting Rules
 
