@@ -1200,7 +1200,7 @@ Example:
 | Behaviour | Opens modal overlay; supports searching institutions, pages, actions |
 | Scope | Institutions, pages, navigation commands |
 
-### 10.9 Sorting Rules
+### 10.10 Sorting Rules
 
 | Table | Default Sort | Sortable Columns |
 |-------|-------------|------------------|
@@ -1210,6 +1210,7 @@ Example:
 | Report List | Created Date (desc) | Report ID, Type, Status |
 | Request Log | Timestamp (desc) | Request ID, Status, Response Time |
 | Batch Jobs | Upload Time (desc) | Batch ID, Status, Success Rate |
+| Approval Queue | Submitted Date (desc) | Name, Type, Status, Submitted By |
 
 ---
 
