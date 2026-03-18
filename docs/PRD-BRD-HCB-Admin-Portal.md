@@ -371,10 +371,10 @@ Step 2: User clicks "New Mapping" or edits existing
     1. Source Ingestion (upload/paste source schema, auto-detect category)
     2. Multi-Schema Matching (find similar schemas across system)
     3. LLM Field Intelligence (AI analyzes each field: meaning, PII, canonical match)
-    4. Auto Rule Preview (validation rules auto-generated)
+    4. Validation Rule Preview (auto-generated validation rules)
     5. Semantic Insights (field clustering, deduplication)
     6. Storage & Visibility (lineage, storage config)
-    7. Governance Actions (approval submission, evolution queue)
+    7. Governance Actions (submit to approval queue, save draft, reject schema)
 
 Step 3: AI processes source fields
   → For each field: confidence score, match type (exact/semantic/contextual/derived)
