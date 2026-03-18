@@ -2415,7 +2415,22 @@ GovernanceAuditLogEntry (standalone)
 | USR-07 | Roles & permissions | Navigate to "/user-management/roles" | 5 roles with permission matrix | P0 |
 | USR-08 | Activity log | Navigate to "/user-management/activity" | 12 activity entries with IP addresses | P0 |
 
-### 18.9 Navigation & Layout
+### 18.9 Approval Queue
+
+| TC ID | Scenario | Steps | Expected Result | Priority |
+|-------|----------|-------|-----------------|----------|
+| APQ-01 | Queue renders | Navigate to "/approval-queue" | 4 KPI cards and table with 6 items render | P0 |
+| APQ-02 | Type filter | Click "Institutions" tab | Only institution items shown | P0 |
+| APQ-03 | Status filter | Select "Pending" | Only pending items shown | P0 |
+| APQ-04 | View detail | Click "View" on pending item | Detail drawer opens with metadata and action buttons | P0 |
+| APQ-05 | Approve item | Open pending item → Click "Approve" | Status changes to Approved, toast shown, drawer closes | P0 |
+| APQ-06 | Reject item | Open pending item → Click "Reject" → Enter reason → Submit | Status changes to Rejected, reason saved, toast shown | P0 |
+| APQ-07 | Reject without reason | Open reject dialog → Leave reason empty | Submit button disabled | P0 |
+| APQ-08 | Request changes | Open pending item → Click "Request Changes" → Enter description → Submit | Status changes to Changes Requested, description saved | P1 |
+| APQ-09 | Reviewed item detail | View a rejected item | Rejection reason displayed in detail drawer | P1 |
+| APQ-10 | Empty state | Filter to status with no items | "No items match the current filters" shown | P1 |
+
+### 18.10 Navigation & Layout
 
 | TC ID | Scenario | Steps | Expected Result | Priority |
 |-------|----------|-------|-----------------|----------|
