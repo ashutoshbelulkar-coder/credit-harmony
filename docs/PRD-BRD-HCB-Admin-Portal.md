@@ -1,9 +1,9 @@
 # Hybrid Credit Bureau (HCB) Admin Portal
 ## Complete Product Requirement Document (PRD) & Business Requirement Document (BRD)
 
-**Document Version:** 1.0  
-**Date:** 2026-03-08  
-**Status:** Final  
+**Document Version:** 1.1  
+**Date:** 2026-03-18  
+**Status:** Updated  
 **Classification:** Internal – Confidential
 
 ---
@@ -233,6 +233,15 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 | **Business Value** | Granular access control meets regulatory requirements for data protection |
 | **User Benefit** | Self-service user management; clear role visibility; complete activity history |
 
+#### Module 9: Approval Queue
+
+| Attribute | Detail |
+|-----------|--------|
+| **Feature Name** | Super Admin Approval Queue |
+| **Description** | Centralized approval workflow for institution registrations and schema mappings. Submissions enter a `pending` state and require explicit Approve, Reject (with mandatory reason), or Request Changes action from a Super Admin. Includes KPI cards (Pending, Approved This Month, Changes Requested, Total Items), tab-based filtering (All/Institutions/Schema Mappings), status filter, detail drawer with metadata display, and inline action buttons. Sidebar displays a badge count for pending items. |
+| **Business Value** | Governance-grade approval workflow ensures no institution or schema goes live without explicit Super Admin sign-off |
+| **User Benefit** | Single queue for all pending approvals; clear status tracking; mandatory reason for rejections ensures accountability |
+
 ---
 
 ## 4. User Personas
@@ -362,10 +371,10 @@ Step 2: User clicks "New Mapping" or edits existing
     1. Source Ingestion (upload/paste source schema, auto-detect category)
     2. Multi-Schema Matching (find similar schemas across system)
     3. LLM Field Intelligence (AI analyzes each field: meaning, PII, canonical match)
-    4. Auto Rule Preview (validation rules auto-generated)
+    4. Validation Rule Preview (auto-generated validation rules)
     5. Semantic Insights (field clustering, deduplication)
     6. Storage & Visibility (lineage, storage config)
-    7. Governance Actions (approval submission, evolution queue)
+    7. Governance Actions (submit to approval queue, save draft, reject schema)
 
 Step 3: AI processes source fields
   → For each field: confidence score, match type (exact/semantic/contextual/derived)
@@ -440,6 +449,43 @@ Step 3: Admin clicks "Send Invite"
 Step 4: Invited user appears in Users List
   → Status: "Invited"
   → Last Active: "Never"
+```
+
+### 5.7 Approval Queue Workflow
+
+```
+Step 1: An item enters the Approval Queue
+  → From Schema Mapper: "Submit to Evolution Queue" in Governance Actions step
+  → From Institution Registration: registration submitted for review
+  → Item status: "pending"
+  → Sidebar badge count increments
+
+Step 2: Super Admin navigates to Approval Queue
+  → System renders queue with KPI summary cards and tabbed table
+  → Tabs: All | Institutions | Schema Mappings
+  → Status filter: All, Pending, Approved, Rejected, Changes Requested
+
+Step 3: Super Admin clicks "View" on a pending item
+  → Detail drawer (Sheet) opens with:
+    - Status badge + Type badge
+    - Metadata key-value pairs (Registration No., Institution Type, Jurisdiction, etc.)
+    - Submission info (submitted by, date)
+    - Action buttons: Approve (green), Reject (red), Request Changes (outline)
+
+Step 4a: Approve
+  → Item status → "approved"
+  → Toast: "{name} has been approved"
+  → Drawer closes
+
+Step 4b: Reject or Request Changes
+  → Dialog opens requiring mandatory reason text
+  → Reason submitted → status → "rejected" or "changes_requested"
+  → Toast confirmation
+  → Drawer closes
+
+Step 5: Reviewed items remain in queue with updated status
+  → Rejected items show rejection reason in detail view
+  → Changes Requested items show requested changes
 ```
 
 ---
@@ -548,14 +594,14 @@ Step 4: Invited user appears in Users List
 | Tab | Route Segment | Key Elements |
 |-----|---------------|--------------|
 | Overview | Default | Institution info card, compliance docs, KPI summary |
-| Alternate Data | Tab 2 | Alternate data source configuration |
-| API & Access | Tab 3 | API key management, rate limits |
-| Consent Config | Tab 4 | Consent rules per product type |
-| Billing | Tab 5 | Billing model (Prepaid/Postpaid/Hybrid), credit balance |
-| Monitoring | Tab 6 | Institution-specific API metrics |
+| Alternate Data | Tab 2 | Alternate data source configuration (bank statements, GST, telecom, utility) with toggles |
+| API & Access | Tab 3 | API key management, rate limits, environment selector (Sandbox/UAT/Production) |
+| Consent Config | Tab 4 | Consent rules per product type with toggle switches and duration config |
+| Billing | Tab 5 | Billing model selector (Prepaid/Postpaid/Hybrid), credit balance display, top-up history table, consumption summary, search and export |
+| Monitoring | Tab 6 | Institution-specific API metrics and SLA health |
 | Reports | Tab 7 | Institution-specific report generation |
-| Audit Trail | Tab 8 | Institution-specific activity log |
-| Users | Tab 9 | Institution-scoped user list |
+| Audit Trail | Tab 8 | Institution-specific activity log with timeline view |
+| Users | Tab 9 | Institution-scoped user list with role and status filters |
 
 ### 6.6 Data Governance Dashboard (`/data-governance/dashboard`)
 
@@ -677,7 +723,60 @@ Step 4: Invited user appears in Users List
 | Invite User Button | Primary Button | Opens InviteUserModal | N/A |
 | User Detail Drawer | Slide-out Panel | Full user profile, API keys, MFA status | Selected user |
 
-### 6.14 App Sidebar
+### 6.14 Approval Queue (`/approval-queue`)
+
+**Purpose:** Centralized governance approval for institution registrations and schema mappings.
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "Approval Queue" | Static |
+| KPI Cards (4) | Metric Cards | Pending Approval, Approved This Month, Changes Requested, Total Items | Computed from `approvalQueueItems` |
+| Type Tabs | Tab Selector | All / Institutions / Schema Mappings | Client-side filter |
+| Status Filter | Select | All Statuses, Pending, Approved, Rejected, Changes Requested | Client-side filter |
+| Queue Table | Data Table | Columns: Type (icon), Name + Description, Submitted By, Date, Status, Actions (View) | `approvalQueueItems` (6 entries) |
+| Detail Drawer | Sheet (slide-out) | Status/Type badges, metadata key-value pairs, submission info, action buttons | Selected item |
+| Approve Button | Primary (success) | Approve pending item, updates status | Inline handler |
+| Reject Button | Destructive | Opens dialog requiring mandatory reason | Dialog handler |
+| Request Changes Button | Outline | Opens dialog requiring description of changes needed | Dialog handler |
+| Reason Dialog | Dialog | Textarea for rejection reason or change request, Cancel/Submit buttons | Modal state |
+
+**Approval Item Data Model** (`ApprovalItem` interface):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier (e.g., "apq-001") |
+| `type` | `"institution" \| "schema_mapping"` | Item category |
+| `name` | string | Display name |
+| `description` | string | Summary description |
+| `submittedBy` | string | Submitter name |
+| `submittedAt` | string (ISO) | Submission timestamp |
+| `status` | `"pending" \| "approved" \| "rejected" \| "changes_requested"` | Current status |
+| `reviewedBy` | string (optional) | Reviewer name |
+| `reviewedAt` | string (optional) | Review timestamp |
+| `rejectionReason` | string (optional) | Reason for rejection or changes requested |
+| `metadata` | Record<string, string> | Key-value metadata (varies by type) |
+
+**Status Badge Styles:**
+
+| Status | Color Classes |
+|--------|--------------|
+| Pending | `bg-warning/15 text-warning border-warning/20` |
+| Approved | `bg-success/15 text-success border-success/20` |
+| Rejected | `bg-destructive/15 text-destructive border-destructive/20` |
+| Changes Requested | `bg-info/15 text-info border-info/20` |
+
+**Mock Data (6 items):**
+
+| ID | Type | Name | Status |
+|----|------|------|--------|
+| apq-001 | Institution | First National Bank Ltd. | Pending |
+| apq-002 | Schema Mapping | METRO v4.2 → HCB Master Schema | Pending |
+| apq-003 | Institution | MicroCredit Solutions | Pending |
+| apq-004 | Schema Mapping | CRB Standard v2.0 → HCB Master Schema | Approved |
+| apq-005 | Institution | QuickPay Digital | Rejected |
+| apq-006 | Institution | Savannah Credit Union | Changes Requested |
+
+### 6.15 App Sidebar
 
 **Purpose:** Primary navigation.
 
@@ -691,8 +790,9 @@ Step 4: Invited user appears in Users List
 | Monitoring | Nav Group | Sub-items: Data Submission API, Data Submission Batch, Inquiry API, SLA Configuration, Alert Engine |
 | Reporting | Nav Link | `/reporting` |
 | Audit Logs | Nav Link | `/audit-logs` |
+| Approval Queue | Nav Link | `/approval-queue` (with pending count badge) |
 | User Management | Nav Group | Sub-items: Users, Roles & Permissions, Activity Log |
-| Collapse Toggle | Button | Bottom of sidebar, collapses to icon-only mode (w-16 vs w-64) |
+| Collapse Toggle | Button | Bottom of sidebar, collapses to icon-only mode (w-16 vs w-64); collapsed shows tooltips on hover |
 
 ### 6.15 App Header
 
@@ -701,7 +801,8 @@ Step 4: Invited user appears in Users List
 | Element | Type | Description |
 |---------|------|-------------|
 | Mobile Menu Toggle | Icon Button | Hamburger menu (mobile only, md:hidden) |
-| Global Search | Text Input | "Search institutions, APIs, logs..." with ⌘K shortcut hint |
+| Global Search | Text Input | "Search institutions, APIs, logs..." with ⌘K shortcut hint; opens Command Palette |
+| Command Palette | Dialog | ⌘K / Ctrl+K shortcut; `cmdk`-based search across institutions, pages, and actions |
 | Theme Toggle | Icon Button | Light/Dark/System theme switcher with dropdown |
 | Notifications | Popover | Bell icon with unread badge; 6 notification items; "Mark all read" |
 | User Profile | Dropdown Menu | Avatar + name + role; Settings link; Log Out (destructive) |
@@ -1045,7 +1146,16 @@ Example:
 | Data Quality | ≥94% | 90-94% | <90% |
 | Mapping Accuracy | ≥97% | 94-97% | <94% |
 
-### 9.12 Role Colors
+### 9.12 Approval Queue Status
+
+| Status | Color | Icon | Description |
+|--------|-------|------|-------------|
+| Pending | Warning (yellow) | Clock | Awaiting Super Admin review |
+| Approved | Success (green) | CheckCircle2 | Approved by Super Admin |
+| Rejected | Destructive (red) | XCircle | Rejected with mandatory reason |
+| Changes Requested | Info (blue) | AlertTriangle | Sent back with change description |
+
+### 9.13 Role Colors
 
 | Role | HSL Color | Usage |
 |------|-----------|-------|
@@ -1136,16 +1246,23 @@ Example:
 | Status | Select | "All" | draft, under_review, approved, active, archived | Single-select |
 | Search | Text Input | Empty | Free text | Filters by source name |
 
-### 10.8 Global Header Search
+### 10.8 Approval Queue
+
+| Filter | Type | Default | Options | Behaviour |
+|--------|------|---------|---------|-----------|
+| Type Tab | Tab Selector | "All" | All, Institutions, Schema Mappings | Filters by item type |
+| Status | Select | "All" | All, Pending, Approved, Rejected, Changes Requested | Single-select |
+
+### 10.9 Global Header Search & Command Palette
 
 | Attribute | Detail |
 |-----------|--------|
-| Type | Text Input with ⌘K shortcut |
-| Placeholder | "Search institutions, APIs, logs..." |
-| Behaviour | V1: Visual only (no search execution). Future: Command palette with cross-module search |
-| Scope | Institutions, API keys, audit logs, users |
+| Type | Command Palette (⌘K / Ctrl+K shortcut) |
+| Implementation | `cmdk` library-based palette with search across modules |
+| Behaviour | Opens modal overlay; supports searching institutions, pages, actions |
+| Scope | Institutions, pages, navigation commands |
 
-### 10.9 Sorting Rules
+### 10.10 Sorting Rules
 
 | Table | Default Sort | Sortable Columns |
 |-------|-------------|------------------|
@@ -1155,6 +1272,7 @@ Example:
 | Report List | Created Date (desc) | Report ID, Type, Status |
 | Request Log | Timestamp (desc) | Request ID, Status, Response Time |
 | Batch Jobs | Upload Time (desc) | Batch ID, Status, Success Rate |
+| Approval Queue | Submitted Date (desc) | Name, Type, Status, Submitted By |
 
 ---
 
@@ -1307,7 +1425,7 @@ Example:
 | Recharts | 2.15.4 — Chart visualizations |
 | Framer Motion | 12.34.1 — Animations (login, transitions) |
 | Lucide React | 0.462.0 — Icon system |
-| cmdk | 1.1.1 — Command palette (future) |
+| cmdk | 1.1.1 — Command palette (functional, ⌘K / Ctrl+K) |
 | sonner | 1.7.4 — Toast notifications |
 
 ### 13.3 Form & Validation
@@ -1332,50 +1450,63 @@ Example:
 
 ```
 src/
-├── App.tsx                    # Route definitions, providers
+├── App.tsx                    # Route definitions, providers, lazy loading
 ├── main.tsx                   # Entry point
-├── index.css                  # Design tokens (CSS variables)
+├── index.css                  # Design tokens (CSS variables, light/dark)
 ├── contexts/                  # React Context providers
 │   └── AuthContext.tsx
 ├── components/
 │   ├── layout/                # DashboardLayout, AppSidebar, AppHeader
 │   ├── ui/                    # shadcn/ui components
 │   ├── agents/                # Agent-specific components
+│   │   └── bureau-operator/   # Bureau Operator workspace
 │   ├── data-governance/       # Governance workflow components
 │   ├── schema-mapper/         # Schema mapping wizard components
-│   │   ├── registry/          # Registry table, filters, detail dialog
-│   │   ├── wizard/            # 7-step wizard components
+│   │   ├── registry/          # Registry table, filters, detail dialog, SchemaRegistryView
+│   │   ├── wizard/            # 7-step wizard + GovernanceActionsStep
 │   │   └── shared/            # Reusable schema components
-│   └── user-management/       # User management components
+│   ├── user-management/       # InviteUserModal, UserDetailDrawer
+│   ├── CommandPalette.tsx     # ⌘K command palette
+│   ├── EmptyState.tsx         # Reusable empty state
+│   ├── ErrorBoundary.tsx      # React error boundary
+│   ├── NavLink.tsx            # Navigation link helper
+│   ├── PageBreadcrumb.tsx     # Breadcrumb component
+│   └── PlaceholderPage.tsx    # Placeholder for unimplemented pages
 ├── pages/
 │   ├── Dashboard.tsx           # Main dashboard
 │   ├── Login.tsx               # Authentication
 │   ├── InstitutionList.tsx     # Institution registry
-│   ├── InstitutionDetail.tsx   # Institution detail (tabs)
+│   ├── InstitutionDetail.tsx   # Institution detail (9 tabs)
 │   ├── RegisterInstitution.tsx # Registration wizard
-│   ├── agents/                 # Agent pages
-│   ├── data-governance/        # Governance pages
-│   ├── monitoring/             # Monitoring pages
-│   ├── reporting/              # Reporting pages
-│   └── user-management/        # User management pages
+│   ├── agents/                 # AgentsLandingPage, AgentDetailPage, AgentConfigurationPage
+│   ├── approval-queue/         # ApprovalQueueLayout, ApprovalQueuePage
+│   ├── data-governance/        # Dashboard, Schema Mapper, Validation Rules, Match Review, Data Quality, Audit Logs
+│   ├── institution-tabs/       # AlternateDataTab, AuditTrailTab, BillingTab, ConsentConfigTab, MonitoringTab, ReportsTab, UsersTab
+│   ├── monitoring/             # Data Submission API/Batch, Inquiry API, SLA Config, Alert Engine, FilterBar
+│   ├── reporting/              # ReportListPage, NewReportRequestPage, reporting-store.ts
+│   └── user-management/        # UsersListPage, RolesPermissionsPage, ActivityLogPage
 ├── data/                       # Mock data modules
 │   ├── institutions-mock.ts
 │   ├── user-management-mock.ts
-│   ├── monitoring-mock.ts
+│   ├── monitoring-mock.ts      # Uses dynamic relative timestamps via recentTs()
 │   ├── data-governance-mock.ts
+│   ├── schema-mapper-mock.ts
 │   ├── agents-mock.ts
 │   ├── alert-engine-mock.ts
-│   └── bureau-operator-mock.ts
+│   ├── bureau-operator-mock.ts
+│   └── approval-queue-mock.ts  # Approval queue mock items (6 entries)
 ├── types/                      # TypeScript interfaces
 │   ├── agents.ts
 │   ├── data-governance.ts
-│   └── schema-mapper.ts
+│   ├── schema-mapper.ts
+│   └── approval-queue.ts       # ApprovalType, ApprovalStatus, ApprovalItem
 ├── hooks/                      # Custom hooks
 │   ├── use-mobile.tsx
 │   └── use-toast.ts
 └── lib/                        # Utilities
     ├── utils.ts                # cn() helper
-    └── typography.ts           # Type scale tokens
+    ├── typography.ts           # Type scale tokens
+    └── csv-export.ts           # CSV export utility
 ```
 
 ### 13.6 Routing Architecture
@@ -1384,18 +1515,37 @@ src/
 |-------|-----------|--------|------|
 | `/login` | Login | None | Public |
 | `/` | Dashboard | DashboardLayout | Protected |
-| `/institutions/data-submitters` | InstitutionList | DashboardLayout | Protected |
-| `/institutions/subscribers` | InstitutionList | DashboardLayout | Protected |
+| `/institutions` | InstitutionList | DashboardLayout | Protected |
+| `/institutions/data-submitters` | InstitutionList (roleFilter="dataSubmitter") | DashboardLayout | Protected |
+| `/institutions/subscribers` | InstitutionList (roleFilter="subscriber") | DashboardLayout | Protected |
 | `/institutions/register` | RegisterInstitution | DashboardLayout | Protected |
 | `/institutions/:id` | InstitutionDetail | DashboardLayout | Protected |
-| `/data-governance/*` | DataGovernanceLayout → Outlet | DashboardLayout | Protected |
-| `/monitoring/*` | MonitoringLayout → Outlet | DashboardLayout | Protected |
+| `/data-governance` | DataGovernanceLayout → Outlet | DashboardLayout | Protected |
+| `/data-governance/dashboard` | DataGovernanceDashboard | — (nested) | Protected |
+| `/data-governance/auto-mapping-review` | AutoMappingReview (Schema Mapper) | — (nested) | Protected |
+| `/data-governance/validation-rules` | ValidationRules | — (nested) | Protected |
+| `/data-governance/match-review` | MatchReview | — (nested) | Protected |
+| `/data-governance/data-quality-monitoring` | DataQualityMonitoring | — (nested) | Protected |
+| `/data-governance/governance-audit-logs` | GovernanceAuditLogs | — (nested) | Protected |
+| `/monitoring` | MonitoringLayout → Outlet | DashboardLayout | Protected |
+| `/monitoring/data-submission-api` | MonitoringDataSubmissionApiPage | — (nested) | Protected |
+| `/monitoring/data-submission-batch` | MonitoringDataSubmissionBatchPage | — (nested) | Protected |
+| `/monitoring/inquiry-api` | MonitoringInquiryApiPage | — (nested) | Protected |
+| `/monitoring/sla-configuration` | MonitoringSlaConfigurationPage | — (nested) | Protected |
+| `/monitoring/alert-engine` | MonitoringAlertEnginePage | — (nested) | Protected |
 | `/agents` | AgentsLayout → AgentsLandingPage | DashboardLayout | Protected |
 | `/agents/:agentId` | AgentsLayout → AgentDetailPage | DashboardLayout | Protected |
 | `/agents/configuration` | AgentsLayout → AgentConfigurationPage | DashboardLayout | Protected |
 | `/reporting` | ReportingLayout → ReportListPage | DashboardLayout | Protected |
 | `/reporting/new` | ReportingLayout → NewReportRequestPage | DashboardLayout | Protected |
-| `/user-management/*` | UserManagementLayout → Outlet | DashboardLayout | Protected |
+| `/approval-queue` | ApprovalQueueLayout → ApprovalQueuePage | DashboardLayout | Protected |
+| `/user-management` | UserManagementLayout → Outlet | DashboardLayout | Protected |
+| `/user-management/users` | UsersListPage | — (nested) | Protected |
+| `/user-management/roles` | RolesPermissionsPage | — (nested) | Protected |
+| `/user-management/activity` | ActivityLogPage | — (nested) | Protected |
+| `/api-access` | PlaceholderPage | DashboardLayout | Protected |
+| `/cbs-integration` | PlaceholderPage | DashboardLayout | Protected |
+| `/audit-logs` | PlaceholderPage | DashboardLayout | Protected |
 | `*` | NotFound | None | Public |
 
 ### 13.7 Theme System
@@ -2265,7 +2415,22 @@ GovernanceAuditLogEntry (standalone)
 | USR-07 | Roles & permissions | Navigate to "/user-management/roles" | 5 roles with permission matrix | P0 |
 | USR-08 | Activity log | Navigate to "/user-management/activity" | 12 activity entries with IP addresses | P0 |
 
-### 18.9 Navigation & Layout
+### 18.9 Approval Queue
+
+| TC ID | Scenario | Steps | Expected Result | Priority |
+|-------|----------|-------|-----------------|----------|
+| APQ-01 | Queue renders | Navigate to "/approval-queue" | 4 KPI cards and table with 6 items render | P0 |
+| APQ-02 | Type filter | Click "Institutions" tab | Only institution items shown | P0 |
+| APQ-03 | Status filter | Select "Pending" | Only pending items shown | P0 |
+| APQ-04 | View detail | Click "View" on pending item | Detail drawer opens with metadata and action buttons | P0 |
+| APQ-05 | Approve item | Open pending item → Click "Approve" | Status changes to Approved, toast shown, drawer closes | P0 |
+| APQ-06 | Reject item | Open pending item → Click "Reject" → Enter reason → Submit | Status changes to Rejected, reason saved, toast shown | P0 |
+| APQ-07 | Reject without reason | Open reject dialog → Leave reason empty | Submit button disabled | P0 |
+| APQ-08 | Request changes | Open pending item → Click "Request Changes" → Enter description → Submit | Status changes to Changes Requested, description saved | P1 |
+| APQ-09 | Reviewed item detail | View a rejected item | Rejection reason displayed in detail drawer | P1 |
+| APQ-10 | Empty state | Filter to status with no items | "No items match the current filters" shown | P1 |
+
+### 18.10 Navigation & Layout
 
 | TC ID | Scenario | Steps | Expected Result | Priority |
 |-------|----------|-------|-----------------|----------|
@@ -2280,7 +2445,7 @@ GovernanceAuditLogEntry (standalone)
 | NAV-09 | 404 page | Navigate to "/nonexistent" | NotFound page renders | P0 |
 | NAV-10 | Scroll to top | Navigate between pages | Page scrolls to top on route change | P1 |
 
-### 18.10 Cross-Cutting
+### 18.11 Cross-Cutting
 
 | TC ID | Scenario | Steps | Expected Result | Priority |
 |-------|----------|-------|-----------------|----------|

@@ -9,7 +9,7 @@
 | Field | Value |
 |---|---|
 | Module | Institution Customer Onboarding and Management |
-| Version | 1.0 |
+| Version | 1.1 |
 | Status | Draft |
 | System | Hybrid Credit Bureau (HCB) Admin Portal |
 | Date | 2026-02-19 |
