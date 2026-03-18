@@ -1363,7 +1363,7 @@ Example:
 | Recharts | 2.15.4 — Chart visualizations |
 | Framer Motion | 12.34.1 — Animations (login, transitions) |
 | Lucide React | 0.462.0 — Icon system |
-| cmdk | 1.1.1 — Command palette (future) |
+| cmdk | 1.1.1 — Command palette (functional, ⌘K / Ctrl+K) |
 | sonner | 1.7.4 — Toast notifications |
 
 ### 13.3 Form & Validation
