@@ -737,8 +737,9 @@ Step 5: Reviewed items remain in queue with updated status
 | Monitoring | Nav Group | Sub-items: Data Submission API, Data Submission Batch, Inquiry API, SLA Configuration, Alert Engine |
 | Reporting | Nav Link | `/reporting` |
 | Audit Logs | Nav Link | `/audit-logs` |
+| Approval Queue | Nav Link | `/approval-queue` (with pending count badge) |
 | User Management | Nav Group | Sub-items: Users, Roles & Permissions, Activity Log |
-| Collapse Toggle | Button | Bottom of sidebar, collapses to icon-only mode (w-16 vs w-64) |
+| Collapse Toggle | Button | Bottom of sidebar, collapses to icon-only mode (w-16 vs w-64); collapsed shows tooltips on hover |
 
 ### 6.15 App Header
 
