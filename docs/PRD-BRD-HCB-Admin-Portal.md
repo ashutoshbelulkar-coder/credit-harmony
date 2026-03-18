@@ -233,6 +233,15 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 | **Business Value** | Granular access control meets regulatory requirements for data protection |
 | **User Benefit** | Self-service user management; clear role visibility; complete activity history |
 
+#### Module 9: Approval Queue
+
+| Attribute | Detail |
+|-----------|--------|
+| **Feature Name** | Super Admin Approval Queue |
+| **Description** | Centralized approval workflow for institution registrations and schema mappings. Submissions enter a `pending` state and require explicit Approve, Reject (with mandatory reason), or Request Changes action from a Super Admin. Includes KPI cards (Pending, Approved This Month, Changes Requested, Total Items), tab-based filtering (All/Institutions/Schema Mappings), status filter, detail drawer with metadata display, and inline action buttons. Sidebar displays a badge count for pending items. |
+| **Business Value** | Governance-grade approval workflow ensures no institution or schema goes live without explicit Super Admin sign-off |
+| **User Benefit** | Single queue for all pending approvals; clear status tracking; mandatory reason for rejections ensures accountability |
+
 ---
 
 ## 4. User Personas
