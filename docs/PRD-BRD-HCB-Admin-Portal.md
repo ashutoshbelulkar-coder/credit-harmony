@@ -723,7 +723,60 @@ Step 5: Reviewed items remain in queue with updated status
 | Invite User Button | Primary Button | Opens InviteUserModal | N/A |
 | User Detail Drawer | Slide-out Panel | Full user profile, API keys, MFA status | Selected user |
 
-### 6.14 App Sidebar
+### 6.14 Approval Queue (`/approval-queue`)
+
+**Purpose:** Centralized governance approval for institution registrations and schema mappings.
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "Approval Queue" | Static |
+| KPI Cards (4) | Metric Cards | Pending Approval, Approved This Month, Changes Requested, Total Items | Computed from `approvalQueueItems` |
+| Type Tabs | Tab Selector | All / Institutions / Schema Mappings | Client-side filter |
+| Status Filter | Select | All Statuses, Pending, Approved, Rejected, Changes Requested | Client-side filter |
+| Queue Table | Data Table | Columns: Type (icon), Name + Description, Submitted By, Date, Status, Actions (View) | `approvalQueueItems` (6 entries) |
+| Detail Drawer | Sheet (slide-out) | Status/Type badges, metadata key-value pairs, submission info, action buttons | Selected item |
+| Approve Button | Primary (success) | Approve pending item, updates status | Inline handler |
+| Reject Button | Destructive | Opens dialog requiring mandatory reason | Dialog handler |
+| Request Changes Button | Outline | Opens dialog requiring description of changes needed | Dialog handler |
+| Reason Dialog | Dialog | Textarea for rejection reason or change request, Cancel/Submit buttons | Modal state |
+
+**Approval Item Data Model** (`ApprovalItem` interface):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier (e.g., "apq-001") |
+| `type` | `"institution" \| "schema_mapping"` | Item category |
+| `name` | string | Display name |
+| `description` | string | Summary description |
+| `submittedBy` | string | Submitter name |
+| `submittedAt` | string (ISO) | Submission timestamp |
+| `status` | `"pending" \| "approved" \| "rejected" \| "changes_requested"` | Current status |
+| `reviewedBy` | string (optional) | Reviewer name |
+| `reviewedAt` | string (optional) | Review timestamp |
+| `rejectionReason` | string (optional) | Reason for rejection or changes requested |
+| `metadata` | Record<string, string> | Key-value metadata (varies by type) |
+
+**Status Badge Styles:**
+
+| Status | Color Classes |
+|--------|--------------|
+| Pending | `bg-warning/15 text-warning border-warning/20` |
+| Approved | `bg-success/15 text-success border-success/20` |
+| Rejected | `bg-destructive/15 text-destructive border-destructive/20` |
+| Changes Requested | `bg-info/15 text-info border-info/20` |
+
+**Mock Data (6 items):**
+
+| ID | Type | Name | Status |
+|----|------|------|--------|
+| apq-001 | Institution | First National Bank Ltd. | Pending |
+| apq-002 | Schema Mapping | METRO v4.2 → HCB Master Schema | Pending |
+| apq-003 | Institution | MicroCredit Solutions | Pending |
+| apq-004 | Schema Mapping | CRB Standard v2.0 → HCB Master Schema | Approved |
+| apq-005 | Institution | QuickPay Digital | Rejected |
+| apq-006 | Institution | Savannah Credit Union | Changes Requested |
+
+### 6.15 App Sidebar
 
 **Purpose:** Primary navigation.
 
