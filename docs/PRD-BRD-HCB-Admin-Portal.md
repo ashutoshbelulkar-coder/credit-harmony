@@ -451,6 +451,43 @@ Step 4: Invited user appears in Users List
   → Last Active: "Never"
 ```
 
+### 5.7 Approval Queue Workflow
+
+```
+Step 1: An item enters the Approval Queue
+  → From Schema Mapper: "Submit to Evolution Queue" in Governance Actions step
+  → From Institution Registration: registration submitted for review
+  → Item status: "pending"
+  → Sidebar badge count increments
+
+Step 2: Super Admin navigates to Approval Queue
+  → System renders queue with KPI summary cards and tabbed table
+  → Tabs: All | Institutions | Schema Mappings
+  → Status filter: All, Pending, Approved, Rejected, Changes Requested
+
+Step 3: Super Admin clicks "View" on a pending item
+  → Detail drawer (Sheet) opens with:
+    - Status badge + Type badge
+    - Metadata key-value pairs (Registration No., Institution Type, Jurisdiction, etc.)
+    - Submission info (submitted by, date)
+    - Action buttons: Approve (green), Reject (red), Request Changes (outline)
+
+Step 4a: Approve
+  → Item status → "approved"
+  → Toast: "{name} has been approved"
+  → Drawer closes
+
+Step 4b: Reject or Request Changes
+  → Dialog opens requiring mandatory reason text
+  → Reason submitted → status → "rejected" or "changes_requested"
+  → Toast confirmation
+  → Drawer closes
+
+Step 5: Reviewed items remain in queue with updated status
+  → Rejected items show rejection reason in detail view
+  → Changes Requested items show requested changes
+```
+
 ---
 
 ## 6. Screen-Level Product Requirements
