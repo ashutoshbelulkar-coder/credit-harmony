@@ -748,7 +748,8 @@ Step 5: Reviewed items remain in queue with updated status
 | Element | Type | Description |
 |---------|------|-------------|
 | Mobile Menu Toggle | Icon Button | Hamburger menu (mobile only, md:hidden) |
-| Global Search | Text Input | "Search institutions, APIs, logs..." with ⌘K shortcut hint |
+| Global Search | Text Input | "Search institutions, APIs, logs..." with ⌘K shortcut hint; opens Command Palette |
+| Command Palette | Dialog | ⌘K / Ctrl+K shortcut; `cmdk`-based search across institutions, pages, and actions |
 | Theme Toggle | Icon Button | Light/Dark/System theme switcher with dropdown |
 | Notifications | Popover | Bell icon with unread badge; 6 notification items; "Mark all read" |
 | User Profile | Dropdown Menu | Avatar + name + role; Settings link; Log Out (destructive) |
