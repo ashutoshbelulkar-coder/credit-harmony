@@ -1,9 +1,9 @@
 # Hybrid Credit Bureau (HCB) Admin Portal
 ## Complete Product Requirement Document (PRD) & Business Requirement Document (BRD)
 
-**Document Version:** 1.0  
-**Date:** 2026-03-08  
-**Status:** Final  
+**Document Version:** 1.1  
+**Date:** 2026-03-18  
+**Status:** Updated  
 **Classification:** Internal – Confidential
 
 ---
