@@ -60,7 +60,7 @@ export default function AgentsLandingPage() {
             Select an agent to begin your analysis or continue from where you left off.
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button size="sm" onClick={() => navigate("/agents/configuration")} className="gap-1.5">
             <Plus className="w-4 h-4" /> Create Agent
           </Button>

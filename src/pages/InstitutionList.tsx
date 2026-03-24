@@ -130,6 +130,7 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
               Export CSV
             </Button>
             <Button
+              size="sm"
               onClick={() =>
                 navigate(
                   roleFilter === "subscriber"
@@ -139,7 +140,7 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
               }
               className="w-full sm:w-auto"
             >
-              <Plus className="w-4 h-4" />
+              <Plus className="h-4 w-4" />
               Register Institution
             </Button>
           </div>

@@ -1,6 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { NavLink, useLocation, useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+} from "@/components/ui/dropdown-menu";
 import {
   LayoutDashboard,
   Building2,
@@ -12,13 +19,16 @@ import {
   Users,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   ClipboardCheck,
+  Package,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
 const navItems = [
   { title: "Dashboard", path: "/", icon: LayoutDashboard },
   { title: "Institution Management", path: "/institutions/data-submitters", icon: Building2 },
+  { title: "Data Products", path: "/data-products/products", icon: Package },
   { title: "Agents", path: "/agents", icon: Brain },
   { title: "Data Governance", path: "/data-governance", icon: ShieldCheck },
   { title: "Monitoring", path: "/monitoring", icon: Activity },
@@ -31,6 +41,12 @@ const navItems = [
 const institutionSubItems = [
   { title: "Data Submission Institutions", path: "/institutions/data-submitters" },
   { title: "Subscriber Institutions", path: "/institutions/subscribers" },
+  { title: "Consortiums", path: "/consortiums" },
+];
+
+const dataProductsSubItems = [
+  { title: "Product Configurator", path: "/data-products/products" },
+  { title: "Enquiry simulation", path: "/data-products/enquiry-simulation" },
 ];
 
 const dataGovernanceSubItems = [
@@ -56,11 +72,41 @@ const userManagementSubItems = [
   { title: "Activity Log", path: "/user-management/activity" },
 ];
 
+type SidebarSectionId =
+  | "institutions"
+  | "data-products"
+  | "data-governance"
+  | "monitoring"
+  | "user-management";
+
+function sectionIdFromPathname(pathname: string): SidebarSectionId | null {
+  if (pathname.startsWith("/data-products")) return "data-products";
+  if (
+    pathname.startsWith("/consortiums") ||
+    pathname.startsWith("/institutions")
+  ) {
+    return "institutions";
+  }
+  if (pathname.startsWith("/data-governance")) return "data-governance";
+  if (pathname.startsWith("/monitoring")) return "monitoring";
+  if (pathname.startsWith("/user-management")) return "user-management";
+  return null;
+}
+
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const registerFrom = searchParams.get("from");
+  /** Accordion: at most one nested section open — follows route, or manual chevron on neutral pages (e.g. dashboard). */
+  const [expandedSectionId, setExpandedSectionId] =
+    useState<SidebarSectionId | null>(() =>
+      sectionIdFromPathname(location.pathname)
+    );
+
+  useEffect(() => {
+    setExpandedSectionId(sectionIdFromPathname(location.pathname));
+  }, [location.pathname]);
 
   return (
     <aside
@@ -91,6 +137,7 @@ export function AppSidebar() {
         {navItems.map((item) => {
           const isDataGov = item.path === "/data-governance";
           const isInstitutions = item.path.startsWith("/institutions");
+          const isDataProducts = item.path.startsWith("/data-products");
           const isMonitoring = item.path === "/monitoring";
           const isUserMgmt = item.path.startsWith("/user-management");
           const isActive =
@@ -100,85 +147,221 @@ export function AppSidebar() {
           const isInstitutionsSectionActive =
             institutionSubItems.some(
               (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")
-            ) || location.pathname.startsWith("/institutions/");
+            ) ||
+            location.pathname.startsWith("/institutions/") ||
+            location.pathname.startsWith("/consortiums");
           const isDataGovSectionActive = dataGovernanceSubItems.some(
             (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")
           );
+          const isDataProductsSectionActive =
+            location.pathname.startsWith("/data-products");
           const isMonitoringSectionActive = monitoringSubItems.some(
             (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")
           );
           const isUserMgmtSectionActive = userManagementSubItems.some(
             (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")
           );
-          const showDataGovSub = isDataGov && (isActive || isDataGovSectionActive) && !collapsed;
-          const showInstitutionsSub = isInstitutions && (isActive || isInstitutionsSectionActive) && !collapsed;
-          const showMonitoringSub = isMonitoring && (isActive || isMonitoringSectionActive) && !collapsed;
-          const showUserMgmtSub = isUserMgmt && (isActive || isUserMgmtSectionActive) && !collapsed;
           const subItems = isDataGov
             ? dataGovernanceSubItems
             : isInstitutions
             ? institutionSubItems
+            : isDataProducts
+            ? dataProductsSubItems
             : isMonitoring
             ? monitoringSubItems
             : isUserMgmt
             ? userManagementSubItems
             : null;
-          const showSubNav = (showDataGovSub || showInstitutionsSub || showMonitoringSub || showUserMgmtSub) && subItems;
-          const isParentActive = isActive || (isInstitutions && isInstitutionsSectionActive) || (isDataGov && isDataGovSectionActive) || (isMonitoring && isMonitoringSectionActive) || (isUserMgmt && isUserMgmtSectionActive);
+          const sectionId: SidebarSectionId | null = isInstitutions
+            ? "institutions"
+            : isDataProducts
+            ? "data-products"
+            : isDataGov
+            ? "data-governance"
+            : isMonitoring
+            ? "monitoring"
+            : isUserMgmt
+            ? "user-management"
+            : null;
+          const showSubNav =
+            Boolean(
+              subItems &&
+                sectionId &&
+                expandedSectionId === sectionId &&
+                !collapsed
+            );
+          const isParentActive =
+            isActive ||
+            (isInstitutions && isInstitutionsSectionActive) ||
+            (isDataProducts && isDataProductsSectionActive) ||
+            (isDataGov && isDataGovSectionActive) ||
+            (isMonitoring && isMonitoringSectionActive) ||
+            (isUserMgmt && isUserMgmtSectionActive);
 
           return (
-            <div key={item.path}>
+            <div key={item.path} className="min-w-0">
               {collapsed ? (
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <NavLink
-                      to={item.path}
-                      className={cn(
-                        "flex items-center justify-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-[11px] font-medium leading-[18px] transition-all duration-200 group",
-                        isParentActive
-                          ? "bg-sidebar-accent text-sidebar-primary"
-                          : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                      )}
-                    >
-                      <item.icon
+                subItems ? (
+                  <DropdownMenu>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <DropdownMenuTrigger asChild>
+                          <button
+                            type="button"
+                            aria-haspopup="menu"
+                            className={cn(
+                              "flex w-full items-center justify-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-[11px] font-medium leading-[18px] transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                              isParentActive
+                                ? "bg-sidebar-accent text-sidebar-primary"
+                                : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                            )}
+                          >
+                            <item.icon
+                              className={cn(
+                                "w-5 h-5 shrink-0 transition-colors",
+                                isParentActive
+                                  ? "text-sidebar-primary"
+                                  : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                              )}
+                            />
+                          </button>
+                        </DropdownMenuTrigger>
+                      </TooltipTrigger>
+                      <TooltipContent side="right" sideOffset={8}>
+                        {item.title}
+                      </TooltipContent>
+                    </Tooltip>
+                    <DropdownMenuContent side="right" align="start" sideOffset={8} className="w-60 max-h-[min(24rem,70vh)] overflow-y-auto">
+                      <div className="px-2 py-1.5 text-caption font-medium text-muted-foreground">
+                        {item.title}
+                      </div>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <NavLink to={item.path} className="cursor-pointer">
+                          Open {item.title}
+                        </NavLink>
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {subItems.map((sub) => (
+                        <DropdownMenuItem key={sub.path} asChild>
+                          <NavLink to={sub.path} className="cursor-pointer">
+                            {sub.title}
+                          </NavLink>
+                        </DropdownMenuItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                ) : (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <NavLink
+                        to={item.path}
                         className={cn(
-                          "w-5 h-5 shrink-0 transition-colors",
-                          isParentActive ? "text-sidebar-primary" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                          "flex items-center justify-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-[11px] font-medium leading-[18px] transition-all duration-200 group",
+                          isParentActive
+                            ? "bg-sidebar-accent text-sidebar-primary"
+                            : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                         )}
-                      />
-                    </NavLink>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={8}>
-                    {item.title}
-                  </TooltipContent>
-                </Tooltip>
-              ) : (
-              <NavLink
-                to={item.path}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-[11px] font-medium leading-[18px] transition-all duration-200 group",
-                  isParentActive
-                    ? "bg-sidebar-accent text-sidebar-primary"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                )}
-              >
-                <item.icon
+                      >
+                        <item.icon
+                          className={cn(
+                            "w-5 h-5 shrink-0 transition-colors",
+                            isParentActive ? "text-sidebar-primary" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                          )}
+                        />
+                      </NavLink>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" sideOffset={8}>
+                      {item.title}
+                    </TooltipContent>
+                  </Tooltip>
+                )
+              ) : subItems && sectionId ? (
+                <div
                   className={cn(
-                    "w-5 h-5 shrink-0 transition-colors",
-                    isParentActive ? "text-sidebar-primary" : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                    "flex items-stretch gap-0.5 rounded-lg min-h-[44px] transition-all duration-200",
+                    isParentActive
+                      ? "bg-sidebar-accent text-sidebar-primary"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                   )}
-                />
-                <span className="truncate">{item.title}</span>
-                {isParentActive && !showSubNav && (
-                  <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sidebar-primary shrink-0" />
-                )}
-              </NavLink>
+                >
+                  <NavLink
+                    to={item.path}
+                    className={cn(
+                      "flex flex-1 items-center gap-3 min-w-0 px-3 py-2.5 rounded-l-lg text-[11px] font-medium leading-[18px] transition-colors duration-200 group",
+                      !isParentActive &&
+                        "hover:text-sidebar-accent-foreground"
+                    )}
+                  >
+                    <item.icon
+                      className={cn(
+                        "w-5 h-5 shrink-0 transition-colors",
+                        isParentActive
+                          ? "text-sidebar-primary"
+                          : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                      )}
+                    />
+                    <span className="truncate">{item.title}</span>
+                    {isParentActive && !showSubNav && (
+                      <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sidebar-primary shrink-0" />
+                    )}
+                  </NavLink>
+                  <button
+                    type="button"
+                    aria-expanded={expandedSectionId === sectionId}
+                    aria-label={
+                      expandedSectionId === sectionId
+                        ? `Collapse ${item.title} menu`
+                        : `Expand ${item.title} menu`
+                    }
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setExpandedSectionId((cur) =>
+                        cur === sectionId ? null : sectionId
+                      );
+                    }}
+                    className={cn(
+                      "flex items-center justify-center px-2 rounded-r-lg text-sidebar-foreground hover:bg-sidebar-accent/70 hover:text-sidebar-accent-foreground shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-sidebar-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      isParentActive && "text-sidebar-primary"
+                    )}
+                  >
+                    {expandedSectionId === sectionId ? (
+                      <ChevronDown className="w-4 h-4" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              ) : (
+                <NavLink
+                  to={item.path}
+                  className={cn(
+                    "flex items-center gap-3 px-3 py-2.5 min-h-[44px] rounded-lg text-[11px] font-medium leading-[18px] transition-all duration-200 group",
+                    isParentActive
+                      ? "bg-sidebar-accent text-sidebar-primary"
+                      : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  )}
+                >
+                  <item.icon
+                    className={cn(
+                      "w-5 h-5 shrink-0 transition-colors",
+                      isParentActive
+                        ? "text-sidebar-primary"
+                        : "text-sidebar-foreground group-hover:text-sidebar-accent-foreground"
+                    )}
+                  />
+                  <span className="truncate">{item.title}</span>
+                  {isParentActive && (
+                    <div className="ml-auto w-1.5 h-1.5 rounded-full bg-sidebar-primary shrink-0" />
+                  )}
+                </NavLink>
               )}
               {showSubNav && subItems && (
-                <div className="mt-1 ml-4 pl-3 border-l border-sidebar-border space-y-0.5">
+                <div className="mt-1 ml-4 pl-3 border-l border-sidebar-border space-y-0.5 min-w-0">
                   {subItems.map((sub) => {
                     const isSubActive =
                       location.pathname === sub.path ||
+                      location.pathname.startsWith(sub.path + "/") ||
                       (location.pathname === "/institutions/register" &&
                         (sub.path === "/institutions/data-submitters"
                           ? registerFrom !== "subscribers"

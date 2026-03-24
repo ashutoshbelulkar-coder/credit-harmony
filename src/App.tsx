@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
+import { CatalogMockProvider } from "@/contexts/CatalogMockContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { CommandPalette } from "@/components/CommandPalette";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -45,6 +46,14 @@ const routeImports = {
   AgentConfigurationPage: () => import("./pages/agents/AgentConfigurationPage"),
   ApprovalQueueLayout: () => import("./pages/approval-queue/ApprovalQueueLayout").then(m => ({ default: m.ApprovalQueueLayout })),
   ApprovalQueuePage: () => import("./pages/approval-queue/ApprovalQueuePage").then(m => ({ default: m.ApprovalQueuePage })),
+  ConsortiumListPage: () => import("./pages/consortiums/ConsortiumListPage"),
+  ConsortiumDetailPage: () => import("./pages/consortiums/ConsortiumDetailPage"),
+  ConsortiumWizardPage: () => import("./pages/consortiums/ConsortiumWizardPage"),
+  DataProductsLayout: () => import("./pages/data-products/DataProductsLayout").then(m => ({ default: m.DataProductsLayout })),
+  ProductListPage: () => import("./pages/data-products/ProductListPage"),
+  ProductDetailPage: () => import("./pages/data-products/ProductDetailPage"),
+  ProductFormPage: () => import("./pages/data-products/ProductFormPage"),
+  EnquirySimulationPage: () => import("./pages/agents/EnquirySimulationPage"),
 };
 
 // Lazy-loaded route components
@@ -81,6 +90,14 @@ const AgentDetailPage = lazy(routeImports.AgentDetailPage);
 const AgentConfigurationPage = lazy(routeImports.AgentConfigurationPage);
 const ApprovalQueueLayout = lazy(routeImports.ApprovalQueueLayout);
 const ApprovalQueuePage = lazy(routeImports.ApprovalQueuePage);
+const ConsortiumListPage = lazy(routeImports.ConsortiumListPage);
+const ConsortiumDetailPage = lazy(routeImports.ConsortiumDetailPage);
+const ConsortiumWizardPage = lazy(routeImports.ConsortiumWizardPage);
+const DataProductsLayout = lazy(routeImports.DataProductsLayout);
+const ProductListPage = lazy(routeImports.ProductListPage);
+const ProductDetailPage = lazy(routeImports.ProductDetailPage);
+const ProductFormPage = lazy(routeImports.ProductFormPage);
+const EnquirySimulationPage = lazy(routeImports.EnquirySimulationPage);
 
 // Preload all route chunks after initial page load
 function preloadAllRoutes() {
@@ -134,6 +151,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
+          <CatalogMockProvider>
           <ErrorBoundary>
             <CommandPalette />
             <Suspense fallback={<PageLoader />}>
@@ -145,6 +163,19 @@ const App = () => (
               <Route path="/institutions/subscribers" element={<ProtectedRoute><InstitutionList roleFilter="subscriber" /></ProtectedRoute>} />
               <Route path="/institutions/register" element={<ProtectedRoute><RegisterInstitution /></ProtectedRoute>} />
               <Route path="/institutions/:id" element={<ProtectedRoute><InstitutionDetail /></ProtectedRoute>} />
+              <Route path="/consortiums/create" element={<ProtectedRoute><ConsortiumWizardPage /></ProtectedRoute>} />
+              <Route path="/consortiums/:id/edit" element={<ProtectedRoute><ConsortiumWizardPage /></ProtectedRoute>} />
+              <Route path="/consortiums/:id" element={<ProtectedRoute><ConsortiumDetailPage /></ProtectedRoute>} />
+              <Route path="/consortiums" element={<ProtectedRoute><ConsortiumListPage /></ProtectedRoute>} />
+              <Route path="/data-products" element={<ProtectedRoute><DataProductsLayout /></ProtectedRoute>}>
+                <Route index element={<Navigate to="products" replace />} />
+                <Route path="data-packets" element={<Navigate to="/data-products/products" replace />} />
+                <Route path="products/create" element={<ProductFormPage />} />
+                <Route path="products/:id/edit" element={<ProductFormPage />} />
+                <Route path="products/:id" element={<ProductDetailPage />} />
+                <Route path="products" element={<ProductListPage />} />
+                <Route path="enquiry-simulation" element={<EnquirySimulationPage />} />
+              </Route>
               <Route path="/api-access" element={<ProtectedRoute><PlaceholderPage title="API & Access Control" description="Manage API keys, rate limits, and access permissions" /></ProtectedRoute>} />
               <Route path="/data-governance" element={<ProtectedRoute><DataGovernanceLayout /></ProtectedRoute>}>
                 <Route index element={<Navigate to="dashboard" replace />} />
@@ -166,8 +197,8 @@ const App = () => (
               <Route path="/cbs-integration" element={<ProtectedRoute><PlaceholderPage title="CBS Integration" description="Core banking system API configuration and batch exports" /></ProtectedRoute>} />
               <Route path="/agents" element={<ProtectedRoute><AgentsLayout /></ProtectedRoute>}>
                 <Route index element={<AgentsLandingPage />} />
-                <Route path=":agentId" element={<AgentDetailPage />} />
                 <Route path="configuration" element={<AgentConfigurationPage />} />
+                <Route path=":agentId" element={<AgentDetailPage />} />
               </Route>
               <Route path="/reporting" element={<ProtectedRoute><ReportingLayout /></ProtectedRoute>}>
                 <Route index element={<ReportListPage />} />
@@ -187,6 +218,7 @@ const App = () => (
             </Routes>
             </Suspense>
           </ErrorBoundary>
+          </CatalogMockProvider>
           </BrowserRouter>
         </TooltipProvider>
       </ThemeProvider>

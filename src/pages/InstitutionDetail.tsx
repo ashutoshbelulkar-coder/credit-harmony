@@ -3,7 +3,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, AlertTriangle, ExternalLink, Clock, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
+import { tableHeaderClasses, badgeTextClasses, detailPageTabTriggerBaseClasses } from "@/lib/typography";
 import { getInstitutionById, statusStyles } from "@/data/institutions-mock";
 import type { Institution } from "@/data/institutions-mock";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
@@ -41,6 +41,8 @@ import BillingTab from "./institution-tabs/BillingTab";
 import MonitoringTab from "./institution-tabs/MonitoringTab";
 import ReportsTab from "./institution-tabs/ReportsTab";
 import AuditTrailTab from "./institution-tabs/AuditTrailTab";
+import ConsortiumMembershipsTab from "./institution-tabs/ConsortiumMembershipsTab";
+import ProductSubscriptionsTab from "./institution-tabs/ProductSubscriptionsTab";
 
 const InstitutionDetail = () => {
   const { id } = useParams();
@@ -54,6 +56,7 @@ const InstitutionDetail = () => {
     const tabs: string[] = ["Overview"];
     if (institution.isSubscriber) tabs.push("Alternate Data");
     tabs.push("API & Access");
+    tabs.push("Consortium Memberships", "Product Subscriptions");
     if (institution.isSubscriber) tabs.push("Consent Configuration", "Billing");
     tabs.push("Monitoring", "Reports", "Audit Trail", "Users");
     return tabs;
@@ -125,7 +128,7 @@ const InstitutionDetail = () => {
                   key={tab}
                   onClick={() => setActiveTab(tab)}
                   className={cn(
-                    "rounded-lg px-2.5 py-1.5 text-[11px] font-medium leading-[18px] whitespace-nowrap transition-all shrink-0",
+                    detailPageTabTriggerBaseClasses,
                     activeTab === tab
                       ? "bg-primary text-primary-foreground shadow-sm"
                       : "text-muted-foreground hover:bg-muted hover:text-foreground"
@@ -142,6 +145,12 @@ const InstitutionDetail = () => {
         {activeTab === "Overview" && <OverviewTab institution={institution} />}
         {activeTab === "Alternate Data" && <AlternateDataTab />}
         {activeTab === "API & Access" && <ApiAccessTab isDataSubmitter={institution.isDataSubmitter} isSubscriber={institution.isSubscriber} />}
+        {activeTab === "Consortium Memberships" && (
+          <ConsortiumMembershipsTab institutionId={institution.id} />
+        )}
+        {activeTab === "Product Subscriptions" && (
+          <ProductSubscriptionsTab institutionId={institution.id} />
+        )}
         {activeTab === "Consent Configuration" && <ConsentConfigTab />}
         {activeTab === "Billing" && <BillingTab billingModel={institution.billingModel} creditBalance={institution.creditBalance} />}
         {activeTab === "Monitoring" && <MonitoringTab isDataSubmitter={institution.isDataSubmitter} isSubscriber={institution.isSubscriber} />}

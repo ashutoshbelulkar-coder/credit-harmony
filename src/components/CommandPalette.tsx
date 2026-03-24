@@ -18,17 +18,23 @@ import {
   FileBarChart,
   ScrollText,
   Users,
-  Search,
+  Package,
 } from "lucide-react";
 import { institutions } from "@/data/institutions-mock";
+import { useCatalogMock } from "@/contexts/CatalogMockContext";
 
 const navigationItems = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard, group: "Navigation" },
   { label: "Data Submission Institutions", path: "/institutions/data-submitters", icon: Building2, group: "Navigation" },
   { label: "Subscriber Institutions", path: "/institutions/subscribers", icon: Building2, group: "Navigation" },
   { label: "Register Institution", path: "/institutions/register", icon: Building2, group: "Navigation" },
+  { label: "Consortiums", path: "/consortiums", icon: Building2, group: "Navigation" },
+  { label: "Create consortium", path: "/consortiums/create", icon: Building2, group: "Navigation" },
   { label: "Agents", path: "/agents", icon: Brain, group: "Navigation" },
   { label: "Agent Configuration", path: "/agents/configuration", icon: Brain, group: "Navigation" },
+  { label: "Products", path: "/data-products/products", icon: Package, group: "Data Products" },
+  { label: "Enquiry simulation", path: "/data-products/enquiry-simulation", icon: Package, group: "Data Products" },
+  { label: "Create product", path: "/data-products/products/create", icon: Package, group: "Data Products" },
   { label: "Data Governance Dashboard", path: "/data-governance/dashboard", icon: ShieldCheck, group: "Data Governance" },
   { label: "Schema Mapper Agent", path: "/data-governance/auto-mapping-review", icon: ShieldCheck, group: "Data Governance" },
   { label: "Validation Rules", path: "/data-governance/validation-rules", icon: ShieldCheck, group: "Data Governance" },
@@ -51,6 +57,7 @@ const navigationItems = [
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const { consortiums } = useCatalogMock();
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -94,6 +101,17 @@ export function CommandPalette() {
             ))}
         </CommandGroup>
         <CommandSeparator />
+        <CommandGroup heading="Data Products">
+          {navigationItems
+            .filter((item) => item.group === "Data Products")
+            .map((item) => (
+              <CommandItem key={item.path} onSelect={() => handleSelect(item.path)}>
+                <item.icon className="mr-2 h-4 w-4 text-muted-foreground" />
+                <span>{item.label}</span>
+              </CommandItem>
+            ))}
+        </CommandGroup>
+        <CommandSeparator />
         <CommandGroup heading="Data Governance">
           {navigationItems
             .filter((item) => item.group === "Data Governance")
@@ -123,6 +141,20 @@ export function CommandPalette() {
               <div className="flex flex-col">
                 <span>{item.label}</span>
                 <span className="text-xs text-muted-foreground">{item.subtitle}</span>
+              </div>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+        <CommandSeparator />
+        <CommandGroup heading="Consortiums">
+          {consortiums.map((c) => (
+            <CommandItem key={c.id} onSelect={() => handleSelect(`/consortiums/${c.id}`)}>
+              <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
+              <div className="flex flex-col">
+                <span>{c.name}</span>
+                <span className="text-xs text-muted-foreground">
+                  {c.type} · {c.membersCount} members
+                </span>
               </div>
             </CommandItem>
           ))}
