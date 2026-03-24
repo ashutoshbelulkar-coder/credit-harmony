@@ -1,10 +1,12 @@
 # Hybrid Credit Bureau (HCB) Admin Portal
 ## Complete Product Requirement Document (PRD) & Business Requirement Document (BRD)
 
-**Document Version:** 1.1  
-**Date:** 2026-03-18  
-**Status:** Updated  
+**Document Version:** 2.0
+**Date:** 2026-03-25
+**Status:** Updated — Includes Features Released 25 Mar 2026
 **Classification:** Internal – Confidential
+
+> **Change Summary v2.0:** Added Module 10 (Consortium Management), Module 11 (Data Products), Module 12 (Enquiry Simulation), Institution Detail extensions (Consortium Memberships tab, Product Subscriptions tab). Updated routing table, project structure, exception scenarios (with sample data), data models, API specs, and QA test suites. Typography system documented: compact 10px/12px scale with explicit pixel values to prevent browser-default overrides.
 
 ---
 
@@ -233,6 +235,37 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 | **Business Value** | Granular access control meets regulatory requirements for data protection |
 | **User Benefit** | Self-service user management; clear role visibility; complete activity history |
 
+#### Module 10: Consortium Management (NEW — v2.0)
+
+| Attribute | Detail |
+|-----------|--------|
+| **Feature Name** | Consortium Governance |
+| **Description** | End-to-end management of multi-institution data sharing consortiums. Includes: consortium list (search, type/status filters, mobile cards + desktop table), consortium detail with 3 tabs (Overview, Members, Data Contribution), and a 4-step creation/edit wizard (Basic Info → Members → Policy → Review). |
+| **Business Value** | Enables bureau operators to manage governed data sharing agreements across multiple institutions within a structured, auditable framework. |
+| **User Benefit** | Single view of all consortium memberships, data contributions, and sharing policies; guided wizard prevents incomplete setup. |
+| **Route** | `/consortiums` (list), `/consortiums/:id` (detail), `/consortiums/create` (wizard), `/consortiums/:id/edit` (edit wizard) |
+
+#### Module 11: Data Products (NEW — v2.0)
+
+| Attribute | Detail |
+|-----------|--------|
+| **Feature Name** | Data Product Configurator |
+| **Description** | Catalogue of configurable data products backed by bureau and consortium data packets. Includes: product list with search and status filter, product detail page (info, packets, pricing, usage metrics), and a create/edit form. Products are linked to one or more data packets and carry a pricing model (Per Hit or Subscription). |
+| **Business Value** | Enables HCB to publish structured, priced data products that subscriber institutions can discover and subscribe to, driving revenue and standardising data consumption. |
+| **User Benefit** | Bureau operators can define, version, and publish data products without engineering effort; subscribers can evaluate products before committing. |
+| **Route** | `/data-products/products` (list), `/data-products/products/:id` (detail), `/data-products/products/create` (create), `/data-products/products/:id/edit` (edit) |
+
+#### Module 12: Enquiry Simulation (NEW — v2.0)
+
+| Attribute | Detail |
+|-----------|--------|
+| **Feature Name** | Enquiry Simulation |
+| **Description** | A mock-only pre-production testing tool allowing operators and analysts to simulate bureau enquiry API responses for any configured data product. Features a two-column desktop layout (Inputs card + Request JSON live preview), a "Run" button that triggers a 600ms simulated delay, and a response section showing full Response JSON plus packet-level breakdown by source type (Bureau, Banking, Consortium). Any input change clears the response, requiring a fresh Run. |
+| **Business Value** | Reduces go-live issues by letting operators and institutions validate expected response shapes and packet payloads before integrating the live API. |
+| **User Benefit** | No coding required to test product payloads; live Request JSON preview gives instant feedback on what the API call will look like. |
+| **Route** | `/data-products/enquiry-simulation` |
+| **Note** | V1 uses only mock/synthetic payloads. No real bureau API calls are made. No PII should be entered. V2 will support live calls with consent enforcement. |
+
 #### Module 9: Approval Queue
 
 | Attribute | Detail |
@@ -449,6 +482,119 @@ Step 3: Admin clicks "Send Invite"
 Step 4: Invited user appears in Users List
   → Status: "Invited"
   → Last Active: "Never"
+```
+
+### 5.7 Consortium Creation Workflow (NEW — v2.0)
+
+```
+Step 1: User navigates to Consortiums → clicks "Create consortium"
+  → Navigate to /consortiums/create
+  → System renders 4-step wizard (Basic Info → Members → Policy → Review)
+
+Step 2: Basic Info (Step 1/4)
+  → User fills: Name (required), Type (Closed/Open dropdown, required),
+    Purpose (required), Governance Model (required), Description (optional)
+  → Frontend validates required fields
+  → User clicks "Next"
+
+Step 3: Members (Step 2/4)
+  → User adds member institutions with their roles (Sponsor/Participant/Observer)
+  → At least one Sponsor is required
+  → User clicks "Next"
+
+Step 4: Policy (Step 3/4)
+  → User configures data sharing policy:
+    - Share Loan Data: Yes/No
+    - Share Repayment History: Yes/No
+    - Allow Aggregation: Yes/No
+    - Data Visibility: Full / Aggregated Only
+  → User clicks "Next"
+
+Step 5: Review (Step 4/4)
+  → System displays full summary of all entered data
+  → User clicks "Create consortium"
+  → Toast: "Consortium created successfully"
+  → Navigate to /consortiums
+
+Edit Flow:
+  → "Edit" button on consortium detail navigates to /consortiums/:id/edit
+  → Wizard pre-populated with existing values
+  → User modifies and saves
+```
+
+### 5.8 Data Product Creation Workflow (NEW — v2.0)
+
+```
+Step 1: User navigates to Data Products → Product Configurator → "Create product"
+  → Navigate to /data-products/products/create
+  → System renders product form
+
+Step 2: User fills form
+  → Product Name (required)
+  → Description (optional)
+  → Data Packets: multi-select from available packets (Bureau Score, Banking Summary,
+    Consortium Exposure, etc.) — at least one required
+  → Pricing Model: Per Hit | Subscription
+  → Price: numeric value (e.g. 12 per hit, or 4500/month)
+
+Step 3: User clicks "Save"
+  → Validation runs: name and at least one packet required; price > 0
+  → Product saved with status "active"
+  → Toast: "Product created successfully"
+  → Navigate to product list
+
+Edit Flow:
+  → "Edit" button on product detail navigates to /data-products/products/:id/edit
+  → Form pre-populated with existing values
+```
+
+### 5.9 Enquiry Simulation Workflow (NEW — v2.0)
+
+```
+Step 1: User navigates to Data Products → Enquiry Simulation
+  → Navigate to /data-products/enquiry-simulation
+  → System renders page with:
+    - Left card: Inputs (Product selector, Customer Name, Customer Reference, Mobile,
+      Include Consortium Data toggle)
+    - Right card: Request JSON (live preview, updates on every input change)
+
+Step 2: User fills inputs
+  → Selects a product (e.g. "SME Credit Decision Pack")
+  → Enters Customer Name: "Jane Wanjiku"
+  → Enters Customer Reference: "ID-884921"
+  → Enters Mobile: "+254 712 000 000"
+  → Sets Include Consortium Data: ON or OFF
+  → Request JSON card updates in real time showing:
+    {
+      "productId": "PRD_001",
+      "productName": "SME Credit Decision Pack",
+      "customer": {
+        "fullName": "Jane Wanjiku",
+        "ref": "ID-884921",
+        "mobile": "+254 712 000 000"
+      },
+      "includeConsortiumData": true
+    }
+
+Step 3: User clicks "Run"
+  → Button shows spinner icon + "Running…" text; button disabled
+  → 600ms simulated delay
+  → Response section fades in below with:
+    - Response JSON card (full mock response)
+    - Bureau section with packet JSON (e.g. Bureau Score)
+    - Banking section with packet JSON (e.g. Banking Summary)
+    - Consortium section (if includeConsortiumData=true: real payload;
+      if false: { "omitted": true, "reason": "consortium_flag_disabled" })
+
+Step 4: User edits an input field
+  → Response section immediately disappears
+  → Run button re-enables
+  → User must click Run again to see updated response
+
+Decision Points:
+  - No products in catalogue → Run button disabled, tooltip shown
+  - Toggle off Consortium → consortium packets stubbed
+  - Empty customer fields → simulation still runs (fields default to empty strings in payload)
 ```
 
 ### 5.7 Approval Queue Workflow
@@ -776,6 +922,203 @@ Step 5: Reviewed items remain in queue with updated status
 | apq-005 | Institution | QuickPay Digital | Rejected |
 | apq-006 | Institution | Savannah Credit Union | Changes Requested |
 
+### 6.15 Consortiums List (`/consortiums`) — NEW v2.0
+
+**Purpose:** Browse, search, and manage all data sharing consortiums.
+
+| Element | Type | Location | Description | Data Source | Behaviour |
+|---------|------|----------|-------------|-------------|-----------|
+| Page Title | H1 | Top left | "Consortiums" | Static | — |
+| Description | Paragraph | Below title | "Manage multi-institution data sharing consortiums." | Static | — |
+| Search Input | Text Input | Above filters | Filter by consortium name | User input | Real-time client-side filter |
+| Type Filter | Select | Beside search | All / Closed / Open | Static options | Filters by consortium type |
+| Status Filter | Select | Beside search | All / Active / Inactive | Static options | Filters by status |
+| Create Button | Primary Button | Top right | "Create consortium" | N/A | Navigate to `/consortiums/create` |
+| Desktop Table | Data Table | Main content (md+) | Columns: Name, Type, Status, Members, Data Volume, Last Updated, Actions | `consortiums` mock data | Row click → `/consortiums/:id` |
+| Mobile Cards | Card List | Main content (sm) | Shows Name, Type badge, Status badge, Members, Data Volume per card | `consortiums` mock data | Card click → `/consortiums/:id` |
+| Type Badge | Badge | Table/Card | "Closed" (primary tint) / "Open" (secondary tint) | `consortium.type` | Read-only |
+| Status Badge | Badge | Table/Card | "Active" (success/15) / "Inactive" (muted) | `consortium.status` | Read-only |
+
+**Mock Data (sample):**
+
+| ID | Name | Type | Status | Members | Data Volume |
+|----|------|------|--------|---------|-------------|
+| CST_001 | SME Lending Consortium | Closed | Active | 12 | 1.2M records |
+| CST_002 | Agricultural Finance Network | Open | Inactive | 5 | 340K records |
+| CST_003 | Retail Credit Collective | Closed | Active | 8 | 890K records |
+
+### 6.16 Consortium Detail (`/consortiums/:id`) — NEW v2.0
+
+**Purpose:** Full profile of a consortium with member and contribution data.
+
+| Element | Description |
+|---------|-------------|
+| Breadcrumb | Dashboard → Consortiums → {Consortium Name} |
+| Back Button | Ghost icon button; navigates to `/consortiums` |
+| Page Title | `consortium.name` (text-h2 font-semibold) |
+| Type Badge | "Closed" or "Open" with type-appropriate styling |
+| Status Dot + Span | Active (success) or Inactive (muted) |
+| Edit Button | Outline size-sm; navigates to `/consortiums/:id/edit` |
+| Tab Bar | Overview · Members · Data Contribution |
+
+**Overview Tab:**
+
+| Card | Fields | Sample Data |
+|------|--------|-------------|
+| Details | Purpose, Governance, Status | Purpose: Risk sharing · Governance: Federated · Status: Active |
+| Scale | Member count (h3 large number) + data volume | 12 members · 1.2M records |
+| Description | Full description text | "A closed consortium of 12 SME-focused lenders sharing credit exposure data." |
+| Data Policy | Share Loan Data, Share Repayment History, Allow Aggregation, Data Visibility | All Yes · Full visibility |
+
+**Members Tab (Desktop Table):**
+
+| Column | Sample Data |
+|--------|-------------|
+| Institution | First National Bank |
+| Role | Sponsor |
+| Status | Active (success badge) |
+| Joined | 2025-06-01 |
+
+**Data Contribution Tab:**
+
+| Card | Sample Data |
+|------|-------------|
+| Total Records Shared | 1,248,320 (h3 number) |
+| Last Updated | 2026-03-20 |
+| Data Types | Loan Accounts · Repayment History · Credit Exposure (badge list) |
+
+### 6.17 Consortium Wizard (`/consortiums/create`, `/consortiums/:id/edit`) — NEW v2.0
+
+**Purpose:** 4-step guided creation/editing of consortiums.
+
+| Step | Name | Key Fields | Validation |
+|------|------|-----------|------------|
+| 1 | Basic Info | Name, Type (select: Closed/Open), Purpose, Governance Model, Description | Name, Type, Purpose, Governance required |
+| 2 | Members | Member institution + role pairs | At least one Sponsor required |
+| 3 | Policy | shareLoanData, shareRepaymentHistory, allowAggregation, dataVisibility | No required fields; all default to true/full |
+| 4 | Review | Summary of all entries | Confirm + Submit |
+
+**Desktop Layout (Basic Info step):** 2-column responsive grid (`grid-cols-1 md:grid-cols-2`). Description field spans full width (`md:col-span-2`).
+
+### 6.18 Product List (`/data-products/products`) — NEW v2.0
+
+**Purpose:** Browse, search, and manage all configured data products.
+
+| Element | Type | Description | Behaviour |
+|---------|------|-------------|-----------|
+| Page Title | H1 | "Products" | — |
+| Subtitle | Paragraph | "Configure catalogue products from internal data packets, pricing, and delivery order." | Static |
+| Enquiry simulation Button | Outline Button | Top-right area | Navigate to `/data-products/enquiry-simulation` |
+| Create product Button | Primary Button | Top-right area | Navigate to `/data-products/products/create` |
+| Status Filter | Select | Above table | All statuses / Active / Draft |
+| Desktop Table | Data Table | Main content | Columns: Product Name, Packets (count), Pricing Model, Status, Actions (View, Edit) |
+| Mobile Cards | Card List | sm | Product name, status badge, pricing model, packet count |
+
+**Mock Data:**
+
+| ID | Product Name | Packets | Pricing | Status |
+|----|-------------|---------|---------|--------|
+| PRD_001 | SME Credit Decision Pack | Bureau Score · Consortium Exposure | Subscription · KES 4,500/mo | Active |
+| PRD_002 | Retail Micro-Loan Profiler | Bureau Score · Banking Summary | Per Hit · KES 12/hit | Active |
+| PRD_003 | Full Alternate Data Bundle | Bureau Score · Banking Summary · Consortium Exposure | Subscription · KES 9,200/mo | Draft |
+
+### 6.19 Product Detail (`/data-products/products/:id`) — NEW v2.0
+
+**Purpose:** Full detail view of a single data product.
+
+| Section | Content |
+|---------|---------|
+| Header | Product name (h2), status badge, last updated timestamp, Edit button |
+| Product Info card | Description paragraph + Product ID (both `text-[10px]`) |
+| Included Packets card | `<Badge variant="secondary">` per packet name |
+| Pricing card | 2-column grid: Model (e.g. "Subscription") + Price (e.g. "4,500 / mo (mock)") |
+| Usage Metrics | 3-column KPI cards: Hits (30d), Active subscribers, Error rate — all with `text-h3` numbers |
+
+### 6.20 Product Form (`/data-products/products/create`, `/data-products/products/:id/edit`) — NEW v2.0
+
+**Purpose:** Create or edit a data product.
+
+| Field | Type | Validation | Sample Value |
+|-------|------|-----------|--------------|
+| Product Name | Text Input | Required, max 200 chars | "SME Credit Decision Pack" |
+| Description | Textarea | Optional | "Core SME decisioning with bureau and consortium exposure." |
+| Data Packets | Multi-select checkboxes | At least one required | Bureau Score ✓, Consortium Exposure ✓ |
+| Pricing Model | Select | Required | Subscription |
+| Price | Number Input | Required, must be > 0 | 4500 |
+
+### 6.21 Enquiry Simulation (`/data-products/enquiry-simulation`) — NEW v2.0
+
+**Purpose:** Mock enquiry testing tool for data products.
+
+**Layout:** Constrained `max-w-2xl` on mobile, `lg:max-w-5xl` on desktop with `grid-cols-1 lg:grid-cols-2` for the Inputs and Request JSON cards.
+
+| Element | Type | Description |
+|---------|------|-------------|
+| Breadcrumb | Breadcrumb | Dashboard → Data Products → Enquiry simulation |
+| Back Button | Ghost icon button | Navigate to `/data-products/products` |
+| Page Title | H2 | "Enquiry simulation" |
+| Inputs Card | Card (left column) | Product select, Customer Name, Customer Reference, Mobile, Include Consortium Data switch |
+| Request JSON Card | Card (right column) | Live `<pre>` block inside `<ScrollArea>` updating on every input change; height 36 on mobile, fills column height on desktop |
+| Run Button | Primary Button | Right-aligned; `Play` icon when idle; `Loader2 animate-spin` + "Running…" when active; disabled during run |
+| Response JSON Card | Card (full width, below Run) | Appears after Run; full mock response in scrollable `<pre>`; fades in with `animate-fade-in` |
+| Packet Section Cards | Per-type Cards | One card per section (Bureau, Banking, Consortium) when items > 0; each shows packet name + JSON in `<ScrollArea>` |
+
+**Request JSON Live Preview (sample):**
+```json
+{
+  "productId": "PRD_001",
+  "productName": "SME Credit Decision Pack",
+  "customer": {
+    "fullName": "Jane Wanjiku",
+    "ref": "ID-884921",
+    "mobile": "+254 712 000 000"
+  },
+  "includeConsortiumData": true
+}
+```
+
+**Response JSON (sample — after Run):**
+```json
+{
+  "enquiryId": "ENQ-1711372800000",
+  "productId": "PRD_001",
+  "productName": "SME Credit Decision Pack",
+  "customer": {
+    "fullName": "Jane Wanjiku",
+    "ref": "ID-884921",
+    "mobile": "+254 712 000 000"
+  },
+  "includeConsortiumData": true,
+  "generatedAt": "2026-03-25T10:00:00.000Z",
+  "packets": {
+    "Bureau Score": {
+      "creditScore": 712,
+      "scoreRange": "300-900",
+      "riskGrade": "B",
+      "totalAccounts": 4,
+      "activeAccounts": 2,
+      "overdueAccounts": 0,
+      "totalOutstanding": 450000,
+      "worstPaymentStatus": "Current"
+    },
+    "Consortium Exposure": {
+      "totalExposure": 1200000,
+      "memberExposures": 3,
+      "highestSingleExposure": 600000,
+      "consortiumRiskFlag": false
+    }
+  }
+}
+```
+
+**Consortium packet stubbed (when toggle OFF):**
+```json
+"Consortium Exposure": {
+  "omitted": true,
+  "reason": "consortium_flag_disabled"
+}
+```
+
 ### 6.15 App Sidebar
 
 **Purpose:** Primary navigation.
@@ -784,7 +1127,9 @@ Step 5: Reviewed items remain in queue with updated status
 |---------|------|-------------|
 | Logo | Image + Text | "H" logo mark + "Hybrid Credit Bureau" text |
 | Dashboard | Nav Link | `/` |
-| Institution Management | Nav Group | Sub-items: Data Submission Institutions, Subscriber Institutions |
+| Institution Management | Nav Group | Sub-items: Data Submission Institutions (`/institutions/data-submitters`), Subscriber Institutions (`/institutions/subscribers`) |
+| Consortiums | Nav Link | `/consortiums` (NEW v2.0) |
+| Data Products | Nav Group | Sub-items: Product Configurator (`/data-products/products`), Enquiry Simulation (`/data-products/enquiry-simulation`) (NEW v2.0) |
 | Agents | Nav Link | `/agents` |
 | Data Governance | Nav Group | Sub-items: Dashboard, Schema Mapper Agent, Validation Rules, Identity Resolution Agent, Data Quality Monitoring, Governance Audit Logs |
 | Monitoring | Nav Group | Sub-items: Data Submission API, Data Submission Batch, Inquiry API, SLA Configuration, Alert Engine |
@@ -1349,6 +1694,57 @@ Example:
 | Dual approval — both approve simultaneously | First approval recorded, second sees updated state |
 | Report deleted while viewing | Graceful redirect to report list |
 
+### 11.8 Consortium Management — Exception Scenarios (NEW — v2.0)
+
+| Scenario | System Behaviour | Sample Error Message |
+|----------|-----------------|----------------------|
+| Consortium not found (invalid URL id, e.g. `/consortiums/CST_999`) | Not-found state rendered in page body; back link available. | "Consortium not found. The consortium you are looking for does not exist or may have been removed." |
+| Create wizard Step 1 — Name field empty | Inline validation prevents advancing to Step 2. | "Consortium name is required." below the Name field |
+| Create wizard Step 1 — Type not selected | Inline validation. | "Please select a consortium type." below the Type dropdown |
+| Create wizard Step 2 — No members added | Warning on Next, but allow proceeding (members can be added later). | Toast warning: "No members added. You can add members later from the detail page." |
+| Create wizard Step 2 — No Sponsor assigned | Blocking validation; must have at least one Sponsor. | "At least one member must have the role of Sponsor." |
+| Edit consortium — save fails (network error) | Error toast; user stays in wizard with all entered data preserved. | "Failed to save consortium. Please check your connection and try again." |
+| Consortium list — no results match search | Empty state; clear-search CTA. | "No consortiums match your search. Try adjusting your filters or clear the search." |
+| Consortium list — no results match type/status filter | Empty state with filter-specific message. | "No Closed / Active consortiums found. Try changing the filter." |
+| Members tab — institution has no consortium memberships | Tab renders with empty state (no error). | "This institution is not a member of any consortium." |
+| Data Contribution tab — no data types configured | Badges section shows empty state. | "No data types have been configured for this consortium." |
+
+### 11.9 Data Products — Exception Scenarios (NEW — v2.0)
+
+| Scenario | System Behaviour | Sample Error Message |
+|----------|-----------------|----------------------|
+| Product not found (invalid URL id, e.g. `/data-products/products/PRD_999`) | Not-found state rendered; back link available. | "Product not found. The product you are looking for does not exist." |
+| Create product — Name empty | Inline validation; Save blocked. | "Product name is required." |
+| Create product — No packets selected | Inline validation; Save blocked. | "Please select at least one data packet." |
+| Create product — Price is 0 or negative | Inline validation; Save blocked. | "Price must be greater than 0." |
+| Create product — Price is non-numeric (e.g. "abc") | Inline validation; Save blocked. | "Please enter a valid price." |
+| Edit product — save fails | Error toast; user remains on edit form. | "Failed to update product. Please try again." |
+| Product list — no products match status filter | Empty state with CTA. | "No products match this status filter. Try changing the filter or create a new product." |
+| Product list — empty catalogue (no products created) | Empty state with create CTA. | "No products configured yet. Create your first product to get started." |
+| Product Subscriptions tab — institution has no subscriptions | Tab renders with empty state. | "This institution has no active product subscriptions." |
+
+### 11.10 Enquiry Simulation — Exception Scenarios (NEW — v2.0)
+
+| Scenario | System Behaviour | Sample Error / UI State |
+|----------|-----------------|-------------------------|
+| No products in catalogue | Product dropdown shows placeholder; Run button disabled. | Dropdown: "No products available" (disabled option); Run button has `disabled` prop; tooltip: "Create a product first to run a simulation." |
+| Product selected but all customer fields empty | Simulation allowed; fields default to empty strings in payload. | `"fullName": ""` in Request JSON; response generated with empty customer data. |
+| Include Consortium Data toggle turned OFF | Consortium packets stubbed in response. | `"Consortium Exposure": { "omitted": true, "reason": "consortium_flag_disabled" }` |
+| Include Consortium Data toggle turned ON but product has no consortium packets | No consortium section rendered in response. | Only Bureau and Banking sections shown; no Consortium card. |
+| User edits any input field after Run | Response section disappears immediately; Run button re-enabled. | Response cards are unmounted from DOM; Run button label reverts to "Run" with Play icon. |
+| Run clicked while a run is in progress (button double-click) | Button disabled during processing; second click has no effect. | Button stays in "Running…" state; no duplicate execution. |
+| Response JSON contains deeply nested payload (>300 lines) | ScrollArea allows vertical scrolling within the pre block; no overflow outside card. | Horizontal scroll only within `<pre>` if line length very long; card does not expand page width. |
+| Product has only Bureau packets (no Banking, no Consortium) | Only Bureau section rendered in response. | Banking and Consortium cards are hidden (conditional render when `sections.items.length > 0`). |
+
+### 11.11 Typography and UI — Exception Scenarios (NEW — v2.0)
+
+| Scenario | System Behaviour | Notes |
+|----------|-----------------|-------|
+| Browser OS default font size set to 20px (large text accessibility setting) | All explicit `text-[10px]` and `text-[12px]` classes override browser default; UI renders at intended compact size. | Explicitly sized with arbitrary Tailwind values, not custom tokens that `tailwind-merge` may not resolve. |
+| Custom Tailwind token (e.g. `text-caption`) not resolved by `tailwind-merge` | Fallback to browser default (typically 16px), causing oversized text. | Mitigated by replacing all custom tokens with explicit pixel values (`text-[10px]`) across `button.tsx`, `badge.tsx`, `card.tsx`, page components, and `typography.ts`. |
+| Button height inconsistent across sections | `h-8` (32px) base height with `py-0` for strict vertical control prevents size variation. | All button variants use explicit px-level sizing. |
+| Badge height too tall (e.g. 29px) | Fixed by using `text-[10px] leading-[14px]` and `px-2 py-0.5`. | Badges render at approximately 20px total height consistently. |
+
 ---
 
 ## 12. Performance Requirements
@@ -1480,7 +1876,9 @@ src/
 │   ├── RegisterInstitution.tsx # Registration wizard
 │   ├── agents/                 # AgentsLandingPage, AgentDetailPage, AgentConfigurationPage
 │   ├── approval-queue/         # ApprovalQueueLayout, ApprovalQueuePage
+│   ├── consortiums/            # ConsortiumListPage, ConsortiumDetailPage, ConsortiumWizardPage (NEW v2.0)
 │   ├── data-governance/        # Dashboard, Schema Mapper, Validation Rules, Match Review, Data Quality, Audit Logs
+│   ├── data-products/          # ProductListPage, ProductDetailPage, ProductFormPage, EnquirySimulationPage (NEW v2.0)
 │   ├── institution-tabs/       # AlternateDataTab, AuditTrailTab, BillingTab, ConsentConfigTab, MonitoringTab, ReportsTab, UsersTab
 │   ├── monitoring/             # Data Submission API/Batch, Inquiry API, SLA Config, Alert Engine, FilterBar
 │   ├── reporting/              # ReportListPage, NewReportRequestPage, reporting-store.ts
@@ -1494,7 +1892,9 @@ src/
 │   ├── agents-mock.ts
 │   ├── alert-engine-mock.ts
 │   ├── bureau-operator-mock.ts
-│   └── approval-queue-mock.ts  # Approval queue mock items (6 entries)
+│   ├── approval-queue-mock.ts  # Approval queue mock items (6 entries)
+│   ├── consortiums-mock.ts     # Consortium list + detail mock data (NEW v2.0)
+│   └── products-mock.ts        # Data products + packets mock data (NEW v2.0)
 ├── types/                      # TypeScript interfaces
 │   ├── agents.ts
 │   ├── data-governance.ts
@@ -1533,6 +1933,16 @@ src/
 | `/monitoring/inquiry-api` | MonitoringInquiryApiPage | — (nested) | Protected |
 | `/monitoring/sla-configuration` | MonitoringSlaConfigurationPage | — (nested) | Protected |
 | `/monitoring/alert-engine` | MonitoringAlertEnginePage | — (nested) | Protected |
+| `/consortiums` | ConsortiumListPage | DashboardLayout | Protected (NEW v2.0) |
+| `/consortiums/create` | ConsortiumWizardPage (create mode) | DashboardLayout | Protected (NEW v2.0) |
+| `/consortiums/:id` | ConsortiumDetailPage | DashboardLayout | Protected (NEW v2.0) |
+| `/consortiums/:id/edit` | ConsortiumWizardPage (edit mode) | DashboardLayout | Protected (NEW v2.0) |
+| `/data-products` | Navigate to `/data-products/products` | — | Protected (NEW v2.0) |
+| `/data-products/products` | ProductListPage | DashboardLayout | Protected (NEW v2.0) |
+| `/data-products/products/create` | ProductFormPage (create mode) | DashboardLayout | Protected (NEW v2.0) |
+| `/data-products/products/:id` | ProductDetailPage | DashboardLayout | Protected (NEW v2.0) |
+| `/data-products/products/:id/edit` | ProductFormPage (edit mode) | DashboardLayout | Protected (NEW v2.0) |
+| `/data-products/enquiry-simulation` | EnquirySimulationPage | DashboardLayout | Protected (NEW v2.0) |
 | `/agents` | AgentsLayout → AgentsLandingPage | DashboardLayout | Protected |
 | `/agents/:agentId` | AgentsLayout → AgentDetailPage | DashboardLayout | Protected |
 | `/agents/configuration` | AgentsLayout → AgentConfigurationPage | DashboardLayout | Protected |
@@ -1984,6 +2394,249 @@ Response (200):
 }
 ```
 
+### 14.10 Consortiums (NEW — v2.0)
+
+#### GET /api/consortiums
+
+```json
+Response (200):
+{
+  "data": [
+    {
+      "id": "CST_001",
+      "name": "SME Lending Consortium",
+      "type": "Closed",
+      "status": "Active",
+      "purpose": "Risk sharing",
+      "governanceModel": "Federated",
+      "membersCount": 12,
+      "dataVolume": "1.2M records",
+      "lastUpdated": "2026-03-20",
+      "description": "A closed consortium of 12 SME-focused lenders sharing credit exposure data."
+    }
+  ],
+  "total": 3
+}
+```
+
+#### GET /api/consortiums/:id
+
+```json
+Response (200):
+{
+  "id": "CST_001",
+  "name": "SME Lending Consortium",
+  "type": "Closed",
+  "status": "Active",
+  "purpose": "Risk sharing",
+  "governanceModel": "Federated",
+  "description": "A closed consortium of 12 SME-focused lenders.",
+  "members": [
+    {
+      "institutionId": "1",
+      "institutionName": "First National Bank",
+      "role": "Sponsor",
+      "status": "Active",
+      "joinedDate": "2025-06-01"
+    },
+    {
+      "institutionId": "2",
+      "institutionName": "Nairobi SACCO",
+      "role": "Participant",
+      "status": "Active",
+      "joinedDate": "2025-07-15"
+    }
+  ],
+  "dataContribution": {
+    "totalRecordsShared": 1248320,
+    "lastUpdated": "2026-03-20",
+    "dataTypes": ["Loan Accounts", "Repayment History", "Credit Exposure"]
+  },
+  "dataPolicy": {
+    "shareLoanData": true,
+    "shareRepaymentHistory": true,
+    "allowAggregation": true,
+    "dataVisibility": "full"
+  }
+}
+```
+
+Response (404):
+```json
+{ "error": "Consortium not found", "code": "CST_NOT_FOUND" }
+```
+
+#### POST /api/consortiums
+
+```json
+Request:
+{
+  "name": "East Africa Fintech Network",
+  "type": "Open",
+  "purpose": "Data quality improvement",
+  "governanceModel": "Centralized",
+  "description": "Open consortium for fintech data sharing.",
+  "members": [
+    { "institutionId": "1", "role": "Sponsor" }
+  ],
+  "dataPolicy": {
+    "shareLoanData": true,
+    "shareRepaymentHistory": false,
+    "allowAggregation": true,
+    "dataVisibility": "aggregated_only"
+  }
+}
+
+Response (201):
+{
+  "id": "CST_004",
+  "status": "Active"
+}
+```
+
+### 14.11 Data Products (NEW — v2.0)
+
+#### GET /api/data-products
+
+```json
+Response (200):
+{
+  "data": [
+    {
+      "id": "PRD_001",
+      "name": "SME Credit Decision Pack",
+      "description": "Core SME decisioning with bureau and consortium exposure.",
+      "packetIds": ["PKT_BUREAU_SCORE", "PKT_CONSORTIUM_EXPOSURE"],
+      "packetNames": ["Bureau Score", "Consortium Exposure"],
+      "pricingModel": "subscription",
+      "price": 4500,
+      "status": "active",
+      "lastUpdated": "2026-03-20T15:30:00Z"
+    },
+    {
+      "id": "PRD_002",
+      "name": "Retail Micro-Loan Profiler",
+      "description": "Lightweight profiler for micro-loan decisioning.",
+      "packetIds": ["PKT_BUREAU_SCORE", "PKT_BANKING_SUMMARY"],
+      "packetNames": ["Bureau Score", "Banking Summary"],
+      "pricingModel": "perHit",
+      "price": 12,
+      "status": "active",
+      "lastUpdated": "2026-03-18T09:00:00Z"
+    }
+  ],
+  "total": 3
+}
+```
+
+#### GET /api/data-products/:id
+
+```json
+Response (200):
+{
+  "id": "PRD_001",
+  "name": "SME Credit Decision Pack",
+  "description": "Core SME decisioning with bureau and consortium exposure.",
+  "packets": [
+    { "id": "PKT_BUREAU_SCORE", "name": "Bureau Score", "category": "bureau" },
+    { "id": "PKT_CONSORTIUM_EXPOSURE", "name": "Consortium Exposure", "category": "consortium" }
+  ],
+  "pricingModel": "subscription",
+  "price": 4500,
+  "status": "active",
+  "usageMetrics": {
+    "hits30d": 12480,
+    "activeSubscribers": 24,
+    "errorRatePct": 0.02
+  },
+  "lastUpdated": "2026-03-20T15:30:00Z"
+}
+```
+
+Response (404):
+```json
+{ "error": "Product not found", "code": "PRD_NOT_FOUND" }
+```
+
+#### POST /api/data-products
+
+```json
+Request:
+{
+  "name": "Full Alternate Data Bundle",
+  "description": "All available data packets for comprehensive analysis.",
+  "packetIds": ["PKT_BUREAU_SCORE", "PKT_BANKING_SUMMARY", "PKT_CONSORTIUM_EXPOSURE"],
+  "pricingModel": "subscription",
+  "price": 9200
+}
+
+Response (201):
+{
+  "id": "PRD_003",
+  "status": "active"
+}
+```
+
+#### POST /api/data-products/simulate
+
+```json
+Request:
+{
+  "productId": "PRD_001",
+  "customer": {
+    "fullName": "Jane Wanjiku",
+    "ref": "ID-884921",
+    "mobile": "+254 712 000 000"
+  },
+  "includeConsortiumData": true
+}
+
+Response (200):
+{
+  "enquiryId": "ENQ-1711372800000",
+  "productId": "PRD_001",
+  "productName": "SME Credit Decision Pack",
+  "customer": {
+    "fullName": "Jane Wanjiku",
+    "ref": "ID-884921",
+    "mobile": "+254 712 000 000"
+  },
+  "includeConsortiumData": true,
+  "generatedAt": "2026-03-25T10:00:00.000Z",
+  "packets": {
+    "Bureau Score": {
+      "creditScore": 712,
+      "scoreRange": "300-900",
+      "riskGrade": "B",
+      "totalAccounts": 4,
+      "activeAccounts": 2,
+      "overdueAccounts": 0,
+      "totalOutstanding": 450000,
+      "worstPaymentStatus": "Current"
+    },
+    "Consortium Exposure": {
+      "totalExposure": 1200000,
+      "memberExposures": 3,
+      "highestSingleExposure": 600000,
+      "consortiumRiskFlag": false
+    }
+  }
+}
+```
+
+Response when `includeConsortiumData: false`:
+```json
+{
+  "packets": {
+    "Bureau Score": { "creditScore": 712, "..." },
+    "Consortium Exposure": {
+      "omitted": true,
+      "reason": "consortium_flag_disabled"
+    }
+  }
+}
+```
+
 ### 14.10 Alert Engine
 
 #### GET /api/alerts/active
@@ -2043,6 +2696,11 @@ Institution (1) ──── (N) ApiSubmissionRequest (via API key)
 Institution (1) ──── (N) EnquiryLogEntry (via API key)
 Institution (1) ──── (N) BatchJob
 Institution (1) ──── (N) SlaBreachRecord
+Institution (N) ──── (N) Consortium (via ConsortiumMember)         [NEW v2.0]
+Institution (N) ──── (N) DataProduct (via ProductSubscription)     [NEW v2.0]
+Consortium (1) ──── (N) ConsortiumMember                           [NEW v2.0]
+Consortium (1) ──── (1) ConsortiumDataPolicy                       [NEW v2.0]
+DataProduct (N) ──── (N) DataPacket (via product.packetIds[])      [NEW v2.0]
 ManagedUser (1) ──── (1) RoleDefinition (via role name)
 ManagedUser (1) ──── (N) ActivityEntry
 Agent (1) ──── (N) SubAgent
@@ -2179,6 +2837,63 @@ GovernanceAuditLogEntry (standalone)
 | transformationLogic | string | No | Data transformation formula |
 | workflowStatus | enum (draft, under_review, approved, rolled_back) | Yes | Approval state |
 
+#### Consortium (NEW — v2.0)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| id | string | Yes | Primary key (e.g. "CST_001") |
+| name | string | Yes | Consortium display name |
+| type | enum (Closed, Open) | Yes | Membership model |
+| status | enum (Active, Inactive) | Yes | Operational status |
+| purpose | string | Yes | Business purpose of the consortium |
+| governanceModel | string | Yes | Governance structure (e.g. Federated, Centralized) |
+| description | string | No | Full description |
+| membersCount | number | Yes | Number of member institutions |
+| dataVolume | string | Yes | Human-readable data volume (e.g. "1.2M records") |
+| lastUpdated | string (date) | Yes | Last modification date |
+| dataPolicy | ConsortiumDataPolicy | Yes | Data sharing policy object |
+
+#### ConsortiumDataPolicy (NEW — v2.0)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| shareLoanData | boolean | Yes | Whether loan data is shared |
+| shareRepaymentHistory | boolean | Yes | Whether repayment history is shared |
+| allowAggregation | boolean | Yes | Whether data may be aggregated |
+| dataVisibility | enum (full, aggregated_only) | Yes | Visibility scope |
+
+#### ConsortiumMember (NEW — v2.0)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| consortiumId | string | Yes | Parent consortium reference |
+| institutionId | string | Yes | Member institution reference |
+| institutionName | string | Yes | Denormalized name for display |
+| role | enum (Sponsor, Participant, Observer) | Yes | Member role within consortium |
+| status | enum (Active, Pending, Suspended) | Yes | Membership status |
+| joinedDate | string (date) | Yes | Date membership became active |
+
+#### DataProduct (NEW — v2.0)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| id | string | Yes | Primary key (e.g. "PRD_001") |
+| name | string | Yes | Product display name |
+| description | string | No | Human-readable description |
+| packetIds | string[] | Yes | References to included data packets |
+| pricingModel | enum (perHit, subscription) | Yes | Revenue model |
+| price | number | Yes | Price in local currency units |
+| status | enum (active, draft) | Yes | Publication status |
+| lastUpdated | string (ISO 8601) | Yes | Last modification timestamp |
+
+#### DataPacket (NEW — v2.0)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| id | string | Yes | Primary key (e.g. "PKT_BUREAU_SCORE") |
+| name | string | Yes | Packet display name |
+| category | enum (bureau, banking, consortium) | Yes | Source category used for grouping in Enquiry Simulation response |
+
 #### GovernanceAuditLogEntry
 
 | Field | Type | Required | Description |
@@ -2223,6 +2938,9 @@ GovernanceAuditLogEntry (standalone)
 | Manage Users | ✅ | ❌ | ❌ | ❌ | ❌ |
 | Access API | ✅ | ❌ | ❌ | ❌ | ✅ |
 | View Audit Logs | ✅ | ✅ | ✅ | ❌ | ✅ |
+| Manage Consortiums (NEW v2.0) | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Manage Data Products (NEW v2.0) | ✅ | ✅ | ❌ | ❌ | ❌ |
+| Use Enquiry Simulation (NEW v2.0) | ✅ | ✅ | ✅ | ❌ | ❌ |
 
 #### Authentication Requirements
 
@@ -2430,6 +3148,75 @@ GovernanceAuditLogEntry (standalone)
 | APQ-09 | Reviewed item detail | View a rejected item | Rejection reason displayed in detail drawer | P1 |
 | APQ-10 | Empty state | Filter to status with no items | "No items match the current filters" shown | P1 |
 
+### 18.10 Consortium Management (NEW — v2.0)
+
+| TC ID | Scenario | Steps | Expected Result | Priority |
+|-------|----------|-------|-----------------|----------|
+| CST-01 | Consortium list renders | Navigate to `/consortiums` | List renders with mock consortiums; search, type, and status filters visible | P0 |
+| CST-02 | Search filter | Type "SME" in search | Only "SME Lending Consortium" visible | P0 |
+| CST-03 | Type filter (Closed) | Select "Closed" in Type filter | Only Closed consortiums shown | P0 |
+| CST-04 | Status filter (Inactive) | Select "Inactive" in Status filter | Only Inactive consortiums shown | P0 |
+| CST-05 | Navigate to detail | Click a consortium row/card | Navigates to `/consortiums/:id` with correct data | P0 |
+| CST-06 | Detail tabs | Navigate to consortium detail → click each tab | Overview, Members, Data Contribution all render | P0 |
+| CST-07 | Overview — details card | View Overview tab | Details card shows Purpose, Governance, Status | P0 |
+| CST-08 | Overview — data policy card | View Overview tab | Data Policy card shows all four boolean fields correctly | P0 |
+| CST-09 | Members tab — desktop table | View Members tab on md+ viewport | Table shows Institution, Role, Status, Joined columns | P0 |
+| CST-10 | Members tab — mobile cards | View Members tab on sm viewport | Card layout renders per member | P1 |
+| CST-11 | Data contribution tab | View Data Contribution tab | Records shared, last updated, data types all render | P0 |
+| CST-12 | Create wizard — navigation | Click "Create consortium" | Navigate to `/consortiums/create`; Step 1 renders | P0 |
+| CST-13 | Create wizard — Step 1 validation | Leave Name empty → Click Next | Error: "Consortium name is required." | P0 |
+| CST-14 | Create wizard — Type not selected | Leave Type empty → Click Next | Error: "Please select a consortium type." | P0 |
+| CST-15 | Create wizard — full flow | Complete all 4 steps → Submit | Success toast; navigate to consortium list | P0 |
+| CST-16 | Edit button | Click Edit on consortium detail | Navigate to `/consortiums/:id/edit`; wizard pre-populated | P1 |
+| CST-17 | Not found (invalid ID) | Navigate to `/consortiums/CST_999` | Not-found message rendered; back link available | P0 |
+| CST-18 | Empty list (no match) | Apply filter with no matching results | Empty state: "No consortiums match your search." | P1 |
+| CST-19 | Type badge colors | View list | "Closed" shows primary-tinted badge; "Open" shows secondary-tinted badge | P1 |
+| CST-20 | Status badge colors | View list | "Active" shows success/15 badge; "Inactive" shows muted badge | P1 |
+
+### 18.11 Data Products (NEW — v2.0)
+
+| TC ID | Scenario | Steps | Expected Result | Priority |
+|-------|----------|-------|-----------------|----------|
+| PRD-01 | Product list renders | Navigate to `/data-products/products` | All mock products shown; search and status filters visible | P0 |
+| PRD-02 | Search filter | Type "SME" in search | Only "SME Credit Decision Pack" visible | P0 |
+| PRD-03 | Status filter (Draft) | Select "Draft" | Only draft products shown | P0 |
+| PRD-04 | Navigate to detail | Click a product row | Navigates to `/data-products/products/:id` | P0 |
+| PRD-05 | Product detail — info card | View product detail | Description and Product ID visible with `text-[10px]` sizing | P0 |
+| PRD-06 | Product detail — packets | View Included Packets section | All packet badges render | P0 |
+| PRD-07 | Product detail — pricing | View Pricing card | Model and Price shown | P0 |
+| PRD-08 | Product detail — usage metrics | View Usage Metrics | Hits, Active Subscribers, Error Rate KPI cards render | P0 |
+| PRD-09 | Create product button | Click "Create product" | Navigate to `/data-products/products/create` | P0 |
+| PRD-10 | Create form — validation | Leave Name empty → Save | Error: "Product name is required." | P0 |
+| PRD-11 | Create form — no packets | Select no packets → Save | Error: "Please select at least one data packet." | P0 |
+| PRD-12 | Create form — zero price | Enter 0 as price → Save | Error: "Price must be greater than 0." | P0 |
+| PRD-13 | Create form — full flow | Fill all fields → Save | Product added to list; success toast | P0 |
+| PRD-14 | Edit product | Click Edit on product detail | Navigate to edit form; fields pre-populated | P1 |
+| PRD-15 | Not found (invalid ID) | Navigate to `/data-products/products/PRD_999` | Not-found message; back link available | P0 |
+| PRD-16 | Enquiry simulation button | Click "Enquiry simulation" on product list | Navigate to `/data-products/enquiry-simulation` | P0 |
+
+### 18.12 Enquiry Simulation (NEW — v2.0)
+
+| TC ID | Scenario | Steps | Expected Result | Priority |
+|-------|----------|-------|-----------------|----------|
+| SIM-01 | Page renders | Navigate to `/data-products/enquiry-simulation` | Inputs and Request JSON cards visible side-by-side (desktop) | P0 |
+| SIM-02 | Breadcrumb | View page | "Dashboard → Data Products → Enquiry simulation" | P0 |
+| SIM-03 | Request JSON live update | Change Customer Name | Request JSON preview updates in real time | P0 |
+| SIM-04 | Consortium toggle live update | Toggle "Include Consortium Data" OFF | `"includeConsortiumData": false` in Request JSON | P0 |
+| SIM-05 | Run button state | Before clicking Run | Run button shows Play icon + "Run" text; enabled | P0 |
+| SIM-06 | Run in progress | Click Run | Button shows Loader2 spinner + "Running…"; disabled for 600ms | P0 |
+| SIM-07 | Response appears | After 600ms | Response section fades in; Response JSON card visible | P0 |
+| SIM-08 | Response — bureau section | After Run (PRD_001) | "Bureau" section card shows Bureau Score JSON | P0 |
+| SIM-09 | Response — consortium section (ON) | After Run with toggle ON | Consortium section shows real payload | P0 |
+| SIM-10 | Response — consortium section (OFF) | After Run with toggle OFF | Consortium section shows `{ "omitted": true, "reason": "consortium_flag_disabled" }` | P0 |
+| SIM-11 | Input edit clears response | After Run → change Customer Name | Response section disappears immediately | P0 |
+| SIM-12 | Re-run after edit | Clear response → click Run again | New response generated | P0 |
+| SIM-13 | Desktop two-column layout | View on lg breakpoint | Inputs and Request JSON side-by-side | P0 |
+| SIM-14 | Mobile stacked layout | View on sm breakpoint | Inputs and Request JSON stacked vertically | P1 |
+| SIM-15 | Back button | Click back icon button | Navigate to `/data-products/products` | P0 |
+| SIM-16 | Sidebar link | Click "Enquiry simulation" in sidebar | Navigate to `/data-products/enquiry-simulation` | P0 |
+| SIM-17 | Product select — default | Page loads with products available | First product pre-selected in dropdown | P1 |
+| SIM-18 | Response JSON scroll | After Run with large response | ScrollArea scrolls within the pre block; no page overflow | P1 |
+
 ### 18.10 Navigation & Layout
 
 | TC ID | Scenario | Steps | Expected Result | Priority |
@@ -2509,7 +3296,50 @@ GovernanceAuditLogEntry (standalone)
 | LAP | Loan Against Property |
 | NBFI | Non-Bank Financial Institution |
 | MFI | Microfinance Institution |
+| Consortium | A governed group of institutions that agree to share credit or alternate data under a defined policy framework. |
+| Data Product | A configured, priced bundle of one or more data packets published in the HCB product catalogue for subscriber consumption. |
+| Data Packet | A discrete unit of data output from the bureau or alternate data sources (e.g. Bureau Score, Consortium Exposure, Banking Summary). |
+| Enquiry Simulation | A pre-production testing tool that generates mock API responses for a selected data product without making live bureau API calls. |
+| Closed Consortium | A consortium that only accepts members by explicit invitation from the governing sponsor. |
+| Open Consortium | A consortium that any eligible institution may join without prior invitation. |
+| Sponsor | The primary governance role within a consortium, responsible for policy and membership decisions. |
+| Per Hit | A pricing model where a credit is consumed each time an API enquiry is made for a product. |
+| Subscription | A pricing model where a flat monthly fee covers unlimited or high-volume API calls for a product. |
+| Consortium Stub | The placeholder payload returned in an enquiry simulation response when "Include Consortium Data" is toggled off: `{ "omitted": true, "reason": "consortium_flag_disabled" }`. |
 
 ---
 
-*End of Document*
+## Appendix D: Typography System (NEW — v2.0)
+
+### D.1 Font Scale (Explicit Pixel Values)
+
+All text sizing uses explicit Tailwind arbitrary values to prevent browser-default overrides and ensure visual consistency across environments.
+
+| Usage | Tailwind Class | Rendered Size | Notes |
+|-------|---------------|---------------|-------|
+| Page title (H1) | `text-[19px]` | 19px | Dashboard, list page titles |
+| Section heading (H2) | `text-[14px]` | 14px | Card titles in detail pages |
+| Card title (global default) | `text-[12px] font-semibold` | 12px | Applied in `card.tsx` `CardTitle` |
+| Body text / content | `text-[10px]` | 10px | Paragraphs, descriptions, table cell text |
+| Caption / metadata | `text-[10px] leading-[14px]` | 10px / 14px line-height | Product ID, timestamps |
+| Badge text | `text-[10px] leading-[14px]` | 10px | Applied in `badge.tsx` |
+| Button default | `text-[10px]` | 10px | Applied in `button.tsx` base |
+| Button large | `text-[13px]` | 13px | `size="lg"` variant |
+| KPI numbers | `text-h3` (~16px) | 16px | Usage metrics, consortium scale |
+| Tab triggers | `text-[11px] leading-[18px]` | 11px | Applied via `typography.ts` constant |
+
+### D.2 Button Sizing
+
+| Variant | Height | Horizontal Padding | Font Size | Icon Size |
+|---------|--------|--------------------|-----------|-----------|
+| Default / sm | `h-8` (32px) | `px-3` | `text-[10px]` | 12×12px (`w-3 h-3`) |
+| Large | `h-10` (40px) | `px-6` | `text-[13px]` | 12×12px |
+| Icon | `h-8 w-8` | `p-0` | N/A | 16×16px (`w-4 h-4`) |
+
+### D.3 Rationale
+
+Prior to v2.0, custom Tailwind tokens (`text-caption`, `text-body`, `text-h4`) were used throughout. These are processed by `tailwind-merge` which does not reliably generate CSS specificity overrides for custom font-size tokens, resulting in browser-default 16px text rendering in some components. Version 2.0 replaces all custom tokens with explicit arbitrary pixel values (`text-[Xpx]`) to guarantee consistent rendering.
+
+---
+
+*End of Document — v2.0 (2026-03-25)*
