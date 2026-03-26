@@ -10,7 +10,7 @@ export interface DataPacket {
   status: DataPacketStatus;
 }
 
-export type ProductLifecycleStatus = "draft" | "active";
+export type ProductLifecycleStatus = "draft" | "active" | "approval_pending";
 export type ProductPricingModel = "per_hit" | "subscription";
 
 export interface PacketConfig {

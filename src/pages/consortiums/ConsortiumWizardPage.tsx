@@ -58,11 +58,13 @@ function buildSummaryFromPolicy(policy: ConsortiumDataPolicy): {
   if (policy.shareLoanData) dataTypes.push("Loan performance");
   if (policy.shareRepaymentHistory) dataTypes.push("Repayment history");
   if (policy.allowAggregation) dataTypes.push("Aggregated insights");
-  if (policy.dataVisibility === "aggregated_only") {
-    dataTypes.push("Visibility: aggregated only");
-  } else {
-    dataTypes.push("Visibility: full");
-  }
+  const visibilityLabel =
+    policy.dataVisibility === "masked_pii"
+      ? "Masked PII"
+      : policy.dataVisibility === "derived"
+      ? "Derived"
+      : "Full details";
+  dataTypes.push(`Visibility: ${visibilityLabel}`);
   return {
     totalRecordsShared: "—",
     lastUpdated: new Date().toISOString().replace("T", " ").slice(0, 22) + " UTC",
@@ -563,8 +565,9 @@ export default function ConsortiumWizardPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="full">Full</SelectItem>
-                  <SelectItem value="aggregated_only">Aggregated only</SelectItem>
+                  <SelectItem value="full">Full details</SelectItem>
+                  <SelectItem value="masked_pii">Masked PII</SelectItem>
+                  <SelectItem value="derived">Derived</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -590,7 +593,11 @@ export default function ConsortiumWizardPage() {
                 Loan: {dataPolicy.shareLoanData ? "Yes" : "No"} · Repayment:{" "}
                 {dataPolicy.shareRepaymentHistory ? "Yes" : "No"} · Aggregation:{" "}
                 {dataPolicy.allowAggregation ? "Yes" : "No"} · Visibility:{" "}
-                {dataPolicy.dataVisibility === "full" ? "Full" : "Aggregated only"}
+                {dataPolicy.dataVisibility === "masked_pii"
+                  ? "Masked PII"
+                  : dataPolicy.dataVisibility === "derived"
+                  ? "Derived"
+                  : "Full details"}
               </p>
             </div>
             <Button type="button" onClick={handleSubmit} className="gap-2">

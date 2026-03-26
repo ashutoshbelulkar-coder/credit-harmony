@@ -31,7 +31,6 @@ import {
   type EnquiryConfig,
   type PacketConfig,
   type ProductCatalogPacketGroup,
-  type ProductLifecycleStatus,
 } from "@/data/data-products-mock";
 import { PacketConfigModal } from "@/components/data-products/PacketConfigModal";
 import { toast } from "sonner";
@@ -97,7 +96,6 @@ export default function ProductFormPage() {
   // ── Basic Info ─────────────────────────────────────────────
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [status, setStatus] = useState<ProductLifecycleStatus>("draft");
 
   // ── Packets ────────────────────────────────────────────────
   const [orderedPacketIds, setOrderedPacketIds] = useState<string[]>([]);
@@ -112,14 +110,12 @@ export default function ProductFormPage() {
     if (existing) {
       setName(existing.name);
       setDescription(existing.description);
-      setStatus(existing.status);
       setOrderedPacketIds([...existing.packetIds]);
       setPacketConfigs(existing.packetConfigs ? [...existing.packetConfigs] : []);
       setEnquiryConfig(existing.enquiryConfig ? { ...existing.enquiryConfig } : DEFAULT_ENQUIRY);
     } else if (!isEdit) {
       setName("");
       setDescription("");
-      setStatus("draft");
       setOrderedPacketIds([]);
       setPacketConfigs([]);
       setEnquiryConfig(DEFAULT_ENQUIRY);
@@ -168,23 +164,31 @@ export default function ProductFormPage() {
       toast.error("Select at least one data packet");
       return;
     }
-    const payload = {
-      name: name.trim(),
-      description: description.trim(),
-      status,
-      pricingModel: "per_hit" as const,
-      price: 0,
-      packetIds: orderedPacketIds,
-      packetConfigs,
-      enquiryConfig,
-    };
     if (isEdit && id) {
-      updateProduct(id, payload);
+      updateProduct(id, {
+        name: name.trim(),
+        description: description.trim(),
+        status: existing?.status ?? "approval_pending",
+        pricingModel: "per_hit" as const,
+        price: 0,
+        packetIds: orderedPacketIds,
+        packetConfigs,
+        enquiryConfig,
+      });
       toast.success("Product updated");
       navigate(`/data-products/products/${id}`);
     } else {
-      const row = addProduct(payload);
-      toast.success("Product created");
+      const row = addProduct({
+        name: name.trim(),
+        description: description.trim(),
+        status: "approval_pending",
+        pricingModel: "per_hit" as const,
+        price: 0,
+        packetIds: orderedPacketIds,
+        packetConfigs,
+        enquiryConfig,
+      });
+      toast.success("Product submitted for approval");
       navigate(`/data-products/products/${row.id}`);
     }
   };
@@ -265,21 +269,6 @@ export default function ProductFormPage() {
                   className="max-w-md resize-y min-h-[80px]"
                   placeholder="Describe the purpose of this product..."
                 />
-              </div>
-              <div className="space-y-1.5 max-w-xs">
-                <Label className="text-caption">Status</Label>
-                <Select
-                  value={status}
-                  onValueChange={(v) => setStatus(v as ProductLifecycleStatus)}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="draft">Draft</SelectItem>
-                    <SelectItem value="active">Active</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </CardContent>
           </Card>

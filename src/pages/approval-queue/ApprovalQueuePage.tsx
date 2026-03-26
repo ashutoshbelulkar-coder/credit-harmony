@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ClipboardCheck, Clock, CheckCircle2, XCircle, AlertTriangle, ThumbsUp, ThumbsDown, MessageSquare, Building2, ScrollText } from "lucide-react";
+import { ClipboardCheck, Clock, CheckCircle2, XCircle, AlertTriangle, ThumbsUp, ThumbsDown, MessageSquare, Building2, ScrollText, Users, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -32,8 +32,15 @@ export function ApprovalQueuePage() {
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; item: ApprovalItem | null; mode: "reject" | "changes" }>({ open: false, item: null, mode: "reject" });
   const [reason, setReason] = useState("");
 
+  const tabTypeMap: Record<string, string> = {
+    institutions: "institution",
+    mappings: "schema_mapping",
+    consortiums: "consortium",
+    products: "product",
+  };
+
   const filtered = items.filter((item) => {
-    if (tab !== "all" && item.type !== (tab === "institutions" ? "institution" : "schema_mapping")) return false;
+    if (tab !== "all" && item.type !== tabTypeMap[tab]) return false;
     if (statusFilter !== "all" && item.status !== statusFilter) return false;
     return true;
   });
@@ -99,6 +106,8 @@ export function ApprovalQueuePage() {
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="institutions">Institutions</TabsTrigger>
               <TabsTrigger value="mappings">Schema Mappings</TabsTrigger>
+              <TabsTrigger value="consortiums">Consortiums</TabsTrigger>
+              <TabsTrigger value="products">Products</TabsTrigger>
             </TabsList>
           </Tabs>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -144,8 +153,13 @@ export function ApprovalQueuePage() {
                     <TableRow key={item.id} className="group">
                       <TableCell>
                         <div className="flex items-center gap-1.5">
-                          {item.type === "institution" ? <Building2 className="w-3.5 h-3.5 text-muted-foreground" /> : <ScrollText className="w-3.5 h-3.5 text-muted-foreground" />}
-                          <span className="text-caption font-medium text-muted-foreground capitalize">{item.type === "schema_mapping" ? "Mapping" : "Institution"}</span>
+                          {item.type === "institution" && <Building2 className="w-3.5 h-3.5 text-muted-foreground" />}
+                          {item.type === "schema_mapping" && <ScrollText className="w-3.5 h-3.5 text-muted-foreground" />}
+                          {item.type === "consortium" && <Users className="w-3.5 h-3.5 text-muted-foreground" />}
+                          {item.type === "product" && <Package className="w-3.5 h-3.5 text-muted-foreground" />}
+                          <span className="text-caption font-medium text-muted-foreground">
+                            {item.type === "institution" ? "Institution" : item.type === "schema_mapping" ? "Mapping" : item.type === "consortium" ? "Consortium" : "Product"}
+                          </span>
                         </div>
                       </TableCell>
                       <TableCell>
@@ -188,7 +202,10 @@ export function ApprovalQueuePage() {
                   {statusConfig[detailItem.status].label}
                 </Badge>
                 <Badge variant="outline" className="text-[10px]">
-                  {detailItem.type === "institution" ? "Institution" : "Schema Mapping"}
+                  {detailItem.type === "institution" ? "Institution"
+                    : detailItem.type === "schema_mapping" ? "Schema Mapping"
+                    : detailItem.type === "consortium" ? "Consortium"
+                    : "Product"}
                 </Badge>
               </div>
 

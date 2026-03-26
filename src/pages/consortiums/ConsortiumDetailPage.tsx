@@ -196,9 +196,11 @@ export default function ConsortiumDetailPage() {
                 <p>Allow aggregation: {consortium.dataPolicy.allowAggregation ? "Yes" : "No"}</p>
                 <p>
                   Visibility:{" "}
-                  {consortium.dataPolicy.dataVisibility === "full"
-                    ? "Full"
-                    : "Aggregated only"}
+                  {consortium.dataPolicy.dataVisibility === "masked_pii"
+                    ? "Masked PII"
+                    : consortium.dataPolicy.dataVisibility === "derived"
+                    ? "Derived"
+                    : "Full details"}
                 </p>
               </CardContent>
             </Card>

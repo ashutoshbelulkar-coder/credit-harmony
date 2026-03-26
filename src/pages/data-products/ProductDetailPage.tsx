@@ -18,6 +18,13 @@ import {
 const statusStyles: Record<ProductLifecycleStatus, string> = {
   active: "bg-success/15 text-success",
   draft: "bg-warning/15 text-warning",
+  approval_pending: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+};
+
+const statusLabel: Record<ProductLifecycleStatus, string> = {
+  active: "Active",
+  draft: "Draft",
+  approval_pending: "Approval Pending",
 };
 
 const SCOPE_LABELS: Record<string, string> = {
@@ -104,12 +111,12 @@ export default function ProductDetailPage() {
             <div className="flex flex-wrap items-center gap-2 mt-1">
               <span
                 className={cn(
-                  "px-2 py-0.5 rounded-full capitalize text-xs font-medium",
+                  "px-2 py-0.5 rounded-full text-xs font-medium",
                   badgeTextClasses,
                   statusStyles[product.status]
                 )}
               >
-                {product.status}
+                {statusLabel[product.status]}
               </span>
               <span className="text-caption text-muted-foreground">
                 Updated {formatUpdated(product.lastUpdated)}

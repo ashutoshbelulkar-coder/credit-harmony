@@ -1,7 +1,7 @@
 export type ConsortiumStatus = "active" | "pending" | "inactive";
 export type ConsortiumType = "Closed" | "Open" | "Hybrid";
 
-export type ConsortiumDataVisibility = "full" | "aggregated_only";
+export type ConsortiumDataVisibility = "full" | "masked_pii" | "derived";
 
 export interface ConsortiumDataPolicy {
   shareLoanData: boolean;
@@ -102,7 +102,7 @@ export const consortiums: Consortium[] = [
       shareLoanData: true,
       shareRepaymentHistory: false,
       allowAggregation: true,
-      dataVisibility: "aggregated_only",
+      dataVisibility: "masked_pii",
     },
   },
 ];

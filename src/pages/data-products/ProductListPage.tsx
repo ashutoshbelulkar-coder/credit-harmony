@@ -23,6 +23,13 @@ import {
 const statusStyles: Record<ProductLifecycleStatus, string> = {
   active: "bg-success/15 text-success",
   draft: "bg-warning/15 text-warning",
+  approval_pending: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+};
+
+const statusLabel: Record<ProductLifecycleStatus, string> = {
+  active: "Active",
+  draft: "Draft",
+  approval_pending: "Approval Pending",
 };
 
 export default function ProductListPage() {
@@ -133,7 +140,7 @@ export default function ProductListPage() {
                   variant="outline"
                   className={cn(badgeTextClasses, statusStyles[p.status])}
                 >
-                  {p.status}
+                  {statusLabel[p.status]}
                 </Badge>
               </div>
               <p className="text-caption text-muted-foreground">Product ID: {p.id}</p>
@@ -218,12 +225,12 @@ export default function ProductListPage() {
                     <td className="px-4 py-3">
                       <span
                         className={cn(
-                          "inline-flex px-2 py-0.5 rounded-full capitalize",
+                          "inline-flex px-2 py-0.5 rounded-full",
                           badgeTextClasses,
                           statusStyles[p.status]
                         )}
                       >
-                        {p.status}
+                        {statusLabel[p.status]}
                       </span>
                     </td>
                     <td className="px-4 py-3 text-caption text-muted-foreground tabular-nums">

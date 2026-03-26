@@ -176,16 +176,15 @@ export default function ConsortiumListPage() {
                     "Name",
                     "Type",
                     "Members",
-                    "Data volume",
                     "Status",
-                    "",
+                    "Actions",
                   ].map((label) => (
                     <th
-                      key={label || "actions"}
+                      key={label}
                       className={cn(
                         tableHeaderClasses,
                         "px-4 py-3 text-left font-medium",
-                        label === "" && "w-40 text-right"
+                        label === "Actions" && "w-40 text-right"
                       )}
                     >
                       {label}
@@ -197,7 +196,7 @@ export default function ConsortiumListPage() {
                 {filtered.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={5}
                       className="px-4 py-8 text-center text-caption text-muted-foreground"
                     >
                       No consortiums match your filters.
@@ -222,9 +221,6 @@ export default function ConsortiumListPage() {
                         </td>
                         <td className="px-4 py-3 text-body text-muted-foreground tabular-nums">
                           {c.membersCount}
-                        </td>
-                        <td className="px-4 py-3 text-body text-muted-foreground">
-                          {c.dataVolume}
                         </td>
                         <td className="px-4 py-3">
                           <span
