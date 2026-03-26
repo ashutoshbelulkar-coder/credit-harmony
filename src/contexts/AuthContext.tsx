@@ -1,7 +1,9 @@
-import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import type { UserRole } from "@/data/user-management-mock";
 
 interface User {
   email: string;
+  role: UserRole;
 }
 
 interface AuthContextValue {
@@ -25,7 +27,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const login = useCallback((email: string, _password: string, rememberMe?: boolean) => {
-    const u = { email };
+    // Demo-friendly role heuristic without adding new login UI:
+    // - email containing "+viewer" or starting with "viewer" => Viewer
+    // - otherwise Super Admin
+    const lower = email.toLowerCase();
+    const role: UserRole =
+      lower.includes("+viewer") || lower.startsWith("viewer") ? "Viewer" : "Super Admin";
+    const u: User = { email, role };
     setUser(u);
     if (rememberMe) {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(u));

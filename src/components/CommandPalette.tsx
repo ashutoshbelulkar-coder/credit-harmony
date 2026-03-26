@@ -25,8 +25,7 @@ import { useCatalogMock } from "@/contexts/CatalogMockContext";
 
 const navigationItems = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard, group: "Navigation" },
-  { label: "Data Submission Institutions", path: "/institutions/data-submitters", icon: Building2, group: "Navigation" },
-  { label: "Subscriber Institutions", path: "/institutions/subscribers", icon: Building2, group: "Navigation" },
+  { label: "Member Institutions", path: "/institutions", icon: Building2, group: "Navigation" },
   { label: "Register Institution", path: "/institutions/register", icon: Building2, group: "Navigation" },
   { label: "Consortiums", path: "/consortiums", icon: Building2, group: "Navigation" },
   { label: "Create consortium", path: "/consortiums/create", icon: Building2, group: "Navigation" },

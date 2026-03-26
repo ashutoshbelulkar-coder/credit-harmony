@@ -16,7 +16,7 @@ interface AppHeaderProps {
 
 export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   const { setTheme } = useTheme();
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const navigate = useNavigate();
   const { open: openCommandPalette } = useCommandPalette();
 
@@ -156,8 +156,12 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
               <User className="w-4 h-4 text-primary-foreground" />
             </div>
             <div className="hidden md:flex flex-col text-left min-w-0 overflow-hidden">
-              <span className="text-body font-medium leading-tight truncate">Admin User</span>
-              <span className="text-caption text-muted-foreground leading-tight truncate">Super Admin</span>
+              <span className="text-body font-medium leading-tight truncate">
+                {user?.email ?? "User"}
+              </span>
+              <span className="text-caption text-muted-foreground leading-tight truncate">
+                {user?.role ?? "—"}
+              </span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden md:block shrink-0" />
           </button>

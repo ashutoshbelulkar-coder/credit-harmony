@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -16,6 +15,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ArrowLeft, Loader2, Play } from "lucide-react";
 import {
+  configuredProducts,
   getMockPayloadForPacket,
   getPacketsByIds,
   enquirySectionKeyForPacket,
@@ -34,23 +34,34 @@ const sectionTitles: Record<(typeof sectionOrder)[number], string> = {
 export default function EnquirySimulationPage() {
   const navigate = useNavigate();
   const { products } = useCatalogMock();
-  const [productId, setProductId] = useState(products[0]?.id ?? "");
+  const productOptions = useMemo(() => {
+    const map = new Map(configuredProducts.map((p) => [p.id, p]));
+    products.forEach((p) => map.set(p.id, p));
+    return Array.from(map.values());
+  }, [products]);
+  const [productId, setProductId] = useState(productOptions[0]?.id ?? "");
   const [customerName, setCustomerName] = useState("Jane Wanjiku");
+  const [consumerId, setConsumerId] = useState("CB-00192884");
   const [customerId, setCustomerId] = useState("ID-884921");
+  const [dob, setDob] = useState("1990-08-14");
+  const [governmentId, setGovernmentId] = useState("PAN-AYZPK9123D");
   const [mobile, setMobile] = useState("+254 712 000 000");
-  const [includeConsortium, setIncludeConsortium] = useState(false);
+  const [address, setAddress] = useState("MG Road, Bengaluru");
+  const [enquiryPurpose, setEnquiryPurpose] = useState<
+    "loan_application" | "credit_card" | "kyc_verification" | "account_review" | "collection" | "soft_pull"
+  >("loan_application");
   const [running, setRunning] = useState(false);
   const [response, setResponse] = useState<ReturnType<typeof buildResponse> | null>(null);
 
   useEffect(() => {
-    if (products.length === 0) return;
-    if (!products.some((p) => p.id === productId)) {
-      setProductId(products[0]!.id);
+    if (productOptions.length === 0) return;
+    if (!productOptions.some((p) => p.id === productId)) {
+      setProductId(productOptions[0]!.id);
     }
-  }, [products, productId]);
+  }, [productOptions, productId]);
 
   function buildResponse() {
-    const product = products.find((p) => p.id === productId);
+    const product = productOptions.find((p) => p.id === productId);
     const packetNames =
       product != null
         ? getPacketsByIds(product.packetIds).map((p) => p.name)
@@ -59,10 +70,6 @@ export default function EnquirySimulationPage() {
     const packets: Record<string, Record<string, unknown>> = {};
     packetNames.forEach((name) => {
       const resolved = resolvePayloadPacketName(name);
-      if (resolved === "Consortium Exposure" && !includeConsortium) {
-        packets[name] = { omitted: true, reason: "consortium_flag_disabled" };
-        return;
-      }
       packets[name] = getMockPayloadForPacket(resolved);
     });
 
@@ -71,11 +78,15 @@ export default function EnquirySimulationPage() {
       productId: product?.id,
       productName: product?.name,
       customer: {
+        consumerId,
         fullName: customerName,
         ref: customerId,
+        dob,
+        governmentId,
         mobile,
+        address,
       },
-      includeConsortiumData: includeConsortium,
+      enquiryPurpose,
       generatedAt: new Date().toISOString(),
       packets,
     };
@@ -89,25 +100,29 @@ export default function EnquirySimulationPage() {
       setRunning(false);
     }, 600);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [productId, customerName, customerId, mobile, includeConsortium, products]);
+  }, [productId, customerName, consumerId, customerId, dob, governmentId, mobile, address, enquiryPurpose, productOptions]);
 
   const requestPreview = useMemo(() => {
-    const product = products.find((p) => p.id === productId);
+    const product = productOptions.find((p) => p.id === productId);
     return {
       productId,
       productName: product?.name ?? null,
       customer: {
+        consumerId,
         fullName: customerName,
         ref: customerId,
+        dob,
+        governmentId,
         mobile,
+        address,
       },
-      includeConsortiumData: includeConsortium,
+      enquiryPurpose,
     };
-  }, [productId, customerName, customerId, mobile, includeConsortium, products]);
+  }, [productId, customerName, consumerId, customerId, dob, governmentId, mobile, address, enquiryPurpose, productOptions]);
 
   const groupedSections = useMemo(() => {
     if (!response) return [];
-    const product = products.find((p) => p.id === productId);
+    const product = productOptions.find((p) => p.id === productId);
     const map: Record<
       (typeof sectionOrder)[number],
       { name: string; payload: Record<string, unknown> }[]
@@ -124,7 +139,7 @@ export default function EnquirySimulationPage() {
       title: sectionTitles[key],
       items: map[key],
     }));
-  }, [response, products, productId]);
+  }, [response, productOptions, productId]);
 
   return (
     <div className="space-y-6 w-full max-w-2xl lg:max-w-5xl">
@@ -163,13 +178,13 @@ export default function EnquirySimulationPage() {
             <Select
               value={productId}
               onValueChange={(val) => { setProductId(val); setResponse(null); }}
-              disabled={products.length === 0}
+              disabled={productOptions.length === 0}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select product" />
               </SelectTrigger>
               <SelectContent>
-                {products.map((p) => (
+                {productOptions.map((p) => (
                   <SelectItem key={p.id} value={p.id}>
                     {p.name}
                   </SelectItem>
@@ -189,6 +204,29 @@ export default function EnquirySimulationPage() {
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
+              <Label htmlFor="eq-consumer-id" className="text-[10px]">
+                Consumer ID
+              </Label>
+              <Input
+                id="eq-consumer-id"
+                value={consumerId}
+                onChange={(e) => { setConsumerId(e.target.value); setResponse(null); }}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="eq-dob" className="text-[10px]">
+                DOB
+              </Label>
+              <Input
+                id="eq-dob"
+                type="date"
+                value={dob}
+                onChange={(e) => { setDob(e.target.value); setResponse(null); }}
+              />
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
               <Label htmlFor="eq-id" className="text-[10px]">
                 Customer reference
               </Label>
@@ -199,6 +237,18 @@ export default function EnquirySimulationPage() {
               />
             </div>
             <div className="space-y-1.5">
+              <Label htmlFor="eq-gov-id" className="text-[10px]">
+                Government ID
+              </Label>
+              <Input
+                id="eq-gov-id"
+                value={governmentId}
+                onChange={(e) => { setGovernmentId(e.target.value); setResponse(null); }}
+              />
+            </div>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1.5">
               <Label htmlFor="eq-mobile" className="text-[10px]">
                 Mobile
               </Label>
@@ -208,19 +258,41 @@ export default function EnquirySimulationPage() {
                 onChange={(e) => { setMobile(e.target.value); setResponse(null); }}
               />
             </div>
-          </div>
-          <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-            <div>
-              <p className="text-[10px] font-medium text-foreground">
-                Include consortium data
-              </p>
-              <p className="text-[10px] text-muted-foreground">
-                When off, consortium packet payloads are stubbed.
-              </p>
+            <div className="space-y-1.5">
+              <Label htmlFor="eq-purpose" className="text-[10px]">
+                Enquiry purpose
+              </Label>
+              <Select
+                value={enquiryPurpose}
+                onValueChange={(val) => {
+                  setEnquiryPurpose(
+                    val as "loan_application" | "credit_card" | "kyc_verification" | "account_review" | "collection" | "soft_pull"
+                  );
+                  setResponse(null);
+                }}
+              >
+                <SelectTrigger id="eq-purpose">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="loan_application">Loan Application</SelectItem>
+                  <SelectItem value="credit_card">Credit Card</SelectItem>
+                  <SelectItem value="kyc_verification">KYC / Verification</SelectItem>
+                  <SelectItem value="account_review">Account Review</SelectItem>
+                  <SelectItem value="collection">Collection</SelectItem>
+                  <SelectItem value="soft_pull">Pre-approved / Soft Pull</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <Switch
-              checked={includeConsortium}
-              onCheckedChange={(val) => { setIncludeConsortium(val); setResponse(null); }}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="eq-address" className="text-[10px]">
+              Address
+            </Label>
+            <Input
+              id="eq-address"
+              value={address}
+              onChange={(e) => { setAddress(e.target.value); setResponse(null); }}
             />
           </div>
         </CardContent>
@@ -246,7 +318,7 @@ export default function EnquirySimulationPage() {
         <Button
           type="button"
           onClick={handleRun}
-          disabled={running || products.length === 0}
+          disabled={running || productOptions.length === 0}
           className="gap-2 min-w-[96px]"
         >
           {running ? (

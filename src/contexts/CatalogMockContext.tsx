@@ -18,7 +18,7 @@ import { getInitialConsortiumCatalogState } from "@/data/consortiums-mock";
 import type { ConfiguredProduct } from "@/data/data-products-mock";
 import { getInitialProductsCatalogState } from "@/data/data-products-mock";
 
-const STORAGE_KEY = "hcb_catalog_mock_v1";
+const STORAGE_KEY = "hcb_catalog_mock_v3";
 
 type ConsortiumCatalogState = ReturnType<typeof getInitialConsortiumCatalogState>;
 

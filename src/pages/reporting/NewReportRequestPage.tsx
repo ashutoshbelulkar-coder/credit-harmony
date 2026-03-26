@@ -25,7 +25,9 @@ import {
 } from "@/components/ui/form";
 import { useReporting } from "./ReportingLayout";
 import { useAuth } from "@/contexts/AuthContext";
+import { useCatalogMock } from "@/contexts/CatalogMockContext";
 import { institutions } from "@/data/institutions-mock";
+import { configuredProducts } from "@/data/data-products-mock";
 import { addReport, formatDateRange } from "./reporting-store";
 
 const reportRequestSchema = z.object({
@@ -42,12 +44,6 @@ const reportRequestSchema = z.object({
 
 type ReportRequestFormData = z.infer<typeof reportRequestSchema>;
 
-const PRODUCT_TYPE_OPTIONS = [
-  { value: "all", label: "All" },
-  { value: "snapshot", label: "Snapshot report" },
-  { value: "full", label: "Full enriched report" },
-];
-
 const OUTPUT_FORMAT_OPTIONS = [
   { value: "Excel", label: "Excel" },
   { value: "CSV", label: "CSV" },
@@ -58,6 +54,13 @@ export function NewReportRequestPage() {
   const navigate = useNavigate();
   const { refreshReports } = useReporting();
   const { user } = useAuth();
+  const { products } = useCatalogMock();
+
+  const productOptions = Array.from(
+    new Map(
+      [...configuredProducts, ...products].map((p) => [p.id, { value: p.id, label: p.name }])
+    ).values()
+  );
 
   const form = useForm<ReportRequestFormData>({
     resolver: zodResolver(reportRequestSchema),
@@ -78,7 +81,7 @@ export function NewReportRequestPage() {
       ? institutions.find((i) => i.id === data.institution)?.name ?? data.institution
       : undefined;
     const productLabel = data.productType && data.productType !== "all"
-      ? PRODUCT_TYPE_OPTIONS.find((o) => o.value === data.productType)?.label ?? data.productType
+      ? productOptions.find((o) => o.value === data.productType)?.label ?? data.productType
       : undefined;
 
     addReport({
@@ -178,7 +181,7 @@ export function NewReportRequestPage() {
               name="productType"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-caption">Product Type (Optional)</FormLabel>
+                  <FormLabel className="text-caption">Data Product (Optional)</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value ?? "all"}>
                     <FormControl>
                       <SelectTrigger className="h-9 text-caption">
@@ -186,7 +189,10 @@ export function NewReportRequestPage() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {PRODUCT_TYPE_OPTIONS.map((o) => (
+                      <SelectItem value="all" className="text-caption">
+                        All
+                      </SelectItem>
+                      {productOptions.map((o) => (
                         <SelectItem key={o.value} value={o.value} className="text-caption">
                           {o.label}
                         </SelectItem>

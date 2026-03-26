@@ -51,8 +51,18 @@ interface SourceIngestionStepProps {
 }
 
 export function SourceIngestionStep({ initialMetadata, onComplete }: SourceIngestionStepProps) {
+  const categoryOptions = [
+    "Financial Data",
+    "Business Data",
+    "Behavioral Data",
+    "Consortium Data",
+    "Fraud Signals",
+    "Synthetic / Test",
+  ] as const;
+
   const [sourceName, setSourceName] = useState(initialMetadata?.sourceName ?? "");
   const [sourceType, setSourceType] = useState<SourceType>(initialMetadata?.sourceType ?? "telecom");
+  const [packetCategory, setPacketCategory] = useState<(typeof categoryOptions)[number]>("Behavioral Data");
   const [effectiveDate, setEffectiveDate] = useState(initialMetadata?.effectiveDate ?? "2026-03-01");
   const [versionNumber, setVersionNumber] = useState(initialMetadata?.versionNumber ?? "v1.0");
   const [schemaInput, setSchemaInput] = useState<"upload_json" | "upload_csv" | "paste_json" | "select_previous">("paste_json");
@@ -122,6 +132,24 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
           <div className="space-y-1.5">
             <Label className="text-caption text-muted-foreground">Effective Date</Label>
             <DatePicker value={effectiveDate} onChange={setEffectiveDate} className="h-8" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-caption text-muted-foreground">Data Category</Label>
+            <Select
+              value={packetCategory}
+              onValueChange={(v) => setPacketCategory(v as (typeof categoryOptions)[number])}
+            >
+              <SelectTrigger className="h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {categoryOptions.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-1.5">
             <Label className="text-caption text-muted-foreground">Version</Label>
@@ -237,6 +265,10 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
               <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
                 <span className="text-caption text-muted-foreground">Source Category</span>
                 <Badge variant="secondary" className="text-[9px] capitalize">{metadata.sourceCategory}</Badge>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
+                <span className="text-caption text-muted-foreground">Configured Data Category</span>
+                <Badge variant="secondary" className="text-[9px]">{packetCategory}</Badge>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
                 <span className="text-caption text-muted-foreground">Detection Confidence</span>

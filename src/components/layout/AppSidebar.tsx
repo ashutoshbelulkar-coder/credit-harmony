@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { NavLink, useLocation, useSearchParams } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -27,7 +27,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 const navItems = [
   { title: "Dashboard", path: "/", icon: LayoutDashboard },
-  { title: "Institution Management", path: "/institutions/data-submitters", icon: Building2 },
+  { title: "Institution Management", path: "/institutions", icon: Building2 },
   { title: "Data Products", path: "/data-products/products", icon: Package },
   { title: "Agents", path: "/agents", icon: Brain },
   { title: "Data Governance", path: "/data-governance", icon: ShieldCheck },
@@ -39,8 +39,7 @@ const navItems = [
 ];
 
 const institutionSubItems = [
-  { title: "Data Submission Institutions", path: "/institutions/data-submitters" },
-  { title: "Subscriber Institutions", path: "/institutions/subscribers" },
+  { title: "Member Institutions", path: "/institutions" },
   { title: "Consortiums", path: "/consortiums" },
 ];
 
@@ -96,8 +95,6 @@ function sectionIdFromPathname(pathname: string): SidebarSectionId | null {
 export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const [searchParams] = useSearchParams();
-  const registerFrom = searchParams.get("from");
   /** Accordion: at most one nested section open — follows route, or manual chevron on neutral pages (e.g. dashboard). */
   const [expandedSectionId, setExpandedSectionId] =
     useState<SidebarSectionId | null>(() =>
@@ -361,11 +358,7 @@ export function AppSidebar() {
                   {subItems.map((sub) => {
                     const isSubActive =
                       location.pathname === sub.path ||
-                      location.pathname.startsWith(sub.path + "/") ||
-                      (location.pathname === "/institutions/register" &&
-                        (sub.path === "/institutions/data-submitters"
-                          ? registerFrom !== "subscribers"
-                          : sub.path === "/institutions/subscribers" && registerFrom === "subscribers"));
+                      location.pathname.startsWith(sub.path + "/");
                     return (
                       <NavLink
                         key={sub.path}

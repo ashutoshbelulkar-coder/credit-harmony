@@ -1,10 +1,36 @@
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { DashboardKPIRow } from "@/components/dashboard/DashboardKPIRow";
-import { ApiUsageChart, DataQualityCharts, SlaLatencyChart, RejectionOverrideChart } from "@/components/dashboard/DashboardCharts";
+import {
+  ApiUsageChart,
+  DataQualityCharts,
+  SlaLatencyChart,
+  RejectionOverrideChart,
+} from "@/components/dashboard/DashboardCharts";
 import { DashboardActivity } from "@/components/dashboard/DashboardActivity";
-import { DashboardDateRangePicker } from "@/components/dashboard/DashboardDateRangePicker";
+import {
+  DashboardDateRangePicker,
+  type DashboardDateRange,
+} from "@/components/dashboard/DashboardDateRangePicker";
+import { useState } from "react";
+import { useDashboardSnapshot } from "@/api/dashboard";
+import { AgentFleetCard } from "@/components/dashboard/command-center/AgentFleetCard";
+import { ProcessingThroughputCard } from "@/components/dashboard/command-center/ProcessingThroughputCard";
+import { ActiveBatchPipelineTable } from "@/components/dashboard/command-center/ActiveBatchPipelineTable";
+import { AnomalyFeed } from "@/components/dashboard/command-center/AnomalyFeed";
+import { MemberDataQualityCard } from "@/components/dashboard/command-center/MemberDataQualityCard";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
+import { exportToCsv } from "@/lib/csv-export";
 
 const Dashboard = () => {
+  const [range, setRange] = useState<DashboardDateRange>({ kind: "preset", preset: "30d" });
+  const [throughputView, setThroughputView] = useState<"24h" | "7d">("24h");
+  const snapshot = useDashboardSnapshot(range);
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const readOnly = user?.role === "Viewer";
+
   return (
     <DashboardLayout>
       <div className="space-y-6 md:space-y-8 laptop:space-y-6 desktop:space-y-8 animate-fade-in min-w-0">
@@ -16,15 +42,90 @@ const Dashboard = () => {
               Executive overview of API performance, data quality, and SLA health
             </p>
           </div>
-          <DashboardDateRangePicker />
+          <div className="flex items-center gap-2">
+            <DashboardDateRangePicker value={range} onChange={setRange} />
+            <button
+              type="button"
+              className="h-7 px-2.5 rounded-md border border-border bg-background text-caption hover:bg-muted transition-colors"
+              onClick={() => {
+                const data = snapshot.data;
+                if (!data) {
+                  toast.error("Nothing to export yet.");
+                  return;
+                }
+                exportToCsv(
+                  "dashboard_export",
+                  [
+                    {
+                      apiVolume24h: data.metrics.apiVolume24h,
+                      errorRate: data.metrics.errorRate,
+                      slaHealth: data.metrics.slaHealth,
+                      dataQualityScore: data.metrics.dataQualityScore,
+                    },
+                  ],
+                  [
+                    { key: "apiVolume24h", label: "API Volume (24h)" },
+                    { key: "errorRate", label: "Error Rate (%)" },
+                    { key: "slaHealth", label: "SLA Health (%)" },
+                    { key: "dataQualityScore", label: "Data Quality Score (%)" },
+                  ]
+                );
+                toast.success("Export started.");
+              }}
+              aria-label="Export dashboard report as CSV"
+            >
+              Export
+            </button>
+          </div>
         </div>
 
-        <DashboardKPIRow />
-        <ApiUsageChart />
-        <DataQualityCharts />
-        <SlaLatencyChart />
-        <RejectionOverrideChart />
-        <DashboardActivity />
+        <DashboardKPIRow data={snapshot.data?.metrics} loading={snapshot.isLoading} />
+        <ApiUsageChart data={snapshot.data?.charts} loading={snapshot.isLoading} />
+        <DataQualityCharts data={snapshot.data?.charts} loading={snapshot.isLoading} />
+        <SlaLatencyChart data={snapshot.data?.charts} loading={snapshot.isLoading} />
+        <RejectionOverrideChart data={snapshot.data?.charts} loading={snapshot.isLoading} />
+        <DashboardActivity data={snapshot.data?.activity} loading={snapshot.isLoading} />
+
+        {/* Command Center panels */}
+        <div className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-12">
+          <div className="lg:col-span-5">
+            <AgentFleetCard
+              agents={snapshot.data?.commandCenter?.agents ?? []}
+              loading={snapshot.isLoading}
+            />
+          </div>
+          <div className="lg:col-span-7">
+            <ProcessingThroughputCard
+              seedApiUsageTrend={snapshot.data?.charts.apiUsageTrend ?? []}
+              loading={snapshot.isLoading}
+              view={throughputView}
+              onViewChange={setThroughputView}
+            />
+          </div>
+        </div>
+
+        <ActiveBatchPipelineTable
+          rows={snapshot.data?.commandCenter?.batches ?? []}
+          loading={snapshot.isLoading}
+          onViewAll={() => navigate("/monitoring/data-submission-batch")}
+        />
+
+        <AnomalyFeed
+          anomalies={snapshot.data?.commandCenter?.anomalies ?? []}
+          loading={snapshot.isLoading}
+          readOnly={readOnly}
+          onViewAll={() => navigate("/monitoring/alert-engine")}
+          onAction={(a) => {
+            toast.info(`Opening ${a.ctaLabel}…`);
+            setTimeout(() => navigate(a.href), 600);
+          }}
+        />
+
+        <MemberDataQualityCard
+          points={snapshot.data?.commandCenter?.memberQuality ?? []}
+          loading={snapshot.isLoading}
+          onOpenQualityCenter={() => navigate("/data-governance/data-quality-monitoring")}
+        />
       </div>
     </DashboardLayout>
   );

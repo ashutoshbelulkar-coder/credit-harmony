@@ -35,7 +35,6 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import UsersTab from "./institution-tabs/UsersTab";
-import AlternateDataTab from "./institution-tabs/AlternateDataTab";
 import ConsentConfigTab from "./institution-tabs/ConsentConfigTab";
 import BillingTab from "./institution-tabs/BillingTab";
 import MonitoringTab from "./institution-tabs/MonitoringTab";
@@ -54,10 +53,9 @@ const InstitutionDetail = () => {
   const allTabs = useMemo(() => {
     if (!institution) return [];
     const tabs: string[] = ["Overview"];
-    if (institution.isSubscriber) tabs.push("Alternate Data");
-    tabs.push("API & Access");
-    tabs.push("Consortium Memberships", "Product Subscriptions");
-    if (institution.isSubscriber) tabs.push("Consent Configuration", "Billing");
+    tabs.push("API Access");
+    tabs.push("Consortium", "Products");
+    if (institution.isSubscriber) tabs.push("Consent", "Billing");
     tabs.push("Monitoring", "Reports", "Audit Trail", "Users");
     return tabs;
   }, [institution]);
@@ -143,16 +141,15 @@ const InstitutionDetail = () => {
 
         {/* Tab Content */}
         {activeTab === "Overview" && <OverviewTab institution={institution} />}
-        {activeTab === "Alternate Data" && <AlternateDataTab />}
-        {activeTab === "API & Access" && <ApiAccessTab isDataSubmitter={institution.isDataSubmitter} isSubscriber={institution.isSubscriber} />}
-        {activeTab === "Consortium Memberships" && (
+        {activeTab === "API Access" && <ApiAccessTab isDataSubmitter={institution.isDataSubmitter} isSubscriber={institution.isSubscriber} />}
+        {activeTab === "Consortium" && (
           <ConsortiumMembershipsTab institutionId={institution.id} />
         )}
-        {activeTab === "Product Subscriptions" && (
+        {activeTab === "Products" && (
           <ProductSubscriptionsTab institutionId={institution.id} />
         )}
-        {activeTab === "Consent Configuration" && <ConsentConfigTab />}
-        {activeTab === "Billing" && <BillingTab billingModel={institution.billingModel} creditBalance={institution.creditBalance} />}
+        {activeTab === "Consent" && <ConsentConfigTab />}
+        {activeTab === "Billing" && <BillingTab institutionId={institution.id} billingModel={institution.billingModel} creditBalance={institution.creditBalance} />}
         {activeTab === "Monitoring" && <MonitoringTab isDataSubmitter={institution.isDataSubmitter} isSubscriber={institution.isSubscriber} />}
         {activeTab === "Reports" && <ReportsTab isDataSubmitter={institution.isDataSubmitter} isSubscriber={institution.isSubscriber} />}
         {activeTab === "Audit Trail" && <AuditTrailTab isDataSubmitter={institution.isDataSubmitter} isSubscriber={institution.isSubscriber} />}
@@ -279,7 +276,7 @@ function OverviewTab({ institution }: { institution: Institution }) {
               {institution.creditBalance !== undefined && (
                 <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
                   <p className="text-caption text-muted-foreground">Available Credits</p>
-                  <p className="text-h4 font-bold mt-1 text-foreground">KES {institution.creditBalance.toLocaleString()}</p>
+                  <p className="text-h4 font-bold mt-1 text-foreground">{institution.creditBalance.toLocaleString()}</p>
                 </div>
               )}
               <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">

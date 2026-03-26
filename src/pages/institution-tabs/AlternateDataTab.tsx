@@ -63,7 +63,7 @@ export default function AlternateDataTab() {
                 <div className="space-y-2.5">
                   <div className="flex justify-between">
                     <span className="text-caption text-muted-foreground">Rate Per Call</span>
-                    <span className="text-caption text-foreground font-medium">KES {source.ratePerCall}</span>
+                    <span className="text-caption text-foreground font-medium">{source.ratePerCall}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-caption text-muted-foreground">Consent Required</span>

@@ -1,43 +1,56 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CalendarIcon } from "lucide-react";
-import { format, subDays } from "date-fns";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
 const presets = [
-  { label: "Today", days: 0 },
-  { label: "7d", days: 7 },
-  { label: "30d", days: 30 },
-  { label: "90d", days: 90 },
+  { label: "Today", value: "today" },
+  { label: "7d", value: "7d" },
+  { label: "30d", value: "30d" },
+  { label: "90d", value: "90d" },
 ] as const;
+
+export type DashboardDateRange =
+  | { kind: "preset"; preset: (typeof presets)[number]["value"] }
+  | { kind: "custom"; from: Date; to?: Date };
 
 interface DashboardDateRangePickerProps {
   className?: string;
+  value: DashboardDateRange;
+  onChange: (next: DashboardDateRange) => void;
 }
 
-export function DashboardDateRangePicker({ className }: DashboardDateRangePickerProps) {
-  const [selectedPreset, setSelectedPreset] = useState<string>("30d");
-  const [customFrom, setCustomFrom] = useState<Date | undefined>();
-  const [customTo, setCustomTo] = useState<Date | undefined>();
-  const [showCustom, setShowCustom] = useState(false);
+export function DashboardDateRangePicker({
+  className,
+  value,
+  onChange,
+}: DashboardDateRangePickerProps) {
+  const [customOpen, setCustomOpen] = useState(false);
 
-  const displayLabel = showCustom && customFrom
-    ? `${format(customFrom, "MMM d")} – ${customTo ? format(customTo, "MMM d") : "..."}`
-    : selectedPreset === "0" ? "Today" : `Last ${selectedPreset}`;
+  const displayLabel = useMemo(() => {
+    if (value.kind === "custom") {
+      return `${format(value.from, "MMM d")} – ${value.to ? format(value.to, "MMM d") : "..."}`;
+    }
+    const preset = presets.find((p) => p.value === value.preset);
+    return preset?.label ?? "30d";
+  }, [value]);
 
   return (
     <div className={cn("flex items-center gap-1.5", className)}>
       {presets.map((p) => (
         <Button
           key={p.label}
-          variant={selectedPreset === p.label && !showCustom ? "default" : "outline"}
+          variant={value.kind === "preset" && value.preset === p.value ? "default" : "outline"}
           size="sm"
-          className={cn("h-7 px-2.5 text-caption", selectedPreset === p.label && !showCustom && "text-primary-foreground")}
+          className={cn(
+            "h-7 px-2.5 text-caption",
+            value.kind === "preset" && value.preset === p.value && "text-primary-foreground"
+          )}
           onClick={() => {
-            setSelectedPreset(p.label);
-            setShowCustom(false);
+            onChange({ kind: "preset", preset: p.value });
           }}
         >
           {p.label}
@@ -47,12 +60,13 @@ export function DashboardDateRangePicker({ className }: DashboardDateRangePicker
       <Popover>
         <PopoverTrigger asChild>
           <Button
-            variant={showCustom ? "default" : "outline"}
+            variant={value.kind === "custom" ? "default" : "outline"}
             size="sm"
             className="h-7 px-2.5 text-caption gap-1"
+            onClick={() => setCustomOpen((o) => !o)}
           >
             <CalendarIcon className="w-3 h-3" />
-            {showCustom ? displayLabel : "Custom"}
+            {value.kind === "custom" ? displayLabel : "Custom"}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-3" align="end">
@@ -60,12 +74,12 @@ export function DashboardDateRangePicker({ className }: DashboardDateRangePicker
             <p className="text-caption font-medium text-muted-foreground">Select date range</p>
             <Calendar
               mode="range"
-              selected={customFrom && customTo ? { from: customFrom, to: customTo } : undefined}
+              selected={
+                value.kind === "custom" && value.to ? { from: value.from, to: value.to } : undefined
+              }
               onSelect={(range) => {
                 if (range?.from) {
-                  setCustomFrom(range.from);
-                  setCustomTo(range.to);
-                  setShowCustom(true);
+                  onChange({ kind: "custom", from: range.from, to: range.to });
                 }
               }}
               disabled={(date) => date > new Date()}

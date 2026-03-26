@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import { Download, Pencil } from "lucide-react";
@@ -27,6 +27,9 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import type { BillingModel } from "@/data/institutions-mock";
+import { getProductSubscriptions } from "@/data/institution-extensions-mock";
+import { useCatalogMock } from "@/contexts/CatalogMockContext";
+import { productPricingLabel } from "@/data/data-products-mock";
 
 const creditTrendData = [
   { month: "Sep", spent: 8200 },
@@ -37,37 +40,55 @@ const creditTrendData = [
   { month: "Feb", spent: 14500 },
 ];
 
-const spendBySourceData = [
-  { source: "Bank Stmt", amount: 5800 },
-  { source: "GST", amount: 3200 },
-  { source: "Telecom", amount: 1800 },
-  { source: "Utility", amount: 1200 },
-  { source: "Behavioral", amount: 2500 },
-];
-
 const creditConfig: ChartConfig = {
   spent: { label: "Credits Consumed", color: "hsl(var(--primary))" },
 };
 
 const spendConfig: ChartConfig = {
-  amount: { label: "Spend (KES)", color: "hsl(var(--secondary))" },
+  amount: { label: "Spend", color: "hsl(var(--secondary))" },
 };
 
-interface PricingRow {
-  source: string;
-  enabled: boolean;
-  ratePerCall: number;
-}
+const subStatusClass: Record<string, string> = {
+  active: "bg-success/15 text-success",
+  trial: "bg-primary/15 text-primary",
+  suspended: "bg-muted text-muted-foreground",
+};
 
-const pricingData: PricingRow[] = [
-  { source: "Bank Statement", enabled: true, ratePerCall: 15 },
-  { source: "GST", enabled: true, ratePerCall: 10 },
-  { source: "Telecom", enabled: false, ratePerCall: 8 },
-  { source: "Utility", enabled: true, ratePerCall: 5 },
-  { source: "Behavioral", enabled: false, ratePerCall: 20 },
-];
+export default function BillingTab({
+  institutionId,
+  billingModel: initModel,
+  creditBalance: initBalance,
+}: {
+  institutionId: string;
+  billingModel?: BillingModel;
+  creditBalance?: number;
+}) {
+  const { products: catalogProducts } = useCatalogMock();
 
-export default function BillingTab({ billingModel: initModel, creditBalance: initBalance }: { billingModel?: BillingModel; creditBalance?: number }) {
+  // Join subscriptions with catalog to get rate info
+  const subscriptions = useMemo(() => {
+    const subs = getProductSubscriptions(institutionId);
+    return subs.map((s) => {
+      const cat = catalogProducts.find((p) => p.id === s.productId);
+      return {
+        ...s,
+        pricingModel: cat ? productPricingLabel[cat.pricingModel] : "Per hit",
+        ratePerCall: cat?.price ?? 0,
+      };
+    });
+  }, [institutionId, catalogProducts]);
+
+  // Bar chart — spend per product (mock: rate * enquiry volume estimate)
+  const spendByProductData = useMemo(
+    () =>
+      subscriptions.map((s) => ({
+        productId: s.productId,
+        productName: s.productName,
+        amount: Math.round(s.ratePerCall * (800 + Math.abs(s.productId.charCodeAt(4) ?? 0) * 120)),
+      })),
+    [subscriptions]
+  );
+
   const [isEditing, setIsEditing] = useState(false);
   const [model, setModel] = useState<BillingModel>(initModel || "prepaid");
   const [alertThreshold, setAlertThreshold] = useState(5000);
@@ -166,7 +187,7 @@ export default function BillingTab({ billingModel: initModel, creditBalance: ini
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5">Current Credit Balance</label>
                 <div className="h-10 flex items-center px-3 rounded-md border border-border bg-muted/50 text-sm font-medium text-foreground">
-                  KES {(initBalance ?? 25000).toLocaleString()}
+                  {(initBalance ?? 25000).toLocaleString()}
                 </div>
               </div>
               <div>
@@ -187,7 +208,12 @@ export default function BillingTab({ billingModel: initModel, creditBalance: ini
       {/* Pricing Configuration */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b border-border">
-          <h4 className="text-body font-semibold text-foreground">Pricing Configuration</h4>
+          <div>
+            <h4 className="text-body font-semibold text-foreground">Subscribed Products</h4>
+            <p className="text-caption text-muted-foreground mt-0.5">
+              Pricing is derived from the product catalogue for each active subscription.
+            </p>
+          </div>
           {!isEditing ? (
             <button
               onClick={() => setIsEditing(true)}
@@ -217,27 +243,39 @@ export default function BillingTab({ billingModel: initModel, creditBalance: ini
           <table className="w-full min-w-max">
             <thead className="bg-muted/95 backdrop-blur">
               <tr className="border-b border-border">
-                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Source</th>
-                <th className={cn("text-center px-5 py-3", tableHeaderClasses)}>Enabled</th>
-                <th className={cn("text-right px-5 py-3", tableHeaderClasses)}>Rate Per Call (KES)</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Product</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Pricing model</th>
+                <th className={cn("text-center px-5 py-3", tableHeaderClasses)}>Status</th>
+                <th className={cn("text-right px-5 py-3", tableHeaderClasses)}>Rate</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {pricingData.map((row) => (
-                <tr key={row.source}>
-                  <td className="px-5 py-4 text-body text-foreground">{row.source}</td>
-                  <td className="px-5 py-4 text-center">
-                    <span className={cn(
-                      "px-2.5 py-1 rounded-full",
-                      badgeTextClasses,
-                      row.enabled ? "bg-success/15 text-success" : "bg-muted text-muted-foreground"
-                    )}>
-                      {row.enabled ? "Yes" : "No"}
-                    </span>
+              {subscriptions.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="px-5 py-8 text-center text-caption text-muted-foreground">
+                    No product subscriptions found for this institution.
                   </td>
-                  <td className="px-5 py-4 text-right text-body font-medium text-foreground">{row.ratePerCall}</td>
                 </tr>
-              ))}
+              ) : (
+                subscriptions.map((row) => (
+                  <tr key={row.productId} className="hover:bg-muted/30 transition-colors">
+                    <td className="px-5 py-3.5 text-body text-foreground font-medium">{row.productName}</td>
+                    <td className="px-5 py-3.5 text-body text-muted-foreground">{row.pricingModel}</td>
+                    <td className="px-5 py-3.5 text-center">
+                      <span className={cn(
+                        "px-2.5 py-0.5 rounded-full capitalize",
+                        badgeTextClasses,
+                        subStatusClass[row.status] ?? subStatusClass.active
+                      )}>
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-right text-body font-medium text-foreground tabular-nums">
+                      {row.ratePerCall.toLocaleString()}
+                    </td>
+                  </tr>
+                ))
+              )}
             </tbody>
           </table>
         </div>
@@ -258,16 +296,29 @@ export default function BillingTab({ billingModel: initModel, creditBalance: ini
           </ChartContainer>
         </div>
         <div className="bg-card rounded-xl border border-border p-6">
-          <h4 className="text-body font-semibold text-foreground mb-4">Spend by Source</h4>
-          <ChartContainer config={spendConfig} className="h-[220px] w-full">
-            <BarChart data={spendBySourceData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
-              <XAxis dataKey="source" tick={{ fontSize: 10 }} />
-              <YAxis tick={{ fontSize: 10 }} />
-              <ChartTooltip content={<ChartTooltipContent />} />
-              <Bar dataKey="amount" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ChartContainer>
+          <h4 className="text-body font-semibold text-foreground mb-4">Spend by Product</h4>
+          {spendByProductData.length === 0 ? (
+            <p className="text-caption text-muted-foreground py-8 text-center">No subscriptions to display.</p>
+          ) : (
+            <ChartContainer config={spendConfig} className="h-[220px] w-full">
+              <BarChart data={spendByProductData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
+                <XAxis dataKey="productId" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <ChartTooltip
+                  content={
+                    <ChartTooltipContent
+                      labelFormatter={(_, payload) =>
+                        (payload?.[0]?.payload as { productName?: string } | undefined)?.productName ??
+                        ""
+                      }
+                    />
+                  }
+                />
+                <Bar dataKey="amount" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
+              </BarChart>
+            </ChartContainer>
+          )}
         </div>
       </div>
     </div>

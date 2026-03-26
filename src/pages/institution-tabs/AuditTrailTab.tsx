@@ -15,7 +15,7 @@ const auditEvents: AuditEvent[] = [
   { id: "a2", timestamp: "2026-02-19 08:45:10", user: "System", action: "API Key Rotation", category: "submission", details: "Submission API key auto-rotated (90-day policy)" },
   { id: "a3", timestamp: "2026-02-18 16:30:05", user: "James Oduya", action: "Rate Limit Change", category: "submission", details: "Submission API rate limit changed: 800/min → 1000/min" },
   { id: "a4", timestamp: "2026-02-18 14:22:18", user: "Grace Mutua", action: "Consent Failure", category: "subscriber", details: "3 enquiries rejected: expired consent tokens" },
-  { id: "a5", timestamp: "2026-02-18 11:05:44", user: "Admin", action: "Billing Rate Change", category: "subscriber", details: "Bank Statement rate updated: KES 12 → KES 15 per call" },
+  { id: "a5", timestamp: "2026-02-18 11:05:44", user: "Admin", action: "Billing Rate Change", category: "subscriber", details: "Bank Statement rate updated: 12 → 15 per call" },
   { id: "a6", timestamp: "2026-02-17 15:40:30", user: "System", action: "Alternate Data Toggle", category: "subscriber", details: "Telecom data source disabled" },
   { id: "a7", timestamp: "2026-02-17 10:15:22", user: "Peter Njoroge", action: "API Disable", category: "subscriber", details: "Enquiry API disabled for maintenance" },
   { id: "a8", timestamp: "2026-02-17 10:45:11", user: "Peter Njoroge", action: "API Enable", category: "subscriber", details: "Enquiry API re-enabled after maintenance" },

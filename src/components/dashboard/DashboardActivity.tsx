@@ -1,19 +1,5 @@
 import { BarChart3 } from "lucide-react";
-
-const recentActivity = [
-  { institution: "First National Bank", action: "API key rotated", time: "2 min ago", status: "info" },
-  { institution: "Metro Credit Union", action: "Submission API enabled", time: "15 min ago", status: "success" },
-  { institution: "Pacific Finance Corp", action: "SLA breach warning", time: "1 hour ago", status: "warning" },
-  { institution: "Southern Trust Bank", action: "Onboarding completed", time: "3 hours ago", status: "success" },
-  { institution: "First National Bank", action: "Bulk data upload", time: "5 hours ago", status: "info" },
-];
-
-const topInstitutions = [
-  { name: "First National Bank", requests: "452K", quality: 98, sla: 99.9 },
-  { name: "Metro Credit Union", requests: "284K", quality: 95, sla: 99.5 },
-  { name: "Pacific Finance Corp", requests: "198K", quality: 92, sla: 98.8 },
-  { name: "Southern Trust Bank", requests: "156K", quality: 97, sla: 99.7 },
-];
+import type { DashboardActivitySnapshot } from "@/api/dashboard-types";
 
 const dotColors: Record<string, string> = {
   info: "bg-info",
@@ -21,7 +7,16 @@ const dotColors: Record<string, string> = {
   warning: "bg-warning",
 };
 
-export function DashboardActivity() {
+export function DashboardActivity({
+  data,
+  loading,
+}: {
+  data?: DashboardActivitySnapshot;
+  loading?: boolean;
+}) {
+  const recentActivity = data?.recentActivity ?? [];
+  const topInstitutions = data?.topInstitutions ?? [];
+
   return (
     <section
       aria-label="Operational snapshot"
@@ -34,7 +29,7 @@ export function DashboardActivity() {
           <button className="text-caption font-medium text-primary hover:text-primary/80 transition-colors">View all</button>
         </div>
         <div className="divide-y divide-border">
-          {recentActivity.map((activity, i) => (
+          {(loading ? [] : recentActivity).map((activity, i) => (
             <div key={i} className="flex items-center gap-4 px-1 py-3">
               <div className={`h-2 w-2 shrink-0 rounded-full ${dotColors[activity.status] || ""}`} />
               <div className="min-w-0 flex-1">
@@ -44,6 +39,9 @@ export function DashboardActivity() {
               <span className="whitespace-nowrap text-caption text-muted-foreground">{activity.time}</span>
             </div>
           ))}
+          {loading && (
+            <div className="px-1 py-3 text-caption text-muted-foreground">Loading activity…</div>
+          )}
         </div>
       </div>
 
@@ -54,7 +52,7 @@ export function DashboardActivity() {
           <BarChart3 className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="mt-4 space-y-4">
-          {topInstitutions.map((inst) => (
+          {(loading ? [] : topInstitutions).map((inst) => (
             <div key={inst.name} className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-body font-medium text-foreground">{inst.name}</span>
@@ -70,6 +68,9 @@ export function DashboardActivity() {
               </div>
             </div>
           ))}
+          {loading && (
+            <div className="text-caption text-muted-foreground">Loading institutions…</div>
+          )}
         </div>
       </div>
     </section>

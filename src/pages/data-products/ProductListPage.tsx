@@ -136,6 +136,7 @@ export default function ProductListPage() {
                   {p.status}
                 </Badge>
               </div>
+              <p className="text-caption text-muted-foreground">Product ID: {p.id}</p>
               <p className="text-caption text-muted-foreground">
                 {p.packetIds.length} packets · {productPricingLabel[p.pricingModel]} · Updated{" "}
                 {formatUpdated(p.lastUpdated)}
@@ -171,9 +172,9 @@ export default function ProductListPage() {
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
               <tr className="border-b border-border">
                 {[
+                  "Product ID",
                   "Product name",
                   "Packets",
-                  "Pricing model",
                   "Status",
                   "Last updated",
                   "",
@@ -207,12 +208,12 @@ export default function ProductListPage() {
                     key={p.id}
                     className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
                   >
+                    <td className="px-4 py-3 text-caption text-muted-foreground tabular-nums">
+                      {p.id}
+                    </td>
                     <td className="px-4 py-3 text-body text-foreground">{p.name}</td>
                     <td className="px-4 py-3 text-body text-muted-foreground tabular-nums">
                       {p.packetIds.length}
-                    </td>
-                    <td className="px-4 py-3 text-body text-muted-foreground">
-                      {productPricingLabel[p.pricingModel]}
                     </td>
                     <td className="px-4 py-3">
                       <span

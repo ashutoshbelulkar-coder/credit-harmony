@@ -1,8 +1,37 @@
-import { useMemo } from "react";
+import { useState, useMemo } from "react";
+import { Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
-import { getConsortiumMemberships } from "@/data/institution-extensions-mock";
+import { getConsortiumMemberships, type ConsortiumMembershipRow, type ConsortiumMembershipRole } from "@/data/institution-extensions-mock";
+import { consortiums } from "@/data/consortiums-mock";
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { toast } from "sonner";
 
 interface Props {
   institutionId: string;
@@ -15,13 +44,77 @@ const statusClass: Record<string, string> = {
 };
 
 export default function ConsortiumMembershipsTab({ institutionId }: Props) {
-  const rows = useMemo(
-    () => getConsortiumMemberships(institutionId),
-    [institutionId]
+  const [rows, setRows] = useState<ConsortiumMembershipRow[]>(() =>
+    getConsortiumMemberships(institutionId)
   );
+
+  // ── Add dialog ──────────────────────────────────────────────
+  const [addOpen, setAddOpen] = useState(false);
+  const [selectedConsortiumId, setSelectedConsortiumId] = useState<string>("");
+  const [selectedRole, setSelectedRole] = useState<ConsortiumMembershipRole>("Consumer");
+
+  // Available consortiums = those not already joined
+  const availableConsortiums = useMemo(
+    () => consortiums.filter((c) => !rows.some((r) => r.consortiumId === c.id)),
+    [rows]
+  );
+
+  const handleAddOpen = () => {
+    setSelectedConsortiumId(availableConsortiums[0]?.id ?? "");
+    setSelectedRole("Consumer");
+    setAddOpen(true);
+  };
+
+  const handleAdd = () => {
+    const consortium = consortiums.find((c) => c.id === selectedConsortiumId);
+    if (!consortium) return;
+    const today = new Date().toISOString().split("T")[0];
+    setRows((prev) => [
+      ...prev,
+      {
+        consortiumId: consortium.id,
+        consortiumName: consortium.name,
+        role: selectedRole,
+        status: "pending",
+        joinedDate: today,
+      },
+    ]);
+    toast.success(`Added to ${consortium.name} as ${selectedRole}`);
+    setAddOpen(false);
+  };
+
+  // ── Remove dialog ───────────────────────────────────────────
+  const [removeTarget, setRemoveTarget] = useState<ConsortiumMembershipRow | null>(null);
+
+  const handleRemoveConfirm = () => {
+    if (!removeTarget) return;
+    setRows((prev) =>
+      prev.filter((r) => r.consortiumId !== removeTarget.consortiumId)
+    );
+    toast.success(`Removed from ${removeTarget.consortiumName}`);
+    setRemoveTarget(null);
+  };
 
   return (
     <div className="space-y-4">
+      {/* Top bar */}
+      <div className="flex items-center justify-between">
+        <p className="text-caption text-muted-foreground">
+          {rows.length} membership{rows.length !== 1 ? "s" : ""}
+        </p>
+        <Button
+          type="button"
+          size="sm"
+          className="gap-1.5"
+          onClick={handleAddOpen}
+          disabled={availableConsortiums.length === 0}
+        >
+          <Plus className="w-3.5 h-3.5" />
+          Add to consortium
+        </Button>
+      </div>
+
+      {/* Mobile cards */}
       <div className="md:hidden space-y-3">
         {rows.length === 0 ? (
           <p className="text-caption text-muted-foreground py-6 text-center">
@@ -29,11 +122,21 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
           </p>
         ) : (
           rows.map((r) => (
-            <Card key={`${r.consortiumId}-${r.role}`}>
+            <Card key={r.consortiumId}>
               <CardContent className="pt-4 space-y-1">
-                <p className="text-body font-medium text-foreground">
-                  {r.consortiumName}
-                </p>
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-body font-medium text-foreground">{r.consortiumName}</p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive shrink-0"
+                    onClick={() => setRemoveTarget(r)}
+                    aria-label={`Remove from ${r.consortiumName}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
                 <p className="text-caption text-muted-foreground">
                   Role: {r.role} · Joined {r.joinedDate}
                 </p>
@@ -52,6 +155,7 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
         )}
       </div>
 
+      {/* Desktop table */}
       <div className="hidden md:block bg-card rounded-xl border border-border overflow-hidden">
         <div className="min-w-0 overflow-x-auto">
           <table className="w-full min-w-[640px]">
@@ -69,13 +173,14 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
                 <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
                   Joined date
                 </th>
+                <th className={cn(tableHeaderClasses, "px-4 py-3 w-14")} />
               </tr>
             </thead>
             <tbody>
               {rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={4}
+                    colSpan={5}
                     className="px-4 py-8 text-center text-caption text-muted-foreground"
                   >
                     No consortium memberships for this institution.
@@ -83,13 +188,12 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
                 </tr>
               ) : (
                 rows.map((r) => (
-                  <tr key={`${r.consortiumId}-${r.role}`} className="border-b border-border last:border-0">
-                    <td className="px-4 py-3 text-body text-foreground">
-                      {r.consortiumName}
-                    </td>
-                    <td className="px-4 py-3 text-body text-muted-foreground">
-                      {r.role}
-                    </td>
+                  <tr
+                    key={r.consortiumId}
+                    className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                  >
+                    <td className="px-4 py-3 text-body text-foreground">{r.consortiumName}</td>
+                    <td className="px-4 py-3 text-body text-muted-foreground">{r.role}</td>
                     <td className="px-4 py-3">
                       <span
                         className={cn(
@@ -104,6 +208,18 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
                     <td className="px-4 py-3 text-body text-muted-foreground tabular-nums">
                       {r.joinedDate}
                     </td>
+                    <td className="px-4 py-3 text-right">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => setRemoveTarget(r)}
+                        aria-label={`Remove from ${r.consortiumName}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </td>
                   </tr>
                 ))
               )}
@@ -111,6 +227,106 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
           </table>
         </div>
       </div>
+
+      {/* Add consortium dialog */}
+      <Dialog open={addOpen} onOpenChange={(v) => !v && setAddOpen(false)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add to consortium</DialogTitle>
+            <p className="text-caption text-muted-foreground mt-0.5">
+              Select a consortium and membership role for this institution.
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <Label className="text-caption">Consortium</Label>
+              {availableConsortiums.length === 0 ? (
+                <p className="text-caption text-muted-foreground">
+                  This institution is already a member of all available consortiums.
+                </p>
+              ) : (
+                <Select
+                  value={selectedConsortiumId}
+                  onValueChange={setSelectedConsortiumId}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select consortium" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableConsortiums.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            <div className="space-y-1.5">
+              <Label className="text-caption">Role</Label>
+              <Select
+                value={selectedRole}
+                onValueChange={(v) => setSelectedRole(v as ConsortiumMembershipRole)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Contributor">Contributor</SelectItem>
+                  <SelectItem value="Consumer">Consumer</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-caption text-muted-foreground">
+                Contributors submit data; Consumers read shared data.
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button type="button" variant="outline" size="sm" onClick={() => setAddOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleAdd}
+              disabled={!selectedConsortiumId}
+            >
+              Add membership
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Remove confirmation */}
+      <AlertDialog
+        open={removeTarget !== null}
+        onOpenChange={(v) => !v && setRemoveTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove consortium membership?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will remove{" "}
+              <span className="font-medium text-foreground">
+                {removeTarget?.consortiumName}
+              </span>{" "}
+              from this institution's memberships. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleRemoveConfirm}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { badgeTextClasses } from "@/lib/typography";
 import { useCatalogMock } from "@/contexts/CatalogMockContext";
 import {
   catalogLabelForPacketId,
+  productCatalogPacketOptions,
   productPricingLabel,
   type ProductLifecycleStatus,
 } from "@/data/data-products-mock";
@@ -17,6 +18,23 @@ import {
 const statusStyles: Record<ProductLifecycleStatus, string> = {
   active: "bg-success/15 text-success",
   draft: "bg-warning/15 text-warning",
+};
+
+const SCOPE_LABELS: Record<string, string> = {
+  SELF: "Self Data",
+  NETWORK: "Network Data",
+  CONSORTIUM: "Consortium Data",
+  VERTICAL: "Vertical Data",
+};
+
+const IMPACT_LABELS: Record<string, string> = {
+  LOW: "Soft Pull",
+  HIGH: "Hard Pull",
+};
+
+const MODE_LABELS: Record<string, string> = {
+  LIVE: "Live Data",
+  SYNTHETIC: "Synthetic Data",
 };
 
 export default function ProductDetailPage() {
@@ -41,10 +59,6 @@ export default function ProductDetailPage() {
     );
   }
 
-  const packetLabels = product.packetIds
-    .map((pid) => catalogLabelForPacketId(pid) ?? pid)
-    .filter(Boolean);
-
   const formatUpdated = (iso: string) => {
     try {
       return new Date(iso).toLocaleString(undefined, {
@@ -54,6 +68,15 @@ export default function ProductDetailPage() {
     } catch {
       return iso;
     }
+  };
+
+  /** Returns the configured field count for a packet, falling back to total fields. */
+  const fieldCountLabel = (packetId: string): string => {
+    const opt = productCatalogPacketOptions.find((o) => o.id === packetId);
+    const cfg = product.packetConfigs?.find((c) => c.packetId === packetId);
+    if (!opt) return "";
+    const count = cfg && cfg.selectedFields.length > 0 ? cfg.selectedFields.length : opt.fields.length;
+    return `${count} field${count !== 1 ? "s" : ""}`;
   };
 
   return (
@@ -105,33 +128,81 @@ export default function ProductDetailPage() {
         </Button>
       </div>
 
+      {/* Product Info */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle>Product info</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-muted-foreground">
-          <p className="text-[10px]">{product.description || "—"}</p>
-          <p className="text-[10px]">Product ID: {product.id}</p>
+          <p className="text-caption">{product.description || "—"}</p>
+          <p className="text-caption">Product ID: {product.id}</p>
         </CardContent>
       </Card>
 
+      {/* Included Packets */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle>Included packets</CardTitle>
         </CardHeader>
-        <CardContent className="flex flex-wrap gap-2">
-          {packetLabels.length === 0 ? (
+        <CardContent>
+          {product.packetIds.length === 0 ? (
             <span className="text-caption text-muted-foreground">None selected.</span>
           ) : (
-            packetLabels.map((label) => (
-              <Badge key={label} variant="secondary" className="font-normal">
-                {label}
-              </Badge>
-            ))
+            <ul className="space-y-2">
+              {product.packetIds.map((pid) => {
+                const label = catalogLabelForPacketId(pid) ?? pid;
+                const count = fieldCountLabel(pid);
+                return (
+                  <li
+                    key={pid}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-border/80 px-3 py-2"
+                  >
+                    <span className="text-body text-foreground">{label}</span>
+                    {count && (
+                      <Badge variant="secondary" className="font-mono text-[10px] font-normal shrink-0">
+                        {count}
+                      </Badge>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </CardContent>
       </Card>
 
+      {/* Enquiry Configuration */}
+      {product.enquiryConfig && (
+        <Card>
+          <CardHeader className="pb-2">
+            <CardTitle>Enquiry configuration</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <p className="text-caption text-muted-foreground">Impact type</p>
+                <p className="text-body font-medium text-foreground mt-0.5">
+                  {IMPACT_LABELS[product.enquiryConfig.impactType] ?? product.enquiryConfig.impactType}
+                </p>
+              </div>
+              <div>
+                <p className="text-caption text-muted-foreground">Coverage scope</p>
+                <p className="text-body font-medium text-foreground mt-0.5">
+                  {SCOPE_LABELS[product.enquiryConfig.scope] ?? product.enquiryConfig.scope}
+                </p>
+              </div>
+              <div>
+                <p className="text-caption text-muted-foreground">Data mode</p>
+                <p className="text-body font-medium text-foreground mt-0.5">
+                  {MODE_LABELS[product.enquiryConfig.mode] ?? product.enquiryConfig.mode}
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Pricing */}
       <Card>
         <CardHeader className="pb-2">
           <CardTitle>Pricing</CardTitle>
@@ -152,6 +223,7 @@ export default function ProductDetailPage() {
         </CardContent>
       </Card>
 
+      {/* Usage metrics (mock) */}
       <div>
         <h2 className="text-[12px] font-semibold text-foreground mb-3">Usage metrics (mock)</h2>
         <div className="grid gap-4 sm:grid-cols-3">

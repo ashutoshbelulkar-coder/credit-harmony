@@ -103,12 +103,12 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-h2 font-semibold text-foreground">
-              {roleFilter ? roleLabels[roleFilter] : "Institutions"}
+              {roleFilter ? roleLabels[roleFilter] : "Member Institutions"}
             </h1>
             <p className="text-caption text-muted-foreground mt-1">
               {roleFilter
                 ? `Manage ${roleLabels[roleFilter].toLowerCase()} and their configurations`
-                : "Manage onboarded institutions and their configurations"}
+                : "Manage member institutions and their configurations"}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -131,13 +131,7 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
             </Button>
             <Button
               size="sm"
-              onClick={() =>
-                navigate(
-                  roleFilter === "subscriber"
-                    ? "/institutions/register?from=subscribers"
-                    : "/institutions/register?from=data-submitters"
-                )
-              }
+              onClick={() => navigate("/institutions/register")}
               className="w-full sm:w-auto"
             >
               <Plus className="h-4 w-4" />
