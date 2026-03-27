@@ -1,6 +1,10 @@
 /**
  * Mock data for main menu Monitoring page: Data Submission API, Batch, Inquiry API.
+ * Static chart/KPI data is loaded from monitoring.json.
+ * recentTs(), enquiryLogEntries, apiSubmissionRequests, batchDetails, and
+ * batchConsoleByBatchId remain here due to dynamic timestamps or complex nesting.
  */
+import data from "./monitoring.json";
 
 /* ── Data Submission API ── */
 export type ApiRequestStatus = "Success" | "Failed" | "Partial" | "Rate Limited";
@@ -17,19 +21,14 @@ export interface ApiSubmissionRequest {
 }
 
 /** Map API key to data-submitter institution id (for filter by institution). */
-export const dataSubmitterIdByApiKey: Record<string, string> = {
-  "sk_live_***7x2k": "1",
-  "sk_live_***9a1m": "2",
-  "sk_live_***3b4n": "4",
-};
+export const dataSubmitterIdByApiKey: Record<string, string> =
+  data.dataSubmitterIdByApiKey as Record<string, string>;
 
 /** Map API key to subscriber institution id (for filter by institution). */
-export const subscriberIdByApiKey: Record<string, string> = {
-  "sk_sub_***2a": "1",
-  "sk_sub_***5b": "4",
-  "sk_sub_***8c": "3",
-};
+export const subscriberIdByApiKey: Record<string, string> =
+  data.subscriberIdByApiKey as Record<string, string>;
 
+/** Utility: return an ISO-like timestamp N minutes before now (for realistic log filters). */
 function recentTs(minutesAgo: number): string {
   const d = new Date(Date.now() - minutesAgo * 60 * 1000);
   return d.toISOString().replace("T", " ").slice(0, 19);
@@ -50,38 +49,19 @@ export const apiSubmissionRequests: ApiSubmissionRequest[] = [
   { request_id: "REQ-991201", api_key: "sk_live_***7x2k", endpoint: "/submission/bulk", status: "Partial", response_time_ms: 2800, records: 1800, error_code: "DUPLICATE_RECORDS", timestamp: recentTs(360) },
 ];
 
-export const apiSubmissionKpis = {
-  totalCallsToday: 28492,
-  successRatePercent: 98.2,
-  p95LatencyMs: 245,
-  avgProcessingTimeMs: 182,
-  rejectionRatePercent: 1.8,
-  activeApiKeys: 12,
+export const apiSubmissionKpis = data.apiSubmissionKpis as {
+  totalCallsToday: number;
+  successRatePercent: number;
+  p95LatencyMs: number;
+  avgProcessingTimeMs: number;
+  rejectionRatePercent: number;
+  activeApiKeys: number;
 };
 
-export const apiCallVolume30Days = Array.from({ length: 30 }, (_, i) => ({
-  day: `D-${29 - i}`,
-  volume: 25000 + Math.floor(Math.random() * 15000),
-}));
-
-export const latencyTrendData = Array.from({ length: 30 }, (_, i) => ({
-  day: `D-${29 - i}`,
-  p95: 180 + Math.floor(Math.random() * 80),
-  p99: 220 + Math.floor(Math.random() * 120),
-}));
-
-export const successVsFailureData = [
-  { name: "Success", value: 98.2 },
-  { name: "Failure", value: 1.8 },
-];
-
-export const topRejectionReasonsData = [
-  { reason: "Invalid Schema", count: 142 },
-  { reason: "Missing Mandatory Field", count: 98 },
-  { reason: "Authentication Failure", count: 45 },
-  { reason: "Rate Limit Exceeded", count: 32 },
-  { reason: "Other", count: 18 },
-];
+export const apiCallVolume30Days = data.apiCallVolume30Days as { day: string; volume: number }[];
+export const latencyTrendData = data.latencyTrendData as { day: string; p95: number; p99: number }[];
+export const successVsFailureData = data.successVsFailureData as { name: string; value: number }[];
+export const topRejectionReasonsData = data.topRejectionReasonsData as { reason: string; count: number }[];
 
 /* ── Data Submission Batch ── */
 export type BatchStatus = "Completed" | "Processing" | "Failed" | "Queued" | "Suspended";
@@ -101,42 +81,20 @@ export interface BatchJob {
   institution_id: string;
 }
 
-export const batchJobs: BatchJob[] = [
-  { batch_id: "BATCH-20250919-0001", file_name: "loans_september_batch1.csv", status: "Completed", total_records: 1500, success: 1425, failed: 75, success_rate: 95.0, duration_seconds: 142, uploaded: "2026-02-25 08:00:00", uploaded_by: "Sarah Kimani", institution_id: "1" },
-  { batch_id: "BATCH-20250919-0002", file_name: "accounts_feb_batch2.csv", status: "Processing", total_records: 3200, success: 2100, failed: 0, success_rate: 65.6, duration_seconds: 0, uploaded: "2026-02-25 09:30:00", uploaded_by: "James Oduya", institution_id: "2" },
-  { batch_id: "BATCH-20250919-0003", file_name: "rejected_retry_batch.csv", status: "Failed", total_records: 500, success: 0, failed: 500, success_rate: 0, duration_seconds: 45, uploaded: "2026-02-25 07:15:00", uploaded_by: "System", institution_id: "4" },
-  { batch_id: "BATCH-20250919-0004", file_name: "daily_export_20260225.csv", status: "Queued", total_records: 0, success: 0, failed: 0, success_rate: 0, duration_seconds: 0, uploaded: "2026-02-25 10:00:00", uploaded_by: "Grace Mutua", institution_id: "1" },
-  { batch_id: "BATCH-20250918-0005", file_name: "loans_feb_batch1.csv", status: "Completed", total_records: 2800, success: 2792, failed: 8, success_rate: 99.7, duration_seconds: 210, uploaded: "2026-02-24 16:00:00", uploaded_by: "Sarah Kimani", institution_id: "2" },
-];
+export const batchJobs = data.batchJobs as BatchJob[];
 
-export const batchKpis = {
-  totalBatchesToday: 4,
-  totalRecordsProcessed: 5200,
-  avgBatchSuccessRate: 65.1,
-  failedBatchesCount: 1,
-  avgProcessingDurationSec: 99,
-  queueBacklogCount: 2,
+export const batchKpis = data.batchKpis as {
+  totalBatchesToday: number;
+  totalRecordsProcessed: number;
+  avgBatchSuccessRate: number;
+  failedBatchesCount: number;
+  avgProcessingDurationSec: number;
+  queueBacklogCount: number;
 };
 
-export const batchVolumeTrendData = Array.from({ length: 14 }, (_, i) => ({
-  day: `D-${13 - i}`,
-  batches: 3 + Math.floor(Math.random() * 5),
-  success: 8000 + Math.floor(Math.random() * 4000),
-  failed: 20 + Math.floor(Math.random() * 80),
-}));
-
-export const processingDurationTrendData = Array.from({ length: 14 }, (_, i) => ({
-  day: `D-${13 - i}`,
-  avgSec: 90 + Math.floor(Math.random() * 120),
-}));
-
-export const topBatchErrorCategoriesData = [
-  { category: "Schema Mismatch", count: 45 },
-  { category: "Duplicate Records", count: 28 },
-  { category: "Invalid Format", count: 22 },
-  { category: "Missing Consent", count: 15 },
-  { category: "Other", count: 8 },
-];
+export const batchVolumeTrendData = data.batchVolumeTrendData as { day: string; batches: number; success: number; failed: number }[];
+export const processingDurationTrendData = data.processingDurationTrendData as { day: string; avgSec: number }[];
+export const topBatchErrorCategoriesData = data.topBatchErrorCategoriesData as { category: string; count: number }[];
 
 export interface BatchDetail {
   batch_id: string;
@@ -317,7 +275,7 @@ export const batchDetails: Record<string, BatchDetail> = {
   },
 };
 
-/** Shared flow segment labels for batch console dummy data. */
+/** Shared flow segment labels for batch console data. */
 const FLOW_SEGMENT_LABELS = [
   { phase_id: "CB_CSDF_PRE", label: "Pre-Processing" },
   { phase_id: "CB_CSDF_CPS", label: "Data Validation" },
@@ -582,48 +540,9 @@ export const batchConsoleByBatchId: Record<string, BatchConsoleData> = {
       { phase_id: "COMMIT", label: "Data Commit", status: "Queued", start: undefined, end: undefined },
     ],
     phases: [
-      {
-        phase_id: "CB_CSDF_PRE",
-        name: "Pre-Processing",
-        version: "v1.0",
-        status: "Completed",
-        system_status: "OK",
-        business_status: "OK",
-        start: "10:15:00",
-        end: "10:15:10",
-        elapsed_ms: 10000,
-        flow_uid: "FLOW-20250919-001",
-        phase_uid: "PHASE-PRE-001",
-        counters: { to_be_processed: 850, processing: 0, system_ko: 0, business_ko: 5, business_ok: 845, total_records: 850 },
-      },
-      {
-        phase_id: "CB_CSDF_CPS",
-        name: "Data Validation",
-        version: "v1.2",
-        status: "Completed",
-        system_status: "OK",
-        business_status: "Error",
-        start: "10:15:11",
-        end: "10:15:20",
-        elapsed_ms: 9000,
-        flow_uid: "FLOW-20250919-001",
-        phase_uid: "PHASE-CPS-002",
-        counters: { to_be_processed: 845, processing: 0, system_ko: 0, business_ko: 73, business_ok: 772, total_records: 845 },
-      },
-      {
-        phase_id: "CB_CSDF_LPC",
-        name: "Load Processing",
-        version: "v2.0",
-        status: "Failed",
-        system_status: "Error",
-        business_status: "Unknown",
-        start: "10:15:21",
-        end: undefined,
-        elapsed_ms: undefined,
-        flow_uid: "FLOW-20250919-001",
-        phase_uid: "PHASE-LPC-003",
-        counters: { to_be_processed: 772, processing: 0, system_ko: 1, business_ko: 70, business_ok: 0, total_records: 772 },
-      },
+      { phase_id: "CB_CSDF_PRE", name: "Pre-Processing", version: "v1.0", status: "Completed", system_status: "OK", business_status: "OK", start: "10:15:00", end: "10:15:10", elapsed_ms: 10000, flow_uid: "FLOW-20250919-001", phase_uid: "PHASE-PRE-001", counters: { to_be_processed: 850, processing: 0, system_ko: 0, business_ko: 5, business_ok: 845, total_records: 850 } },
+      { phase_id: "CB_CSDF_CPS", name: "Data Validation", version: "v1.2", status: "Completed", system_status: "OK", business_status: "Error", start: "10:15:11", end: "10:15:20", elapsed_ms: 9000, flow_uid: "FLOW-20250919-001", phase_uid: "PHASE-CPS-002", counters: { to_be_processed: 845, processing: 0, system_ko: 0, business_ko: 73, business_ok: 772, total_records: 845 } },
+      { phase_id: "CB_CSDF_LPC", name: "Load Processing", version: "v2.0", status: "Failed", system_status: "Error", business_status: "Unknown", start: "10:15:21", end: undefined, elapsed_ms: undefined, flow_uid: "FLOW-20250919-001", phase_uid: "PHASE-LPC-003", counters: { to_be_processed: 772, processing: 0, system_ko: 1, business_ko: 70, business_ok: 0, total_records: 772 } },
     ],
     stages: [
       {
@@ -895,34 +814,16 @@ export const enquiryLogEntries: EnquiryLogEntry[] = [
   { enquiry_id: "ENQ-887402", api_key: "sk_sub_***5b", product: "Credit Report + Bank Statement", status: "Success", response_time_ms: 412, consumer_id: "CON-9893", alternate_data_used: 1, timestamp: recentTs(1100) },
 ];
 
-export const enquiryKpis = {
-  totalEnquiriesToday: 3842,
-  successRatePercent: 97.1,
-  p95LatencyMs: 420,
-  alternateDataCalls: 892,
-  rateLimitBreaches: 3,
-  creditConsumption: 3842,
+export const enquiryKpis = data.enquiryKpis as {
+  totalEnquiriesToday: number;
+  successRatePercent: number;
+  p95LatencyMs: number;
+  alternateDataCalls: number;
+  rateLimitBreaches: number;
+  creditConsumption: number;
 };
 
-export const enquiryVolumeData = Array.from({ length: 30 }, (_, i) => ({
-  day: `D-${29 - i}`,
-  volume: 3000 + Math.floor(Math.random() * 1500),
-}));
-
-export const enquiryResponseTimeTrendData = Array.from({ length: 30 }, (_, i) => ({
-  day: `D-${29 - i}`,
-  p95: 250 + Math.floor(Math.random() * 200),
-  avg: 180 + Math.floor(Math.random() * 120),
-}));
-
-export const enquiryByProductData = [
-  { product: "Credit Report", success: 2100, failed: 42 },
-  { product: "Credit Report + Telecom", success: 980, failed: 28 },
-  { product: "Credit Report + Bank Statement", success: 520, failed: 15 },
-  { product: "Full Package", success: 182, failed: 8 },
-];
-
-export const enquirySuccessVsFailedData = [
-  { name: "Success", value: 97.1 },
-  { name: "Failed", value: 2.9 },
-];
+export const enquiryVolumeData = data.enquiryVolumeData as { day: string; volume: number }[];
+export const enquiryResponseTimeTrendData = data.enquiryResponseTimeTrendData as { day: string; p95: number; avg: number }[];
+export const enquiryByProductData = data.enquiryByProductData as { product: string; success: number; failed: number }[];
+export const enquirySuccessVsFailedData = data.enquirySuccessVsFailureData as { name: string; value: number }[];

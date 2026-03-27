@@ -1,12 +1,14 @@
 # Hybrid Credit Bureau (HCB) Admin Portal
 ## Complete Product Requirement Document (PRD) & Business Requirement Document (BRD)
 
-**Document Version:** 2.0
-**Date:** 2026-03-25
-**Status:** Updated — Includes Features Released 25 Mar 2026
+**Document Version:** 2.1
+**Date:** 2026-03-27
+**Status:** Updated — Enterprise Edition; Production-Grade Requirements
 **Classification:** Internal – Confidential
 
 > **Change Summary v2.0:** Added Module 10 (Consortium Management), Module 11 (Data Products), Module 12 (Enquiry Simulation), Institution Detail extensions (Consortium Memberships tab, Product Subscriptions tab). Updated routing table, project structure, exception scenarios (with sample data), data models, API specs, and QA test suites. Typography system documented: compact 10px/12px scale with explicit pixel values to prevent browser-default overrides.
+
+> **Change Summary v2.1 (2026-03-27):** Upgraded performance targets to enterprise scale (99.9% uptime, 5M API calls/day, P95 ≤ 200ms latency). Enhanced security section (RBAC/ABAC, JWT best practices, PII encryption, consent enforcement at API level). Added enterprise use cases (multi-country, multi-bureau, alternate data monetization). Added missing feature modules roadmap (CBS Integration, Live Enquiry, Scheduled Reporting, Multi-Bureau Comparison, Consumer Portal, Advanced RBAC, Data Lineage). Aligned mock data architecture to JSON-only layer (no hardcoded values in components). Updated Business Goals with BO-10–BO-13.
 
 ---
 
@@ -92,6 +94,10 @@ The Hybrid Credit Bureau (HCB) Admin Portal is a centralized enterprise administ
 | BG-06 | Role-based user management with MFA | P1 | Zero unauthorized access incidents |
 | BG-07 | AI-powered credit analysis agents | P1 | 30% analyst productivity gain |
 | BG-08 | Self-service reporting | P1 | 80% of reports generated without engineering |
+| BG-09 | Multi-country deployment with per-country regulatory profiles | P1 | ≥ 2 country deployments live |
+| BG-10 | Multi-bureau integration (CRIF + 1 secondary) | P1 | Secondary bureau failover in < 30s |
+| BG-11 | Alternate data monetization (telecom, utility, bank statements) | P1 | ≥ 3 alternate data packet types live |
+| BG-12 | Production-grade SLA: 99.9% uptime, 5M API calls/day | P0 | Monthly SLA report; load test validated |
 
 ### 2.2 Business Context
 
@@ -131,7 +137,7 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 
 1. V1 operates with a mock data layer; backend APIs will be implemented in V2
 2. Bureau operators are the primary users with full platform access
-3. CRIF is the sole bureau integration (no multi-bureau comparison)
+3. V1: CRIF is the primary bureau integration. V2+: multi-bureau adapter layer supports CRIF, Experian, TransUnion, and local bureaux via pluggable Strategy pattern adapters
 4. Institutions are pre-validated offline before portal registration
 5. All users access the platform via modern browsers (Chrome, Firefox, Safari, Edge)
 6. The platform operates in English only for V1
@@ -1779,22 +1785,47 @@ Example:
 
 ### 12.4 Scalability Expectations
 
-| Dimension | V1 Target | V2 Target |
-|-----------|-----------|-----------|
-| Concurrent users | 50 | 500 |
-| Institutions | 8 (mock) | 1,000+ |
-| Users | 12 (mock) | 10,000+ |
-| API requests/day | N/A (mock) | 5M+ |
-| Report generation | N/A (mock) | 100/hour |
+| Dimension | V1 Target | V2 Target | V3 (Enterprise) |
+|-----------|-----------|-----------|-----------------|
+| Concurrent portal users | 50 | 500 | 5,000+ |
+| Institutions | 8 (mock) | 1,000+ | 10,000+ (multi-country) |
+| Users | 12 (mock) | 10,000+ | 100,000+ |
+| API requests/day | N/A (mock) | 5M+ | 50M+ |
+| Peak API throughput | N/A | 200 calls/sec | 2,000 calls/sec |
+| Report generation | N/A (mock) | 100/hour | 1,000/hour (scheduled) |
+| Data records (bureau) | N/A (mock) | 10M+ | 500M+ |
+| Consortium data volume | N/A (mock) | 50M records/consortium | Unlimited with sharding |
 
 ### 12.5 Availability
 
-| Metric | Target |
-|--------|--------|
-| Uptime | 99.5% |
-| Planned maintenance window | <4 hours/month |
-| Recovery Time Objective (RTO) | <30 minutes |
-| Recovery Point Objective (RPO) | <5 minutes |
+| Metric | V1 Target | Production Target |
+|--------|-----------|-------------------|
+| Uptime | 99.5% | **99.9%** (≤ 8.7 hours downtime/year) |
+| Planned maintenance window | <4 hours/month | <1 hour/month (rolling deploys) |
+| Recovery Time Objective (RTO) | <30 minutes | **< 15 minutes** |
+| Recovery Point Objective (RPO) | <5 minutes | **< 1 minute** (WAL streaming) |
+| Mean Time To Recovery (MTTR) | Not defined | < 10 minutes |
+| Chaos engineering | Not defined | Monthly game day; automated resilience testing |
+
+### 12.6 API Latency Targets (Production)
+
+| Endpoint Type | P50 | P95 | P99 |
+|---------------|-----|-----|-----|
+| Enquiry API (single subject) | < 80ms | < 200ms | < 500ms |
+| Batch status check | < 100ms | < 300ms | < 800ms |
+| Schema validation | < 150ms | < 400ms | < 1,000ms |
+| Report generation (trigger) | < 200ms | < 500ms | < 1,500ms |
+| Dashboard load (with real data) | < 300ms | < 800ms | < 2,000ms |
+
+### 12.7 Caching Strategy (Production)
+
+| Layer | Technology | TTL | Scope |
+|-------|------------|-----|-------|
+| CDN (static assets) | CloudFront / Fastly | 1 year (content-hashed) | JS/CSS bundles, fonts |
+| API response cache | Redis Cluster | 30s – 5min (per endpoint) | Read-heavy dashboard KPIs, institution list |
+| Browser cache (TanStack Query) | In-memory | 5 minutes stale time | All API responses |
+| Database query cache | PgBouncer + PostgreSQL | Per query plan | Aggregation queries for charts |
+| Session tokens | Redis | 15 min (access), 7 days (refresh) | Per authenticated user |
 
 ---
 
@@ -2972,6 +3003,64 @@ GovernanceAuditLogEntry (standalone)
 | Audit Log Immutability | Append-only, no delete capability |
 | Export Controls | Sensitive data exports require elevated permissions |
 
+### 16.3 PII Protection (Enterprise Requirements)
+
+| PII Category | At-Rest Encryption | In-Transit | Display Masking | Audit on Access |
+|---|---|---|---|---|
+| National ID / Government ID | AES-256, field-level | TLS 1.3 | `***-***-4512` (last 4 visible) | Yes — every access logged |
+| Mobile Number (MSISDN) | AES-256, field-level | TLS 1.3 | `+254 7** *** 789` | Yes |
+| Date of Birth | AES-256, field-level | TLS 1.3 | `**/**/1990` | Yes |
+| Full Name | AES-256 at rest | TLS 1.3 | Not masked (non-sensitive) | No (unless PII policy requires) |
+| Email Address | Hashed (bcrypt) for auth; AES-256 for display | TLS 1.3 | Not masked | No |
+| Financial Data (accounts, balances) | AES-256, field-level | TLS 1.3 | Masked except to privileged roles | Yes |
+| Credit Scores | AES-256 at rest | TLS 1.3 | Visible to authorized subscribers only | Yes |
+
+**PII Data Flow Controls:**
+- No PII logged in application logs at any level (DEBUG, INFO, WARN, ERROR)
+- PII fields excluded from API error response bodies
+- Enquiry Simulation tool (V1): synthetic/mock data only; real PII entry blocked via input validation
+- Data minimization: only fields required for the stated purpose collected and retained
+
+### 16.4 Consent Enforcement
+
+| Control | Requirement |
+|---------|-------------|
+| Consent pre-check | Every subscriber enquiry API call validated against a live consent record before bureau data is returned |
+| Consent expiry | Configurable per institution (default: 12 months); expired consent → 403 Forbidden |
+| Consent scope | Enquiry purpose must match granted consent scope (e.g., "loan underwriting" cannot use a "marketing" consent) |
+| Consent audit trail | Every consent grant, withdrawal, expiry, and scope change logged in the Consent Audit Log |
+| Right to withdraw | Subject can withdraw consent; withdrawal propagated to all subscriber institutions within 24 hours |
+| Consortium data | Additional consent required for consortium data packets; opt-in at subject level |
+
+### 16.5 API Key Lifecycle Management
+
+| Stage | Requirement |
+|-------|-------------|
+| Generation | Keys generated server-side using CSPRNG; minimum 256-bit entropy; prefix `hcb_live_` or `hcb_test_` |
+| Storage | Keys stored as PBKDF2-hashed values; plain text never persisted after initial display |
+| Display | Plain text shown once at creation; subsequently masked as `hcb_live_****{last4}` |
+| Rotation | Operator-initiated via portal; old key deactivated after configurable grace period (0–48 hours) |
+| Revocation | Immediate (< 30 seconds propagation) via API gateway key blacklist |
+| Expiry | Optional hard expiry date configurable per key |
+| Scoping | Keys scoped to specific operations (enquiry-only, submission-only, full-access) |
+| Rate limiting | Per-key rate limits (configurable per institution); burst allowance with exponential back-off |
+| Audit | All key events (create, rotate, revoke, expiry) logged in institution audit trail |
+
+### 16.6 RBAC / ABAC Implementation Plan
+
+**Phase 1 (V2 — RBAC):** Role-based access at module level. Roles: Super Admin, Bureau Admin, Analyst, Viewer, API User, Compliance User.
+
+**Phase 2 (V3 — ABAC):** Attribute-based policies for fine-grained control:
+- Institution-scoped roles (Bureau Admin at FNB Kenya ≠ Bureau Admin at Equity Uganda)
+- Time-limited access grants (e.g., contractor access expires after 90 days)
+- Data classification labels (PUBLIC / CONFIDENTIAL / RESTRICTED) on data products and packets
+- Policy engine (e.g., OPA — Open Policy Agent) evaluates access at API gateway
+
+**Enforcement points:**
+1. API Gateway — primary enforcement; validates JWT claims and RBAC policy before routing
+2. Service Layer — secondary validation per operation
+3. Frontend — UI hiding of disallowed actions (UI-only, not a security control)
+
 ---
 
 ## 17. Analytics and Logging
@@ -3342,4 +3431,108 @@ Prior to v2.0, custom Tailwind tokens (`text-caption`, `text-body`, `text-h4`) w
 
 ---
 
-*End of Document — v2.0 (2026-03-25)*
+---
+
+## Appendix E: Enterprise Use Cases (v2.1)
+
+### E.1 Multi-Country Deployment
+
+| Use Case | Description | Key Requirements |
+|----------|-------------|------------------|
+| Kenya Production Launch | Deploy HCB for CBK-regulated credit bureaus | CBK reporting templates; Kenya DPA consent rules; KES billing |
+| Uganda Extension | Second-country deployment sharing codebase | BOU regulatory profile; UGX billing; Luganda UI (future) |
+| Tanzania Extension | Third-country with BOT oversight | BOT reporting; TZS billing; data residency in Dar es Salaam DC |
+| Cross-Border Credit | Enable multi-country subject matching with consent | Cross-border consent workflow; jurisdiction-tagged consent records |
+
+**Deployment model:** Each country = independent HCB instance. Shared: codebase, data models, API contracts. Separate: database, configuration pack, regulatory templates, domain (`ke.hcb.com`, `ug.hcb.com`).
+
+### E.2 Multi-Bureau Integration
+
+| Use Case | Bureau | Trigger | Expected Response |
+|----------|--------|---------|-------------------|
+| Primary enquiry | CRIF | Every subscriber enquiry | Full credit score + bureau tradelines |
+| Comparison enquiry | Experian | Subscriber opts in to multi-bureau package | Parallel score; rendered in split view |
+| Score reconciliation | CRIF + CRB Africa | Bureau admin requests reconciliation | Side-by-side score delta report |
+| Fallback bureau | TransUnion | CRIF API SLA breach (>200ms P95 for >5min) | Automatic fallback via circuit breaker |
+
+**Architecture note:** Bureau Adapter Layer uses the Strategy pattern. Each bureau adapter implements a common `BureauEnquiryAdapter` interface. API Gateway routes to the correct adapter based on product configuration. Circuit breaker (Hystrix/Resilience4j) handles failover.
+
+### E.3 Alternate Data Monetization Use Cases
+
+| Use Case | Alternate Data | Consumer | Revenue Model |
+|----------|----------------|----------|---------------|
+| Thin-file micro-loan | Telecom + Utility | MFI/SACCOs | Per-hit KES 12 |
+| SME working capital | Bank statements + GST | Banks | Subscription KES 15,000/month |
+| Agri-loan | Utility (irrigation) + M-Pesa | Agri-lenders | Per-hit KES 8 |
+| Consumer unsecured | Telecom + Employment | Digital lenders | Per-hit KES 18 |
+| Corporate risk | Tax filing + Trade credit | Banks | Per-hit KES 45 |
+
+**Data sourcing pipeline:**
+1. Institution or bureau operator activates an alternate data source via the Data Governance → Source Ingestion step
+2. Schema Mapper AI auto-maps source fields to HCB canonical schema
+3. Data Governance team reviews and approves mapping
+4. Alternate data packet is created and added to eligible data products
+5. Subscriber institution subscribes to a product containing the alternate data packet
+6. Consent obtained from subject for that alternate data category
+7. Enquiry API returns alternate data packet in response
+
+---
+
+## Appendix F: Missing Feature Modules Roadmap (v2.1)
+
+### F.1 Priority Matrix
+
+| Module | Priority | Phase | Estimated Effort | Dependency |
+|--------|----------|-------|-----------------|------------|
+| Advanced RBAC/ABAC Engine | P0 | V2 | 6–8 weeks | Identity Provider (OIDC) |
+| Live Enquiry API (consent-gated) | P0 | V2 | 4–6 weeks | Consent Engine, Bureau Adapter |
+| CBS Integration Module | P1 | V2 | 8–12 weeks | Institution API, Batch Monitoring |
+| Scheduled Reporting | P1 | V2 | 3–4 weeks | Reporting Backend, Email/SFTP |
+| Multi-Bureau Comparison | P2 | V3 | 4–6 weeks | Bureau Adapter Layer |
+| Consumer Data Portal | P2 | V3 | 10–14 weeks | All backend services + IdP |
+| Data Lineage & Impact Analysis | P2 | V3 | 6–8 weeks | Metadata Store, Schema Mapper |
+| Cross-Country Subject Matching | P2 | V3 | 8–10 weeks | Identity Resolution Engine |
+
+### F.2 Advanced RBAC/ABAC Engine (P0)
+
+**Why P0:** V1 uses all-or-nothing auth. Production requires role-scoped access at institution level. Security risk without RBAC is unacceptable for regulated financial data.
+
+**Acceptance Criteria:**
+- [ ] JWT claims include `role`, `institution_ids[]`, `permissions[]`
+- [ ] API Gateway validates claims before routing any request
+- [ ] Super Admin can assign roles to users; changes take effect in < 5 seconds
+- [ ] Institution-scoped roles: a Bureau Admin at FNB cannot access Equity data
+- [ ] Attribute policies: Analysts cannot export raw PII; Compliance users read-only for most modules
+- [ ] Session invalidation on role change (user re-authenticated within 60 seconds)
+
+### F.3 CBS Integration Module (P1)
+
+**Purpose:** Data submitter institutions connect their Core Banking System to HCB for real-time and batch data submission without manual file preparation.
+
+**Key Screens:**
+1. **CBS Configuration** — Select CBS type (T24/Flexcube/Mambu/Finacle/Custom); enter connection parameters; test connection
+2. **Field Mapping** — Map CBS output fields to HCB canonical schema using Schema Mapper
+3. **Sync Schedule** — Configure real-time push vs. scheduled batch (hourly/daily/weekly)
+4. **Sync Monitor** — Live view of last sync status, record count, error rate, retry queue
+5. **Reconciliation Dashboard** — Compare records in CBS vs. HCB; highlight discrepancies
+
+**Acceptance Criteria:**
+- [ ] At least 3 CBS adapters available at launch (T24, Mambu, Custom REST)
+- [ ] Real-time sync latency < 500ms per record
+- [ ] Batch sync: 1M records/hour throughput
+- [ ] Field mapping leverages existing Schema Mapper AI; no duplicate mapping UX
+
+### F.4 Scheduled Reporting (P1)
+
+**Purpose:** Regulatory and operational reports generated automatically on configurable schedules; delivered to configured destinations.
+
+**Key Features:**
+- Schedule builder UI (cron-like; human-readable: "Every Monday at 06:00 EAT")
+- Delivery destinations: Email (list), SFTP server, AWS S3 bucket
+- Delivery receipt tracking; retry on failure (max 3 retries with exponential back-off)
+- Report archive (90 days; downloadable from portal)
+- Per-schedule audit trail (who created, last run, last result)
+
+---
+
+*End of Document — v2.1 (2026-03-27)*

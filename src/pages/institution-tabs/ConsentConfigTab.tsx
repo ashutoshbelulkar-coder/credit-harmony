@@ -16,19 +16,9 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import tabsData from "@/data/institution-tabs.json";
 
-const consentFailureData = [
-  { day: "Feb 1", failures: 12 },
-  { day: "Feb 3", failures: 8 },
-  { day: "Feb 5", failures: 15 },
-  { day: "Feb 7", failures: 6 },
-  { day: "Feb 9", failures: 22 },
-  { day: "Feb 11", failures: 18 },
-  { day: "Feb 13", failures: 9 },
-  { day: "Feb 15", failures: 14 },
-  { day: "Feb 17", failures: 7 },
-  { day: "Feb 19", failures: 11 },
-];
+const { consentFailureData } = tabsData.consent;
 
 const chartConfig: ChartConfig = {
   failures: { label: "Consent Failures", color: "hsl(var(--danger))" },

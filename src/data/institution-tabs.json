@@ -1,0 +1,88 @@
+{
+  "monitoring": {
+    "submissionKpis": [
+      { "label": "Ingestion Success Rate", "value": "99.2%", "iconKey": "CheckCircle2", "color": "text-success" },
+      { "label": "Schema Drift Alerts", "value": "3", "iconKey": "AlertTriangle", "color": "text-warning" },
+      { "label": "Duplicate Rate", "value": "0.4%", "iconKey": "Copy", "color": "text-foreground" },
+      { "label": "Volume Spikes", "value": "2", "iconKey": "TrendingUp", "color": "text-info" }
+    ],
+    "ingestionTrendData": [
+      { "day": "Feb 13", "success": 4820, "failed": 38 },
+      { "day": "Feb 14", "success": 5100, "failed": 42 },
+      { "day": "Feb 15", "success": 4950, "failed": 35 },
+      { "day": "Feb 16", "success": 5300, "failed": 51 },
+      { "day": "Feb 17", "success": 5080, "failed": 29 },
+      { "day": "Feb 18", "success": 5250, "failed": 44 },
+      { "day": "Feb 19", "success": 5400, "failed": 37 }
+    ],
+    "schemaDriftData": [
+      { "field": "phone_number", "count": 12 },
+      { "field": "date_of_birth", "count": 8 },
+      { "field": "account_type", "count": 5 },
+      { "field": "currency", "count": 3 }
+    ],
+    "subscriberKpis": [
+      { "label": "API Error Rate", "value": "0.18%", "iconKey": "ShieldAlert", "color": "text-danger" },
+      { "label": "Rate Limit Breaches", "value": "7", "iconKey": "Zap", "color": "text-warning" },
+      { "label": "Abuse Detection", "value": "0", "iconKey": "ShieldAlert", "color": "text-success" },
+      { "label": "Alt Data Latency", "value": "142ms", "iconKey": "Clock", "color": "text-foreground" }
+    ],
+    "apiErrorTrendData": [
+      { "day": "Feb 13", "errors": 24, "requests": 12400 },
+      { "day": "Feb 14", "errors": 18, "requests": 13200 },
+      { "day": "Feb 15", "errors": 31, "requests": 11800 },
+      { "day": "Feb 16", "errors": 15, "requests": 14100 },
+      { "day": "Feb 17", "errors": 22, "requests": 13500 },
+      { "day": "Feb 18", "errors": 19, "requests": 14800 },
+      { "day": "Feb 19", "errors": 26, "requests": 15200 }
+    ],
+    "rateLimitBreachData": [
+      { "hour": "06:00", "breaches": 0 },
+      { "hour": "09:00", "breaches": 2 },
+      { "hour": "12:00", "breaches": 3 },
+      { "hour": "15:00", "breaches": 1 },
+      { "hour": "18:00", "breaches": 1 },
+      { "hour": "21:00", "breaches": 0 }
+    ]
+  },
+  "billing": {
+    "creditTrendData": [
+      { "month": "Sep", "spent": 8200 },
+      { "month": "Oct", "spent": 9400 },
+      { "month": "Nov", "spent": 11200 },
+      { "month": "Dec", "spent": 10100 },
+      { "month": "Jan", "spent": 12800 },
+      { "month": "Feb", "spent": 14500 }
+    ]
+  },
+  "consent": {
+    "consentFailureData": [
+      { "day": "Feb 1", "failures": 12 },
+      { "day": "Feb 3", "failures": 8 },
+      { "day": "Feb 5", "failures": 15 },
+      { "day": "Feb 7", "failures": 6 },
+      { "day": "Feb 9", "failures": 22 },
+      { "day": "Feb 11", "failures": 18 },
+      { "day": "Feb 13", "failures": 9 },
+      { "day": "Feb 15", "failures": 14 },
+      { "day": "Feb 17", "failures": 7 },
+      { "day": "Feb 19", "failures": 11 }
+    ]
+  },
+  "users": {
+    "roles": [
+      "Institution Admin",
+      "Operations User",
+      "Compliance User",
+      "Billing User",
+      "Read Only"
+    ],
+    "mockUsers": [
+      { "id": "u1", "firstName": "Sarah", "lastName": "Kimani", "email": "sarah.kimani@fnb.co.ke", "role": "Institution Admin", "status": "active", "lastLogin": "2026-02-19 09:14", "mfaEnabled": true },
+      { "id": "u2", "firstName": "James", "lastName": "Oduya", "email": "james.oduya@fnb.co.ke", "role": "Operations User", "status": "active", "lastLogin": "2026-02-18 16:42", "mfaEnabled": true },
+      { "id": "u3", "firstName": "Grace", "lastName": "Mutua", "email": "grace.mutua@fnb.co.ke", "role": "Compliance User", "status": "active", "lastLogin": "2026-02-17 11:20", "mfaEnabled": false },
+      { "id": "u4", "firstName": "Peter", "lastName": "Njoroge", "email": "peter.njoroge@fnb.co.ke", "role": "Billing User", "status": "inactive", "lastLogin": "2026-01-30 08:55", "mfaEnabled": false },
+      { "id": "u5", "firstName": "Anne", "lastName": "Wanjiku", "email": "anne.wanjiku@fnb.co.ke", "role": "Read Only", "status": "invited", "lastLogin": "—", "mfaEnabled": false }
+    ]
+  }
+}

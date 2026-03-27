@@ -27,18 +27,12 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import type { BillingModel } from "@/data/institutions-mock";
+import tabsData from "@/data/institution-tabs.json";
 import { getProductSubscriptions } from "@/data/institution-extensions-mock";
 import { useCatalogMock } from "@/contexts/CatalogMockContext";
 import { productPricingLabel } from "@/data/data-products-mock";
 
-const creditTrendData = [
-  { month: "Sep", spent: 8200 },
-  { month: "Oct", spent: 9400 },
-  { month: "Nov", spent: 11200 },
-  { month: "Dec", spent: 10100 },
-  { month: "Jan", spent: 12800 },
-  { month: "Feb", spent: 14500 },
-];
+const { creditTrendData } = tabsData.billing;
 
 const creditConfig: ChartConfig = {
   spent: { label: "Credits Consumed", color: "hsl(var(--primary))" },

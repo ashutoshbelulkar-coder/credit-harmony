@@ -28,22 +28,13 @@ import {
   utilityFieldStatistics,
 } from "@/data/schema-mapper-mock";
 import type { IngestedSourceMetadata, ParsedSourceField, SourceFieldStatistics, SourceType } from "@/types/schema-mapper";
+import simulationDefaults from "@/data/simulation-defaults.json";
 
 const similarityChartConfig = {
   similarity: { label: "Similarity %", color: "hsl(var(--primary))" },
 } satisfies ChartConfig;
 
-const SAMPLE_JSON = `{
-  "subscriber_id": "SUB-99821",
-  "customer_name": "Ravi Sharma",
-  "dob": "1990-08-14",
-  "mobile_no": "9876543210",
-  "avg_monthly_bill": 1450.75,
-  "last_payment_status": "DELAYED",
-  "payment_delay_days": 12,
-  "city": "Pune",
-  "account_active": true
-}`;
+const SAMPLE_JSON = simulationDefaults.schemaMapper.sampleJson;
 
 interface SourceIngestionStepProps {
   initialMetadata: IngestedSourceMetadata | null;

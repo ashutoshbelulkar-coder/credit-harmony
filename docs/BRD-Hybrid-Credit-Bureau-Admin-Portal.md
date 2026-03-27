@@ -3,9 +3,9 @@
 
 **Document Type:** Business Requirements Document (BRD)
 **Classification:** Internal – Board & Audit Ready
-**Version:** 2.0
-**Status:** Updated – Includes Features Released 25 Mar 2026
-**Last Updated:** 2026-03-25
+**Version:** 2.1
+**Status:** Updated – Includes Enterprise Use Cases, Security Requirements, Performance Targets, and Roadmap Modules
+**Last Updated:** 2026-03-27
 **Author:** Enterprise Business Analysis
 **Stakeholder Approval:** [To be completed]
 
@@ -17,6 +17,7 @@
 |---------|------------|--------------------|----------------------------------------------------------------------------------------|-------------|
 | 1.0     | 2026-03-18 | Business Analyst   | Initial BRD                                                                            | —           |
 | 2.0     | 2026-03-25 | Business Analyst   | Added Data Products module, Consortium Management, Enquiry Simulation, Institution Detail extensions (Consortium Memberships tab, Product Subscriptions tab); enhanced exception scenarios with sample data; typography and UI consistency standards documented. | —           |
+| 2.1     | 2026-03-27 | Enterprise Business Analysis | Added enterprise use cases (multi-country, multi-bureau, alternate data monetization); upgraded performance targets to production-grade (99.9% uptime, 5M API calls/day); enhanced security requirements (RBAC, ABAC, PII, consent enforcement, JWT best practices, API key lifecycle); added missing feature modules roadmap (CBS Integration, Live Enquiry, Scheduled Reporting, Multi-Bureau Comparison, Consumer Portal); aligned mock data architecture to JSON-only layer. | —           |
 
 **Distribution List:** Product Owner, Engineering Lead, Compliance Officer, Risk Manager, QA Lead, Project Sponsor.
 
@@ -59,7 +60,11 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 | BO-6 | Ensure auditability and compliance readiness                                                    | Audit findings; regulatory exam readiness                   |
 | BO-7 | Provide a configurable data products catalogue with pricing and lifecycle management            | Products published; subscriber adoption rate                |
 | BO-8 | Enable consortium governance for multi-institution data sharing                                 | Active consortiums; records shared per consortium           |
-| BO-9 | Provide pre-production enquiry simulation for subscriber testing                                | Reduction in go-live issues; simulation usage rate          |
+| BO-9  | Provide pre-production enquiry simulation for subscriber testing                                | Reduction in go-live issues; simulation usage rate          |
+| BO-10 | Enable multi-country deployment with configurable regulatory profiles                          | Countries deployed; regulatory variance handled per-country |
+| BO-11 | Support multi-bureau integration (CRIF, Experian, TransUnion, local bureaux)                   | Bureau sources integrated; response latency per provider    |
+| BO-12 | Monetize alternate data streams (telecom, utility, GST, bank statements) as standalone products | Alternate data revenue; data source activation rate         |
+| BO-13 | Achieve production-grade availability and throughput (99.9% uptime, 5M API calls/day)          | Monthly uptime SLA; peak API throughput achieved            |
 
 ---
 
@@ -301,17 +306,28 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 
 ## 7. Non-Functional Requirements
 
-| ID    | Category    | Requirement | Acceptance Criteria |
-|-------|-------------|-------------|---------------------|
-| NFR-1 | Performance | Page load (initial) shall complete within 3 seconds. | Measured with standard tools. |
-| NFR-2 | Performance | SPA navigation shall feel instant (< 300 ms). | No full-page reload for in-app routes. |
-| NFR-3 | Availability | Designed for 99.5% availability. | Documented SLA and runbook. |
-| NFR-4 | Security | All authenticated routes require a valid session. | Unauthenticated access denied. |
-| NFR-5 | Security | Sensitive data (API keys, PII) shall not appear in client logs. | Review of logging and masking. |
-| NFR-6 | Usability | WCAG 2.1 Level AA where applicable. | Accessibility audit or checklist. |
-| NFR-7 | Maintainability | Code follows project structure; key flows testable. | Structure and tests. |
-| NFR-8 | Browser support | Chrome, Edge, Firefox, Safari (current versions). | Test matrix. |
-| NFR-9 | Typography consistency | All text rendered at intended size regardless of browser or OS default font settings. | Visual QA across browsers confirms 10px body text. |
+| ID     | Category        | Requirement | Acceptance Criteria |
+|--------|-----------------|-------------|---------------------|
+| NFR-1  | Performance     | Page load (initial) shall complete within 3 seconds. | Measured with Lighthouse / WebPageTest. |
+| NFR-2  | Performance     | SPA navigation shall feel instant (< 300 ms). | No full-page reload for in-app routes. |
+| NFR-3  | Availability    | Production target: 99.9% uptime (≤8.7 hours downtime/year). | Monthly uptime report; runbook and SLA document required. |
+| NFR-4  | Throughput      | Backend API layer shall sustain 5 million API calls/day (≈58 calls/second average; 200+ calls/second peak). | Load test with k6 or Locust at 2× peak load. |
+| NFR-5  | Latency         | P95 API response time ≤ 200 ms for enquiry calls; ≤ 500 ms for batch status. | Measured at API gateway; P95 latency tracked per endpoint. |
+| NFR-6  | Security        | All authenticated routes require a valid JWT/session; expired tokens must be rejected. | Unauthenticated access denied; expired token returns 401. |
+| NFR-7  | Security        | Sensitive data (API keys, PII, government IDs) shall not appear in client logs, error messages, or non-encrypted channels. | Log review and masking audit; OWASP Top 10 review. |
+| NFR-8  | Security        | RBAC enforced at API gateway level; no frontend-only authorization. | Role-restricted API calls return 403 for unauthorized roles. |
+| NFR-9  | Security        | API keys rotated on schedule; compromised keys revocable in < 30 seconds. | Key rotation test; revocation propagation time measured. |
+| NFR-10 | Security        | JWT tokens: RS256 algorithm, 15-minute access token, 7-day refresh token, audience/issuer validation. | Token inspection and expiry test. |
+| NFR-11 | PII Protection  | All PII fields (NIN, MSISDN, DOB) encrypted at rest (AES-256) and masked in API responses to non-privileged roles. | Encryption at rest confirmed; API response audit. |
+| NFR-12 | Consent         | Every subscriber enquiry must carry a valid, non-expired consent record; system shall reject enquiries without consent. | Consent-expired test case returns 403; audit trail entry created. |
+| NFR-13 | Usability       | WCAG 2.1 Level AA where applicable. | Accessibility audit or checklist. |
+| NFR-14 | Maintainability | All mock/fixture data stored in `src/data/*.json` only; no hardcoded values in components or TypeScript files. | Code audit; grep for inline arrays in `.tsx` files returns zero results. |
+| NFR-15 | Maintainability | Code follows project structure; key flows covered by unit and integration tests. | Test coverage ≥ 70% for critical paths. |
+| NFR-16 | Browser support | Chrome, Edge, Firefox, Safari (current versions). | Cross-browser test matrix. |
+| NFR-17 | Typography      | All text rendered at intended size regardless of browser or OS default font settings. | Visual QA across browsers confirms 10px body text. |
+| NFR-18 | Scalability     | System horizontally scalable; no single-instance bottlenecks in API or data layer. | Auto-scaling test; load balanced across ≥ 2 instances. |
+| NFR-19 | Observability   | All API calls emit structured logs (request ID, institution ID, latency, status code); distributed tracing enabled. | Log sampling confirms structured output; trace IDs propagated. |
+| NFR-20 | DR              | RTO ≤ 30 minutes; RPO ≤ 5 minutes for production data. | DR drill conducted quarterly. |
 
 ---
 
@@ -663,7 +679,124 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 
 ---
 
-## 16. Approval and Sign-Off
+## 16. Enterprise Use Cases
+
+### 16.1 Multi-Country Deployment
+
+HCB is designed for deployment across multiple East African jurisdictions (Kenya, Uganda, Tanzania, Rwanda, Ethiopia). Each country deployment requires:
+
+| Requirement | Detail |
+|-------------|--------|
+| Regulatory profile | Per-country consent rules, data retention periods, mandatory reporting fields (CBK/BOT/BOU/BNR formats) |
+| Jurisdiction tagging | Every institution, consent record, and API key tagged with an ISO 3166-1 jurisdiction code |
+| Currency handling | Billing module supports multi-currency (KES, UGX, TZS, RWF); all pricing stored in base currency with conversion |
+| Language | Portal V1 is English-only; V2 targets Kiswahili and French localisation for East and Central Africa |
+| Data residency | Country-specific deployments must ensure data residency within national borders; cross-border transfers require explicit consent and regulatory approval |
+| Regulatory report generation | Automated generation of CBK/BOT/BOU-specific credit bureau reports at configurable intervals |
+
+**Deployment model:** Each country runs an independent HCB instance sharing a common codebase but with country-specific configuration packs (regulatory profiles, SLA thresholds, data product catalogue, consent templates).
+
+### 16.2 Multi-Bureau Integration
+
+V1 uses CRIF as the sole bureau engine. V2 extends to a multi-bureau federation model:
+
+| Bureau | Region | Integration Type | Use Case |
+|--------|--------|------------------|----------|
+| CRIF | Pan-Africa | Primary (V1) | Credit scoring, identity resolution |
+| Experian | Global | Secondary comparison | Score comparison; subscriber choice |
+| TransUnion | East Africa | Competitive | Portfolio risk overlay |
+| CRB Africa (Metropol, CreditInfo) | Kenya/East Africa | Local | Local score cross-reference |
+| Custom local bureaux | Per-country | Adapter pattern | Regulatory compliance in-country |
+
+**Architecture requirement:** A Bureau Adapter Layer (Strategy pattern) abstracts bureau-specific API formats. The portal's Enquiry Simulation tool must support multi-bureau response rendering, showing per-bureau score packets side by side.
+
+### 16.3 Alternate Data Monetization
+
+HCB supports a structured alternate data monetization model. Data sourced from non-traditional signals is packaged into sellable data products:
+
+| Alternate Data Type | Source | Data Packet Category | Monetization Model |
+|---------------------|--------|---------------------|--------------------|
+| Bank Statements | Open banking APIs / upload | `PKT_BANKING_SUMMARY` | Per-hit (KES 8–25) |
+| Telecom Data | MNO APIs (Safaricom, Airtel, MTN) | `PKT_TELECOM_BEHAVIOUR` | Per-hit (KES 5–15) |
+| Utility Payments | KPLC, ZESCO, UMEME | `PKT_UTILITY_SCORE` | Per-hit (KES 3–10) |
+| GST / Tax Filing | KRA, URA API | `PKT_TAX_COMPLIANCE` | Per-hit (KES 10–30) |
+| E-commerce Behaviour | Jumia, Kilimall partner feeds | `PKT_ECOMMERCE_SCORE` | Subscription |
+| Payroll & Employment | NHIF, NSSF, employer APIs | `PKT_EMPLOYMENT_SCORE` | Per-hit (KES 12–20) |
+
+**Business model:** Bureau operators configure which alternate data packets are included in each data product. Pricing per hit is set at the product level. Usage is tracked per subscriber institution for billing reconciliation. Consent must be obtained from the data subject for each alternate data category used.
+
+---
+
+## 17. Missing Feature Modules (Roadmap)
+
+The following modules are identified as missing from V1/V2 and are required for production-grade enterprise operation. These should be prioritized for V3 and beyond:
+
+### 17.1 CBS Integration Module
+
+| Attribute | Detail |
+|-----------|--------|
+| **Purpose** | Direct integration with Core Banking Systems (T24, Flexcube, Mambu, Finacle) for real-time data submission and batch file exchange |
+| **Key features** | Middleware adapter configuration per CBS type; bi-directional sync; batch file format mapping (ISO 20022, proprietary); reconciliation dashboard |
+| **Priority** | P1 — required for real-time data submitters |
+| **Dependencies** | Institution API, Batch Monitoring module, Schema Mapper |
+
+### 17.2 Live Enquiry API (Production Simulation)
+
+| Attribute | Detail |
+|-----------|--------|
+| **Purpose** | Upgrade Enquiry Simulation from mock-only to live bureau API calls with real consent enforcement |
+| **Key features** | Consent pre-check before API call; PII masking in response preview; per-simulation audit log entry; rate-limiting per operator |
+| **Priority** | P1 — required for subscriber go-live testing |
+| **Dependencies** | Bureau Adapter Layer, Consent Engine, Audit Service |
+
+### 17.3 Scheduled and Automated Reporting
+
+| Attribute | Detail |
+|-----------|--------|
+| **Purpose** | Enable recurring report generation on configurable schedules (daily, weekly, monthly) with email/SFTP delivery |
+| **Key features** | Report scheduler UI; delivery configuration (email, SFTP, S3); retry on failure; delivery receipt tracking; report archive |
+| **Priority** | P1 — required for regulatory reporting obligations |
+| **Dependencies** | Reporting backend, Email Service, Document Storage |
+
+### 17.4 Multi-Bureau Comparison View
+
+| Attribute | Detail |
+|-----------|--------|
+| **Purpose** | Side-by-side comparison of credit scores and data packets from multiple bureau sources for the same subject |
+| **Key features** | Bureau selector in Enquiry Simulation; split-view response rendering; score variance indicator; recommendation engine |
+| **Priority** | P2 — competitive differentiator |
+| **Dependencies** | Bureau Adapter Layer, Data Products module |
+
+### 17.5 Consumer Data Portal (Subject Access)
+
+| Attribute | Detail |
+|-----------|--------|
+| **Purpose** | Allow credit data subjects (individuals and businesses) to view, dispute, and consent to their bureau data |
+| **Key features** | Subject authentication (OTP or IdP); data subject rights management (DSAR); dispute workflow with institution notification; consent history; credit score overview |
+| **Priority** | P2 — regulatory requirement in Kenya DPA 2019 and GDPR-equivalent frameworks |
+| **Dependencies** | Consent Engine, Audit Service, Notification Service, Identity Provider |
+
+### 17.6 Advanced RBAC and ABAC Engine
+
+| Attribute | Detail |
+|-----------|--------|
+| **Purpose** | Replace the current all-or-nothing auth with fine-grained Role-Based and Attribute-Based Access Control |
+| **Key features** | Per-institution role scoping; policy-based access rules (e.g. "Analyst at FNB Kenya can view enquiry logs for FNB Kenya only"); MFA enforcement per role; JIT access for elevated permissions; access review workflows |
+| **Priority** | P0 — security-critical; required before production launch |
+| **Dependencies** | Identity Provider (SSO/OIDC), API Gateway |
+
+### 17.7 Data Lineage and Impact Analysis
+
+| Attribute | Detail |
+|-----------|--------|
+| **Purpose** | Track the full lifecycle of a data field from ingestion source to bureau output, with impact analysis for schema changes |
+| **Key features** | Visual lineage graph; field-level dependency mapping; "what-if" impact analysis for schema version changes; integration with Schema Mapper and Data Governance modules |
+| **Priority** | P2 — governance and compliance enhancement |
+| **Dependencies** | Data Governance backend, Schema Mapper, Metadata Store |
+
+---
+
+## 18. Approval and Sign-Off
 
 | Role | Name | Signature | Date |
 |------|------|-----------|------|
@@ -674,4 +807,4 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 
 ---
 
-*End of BRD v2.0.*
+*End of BRD v2.1.*

@@ -1,11 +1,20 @@
-import { createContext, useContext, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback, useRef } from "react";
 import { Outlet } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
-import { getReports, type ReportRow } from "./reporting-store";
+import {
+  initialReports,
+  makeReportId,
+  type ReportRow,
+  type ReportStatus,
+} from "./reporting-store";
+
+type AddReportInput = Omit<ReportRow, "reportId" | "status">;
 
 type ReportingContextValue = {
   reports: ReportRow[];
-  refreshReports: () => void;
+  addReport: (report: AddReportInput) => ReportRow;
+  removeReport: (reportId: string) => void;
+  setReportStatus: (reportId: string, status: ReportStatus) => void;
 };
 
 const ReportingContext = createContext<ReportingContextValue | null>(null);
@@ -17,11 +26,28 @@ export function useReporting() {
 }
 
 export function ReportingLayout() {
-  const [reports, setReports] = useState<ReportRow[]>(() => getReports());
-  const refreshReports = useCallback(() => setReports(getReports()), []);
+  const [reports, setReports] = useState<ReportRow[]>(initialReports);
+  const counterRef = useRef(initialReports.length);
+
+  const addReport = useCallback((report: AddReportInput): ReportRow => {
+    counterRef.current += 1;
+    const row: ReportRow = { ...report, reportId: makeReportId(counterRef.current), status: "Queued" };
+    setReports((prev) => [row, ...prev]);
+    return row;
+  }, []);
+
+  const removeReport = useCallback((reportId: string) => {
+    setReports((prev) => prev.filter((r) => r.reportId !== reportId));
+  }, []);
+
+  const setReportStatus = useCallback((reportId: string, status: ReportStatus) => {
+    setReports((prev) =>
+      prev.map((r) => (r.reportId === reportId ? { ...r, status } : r))
+    );
+  }, []);
 
   return (
-    <ReportingContext.Provider value={{ reports, refreshReports }}>
+    <ReportingContext.Provider value={{ reports, addReport, removeReport, setReportStatus }}>
       <DashboardLayout>
         <div className="space-y-6 laptop:space-y-5 animate-fade-in min-w-0">
           <Outlet />

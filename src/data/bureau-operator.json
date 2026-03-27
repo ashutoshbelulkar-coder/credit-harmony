@@ -1,0 +1,66 @@
+{
+  "slaMetrics": {
+    "overall": 98.7,
+    "activeBreaches": 2,
+    "critical": 1,
+    "avgResponseTime": 1.7,
+    "p95Latency": 2.8,
+    "timeoutPct": 1.2,
+    "retryPct": 2.1
+  },
+  "requestFlow": {
+    "totalEnquiries": 12842,
+    "dataSubmissions": 847,
+    "alternateDataPulls": 312,
+    "hardEnquiries": 8012,
+    "softEnquiries": 4830,
+    "failedPct": 2.3
+  },
+  "dataSubmission": {
+    "filesSubmitted": 156,
+    "recordsProcessed": 4280,
+    "recordsRejected": 14,
+    "schemaValidationErrors": 14,
+    "hilMappingPending": 6,
+    "ackPending": 3
+  },
+  "alternateData": {
+    "bankStatementRequests": 189,
+    "gstPulls": 84,
+    "ocrParsingJobs": 39,
+    "alternateDataFailures": 8,
+    "avgProcessingTimeMs": 2450
+  },
+  "dataQuality": {
+    "missingMandatoryFields": 47,
+    "panMismatchPct": 0.8,
+    "dpdInconsistencyCount": 12,
+    "tradelineMappingErrors": 23,
+    "duplicateRecordCount": 5,
+    "scoreMissingCases": 8
+  },
+  "consentOps": {
+    "successRate": 96.4,
+    "otpFailurePct": 2.1,
+    "expiredConsentPct": 1.2,
+    "consentLatencyAvgMs": 980,
+    "revokedConsentCount": 14
+  },
+  "alertsFeed": [
+    { "id": "alert-1", "type": "CRIF SLA Breach", "message": "CRIF API response exceeded 4s threshold — HDFC Bank traffic", "bureau": "CRIF", "institution": "HDFC Bank", "timestamp": "2026-02-27T10:42:00Z", "severity": "Critical" },
+    { "id": "alert-2", "type": "Consent Failure Surge", "message": "OTP failure spike — 12% consent drop-off at ACME Bank", "bureau": null, "institution": "ACME Bank", "timestamp": "2026-02-27T10:35:00Z", "severity": "Medium" },
+    { "id": "alert-3", "type": "Enquiry Failure Spike", "message": "CRIF enquiry timeout surge — 4.8% increase in last 2 hours", "bureau": null, "institution": null, "timestamp": "2026-02-27T10:21:00Z", "severity": "Medium" },
+    { "id": "alert-4", "type": "Parsing Error Increase", "message": "PAN mismatch errors — 8 records flagged at Axis Bank", "bureau": null, "institution": "Axis Bank", "timestamp": "2026-02-27T09:58:00Z", "severity": "Low" },
+    { "id": "alert-5", "type": "Data Submission Rejection Spike", "message": "14 file submissions rejected (schema mismatch) today", "bureau": null, "institution": null, "timestamp": "2026-02-27T09:44:00Z", "severity": "Medium" },
+    { "id": "alert-6", "type": "High Retry Rate", "message": "CRIF enquiry retry rate elevated — 342 retries in last 2 hours", "bureau": null, "institution": null, "timestamp": "2026-02-27T09:30:00Z", "severity": "Critical" },
+    { "id": "alert-7", "type": "Alternate Data Timeout", "message": "Bank statement analysis requests timing out — avg 3.2s", "bureau": null, "institution": null, "timestamp": "2026-02-27T09:15:00Z", "severity": "Medium" },
+    { "id": "alert-8", "type": "Acknowledgement Delay", "message": "3 data submissions pending CRIF ack beyond SLA", "bureau": null, "institution": null, "timestamp": "2026-02-27T08:58:00Z", "severity": "Low" }
+  ],
+  "chatHistoryList": [
+    { "id": "boh-1", "title": "CRIF SLA breach investigation", "date": "Today, 09:15 AM" },
+    { "id": "boh-2", "title": "CRIF enquiry failure root cause", "date": "Today, 08:47 AM" },
+    { "id": "boh-3", "title": "CRIF volume spike analysis — Feb 26", "date": "Yesterday, 4:30 PM" },
+    { "id": "boh-4", "title": "Consent drop-off DPDP audit prep", "date": "Yesterday, 11:00 AM" },
+    { "id": "boh-5", "title": "CRIF daily ops report — Jan", "date": "Feb 25, 3:45 PM" }
+  ]
+}

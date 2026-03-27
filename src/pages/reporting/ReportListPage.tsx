@@ -14,13 +14,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useReporting } from "./ReportingLayout";
-import {
-  getReportTypesForFilter,
-  removeReport,
-  setReportStatus,
-  type ReportRow,
-  type ReportStatus,
-} from "./reporting-store";
+import { getReportTypesForFilter, type ReportRow, type ReportStatus } from "./reporting-store";
 import { ChevronDown, ChevronUp, Download, Filter, Loader2, Plus, RotateCcw, X } from "lucide-react";
 
 const statusStyles: Record<ReportStatus, string> = {
@@ -85,7 +79,7 @@ function applyFilters(rows: ReportRow[], applied: FilterState): ReportRow[] {
 }
 
 export function ReportListPage() {
-  const { reports, refreshReports } = useReporting();
+  const { reports, removeReport, setReportStatus } = useReporting();
   const [filterInputs, setFilterInputs] = useState<FilterState>(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(defaultFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
@@ -111,12 +105,10 @@ export function ReportListPage() {
 
   const handleCancel = (reportId: string) => {
     removeReport(reportId);
-    refreshReports();
   };
 
   const handleRetry = (reportId: string) => {
     setReportStatus(reportId, "Queued");
-    refreshReports();
   };
 
   const handleDownload = (_reportId: string) => {

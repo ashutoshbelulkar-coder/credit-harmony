@@ -1,0 +1,63 @@
+{
+  "stageDiagnosticDummyLines": [
+    "[10:15:00] Stage initialised",
+    "[10:15:01] Config loaded: validation_rules=v2",
+    "[10:15:02] Processing batch chunk 1/4",
+    "[10:15:03] Validation rule VAL-001 applied: 0 failures",
+    "[10:15:04] Processing batch chunk 2/4",
+    "[10:15:05] Validation rule VAL-002 applied: 2 failures",
+    "[10:15:06] Stage completed. Records processed: 850"
+  ],
+  "stageErrorDummyRows": [
+    { "record_id": "REC-001", "field_name": "account_id", "error_code": "VAL-001", "error_description": "Invalid format" },
+    { "record_id": "REC-002", "field_name": "amount", "error_code": "VAL-002", "error_description": "Value out of range" },
+    { "record_id": "REC-003", "field_name": "date_field", "error_code": "VAL-003", "error_description": "Required field missing" },
+    { "record_id": "REC-004", "field_name": "status", "error_code": "VAL-004", "error_description": "Invalid enum value" }
+  ],
+  "dummyErrorsByStage": {
+    "File Integrity Check": [
+      { "record_id": "FILE-001", "field_name": "checksum", "error_code": "CHK-001", "error_description": "MD5 checksum mismatch" },
+      { "record_id": "FILE-002", "field_name": "header", "error_code": "CHK-002", "error_description": "Missing required header row" },
+      { "record_id": "FILE-003", "field_name": "encoding", "error_code": "CHK-003", "error_description": "Unsupported file encoding" }
+    ],
+    "Schema Mapping": [
+      { "record_id": "MAP-001", "field_name": "customer_id", "error_code": "MAP-001", "error_description": "Column not found in source" },
+      { "record_id": "MAP-002", "field_name": "disbursement_date", "error_code": "MAP-002", "error_description": "Type mismatch: expected date" },
+      { "record_id": "MAP-003", "field_name": "account_type", "error_code": "MAP-003", "error_description": "Unmapped enum value" },
+      { "record_id": "MAP-004", "field_name": "amount", "error_code": "MAP-004", "error_description": "Source column renamed in registry" }
+    ],
+    "File Validation": [
+      { "record_id": "REC-101", "field_name": "account_id", "error_code": "VAL-001", "error_description": "Invalid format" },
+      { "record_id": "REC-102", "field_name": "amount", "error_code": "VAL-002", "error_description": "Value out of range" },
+      { "record_id": "REC-103", "field_name": "date_field", "error_code": "VAL-003", "error_description": "Required field missing" },
+      { "record_id": "REC-104", "field_name": "status", "error_code": "VAL-004", "error_description": "Invalid enum value" }
+    ],
+    "Business Rule Validation": [
+      { "record_id": "BIZ-001", "field_name": "overdue_days", "error_code": "BR-001", "error_description": "Overdue days exceeds limit" },
+      { "record_id": "BIZ-002", "field_name": "loan_amount", "error_code": "BR-002", "error_description": "Amount below minimum threshold" },
+      { "record_id": "BIZ-003", "field_name": "disbursement_date", "error_code": "BR-003", "error_description": "Future date not allowed" },
+      { "record_id": "BIZ-004", "field_name": "account_status", "error_code": "BR-004", "error_description": "Status inconsistent with closure date" }
+    ],
+    "Load Processing": [
+      { "record_id": "LOD-001", "field_name": "—", "error_code": "LOD-001", "error_description": "Duplicate key on insert" },
+      { "record_id": "LOD-002", "field_name": "—", "error_code": "LOD-002", "error_description": "Constraint violation: foreign key" },
+      { "record_id": "LOD-003", "field_name": "—", "error_code": "LOD-003", "error_description": "Transaction timeout" }
+    ],
+    "Chunk Commit": [
+      { "record_id": "CHK-001", "field_name": "batch_chunk", "error_code": "CHK-001", "error_description": "Commit failed for chunk" },
+      { "record_id": "CHK-002", "field_name": "batch_chunk", "error_code": "CHK-002", "error_description": "Rollback triggered" }
+    ],
+    "Data Load": [
+      { "record_id": "DL-001", "field_name": "—", "error_code": "DL-001", "error_description": "Bulk insert partial failure" },
+      { "record_id": "DL-002", "field_name": "—", "error_code": "DL-002", "error_description": "Connection lost during load" }
+    ],
+    "Pre-Processing": [
+      { "record_id": "PRE-001", "field_name": "file_path", "error_code": "PRE-001", "error_description": "File not found" },
+      { "record_id": "PRE-002", "field_name": "file_path", "error_code": "PRE-002", "error_description": "Permission denied" }
+    ],
+    "Data Validation": [
+      { "record_id": "DVAL-001", "field_name": "schema_version", "error_code": "DVAL-001", "error_description": "Schema version mismatch" },
+      { "record_id": "DVAL-002", "field_name": "record_count", "error_code": "DVAL-002", "error_description": "Record count mismatch" }
+    ]
+  }
+}

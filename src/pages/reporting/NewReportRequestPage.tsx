@@ -28,7 +28,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useCatalogMock } from "@/contexts/CatalogMockContext";
 import { institutions } from "@/data/institutions-mock";
 import { configuredProducts } from "@/data/data-products-mock";
-import { addReport, formatDateRange } from "./reporting-store";
+import { formatDateRange } from "./reporting-store";
 
 const reportRequestSchema = z.object({
   reportType: z.string().min(1, "Report type is required"),
@@ -52,7 +52,7 @@ const OUTPUT_FORMAT_OPTIONS = [
 
 export function NewReportRequestPage() {
   const navigate = useNavigate();
-  const { refreshReports } = useReporting();
+  const { addReport } = useReporting();
   const { user } = useAuth();
   const { products } = useCatalogMock();
 
@@ -92,7 +92,6 @@ export function NewReportRequestPage() {
       institution: institutionLabel,
       productType: productLabel,
     });
-    refreshReports();
     navigate("/reporting");
     toast.success("Report request submitted successfully.");
   };

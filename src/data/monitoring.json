@@ -1,0 +1,178 @@
+{
+  "dataSubmitterIdByApiKey": {
+    "sk_live_***7x2k": "1",
+    "sk_live_***9a1m": "2",
+    "sk_live_***3b4n": "4"
+  },
+  "subscriberIdByApiKey": {
+    "sk_sub_***2a": "1",
+    "sk_sub_***5b": "4",
+    "sk_sub_***8c": "3"
+  },
+  "apiSubmissionRequests": [
+    { "request_id": "REQ-991212", "api_key": "sk_live_***7x2k", "endpoint": "/submission", "status": "Failed", "response_time_ms": 210, "records": 0, "error_code": "INVALID_SCHEMA", "timestamp": "2026-02-25 09:55:00" },
+    { "request_id": "REQ-991211", "api_key": "sk_live_***9a1m", "endpoint": "/submission", "status": "Success", "response_time_ms": 145, "records": 1200, "error_code": null, "timestamp": "2026-02-25 09:48:00" },
+    { "request_id": "REQ-991210", "api_key": "sk_live_***7x2k", "endpoint": "/submission/bulk", "status": "Partial", "response_time_ms": 3200, "records": 2500, "error_code": "MISSING_MANDATORY_FIELD", "timestamp": "2026-02-25 09:35:00" },
+    { "request_id": "REQ-991209", "api_key": "sk_live_***3b4n", "endpoint": "/submission", "status": "Rate Limited", "response_time_ms": 89, "records": 0, "error_code": "RATE_LIMIT_EXCEEDED", "timestamp": "2026-02-25 09:30:00" },
+    { "request_id": "REQ-991208", "api_key": "sk_live_***9a1m", "endpoint": "/submission", "status": "Success", "response_time_ms": 198, "records": 800, "error_code": null, "timestamp": "2026-02-25 09:15:00" },
+    { "request_id": "REQ-991207", "api_key": "sk_live_***7x2k", "endpoint": "/submission", "status": "Failed", "response_time_ms": 52, "records": 0, "error_code": "AUTHENTICATION_FAILURE", "timestamp": "2026-02-25 09:00:00" },
+    { "request_id": "REQ-991206", "api_key": "sk_live_***3b4n", "endpoint": "/submission", "status": "Success", "response_time_ms": 176, "records": 950, "error_code": null, "timestamp": "2026-02-25 08:30:00" },
+    { "request_id": "REQ-991205", "api_key": "sk_live_***9a1m", "endpoint": "/submission/bulk", "status": "Success", "response_time_ms": 4100, "records": 5000, "error_code": null, "timestamp": "2026-02-25 08:00:00" },
+    { "request_id": "REQ-991204", "api_key": "sk_live_***7x2k", "endpoint": "/submission", "status": "Success", "response_time_ms": 167, "records": 340, "error_code": null, "timestamp": "2026-02-25 07:00:00" },
+    { "request_id": "REQ-991203", "api_key": "sk_live_***3b4n", "endpoint": "/submission", "status": "Failed", "response_time_ms": 310, "records": 0, "error_code": "SCHEMA_VERSION_MISMATCH", "timestamp": "2026-02-25 06:00:00" },
+    { "request_id": "REQ-991202", "api_key": "sk_live_***9a1m", "endpoint": "/submission", "status": "Success", "response_time_ms": 132, "records": 620, "error_code": null, "timestamp": "2026-02-25 05:00:00" },
+    { "request_id": "REQ-991201", "api_key": "sk_live_***7x2k", "endpoint": "/submission/bulk", "status": "Partial", "response_time_ms": 2800, "records": 1800, "error_code": "DUPLICATE_RECORDS", "timestamp": "2026-02-25 04:00:00" }
+  ],
+  "apiSubmissionKpis": {
+    "totalCallsToday": 28492,
+    "successRatePercent": 98.2,
+    "p95LatencyMs": 245,
+    "avgProcessingTimeMs": 182,
+    "rejectionRatePercent": 1.8,
+    "activeApiKeys": 12
+  },
+  "apiCallVolume30Days": [
+    {"day":"D-29","volume":27420},{"day":"D-28","volume":32150},{"day":"D-27","volume":29800},
+    {"day":"D-26","volume":31200},{"day":"D-25","volume":25800},{"day":"D-24","volume":28900},
+    {"day":"D-23","volume":33400},{"day":"D-22","volume":30100},{"day":"D-21","volume":26700},
+    {"day":"D-20","volume":34200},{"day":"D-19","volume":28500},{"day":"D-18","volume":31800},
+    {"day":"D-17","volume":29300},{"day":"D-16","volume":27600},{"day":"D-15","volume":35100},
+    {"day":"D-14","volume":32400},{"day":"D-13","volume":28700},{"day":"D-12","volume":30900},
+    {"day":"D-11","volume":26300},{"day":"D-10","volume":33700},{"day":"D-9","volume":29100},
+    {"day":"D-8","volume":31500},{"day":"D-7","volume":27800},{"day":"D-6","volume":34600},
+    {"day":"D-5","volume":30200},{"day":"D-4","volume":28400},{"day":"D-3","volume":32800},
+    {"day":"D-2","volume":29600},{"day":"D-1","volume":31100},{"day":"D-0","volume":28492}
+  ],
+  "latencyTrendData": [
+    {"day":"D-29","p95":215,"p99":280},{"day":"D-28","p95":198,"p99":265},{"day":"D-27","p95":234,"p99":312},
+    {"day":"D-26","p95":201,"p99":270},{"day":"D-25","p95":245,"p99":325},{"day":"D-24","p95":188,"p99":252},
+    {"day":"D-23","p95":220,"p99":295},{"day":"D-22","p95":207,"p99":278},{"day":"D-21","p95":235,"p99":318},
+    {"day":"D-20","p95":195,"p99":260},{"day":"D-19","p95":250,"p99":335},{"day":"D-18","p95":212,"p99":285},
+    {"day":"D-17","p95":228,"p99":305},{"day":"D-16","p95":193,"p99":258},{"day":"D-15","p95":242,"p99":320},
+    {"day":"D-14","p95":205,"p99":272},{"day":"D-13","p95":218,"p99":290},{"day":"D-12","p95":199,"p99":267},
+    {"day":"D-11","p95":238,"p99":315},{"day":"D-10","p95":225,"p99":300},{"day":"D-9","p95":210,"p99":280},
+    {"day":"D-8","p95":240,"p99":320},{"day":"D-7","p95":195,"p99":262},{"day":"D-6","p95":228,"p99":305},
+    {"day":"D-5","p95":215,"p99":288},{"day":"D-4","p95":202,"p99":270},{"day":"D-3","p95":232,"p99":310},
+    {"day":"D-2","p95":220,"p99":295},{"day":"D-1","p95":210,"p99":282},{"day":"D-0","p95":245,"p99":325}
+  ],
+  "successVsFailureData": [
+    { "name": "Success", "value": 98.2 },
+    { "name": "Failure", "value": 1.8 }
+  ],
+  "topRejectionReasonsData": [
+    { "reason": "Invalid Schema", "count": 142 },
+    { "reason": "Missing Mandatory Field", "count": 98 },
+    { "reason": "Authentication Failure", "count": 45 },
+    { "reason": "Rate Limit Exceeded", "count": 32 },
+    { "reason": "Other", "count": 18 }
+  ],
+  "batchJobs": [
+    { "batch_id": "BATCH-20250919-0001", "file_name": "loans_september_batch1.csv", "status": "Completed", "total_records": 1500, "success": 1425, "failed": 75, "success_rate": 95.0, "duration_seconds": 142, "uploaded": "2026-02-25 08:00:00", "uploaded_by": "Sarah Kimani", "institution_id": "1" },
+    { "batch_id": "BATCH-20250919-0002", "file_name": "accounts_feb_batch2.csv", "status": "Processing", "total_records": 3200, "success": 2100, "failed": 0, "success_rate": 65.6, "duration_seconds": 0, "uploaded": "2026-02-25 09:30:00", "uploaded_by": "James Oduya", "institution_id": "2" },
+    { "batch_id": "BATCH-20250919-0003", "file_name": "rejected_retry_batch.csv", "status": "Failed", "total_records": 500, "success": 0, "failed": 500, "success_rate": 0, "duration_seconds": 45, "uploaded": "2026-02-25 07:15:00", "uploaded_by": "System", "institution_id": "4" },
+    { "batch_id": "BATCH-20250919-0004", "file_name": "daily_export_20260225.csv", "status": "Queued", "total_records": 0, "success": 0, "failed": 0, "success_rate": 0, "duration_seconds": 0, "uploaded": "2026-02-25 10:00:00", "uploaded_by": "Grace Mutua", "institution_id": "1" },
+    { "batch_id": "BATCH-20250918-0005", "file_name": "loans_feb_batch1.csv", "status": "Completed", "total_records": 2800, "success": 2792, "failed": 8, "success_rate": 99.7, "duration_seconds": 210, "uploaded": "2026-02-24 16:00:00", "uploaded_by": "Sarah Kimani", "institution_id": "2" }
+  ],
+  "batchKpis": {
+    "totalBatchesToday": 4,
+    "totalRecordsProcessed": 5200,
+    "avgBatchSuccessRate": 65.1,
+    "failedBatchesCount": 1,
+    "avgProcessingDurationSec": 99,
+    "queueBacklogCount": 2
+  },
+  "batchVolumeTrendData": [
+    {"day":"D-13","batches":4,"success":9800,"failed":42},{"day":"D-12","batches":6,"success":11200,"failed":28},
+    {"day":"D-11","batches":3,"success":8500,"failed":65},{"day":"D-10","batches":7,"success":12400,"failed":35},
+    {"day":"D-9","batches":5,"success":10100,"failed":20},{"day":"D-8","batches":4,"success":9300,"failed":78},
+    {"day":"D-7","batches":6,"success":11800,"failed":45},{"day":"D-6","batches":3,"success":8200,"failed":32},
+    {"day":"D-5","batches":7,"success":12100,"failed":55},{"day":"D-4","batches":5,"success":10500,"failed":25},
+    {"day":"D-3","batches":4,"success":9700,"failed":40},{"day":"D-2","batches":6,"success":11500,"failed":38},
+    {"day":"D-1","batches":5,"success":10800,"failed":22},{"day":"D-0","batches":4,"success":5200,"failed":75}
+  ],
+  "processingDurationTrendData": [
+    {"day":"D-13","avgSec":120},{"day":"D-12","avgSec":95},{"day":"D-11","avgSec":145},
+    {"day":"D-10","avgSec":88},{"day":"D-9","avgSec":132},{"day":"D-8","avgSec":175},
+    {"day":"D-7","avgSec":110},{"day":"D-6","avgSec":98},{"day":"D-5","avgSec":160},
+    {"day":"D-4","avgSec":105},{"day":"D-3","avgSec":125},{"day":"D-2","avgSec":92},
+    {"day":"D-1","avgSec":138},{"day":"D-0","avgSec":99}
+  ],
+  "topBatchErrorCategoriesData": [
+    { "category": "Schema Mismatch", "count": 45 },
+    { "category": "Duplicate Records", "count": 28 },
+    { "category": "Invalid Format", "count": 22 },
+    { "category": "Missing Consent", "count": 15 },
+    { "category": "Other", "count": 8 }
+  ],
+  "inquiryKpis": {
+    "totalEnquiriesToday": 12842,
+    "successRatePercent": 97.1,
+    "p95LatencyMs": 420,
+    "hardEnquiriesCount": 8012,
+    "softEnquiriesCount": 4830,
+    "rateLimitBreachesCount": 3
+  },
+  "enquiryVolumeTrendData": [
+    {"day":"D-13","volume":11200},{"day":"D-12","volume":13400},{"day":"D-11","volume":10800},
+    {"day":"D-10","volume":14200},{"day":"D-9","volume":11900},{"day":"D-8","volume":13100},
+    {"day":"D-7","volume":12400},{"day":"D-6","volume":10500},{"day":"D-5","volume":14800},
+    {"day":"D-4","volume":12000},{"day":"D-3","volume":13600},{"day":"D-2","volume":11400},
+    {"day":"D-1","volume":12700},{"day":"D-0","volume":12842}
+  ],
+  "enquiryLatencyTrendData": [
+    {"day":"D-13","p95":385},{"day":"D-12","p95":402},{"day":"D-11","p95":375},
+    {"day":"D-10","p95":418},{"day":"D-9","p95":390},{"day":"D-8","p95":408},
+    {"day":"D-7","p95":382},{"day":"D-6","p95":395},{"day":"D-5","p95":425},
+    {"day":"D-4","p95":378},{"day":"D-3","p95":412},{"day":"D-2","p95":398},
+    {"day":"D-1","p95":415},{"day":"D-0","p95":420}
+  ],
+  "enquirySuccessVsFailureData": [
+    { "name": "Success", "value": 97.1 },
+    { "name": "Failure", "value": 2.9 }
+  ],
+  "enquiryTopErrorsData": [
+    { "reason": "Consent Not Found", "count": 182 },
+    { "reason": "Rate Limit Exceeded", "count": 124 },
+    { "reason": "Invalid Subscriber Key", "count": 78 },
+    { "reason": "Subject Not Found", "count": 52 },
+    { "reason": "Other", "count": 26 }
+  ],
+  "enquiryKpis": {
+    "totalEnquiriesToday": 3842,
+    "successRatePercent": 97.1,
+    "p95LatencyMs": 420,
+    "alternateDataCalls": 892,
+    "rateLimitBreaches": 3,
+    "creditConsumption": 3842
+  },
+  "enquiryVolumeData": [
+    {"day":"D-29","volume":3200},{"day":"D-28","volume":4100},{"day":"D-27","volume":3800},
+    {"day":"D-26","volume":4400},{"day":"D-25","volume":3100},{"day":"D-24","volume":3900},
+    {"day":"D-23","volume":4200},{"day":"D-22","volume":3600},{"day":"D-21","volume":3400},
+    {"day":"D-20","volume":4500},{"day":"D-19","volume":3700},{"day":"D-18","volume":4000},
+    {"day":"D-17","volume":3300},{"day":"D-16","volume":3800},{"day":"D-15","volume":4300},
+    {"day":"D-14","volume":3500},{"day":"D-13","volume":3900},{"day":"D-12","volume":4100},
+    {"day":"D-11","volume":3200},{"day":"D-10","volume":4400},{"day":"D-9","volume":3700},
+    {"day":"D-8","volume":3800},{"day":"D-7","volume":3400},{"day":"D-6","volume":4200},
+    {"day":"D-5","volume":3600},{"day":"D-4","volume":3900},{"day":"D-3","volume":4000},
+    {"day":"D-2","volume":3800},{"day":"D-1","volume":3700},{"day":"D-0","volume":3842}
+  ],
+  "enquiryResponseTimeTrendData": [
+    {"day":"D-29","p95":320,"avg":220},{"day":"D-28","p95":285,"avg":195},{"day":"D-27","p95":365,"avg":255},
+    {"day":"D-26","p95":298,"avg":208},{"day":"D-25","p95":410,"avg":290},{"day":"D-24","p95":275,"avg":185},
+    {"day":"D-23","p95":340,"avg":240},{"day":"D-22","p95":308,"avg":218},{"day":"D-21","p95":385,"avg":270},
+    {"day":"D-20","p95":265,"avg":178},{"day":"D-19","p95":420,"avg":300},{"day":"D-18","p95":312,"avg":222},
+    {"day":"D-17","p95":355,"avg":248},{"day":"D-16","p95":282,"avg":192},{"day":"D-15","p95":395,"avg":280},
+    {"day":"D-14","p95":302,"avg":212},{"day":"D-13","p95":328,"avg":232},{"day":"D-12","p95":288,"avg":198},
+    {"day":"D-11","p95":372,"avg":262},{"day":"D-10","p95":345,"avg":242},{"day":"D-9","p95":315,"avg":222},
+    {"day":"D-8","p95":390,"avg":275},{"day":"D-7","p95":278,"avg":190},{"day":"D-6","p95":348,"avg":245},
+    {"day":"D-5","p95":325,"avg":228},{"day":"D-4","p95":295,"avg":205},{"day":"D-3","p95":362,"avg":255},
+    {"day":"D-2","p95":335,"avg":238},{"day":"D-1","p95":318,"avg":225},{"day":"D-0","p95":420,"avg":298}
+  ],
+  "enquiryByProductData": [
+    { "product": "Credit Report", "success": 2100, "failed": 42 },
+    { "product": "Credit Report + Telecom", "success": 980, "failed": 28 },
+    { "product": "Credit Report + Bank Statement", "success": 520, "failed": 15 },
+    { "product": "Full Package", "success": 182, "failed": 8 }
+  ]
+}

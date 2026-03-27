@@ -1,0 +1,58 @@
+{
+  "notifications": [
+    {
+      "id": 1,
+      "iconKey": "AlertTriangle",
+      "iconColor": "text-warning",
+      "title": "SLA Breach Alert",
+      "desc": "P95 latency exceeded 300ms for Data Submission API",
+      "time": "2 min ago",
+      "unread": true
+    },
+    {
+      "id": 2,
+      "iconKey": "CheckCircle2",
+      "iconColor": "text-success",
+      "title": "Schema Mapping Approved",
+      "desc": "FNB loan tradeline schema v2.3 approved by governance",
+      "time": "15 min ago",
+      "unread": true
+    },
+    {
+      "id": 3,
+      "iconKey": "Shield",
+      "iconColor": "text-destructive",
+      "title": "Failed Login Attempt",
+      "desc": "Carlos Rivera login blocked — account suspended",
+      "time": "1 hour ago",
+      "unread": true
+    },
+    {
+      "id": 4,
+      "iconKey": "Info",
+      "iconColor": "text-primary",
+      "title": "New User Invited",
+      "desc": "Aisha Bello (First Bank Nigeria) invitation sent",
+      "time": "3 hours ago",
+      "unread": false
+    },
+    {
+      "id": 5,
+      "iconKey": "CheckCircle2",
+      "iconColor": "text-success",
+      "title": "Batch Processing Complete",
+      "desc": "Metro Credit Union batch #4821 — 12,450 records processed",
+      "time": "5 hours ago",
+      "unread": false
+    },
+    {
+      "id": 6,
+      "iconKey": "AlertTriangle",
+      "iconColor": "text-warning",
+      "title": "Data Quality Drop",
+      "desc": "Pacific Finance Corp field completeness dropped to 91%",
+      "time": "Yesterday",
+      "unread": false
+    }
+  ]
+}

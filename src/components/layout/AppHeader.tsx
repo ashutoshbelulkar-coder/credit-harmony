@@ -9,6 +9,10 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useCommandPalette } from "@/components/CommandPalette";
+import notificationsData from "@/data/app-notifications.json";
+
+const ICON_MAP = { AlertTriangle, CheckCircle2, Info, Shield } as const;
+type NotifIconKey = keyof typeof ICON_MAP;
 
 interface AppHeaderProps {
   onToggleSidebar?: () => void;
@@ -20,14 +24,10 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   const navigate = useNavigate();
   const { open: openCommandPalette } = useCommandPalette();
 
-  const notifications = [
-    { id: 1, icon: AlertTriangle, iconColor: "text-warning", title: "SLA Breach Alert", desc: "P95 latency exceeded 300ms for Data Submission API", time: "2 min ago", unread: true },
-    { id: 2, icon: CheckCircle2, iconColor: "text-success", title: "Schema Mapping Approved", desc: "FNB loan tradeline schema v2.3 approved by governance", time: "15 min ago", unread: true },
-    { id: 3, icon: Shield, iconColor: "text-destructive", title: "Failed Login Attempt", desc: "Carlos Rivera login blocked — account suspended", time: "1 hour ago", unread: true },
-    { id: 4, icon: Info, iconColor: "text-primary", title: "New User Invited", desc: "Aisha Bello (First Bank Nigeria) invitation sent", time: "3 hours ago", unread: false },
-    { id: 5, icon: CheckCircle2, iconColor: "text-success", title: "Batch Processing Complete", desc: "Metro Credit Union batch #4821 — 12,450 records processed", time: "5 hours ago", unread: false },
-    { id: 6, icon: AlertTriangle, iconColor: "text-warning", title: "Data Quality Drop", desc: "Pacific Finance Corp field completeness dropped to 91%", time: "Yesterday", unread: false },
-  ];
+  const notifications = notificationsData.notifications.map((n) => ({
+    ...n,
+    icon: ICON_MAP[n.iconKey as NotifIconKey],
+  }));
 
   const [readIds, setReadIds] = useState<number[]>([]);
   const unreadCount = notifications.filter((n) => n.unread && !readIds.includes(n.id)).length;

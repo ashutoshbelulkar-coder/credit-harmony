@@ -21,6 +21,8 @@ import {
 } from "@/components/ui/select";
 import {
   slaConfigs,
+  aiAgents,
+  defaultEmailBodyHtml,
   type SlaConfig,
   type SlaMetricRow,
   type SeverityLevel,
@@ -39,20 +41,6 @@ const operators: { value: ">=" | "<=" | "<" | ">"; label: string }[] = [
 const timeWindows: TimeWindow[] = ["Real-time", "5 min rolling", "1 hour rolling", "Daily"];
 const severities: SeverityLevel[] = ["Warning", "Critical"];
 
-const AI_AGENTS = [
-  { id: "schema-mapper", label: "Schema Mapper Agent" },
-  { id: "validation", label: "Validation Agent" },
-  { id: "match-review", label: "Match Review Agent" },
-  { id: "data-quality", label: "Data Quality Agent" },
-];
-
-const DEFAULT_EMAIL_BODY_HTML = `<p>An SLA breach has been detected.</p>
-<p><strong>SLA:</strong> {{slaName}}</p>
-<p><strong>Metric:</strong> {{metric}}</p>
-<p><strong>Threshold:</strong> {{threshold}}</p>
-<p><strong>Current value:</strong> {{currentValue}}</p>
-<p><strong>Detected at:</strong> {{timestamp}}</p>
-<p>Please review and take appropriate action.</p>`;
 
 function EditSlaDrawer({
   open,
@@ -78,7 +66,7 @@ function EditSlaDrawer({
   const [selectedAgentId, setSelectedAgentId] = useState<string>("");
   const [emailTo, setEmailTo] = useState("");
   const [emailSubject, setEmailSubject] = useState("SLA Breach Alert — {{slaName}}");
-  const [emailBodyHtml, setEmailBodyHtml] = useState(DEFAULT_EMAIL_BODY_HTML);
+  const [emailBodyHtml, setEmailBodyHtml] = useState(defaultEmailBodyHtml);
   const [smsTo, setSmsTo] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
   const [webhookMethod, setWebhookMethod] = useState<"POST" | "PUT">("POST");
@@ -188,7 +176,7 @@ function EditSlaDrawer({
                       <SelectValue placeholder="Select an agent" />
                     </SelectTrigger>
                     <SelectContent>
-                      {AI_AGENTS.map((a) => (
+                      {aiAgents.map((a) => (
                         <SelectItem key={a.id} value={a.id}>{a.label}</SelectItem>
                       ))}
                     </SelectContent>

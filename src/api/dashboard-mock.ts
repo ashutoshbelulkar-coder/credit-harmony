@@ -12,6 +12,7 @@ import type {
 } from "./dashboard-types";
 import { dashboardRangeKey } from "./dashboard-types";
 import { mockAgents } from "@/data/agents-mock";
+import dashboardData from "@/data/dashboard.json";
 
 function mulberry32(seed: number) {
   return function () {
@@ -100,25 +101,15 @@ export function createMockDashboardSnapshot(range: DashboardRange): DashboardSna
   };
   charts.successFailure.failure = 100 - charts.successFailure.success;
 
-  const institutions = [
-    "First National Bank",
-    "Metro Credit Union",
-    "Pacific Finance Corp",
-    "Southern Trust Bank",
-    "Gulf National Bank",
-    "Axis Capital Partners",
-    "Kotak Microfinance",
-    "Yes Bank",
-  ];
+  const institutions = dashboardData.institutions;
 
   const activity: DashboardActivitySnapshot = {
-    recentActivity: [
-      { institution: institutions[0], action: "API key rotated", time: "2 min ago", status: "info" },
-      { institution: institutions[1], action: "Submission API enabled", time: "15 min ago", status: "success" },
-      { institution: institutions[2], action: "SLA breach warning", time: "1 hour ago", status: "warning" },
-      { institution: institutions[3], action: "Onboarding completed", time: "3 hours ago", status: "success" },
-      { institution: institutions[0], action: "Bulk data upload", time: "5 hours ago", status: "info" },
-    ],
+    recentActivity: dashboardData.recentActivity.map((row) => ({
+      institution: institutions[row.institutionIndex],
+      action: row.action,
+      time: row.time,
+      status: row.status as "info" | "success" | "warning" | "error",
+    })),
     topInstitutions: [
       { name: institutions[0], requests: `${Math.round(300 + rand() * 220)}K`, quality: Math.round(clamp(dataQualityScore + rand() * 3, 80, 99)), sla: parseFloat(clamp(slaHealth + rand() * 0.2, 95, 100).toFixed(1)) },
       { name: institutions[1], requests: `${Math.round(180 + rand() * 160)}K`, quality: Math.round(clamp(dataQualityScore - 2 + rand() * 4, 75, 99)), sla: parseFloat(clamp(slaHealth - 0.2 + rand() * 0.3, 90, 100).toFixed(1)) },
@@ -127,18 +118,7 @@ export function createMockDashboardSnapshot(range: DashboardRange): DashboardSna
     ],
   };
 
-  const typeByAgentId: Record<string, AgentFleetItem["type"]> = {
-    banking: "scoring",
-    "bureau-operator": "orchestrator",
-    "loan-underwriter": "scoring",
-    "real-estate": "scoring",
-    insurance: "compliance",
-    employment: "compliance",
-    utilities: "rag",
-    automotive: "scoring",
-    "b2b-trade": "scoring",
-    self: "rag",
-  };
+  const typeByAgentId = dashboardData.agentTypeByAgentId as Record<string, AgentFleetItem["type"]>;
 
   function taskFromAgent(a: (typeof mockAgents)[number]): string {
     const d = a.description.trim();
@@ -146,45 +126,16 @@ export function createMockDashboardSnapshot(range: DashboardRange): DashboardSna
     return `${d.slice(0, 93)}…`;
   }
 
-  /** Pipeline / governance agents (names align with Monitoring & Data Governance modules). */
-  const pipelineAgents: AgentFleetItem[] = [
-    {
-      id: "pipeline-ingestion",
-      name: "Ingestion",
-      type: "ingestion",
-      status: rand() > 0.82 ? "warning" : "active",
-      task: "Receiving and staging member data submissions (batch / API)",
-      latencyMs: Math.round(8 + rand() * 14),
-      accuracyPct: parseFloat(clamp(99 + rand() * 0.8, 0, 100).toFixed(1)),
-    },
-    {
-      id: "pipeline-schema-mapper",
-      name: "Schema Mapper",
-      type: "schema",
-      status: rand() > 0.88 ? "warning" : "active",
-      task: "AI-assisted mapping to canonical bureau schema (Auto-Mapping Review)",
-      latencyMs: Math.round(10 + rand() * 18),
-      accuracyPct: parseFloat(clamp(97.5 + rand() * 1.8, 0, 100).toFixed(1)),
-    },
-    {
-      id: "pipeline-data-validation",
-      name: "Data Validation",
-      type: "quality",
-      status: rand() > 0.85 ? "warning" : "active",
-      task: "Running validation rules and field checks against submissions",
-      latencyMs: Math.round(6 + rand() * 12),
-      accuracyPct: parseFloat(clamp(99.2 + rand() * 0.7, 0, 100).toFixed(1)),
-    },
-    {
-      id: "pipeline-identity-resolution",
-      name: "Identity Resolution",
-      type: "orchestrator",
-      status: rand() > 0.9 ? "warning" : "active",
-      task: "Entity matching and match review queue (Identity Resolution)",
-      latencyMs: Math.round(12 + rand() * 20),
-      accuracyPct: parseFloat(clamp(97 + rand() * 2.2, 0, 100).toFixed(1)),
-    },
-  ];
+  /** Pipeline / governance agents — definitions from JSON, dynamic status/latency via seeded rand. */
+  const pipelineAgents: AgentFleetItem[] = dashboardData.pipelineAgentDefinitions.map((def) => ({
+    id: def.id,
+    name: def.name,
+    type: def.type as AgentFleetItem["type"],
+    task: def.task,
+    status: (rand() > 0.85 ? "warning" : "active") as AgentFleetItem["status"],
+    latencyMs: Math.round(8 + rand() * 20),
+    accuracyPct: parseFloat(clamp(97 + rand() * 2.5, 0, 100).toFixed(1)),
+  }));
 
   const catalogAgents: AgentFleetItem[] = mockAgents.map((a, idx) => {
     const r = rand();
@@ -223,49 +174,22 @@ export function createMockDashboardSnapshot(range: DashboardRange): DashboardSna
     };
   });
 
-  const anomalies: AnomalyItem[] = [
-    {
-      id: "ANM-441",
-      severity: rand() > 0.7 ? "critical" : "warning",
-      title: "Volume spike detected",
-      description: `${institutions[2]} submitted >200% above baseline. Review batch for quarantine.`,
-      time: "8 min ago",
-      detectedBy: "Bureau Operations Intelligence",
-      ctaLabel: "Review Batch",
-      href: "/monitoring/data-submission-batch",
-    },
-    {
-      id: "ANM-440",
-      severity: "critical",
-      title: "Duplicate identifier pattern",
-      description: "High duplication detected across concurrent submissions. Validate dedup rules and member payloads.",
-      time: "14 min ago",
-      detectedBy: "Bureau Operations Intelligence",
-      ctaLabel: "Open Quality Monitoring",
-      href: "/data-governance/data-quality-monitoring",
-    },
-    {
-      id: "ANM-438",
-      severity: "info",
-      title: "Schema mapping change",
-      description: "Unrecognized segment detected in submission payload. Review mapping coverage.",
-      time: "42 min ago",
-      detectedBy: "Bureau Operations Intelligence",
-      ctaLabel: "Review Auto Mapping",
-      href: "/data-governance/auto-mapping-review",
-    },
-  ];
+  const anomalies: AnomalyItem[] = dashboardData.anomalies.map((a) => ({
+    id: a.id,
+    severity: (a.id === "ANM-441"
+      ? rand() > 0.7 ? "critical" : "warning"
+      : a.id === "ANM-440" ? "critical" : "info") as AnomalyItem["severity"],
+    title: a.title,
+    description: "descriptionTemplate" in a
+      ? (a.descriptionTemplate as string).replace("{institution}", institutions[(a as { institutionIndex: number }).institutionIndex])
+      : (a as { description: string }).description,
+    time: a.time,
+    detectedBy: a.detectedBy,
+    ctaLabel: a.ctaLabel,
+    href: a.href,
+  }));
 
-  const members = [
-    "HDFC",
-    "SBI",
-    "ICICI",
-    "Axis",
-    "Kotak",
-    "Yes Bank",
-    "PNB",
-    "Bank of Baroda",
-  ];
+  const members = dashboardData.members;
   const periods = range.kind === "preset" && range.preset === "7d"
     ? ["D-6", "D-5", "D-4", "D-3", "D-2", "D-1", "Today"]
     : ["00h", "04h", "08h", "12h", "16h", "20h"];

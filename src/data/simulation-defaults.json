@@ -1,0 +1,22 @@
+{
+  "enquirySimulation": {
+    "customerName": "Jane Wanjiku",
+    "consumerId": "CB-00192884",
+    "customerId": "ID-884921",
+    "dob": "1990-08-14",
+    "governmentId": "PAN-AYZPK9123D",
+    "mobile": "+254 712 000 000",
+    "address": "MG Road, Bengaluru",
+    "enquiryPurpose": "loan_application"
+  },
+  "agentChatHistory": [
+    { "id": "1", "title": "Credit assessment for John Doe", "date": "Today, 10:30 AM" },
+    { "id": "2", "title": "Bureau enquiry – PAN verification", "date": "Today, 9:15 AM" },
+    { "id": "3", "title": "Loan eligibility discussion", "date": "Yesterday, 4:22 PM" },
+    { "id": "4", "title": "Fraud check follow-up", "date": "Yesterday, 11:00 AM" },
+    { "id": "5", "title": "Portfolio risk overview", "date": "Feb 25, 3:45 PM" }
+  ],
+  "schemaMapper": {
+    "sampleJson": "{\n  \"subscriber_id\": \"SUB-99821\",\n  \"customer_name\": \"Ravi Sharma\",\n  \"dob\": \"1990-08-14\",\n  \"mobile_no\": \"9876543210\",\n  \"avg_monthly_bill\": 1450.75,\n  \"last_payment_status\": \"DELAYED\",\n  \"payment_delay_days\": 12,\n  \"city\": \"Pune\",\n  \"account_active\": true\n}"
+  }
+}

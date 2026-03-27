@@ -15,6 +15,7 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import dashboardData from "@/data/dashboard.json";
 
 type ThroughputPoint = { label: string; actual: number; forecast: number };
 
@@ -55,7 +56,7 @@ export function ProcessingThroughputCard({
 }) {
   const data = makeThroughputData(seedApiUsageTrend);
   const rollingTotal = data.reduce((sum, p) => sum + p.actual, 0);
-  const multiplier = 5.8; // derived label; can be replaced when backend provides.
+  const { multiplier } = dashboardData.throughputConfig;
 
   return (
     <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">

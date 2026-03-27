@@ -24,16 +24,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
+import tabsData from "@/data/institution-tabs.json";
 
-const roles = [
-  "Institution Admin",
-  "Operations User",
-  "Compliance User",
-  "Billing User",
-  "Read Only",
-] as const;
-
-type UserRole = (typeof roles)[number];
+const roles = tabsData.users.roles as readonly string[];
+type UserRole = (typeof tabsData.users.roles)[number];
 
 interface InstitutionUser {
   id: string;
@@ -46,13 +40,7 @@ interface InstitutionUser {
   mfaEnabled: boolean;
 }
 
-const mockUsers: InstitutionUser[] = [
-  { id: "u1", firstName: "Sarah", lastName: "Kimani", email: "sarah.kimani@fnb.co.ke", role: "Institution Admin", status: "active", lastLogin: "2026-02-19 09:14", mfaEnabled: true },
-  { id: "u2", firstName: "James", lastName: "Oduya", email: "james.oduya@fnb.co.ke", role: "Operations User", status: "active", lastLogin: "2026-02-18 16:42", mfaEnabled: true },
-  { id: "u3", firstName: "Grace", lastName: "Mutua", email: "grace.mutua@fnb.co.ke", role: "Compliance User", status: "active", lastLogin: "2026-02-17 11:20", mfaEnabled: false },
-  { id: "u4", firstName: "Peter", lastName: "Njoroge", email: "peter.njoroge@fnb.co.ke", role: "Billing User", status: "inactive", lastLogin: "2026-01-30 08:55", mfaEnabled: false },
-  { id: "u5", firstName: "Anne", lastName: "Wanjiku", email: "anne.wanjiku@fnb.co.ke", role: "Read Only", status: "invited", lastLogin: "—", mfaEnabled: false },
-];
+const mockUsers = tabsData.users.mockUsers as InstitutionUser[];
 
 const statusStyles: Record<string, string> = {
   active: "bg-success/15 text-success",

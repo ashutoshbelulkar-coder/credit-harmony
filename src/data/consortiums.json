@@ -1,0 +1,100 @@
+{
+  "purposes": ["Risk sharing", "Pricing alignment", "Portfolio monitoring", "Regulatory reporting"],
+  "governanceModels": ["Centralized", "Federated", "Hybrid Board"],
+  "consortiums": [
+    {
+      "id": "CONS_001",
+      "name": "SME Lending Consortium",
+      "type": "Closed",
+      "membersCount": 12,
+      "dataVolume": "4.2M records / mo",
+      "status": "active",
+      "description": "Closed consortium for SME exposure and shared performance data.",
+      "purpose": "Risk sharing",
+      "governanceModel": "Federated",
+      "dataPolicy": {
+        "shareLoanData": true,
+        "shareRepaymentHistory": true,
+        "allowAggregation": true,
+        "dataVisibility": "full"
+      }
+    },
+    {
+      "id": "CONS_002",
+      "name": "Retail Credit Alliance",
+      "type": "Open",
+      "membersCount": 28,
+      "dataVolume": "12.8M records / mo",
+      "status": "active",
+      "description": "Open membership retail bureau-aligned data sharing.",
+      "purpose": "Portfolio monitoring",
+      "governanceModel": "Centralized",
+      "dataPolicy": {
+        "shareLoanData": true,
+        "shareRepaymentHistory": true,
+        "allowAggregation": false,
+        "dataVisibility": "full"
+      }
+    },
+    {
+      "id": "CONS_003",
+      "name": "Trade Finance Network",
+      "type": "Hybrid",
+      "membersCount": 8,
+      "dataVolume": "890K records / mo",
+      "status": "pending",
+      "description": "Hybrid governance model for trade and LC-related exposure.",
+      "purpose": "Regulatory reporting",
+      "governanceModel": "Hybrid Board",
+      "dataPolicy": {
+        "shareLoanData": true,
+        "shareRepaymentHistory": false,
+        "allowAggregation": true,
+        "dataVisibility": "masked_pii"
+      }
+    }
+  ],
+  "membersByConsortiumId": {
+    "CONS_001": [
+      { "institutionId": "1", "institutionName": "First National Bank", "role": "Contributor", "joinedDate": "2025-11-03", "status": "active" },
+      { "institutionId": "2", "institutionName": "Metro Credit Union", "role": "Consumer", "joinedDate": "2025-11-18", "status": "active" },
+      { "institutionId": "4", "institutionName": "Southern Trust Bank", "role": "Contributor", "joinedDate": "2026-01-07", "status": "active" }
+    ],
+    "CONS_002": [
+      { "institutionId": "1", "institutionName": "First National Bank", "role": "Consumer", "joinedDate": "2025-08-12", "status": "active" },
+      { "institutionId": "7", "institutionName": "Alpine Microfinance", "role": "Contributor", "joinedDate": "2025-10-01", "status": "active" },
+      { "institutionId": "8", "institutionName": "Urban Commercial Bank", "role": "Contributor", "joinedDate": "2025-12-15", "status": "active" }
+    ],
+    "CONS_003": [
+      { "institutionId": "3", "institutionName": "Pacific Finance Corp", "role": "Consumer", "joinedDate": "2026-02-20", "status": "pending" }
+    ]
+  },
+  "contributionByConsortiumId": {
+    "CONS_001": [
+      { "memberName": "First National Bank", "recordsContributed": "1.1M", "lastSync": "2026-03-24 08:12 UTC" },
+      { "memberName": "Southern Trust Bank", "recordsContributed": "620K", "lastSync": "2026-03-24 07:45 UTC" }
+    ],
+    "CONS_002": [
+      { "memberName": "Alpine Microfinance", "recordsContributed": "2.4M", "lastSync": "2026-03-24 09:01 UTC" },
+      { "memberName": "Urban Commercial Bank", "recordsContributed": "3.8M", "lastSync": "2026-03-24 08:55 UTC" }
+    ],
+    "CONS_003": []
+  },
+  "contributionSummaryByConsortiumId": {
+    "CONS_001": {
+      "totalRecordsShared": "1.72M",
+      "lastUpdated": "2026-03-24 09:01 UTC",
+      "dataTypes": ["Loan performance", "Exposure", "Repayment history"]
+    },
+    "CONS_002": {
+      "totalRecordsShared": "6.2M",
+      "lastUpdated": "2026-03-24 09:01 UTC",
+      "dataTypes": ["Bureau attributes", "Account aggregation", "GST signals"]
+    },
+    "CONS_003": {
+      "totalRecordsShared": "—",
+      "lastUpdated": "—",
+      "dataTypes": []
+    }
+  }
+}

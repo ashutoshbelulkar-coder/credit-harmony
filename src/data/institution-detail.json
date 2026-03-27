@@ -1,0 +1,82 @@
+{
+  "submitterKpis": {
+    "recordsSubmittedToday": "4,892",
+    "fileSuccessRate": "94.2%",
+    "rejectionRate": "5.8%",
+    "lastFileUpload": "Today, 09:14 AM"
+  },
+  "subscriberKpis": {
+    "totalEnquiriesToday": "1,247",
+    "p95LatencyMs": "142ms",
+    "activeApis": 1,
+    "alternateDataUsageToday": 438
+  },
+  "submissionVolumeData": [
+    {"day":"1","volume":4200},{"day":"2","volume":3800},{"day":"3","volume":4900},{"day":"4","volume":3500},
+    {"day":"5","volume":4100},{"day":"6","volume":5200},{"day":"7","volume":3900},{"day":"8","volume":4600},
+    {"day":"9","volume":3700},{"day":"10","volume":4300},{"day":"11","volume":5100},{"day":"12","volume":3600},
+    {"day":"13","volume":4800},{"day":"14","volume":4000},{"day":"15","volume":3400},{"day":"16","volume":4700},
+    {"day":"17","volume":5300},{"day":"18","volume":3800},{"day":"19","volume":4200},{"day":"20","volume":4900},
+    {"day":"21","volume":3600},{"day":"22","volume":5000},{"day":"23","volume":4400},{"day":"24","volume":3700},
+    {"day":"25","volume":4600},{"day":"26","volume":5200},{"day":"27","volume":3900},{"day":"28","volume":4100},
+    {"day":"29","volume":4800},{"day":"30","volume":4892}
+  ],
+  "successVsRejectedData": [
+    { "name": "Success", "value": 94.2 },
+    { "name": "Rejected", "value": 5.8 }
+  ],
+  "rejectionReasonsData": [
+    { "reason": "Missing Fields", "count": 342 },
+    { "reason": "Format Error", "count": 218 },
+    { "reason": "Duplicate", "count": 156 },
+    { "reason": "Schema Mismatch", "count": 89 },
+    { "reason": "Other", "count": 45 }
+  ],
+  "processingTimeData": [
+    {"day":"1","avgMs":145},{"day":"2","avgMs":132},{"day":"3","avgMs":158},{"day":"4","avgMs":121},
+    {"day":"5","avgMs":167},{"day":"6","avgMs":138},{"day":"7","avgMs":149},{"day":"8","avgMs":125},
+    {"day":"9","avgMs":162},{"day":"10","avgMs":141},{"day":"11","avgMs":155},{"day":"12","avgMs":128},
+    {"day":"13","avgMs":172},{"day":"14","avgMs":136}
+  ],
+  "enquiryVolumeData": [
+    {"day":"1","volume":920},{"day":"2","volume":850},{"day":"3","volume":1050},{"day":"4","volume":780},
+    {"day":"5","volume":980},{"day":"6","volume":1120},{"day":"7","volume":890},{"day":"8","volume":1040},
+    {"day":"9","volume":810},{"day":"10","volume":970},{"day":"11","volume":1090},{"day":"12","volume":820},
+    {"day":"13","volume":1010},{"day":"14","volume":930},{"day":"15","volume":760},{"day":"16","volume":1060},
+    {"day":"17","volume":1140},{"day":"18","volume":870},{"day":"19","volume":990},{"day":"20","volume":1070},
+    {"day":"21","volume":800},{"day":"22","volume":1080},{"day":"23","volume":950},{"day":"24","volume":830},
+    {"day":"25","volume":1020},{"day":"26","volume":1130},{"day":"27","volume":860},{"day":"28","volume":940},
+    {"day":"29","volume":1000},{"day":"30","volume":1247}
+  ],
+  "successVsFailedData": [
+    { "name": "Success", "value": 97.1 },
+    { "name": "Failed", "value": 2.9 }
+  ],
+  "usageBySourceData": [
+    { "source": "Credit Report", "standard": 450, "alternate": 0 },
+    { "source": "Bank Stmt", "standard": 0, "alternate": 320 },
+    { "source": "GST", "standard": 0, "alternate": 180 },
+    { "source": "Telecom", "standard": 0, "alternate": 90 },
+    { "source": "Utility", "standard": 0, "alternate": 60 }
+  ],
+  "responseTimeData": [
+    {"day":"1","latency":108},{"day":"2","latency":95},{"day":"3","latency":118},{"day":"4","latency":88},
+    {"day":"5","latency":124},{"day":"6","latency":102},{"day":"7","latency":112},{"day":"8","latency":91},
+    {"day":"9","latency":128},{"day":"10","latency":105},{"day":"11","latency":119},{"day":"12","latency":93},
+    {"day":"13","latency":131},{"day":"14","latency":99}
+  ],
+  "apiAccess": {
+    "submitterApis": [
+      { "name": "Submission API", "enabled": true, "rateLimit": "1000/min", "ipWhitelist": ["10.0.1.0/24", "192.168.1.100"], "lastUsed": "2026-02-19 09:14" },
+      { "name": "Bulk API", "enabled": false, "rateLimit": "100/min", "ipWhitelist": [], "lastUsed": "2026-02-17 14:30" },
+      { "name": "SFTP Access", "enabled": true, "rateLimit": "N/A", "ipWhitelist": ["10.0.1.50"], "lastUsed": "2026-02-19 06:00" }
+    ],
+    "subscriberApis": [
+      { "name": "Enquiry API", "enabled": true, "rateLimit": "2000/min", "ipWhitelist": ["10.0.2.0/24"], "lastUsed": "2026-02-19 09:42" }
+    ],
+    "apiKeys": [
+      { "key": "sb_live_xxxx...xxxx", "created": "2026-01-15", "status": "active" },
+      { "key": "sb_test_yyyy...yyyy", "created": "2026-02-01", "status": "active" }
+    ]
+  }
+}

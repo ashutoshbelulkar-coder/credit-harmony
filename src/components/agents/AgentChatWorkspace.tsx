@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import type { Agent, Customer, ChatMessage } from "@/types/agents";
 import { generateMockCustomer, generateBureauResponse } from "@/data/agents-mock";
+import simulationDefaults from "@/data/simulation-defaults.json";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -81,14 +82,7 @@ export function AgentChatWorkspace({ agent, subAgentId, onBack, initialBureauFor
     return [...rest, "bureau-enquiry"];
   });
 
-  // Mock list of past chat sessions (replace with API later)
-  const chatHistoryList = [
-    { id: "1", title: "Credit assessment for John Doe", date: "Today, 10:30 AM" },
-    { id: "2", title: "Bureau enquiry – PAN verification", date: "Today, 9:15 AM" },
-    { id: "3", title: "Loan eligibility discussion", date: "Yesterday, 4:22 PM" },
-    { id: "4", title: "Fraud check follow-up", date: "Yesterday, 11:00 AM" },
-    { id: "5", title: "Portfolio risk overview", date: "Feb 25, 3:45 PM" },
-  ];
+  const chatHistoryList = simulationDefaults.agentChatHistory;
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });

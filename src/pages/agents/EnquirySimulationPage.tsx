@@ -23,6 +23,9 @@ import {
 } from "@/data/data-products-mock";
 import { useCatalogMock } from "@/contexts/CatalogMockContext";
 import { cn } from "@/lib/utils";
+import simulationDefaults from "@/data/simulation-defaults.json";
+
+const { enquirySimulation: DEFAULTS } = simulationDefaults;
 
 const sectionOrder = ["bureau", "banking", "consortium"] as const;
 const sectionTitles: Record<(typeof sectionOrder)[number], string> = {
@@ -40,16 +43,16 @@ export default function EnquirySimulationPage() {
     return Array.from(map.values());
   }, [products]);
   const [productId, setProductId] = useState(productOptions[0]?.id ?? "");
-  const [customerName, setCustomerName] = useState("Jane Wanjiku");
-  const [consumerId, setConsumerId] = useState("CB-00192884");
-  const [customerId, setCustomerId] = useState("ID-884921");
-  const [dob, setDob] = useState("1990-08-14");
-  const [governmentId, setGovernmentId] = useState("PAN-AYZPK9123D");
-  const [mobile, setMobile] = useState("+254 712 000 000");
-  const [address, setAddress] = useState("MG Road, Bengaluru");
+  const [customerName, setCustomerName] = useState(DEFAULTS.customerName);
+  const [consumerId, setConsumerId] = useState(DEFAULTS.consumerId);
+  const [customerId, setCustomerId] = useState(DEFAULTS.customerId);
+  const [dob, setDob] = useState(DEFAULTS.dob);
+  const [governmentId, setGovernmentId] = useState(DEFAULTS.governmentId);
+  const [mobile, setMobile] = useState(DEFAULTS.mobile);
+  const [address, setAddress] = useState(DEFAULTS.address);
   const [enquiryPurpose, setEnquiryPurpose] = useState<
     "loan_application" | "credit_card" | "kyc_verification" | "account_review" | "collection" | "soft_pull"
-  >("loan_application");
+  >(DEFAULTS.enquiryPurpose as "loan_application");
   const [running, setRunning] = useState(false);
   const [response, setResponse] = useState<ReturnType<typeof buildResponse> | null>(null);
 

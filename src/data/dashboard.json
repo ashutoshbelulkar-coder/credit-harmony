@@ -1,0 +1,101 @@
+{
+  "institutions": [
+    "First National Bank",
+    "Metro Credit Union",
+    "Pacific Finance Corp",
+    "Southern Trust Bank",
+    "Gulf National Bank",
+    "Axis Capital Partners",
+    "Kotak Microfinance",
+    "Yes Bank"
+  ],
+  "members": [
+    "HDFC",
+    "SBI",
+    "ICICI",
+    "Axis",
+    "Kotak",
+    "Yes Bank",
+    "PNB",
+    "Bank of Baroda"
+  ],
+  "recentActivity": [
+    { "institutionIndex": 0, "action": "API key rotated", "time": "2 min ago", "status": "info" },
+    { "institutionIndex": 1, "action": "Submission API enabled", "time": "15 min ago", "status": "success" },
+    { "institutionIndex": 2, "action": "SLA breach warning", "time": "1 hour ago", "status": "warning" },
+    { "institutionIndex": 3, "action": "Onboarding completed", "time": "3 hours ago", "status": "success" },
+    { "institutionIndex": 0, "action": "Bulk data upload", "time": "5 hours ago", "status": "info" }
+  ],
+  "anomalies": [
+    {
+      "id": "ANM-441",
+      "title": "Volume spike detected",
+      "descriptionTemplate": "{institution} submitted >200% above baseline. Review batch for quarantine.",
+      "institutionIndex": 2,
+      "time": "8 min ago",
+      "detectedBy": "Bureau Operations Intelligence",
+      "ctaLabel": "Review Batch",
+      "href": "/monitoring/data-submission-batch"
+    },
+    {
+      "id": "ANM-440",
+      "title": "Duplicate identifier pattern",
+      "description": "High duplication detected across concurrent submissions. Validate dedup rules and member payloads.",
+      "time": "14 min ago",
+      "detectedBy": "Bureau Operations Intelligence",
+      "ctaLabel": "Open Quality Monitoring",
+      "href": "/data-governance/data-quality-monitoring"
+    },
+    {
+      "id": "ANM-438",
+      "title": "Schema mapping change",
+      "description": "Unrecognized segment detected in submission payload. Review mapping coverage.",
+      "time": "42 min ago",
+      "detectedBy": "Bureau Operations Intelligence",
+      "ctaLabel": "Review Auto Mapping",
+      "href": "/data-governance/auto-mapping-review"
+    }
+  ],
+  "pipelineAgentDefinitions": [
+    {
+      "id": "pipeline-ingestion",
+      "name": "Ingestion",
+      "type": "ingestion",
+      "task": "Receiving and staging member data submissions (batch / API)"
+    },
+    {
+      "id": "pipeline-schema-mapper",
+      "name": "Schema Mapper",
+      "type": "schema",
+      "task": "AI-assisted mapping to canonical bureau schema (Auto-Mapping Review)"
+    },
+    {
+      "id": "pipeline-data-validation",
+      "name": "Data Validation",
+      "type": "quality",
+      "task": "Running validation rules and field checks against submissions"
+    },
+    {
+      "id": "pipeline-identity-resolution",
+      "name": "Identity Resolution",
+      "type": "orchestrator",
+      "task": "Entity matching and match review queue (Identity Resolution)"
+    }
+  ],
+  "agentTypeByAgentId": {
+    "banking": "scoring",
+    "bureau-operator": "orchestrator",
+    "loan-underwriter": "scoring",
+    "real-estate": "scoring",
+    "insurance": "compliance",
+    "employment": "compliance",
+    "utilities": "rag",
+    "automotive": "scoring",
+    "b2b-trade": "scoring",
+    "self": "rag"
+  },
+  "throughputConfig": {
+    "multiplier": 5.8,
+    "baseVolume": 1000000
+  }
+}

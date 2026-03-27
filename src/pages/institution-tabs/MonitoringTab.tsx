@@ -15,58 +15,22 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { CheckCircle2, AlertTriangle, Copy, TrendingUp, ShieldAlert, Clock, Zap } from "lucide-react";
+import tabsData from "@/data/institution-tabs.json";
 
-/* ── Submission Monitoring Data ── */
-const submissionKpis = [
-  { label: "Ingestion Success Rate", value: "99.2%", icon: CheckCircle2, color: "text-success" },
-  { label: "Schema Drift Alerts", value: "3", icon: AlertTriangle, color: "text-warning" },
-  { label: "Duplicate Rate", value: "0.4%", icon: Copy, color: "text-foreground" },
-  { label: "Volume Spikes", value: "2", icon: TrendingUp, color: "text-info" },
-];
+const ICON_MAP = { CheckCircle2, AlertTriangle, Copy, TrendingUp, ShieldAlert, Clock, Zap } as const;
+type IconKey = keyof typeof ICON_MAP;
 
-const ingestionTrendData = [
-  { day: "Feb 13", success: 4820, failed: 38 },
-  { day: "Feb 14", success: 5100, failed: 42 },
-  { day: "Feb 15", success: 4950, failed: 35 },
-  { day: "Feb 16", success: 5300, failed: 51 },
-  { day: "Feb 17", success: 5080, failed: 29 },
-  { day: "Feb 18", success: 5250, failed: 44 },
-  { day: "Feb 19", success: 5400, failed: 37 },
-];
+const { ingestionTrendData, schemaDriftData, apiErrorTrendData, rateLimitBreachData } = tabsData.monitoring;
 
-const schemaDriftData = [
-  { field: "phone_number", count: 12 },
-  { field: "date_of_birth", count: 8 },
-  { field: "account_type", count: 5 },
-  { field: "currency", count: 3 },
-];
+const submissionKpis = tabsData.monitoring.submissionKpis.map((k) => ({
+  ...k,
+  icon: ICON_MAP[k.iconKey as IconKey],
+}));
 
-/* ── Subscriber Monitoring Data ── */
-const subscriberKpis = [
-  { label: "API Error Rate", value: "0.18%", icon: ShieldAlert, color: "text-danger" },
-  { label: "Rate Limit Breaches", value: "7", icon: Zap, color: "text-warning" },
-  { label: "Abuse Detection", value: "0", icon: ShieldAlert, color: "text-success" },
-  { label: "Alt Data Latency", value: "142ms", icon: Clock, color: "text-foreground" },
-];
-
-const apiErrorTrendData = [
-  { day: "Feb 13", errors: 24, requests: 12400 },
-  { day: "Feb 14", errors: 18, requests: 13200 },
-  { day: "Feb 15", errors: 31, requests: 11800 },
-  { day: "Feb 16", errors: 15, requests: 14100 },
-  { day: "Feb 17", errors: 22, requests: 13500 },
-  { day: "Feb 18", errors: 19, requests: 14800 },
-  { day: "Feb 19", errors: 26, requests: 15200 },
-];
-
-const rateLimitBreachData = [
-  { hour: "06:00", breaches: 0 },
-  { hour: "09:00", breaches: 2 },
-  { hour: "12:00", breaches: 3 },
-  { hour: "15:00", breaches: 1 },
-  { hour: "18:00", breaches: 1 },
-  { hour: "21:00", breaches: 0 },
-];
+const subscriberKpis = tabsData.monitoring.subscriberKpis.map((k) => ({
+  ...k,
+  icon: ICON_MAP[k.iconKey as IconKey],
+}));
 
 const ingestionConfig: ChartConfig = {
   success: { label: "Success", color: "hsl(var(--success))" },

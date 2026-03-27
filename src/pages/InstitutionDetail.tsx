@@ -34,6 +34,7 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import institutionDetailData from "@/data/institution-detail.json";
 import UsersTab from "./institution-tabs/UsersTab";
 import ConsentConfigTab from "./institution-tabs/ConsentConfigTab";
 import BillingTab from "./institution-tabs/BillingTab";
@@ -161,51 +162,18 @@ const InstitutionDetail = () => {
 
 /* ─────────────── OVERVIEW TAB ─────────────── */
 
-const submissionVolumeData = Array.from({ length: 30 }, (_, i) => ({
-  day: `${i + 1}`,
-  volume: 3000 + Math.floor(Math.random() * 2500),
-}));
-
-const successVsRejectedData = [
-  { name: "Success", value: 94.2 },
-  { name: "Rejected", value: 5.8 },
-];
-
-const rejectionReasonsData = [
-  { reason: "Missing Fields", count: 342 },
-  { reason: "Format Error", count: 218 },
-  { reason: "Duplicate", count: 156 },
-  { reason: "Schema Mismatch", count: 89 },
-  { reason: "Other", count: 45 },
-];
-
-const processingTimeData = Array.from({ length: 14 }, (_, i) => ({
-  day: `${i + 1}`,
-  avgMs: 120 + Math.floor(Math.random() * 80),
-}));
-
-const enquiryVolumeData = Array.from({ length: 30 }, (_, i) => ({
-  day: `${i + 1}`,
-  volume: 800 + Math.floor(Math.random() * 600),
-}));
-
-const successVsFailedData = [
-  { name: "Success", value: 97.1 },
-  { name: "Failed", value: 2.9 },
-];
-
-const usageBySourceData = [
-  { source: "Credit Report", standard: 450, alternate: 0 },
-  { source: "Bank Stmt", standard: 0, alternate: 320 },
-  { source: "GST", standard: 0, alternate: 180 },
-  { source: "Telecom", standard: 0, alternate: 90 },
-  { source: "Utility", standard: 0, alternate: 60 },
-];
-
-const responseTimeData = Array.from({ length: 14 }, (_, i) => ({
-  day: `${i + 1}`,
-  latency: 80 + Math.floor(Math.random() * 60),
-}));
+const {
+  submissionVolumeData,
+  successVsRejectedData,
+  rejectionReasonsData,
+  processingTimeData,
+  enquiryVolumeData,
+  successVsFailedData,
+  usageBySourceData,
+  responseTimeData,
+  submitterKpis,
+  subscriberKpis,
+} = institutionDetailData;
 
 const PIE_COLORS = ["hsl(var(--success))", "hsl(var(--danger))"];
 
@@ -240,15 +208,15 @@ function OverviewTab({ institution }: { institution: Institution }) {
             <>
               <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
                 <p className="text-caption text-muted-foreground">Records Submitted Today</p>
-                <p className="text-h4 font-bold mt-1 text-foreground">4,892</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">{submitterKpis.recordsSubmittedToday}</p>
               </div>
               <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
                 <p className="text-caption text-muted-foreground">File Success Rate</p>
-                <p className="text-h4 font-bold mt-1 text-success">94.2%</p>
+                <p className="text-h4 font-bold mt-1 text-success">{submitterKpis.fileSuccessRate}</p>
               </div>
               <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
                 <p className="text-caption text-muted-foreground">Rejection Rate</p>
-                <p className="text-h4 font-bold mt-1 text-danger">5.8%</p>
+                <p className="text-h4 font-bold mt-1 text-danger">{submitterKpis.rejectionRate}</p>
               </div>
               <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
                 <p className="text-caption text-muted-foreground">Active Submission APIs</p>
@@ -258,7 +226,7 @@ function OverviewTab({ institution }: { institution: Institution }) {
                 <p className="text-caption text-muted-foreground">Last File Upload</p>
                 <div className="flex items-center gap-1.5 mt-1">
                   <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <p className="text-body font-medium text-foreground truncate">Today, 09:14 AM</p>
+                  <p className="text-body font-medium text-foreground truncate">{submitterKpis.lastFileUpload}</p>
                 </div>
               </div>
             </>
@@ -267,13 +235,13 @@ function OverviewTab({ institution }: { institution: Institution }) {
             <>
               <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
                 <p className="text-caption text-muted-foreground">Total Enquiries Today</p>
-                <p className="text-h4 font-bold mt-1 text-foreground">1,247</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">{subscriberKpis.totalEnquiriesToday}</p>
               </div>
               <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
                 <p className="text-caption text-muted-foreground">P95 Latency</p>
-                <p className="text-h4 font-bold mt-1 text-foreground">142ms</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">{subscriberKpis.p95LatencyMs}</p>
               </div>
-              {institution.creditBalance !== undefined && (
+              {institution.creditBalance != null && (
                 <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
                   <p className="text-caption text-muted-foreground">Available Credits</p>
                   <p className="text-h4 font-bold mt-1 text-foreground">{institution.creditBalance.toLocaleString()}</p>
@@ -281,11 +249,11 @@ function OverviewTab({ institution }: { institution: Institution }) {
               )}
               <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
                 <p className="text-caption text-muted-foreground">Active APIs</p>
-                <p className="text-h4 font-bold mt-1 text-foreground">1</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">{subscriberKpis.activeApis}</p>
               </div>
               <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
                 <p className="text-caption text-muted-foreground">Alternate Data Usage Today</p>
-                <p className="text-h4 font-bold mt-1 text-foreground">438</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">{subscriberKpis.alternateDataUsageToday}</p>
               </div>
             </>
           )}
@@ -552,20 +520,9 @@ function ApiAccessTab({ isDataSubmitter, isSubscriber }: { isDataSubmitter: bool
   const [editingApi, setEditingApi] = useState<string | null>(null);
   const [editRate, setEditRate] = useState("");
 
-  const submitterApis: ApiCardData[] = [
-    { name: "Submission API", enabled: true, rateLimit: "1000/min", ipWhitelist: ["10.0.1.0/24", "192.168.1.100"], lastUsed: "2026-02-19 09:14" },
-    { name: "Bulk API", enabled: false, rateLimit: "100/min", ipWhitelist: [], lastUsed: "2026-02-17 14:30" },
-    { name: "SFTP Access", enabled: true, rateLimit: "N/A", ipWhitelist: ["10.0.1.50"], lastUsed: "2026-02-19 06:00" },
-  ];
-
-  const subscriberApis: ApiCardData[] = [
-    { name: "Enquiry API", enabled: true, rateLimit: "2000/min", ipWhitelist: ["10.0.2.0/24"], lastUsed: "2026-02-19 09:42" },
-  ];
-
-  const keys = [
-    { key: "sb_live_xxxx...xxxx", created: "2026-01-15", status: "active" },
-    { key: "sb_test_yyyy...yyyy", created: "2026-02-01", status: "active" },
-  ];
+  const submitterApis: ApiCardData[] = institutionDetailData.apiAccess.submitterApis;
+  const subscriberApis: ApiCardData[] = institutionDetailData.apiAccess.subscriberApis;
+  const keys = institutionDetailData.apiAccess.apiKeys;
 
   const apis = [
     ...(isDataSubmitter ? submitterApis : []),
