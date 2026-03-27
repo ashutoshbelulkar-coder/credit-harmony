@@ -86,6 +86,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
   const parsedFields = selectedPreviousId === "utility-sample" ? utilityParsedFields : telecomParsedFields;
   const fieldStats = selectedPreviousId === "utility-sample" ? utilityFieldStatistics : telecomFieldStatistics;
   const metadata = initialMetadata ?? ingestedSourceMetadataTelecom;
+  const similarSchemas = Array.isArray(metadata.similarSchemas) ? metadata.similarSchemas : [];
   const similarityData = similarityRankingForBarChart;
 
   const isFormValid = isParsed && sourceName.trim().length > 0;
