@@ -3,6 +3,7 @@ import type {
   BatchPipelineRow,
   CommandCenterSnapshot,
   DashboardActivitySnapshot,
+  DashboardActivityStatus,
   DashboardCharts,
   DashboardMetrics,
   DashboardRange,
@@ -108,7 +109,7 @@ export function createMockDashboardSnapshot(range: DashboardRange): DashboardSna
       institution: institutions[row.institutionIndex],
       action: row.action,
       time: row.time,
-      status: row.status as "info" | "success" | "warning" | "error",
+      status: (row.status === "error" ? "warning" : row.status) as DashboardActivityStatus,
     })),
     topInstitutions: [
       { name: institutions[0], requests: `${Math.round(300 + rand() * 220)}K`, quality: Math.round(clamp(dataQualityScore + rand() * 3, 80, 99)), sla: parseFloat(clamp(slaHealth + rand() * 0.2, 95, 100).toFixed(1)) },
