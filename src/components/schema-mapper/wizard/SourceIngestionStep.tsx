@@ -271,7 +271,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
                   Similar Existing Schemas (Top 3)
                 </p>
                 <ul className="space-y-1">
-                  {metadata.similarSchemas.slice(0, 3).map((s) => (
+                  {similarSchemas.slice(0, 3).map((s) => (
                     <li key={s.schemaId} className="flex items-center justify-between text-caption">
                       <span>{s.label}</span>
                       <span className="tabular-nums">{s.similarityPercent}%</span>
