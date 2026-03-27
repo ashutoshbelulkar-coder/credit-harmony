@@ -3,6 +3,7 @@ import type {
   BatchPipelineRow,
   CommandCenterSnapshot,
   DashboardActivitySnapshot,
+  DashboardActivityStatus,
   DashboardCharts,
   DashboardMetrics,
   DashboardRange,
