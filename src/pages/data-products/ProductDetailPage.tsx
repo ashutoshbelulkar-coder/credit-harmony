@@ -10,6 +10,7 @@ import { badgeTextClasses } from "@/lib/typography";
 import { useCatalogMock } from "@/contexts/CatalogMockContext";
 import {
   catalogLabelForPacketId,
+  normalizeEnquiryConfig,
   productCatalogPacketOptions,
   productPricingLabel,
   type ProductLifecycleStatus,
@@ -42,6 +43,11 @@ const IMPACT_LABELS: Record<string, string> = {
 const MODE_LABELS: Record<string, string> = {
   LIVE: "Live Data",
   SYNTHETIC: "Synthetic Data",
+};
+
+const DATA_TYPE_LABELS: Record<string, string> = {
+  LATEST: "Latest Data",
+  TRENDED: "Trended Data",
 };
 
 export default function ProductDetailPage() {
@@ -82,8 +88,11 @@ export default function ProductDetailPage() {
     const opt = productCatalogPacketOptions.find((o) => o.id === packetId);
     const cfg = product.packetConfigs?.find((c) => c.packetId === packetId);
     if (!opt) return "";
-    const count = cfg && cfg.selectedFields.length > 0 ? cfg.selectedFields.length : opt.fields.length;
-    return `${count} field${count !== 1 ? "s" : ""}`;
+    const raw =
+      cfg && cfg.selectedFields.length > 0 ? cfg.selectedFields.length : opt.fields.length;
+    const derived = cfg?.selectedDerivedFields?.length ?? 0;
+    const count = raw + derived;
+    return `${count} field${count !== 1 ? "s" : ""}${derived ? ` (${derived} derived)` : ""}`;
   };
 
   return (
@@ -185,7 +194,7 @@ export default function ProductDetailPage() {
             <CardTitle>Enquiry configuration</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 sm:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
                 <p className="text-caption text-muted-foreground">Impact type</p>
                 <p className="text-body font-medium text-foreground mt-0.5">
@@ -202,6 +211,13 @@ export default function ProductDetailPage() {
                 <p className="text-caption text-muted-foreground">Data mode</p>
                 <p className="text-body font-medium text-foreground mt-0.5">
                   {MODE_LABELS[product.enquiryConfig.mode] ?? product.enquiryConfig.mode}
+                </p>
+              </div>
+              <div>
+                <p className="text-caption text-muted-foreground">Enquiry data coverage</p>
+                <p className="text-body font-medium text-foreground mt-0.5">
+                  {DATA_TYPE_LABELS[normalizeEnquiryConfig(product.enquiryConfig).dataType] ??
+                    normalizeEnquiryConfig(product.enquiryConfig).dataType}
                 </p>
               </div>
             </div>

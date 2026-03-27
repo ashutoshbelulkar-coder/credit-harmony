@@ -14,6 +14,94 @@ import type {
 import { dashboardRangeKey } from "./dashboard-types";
 import { mockAgents } from "@/data/agents-mock";
 import dashboardData from "@/data/dashboard.json";
+import { batchJobs, type BatchJob, type BatchStatus as MonitoringBatchStatus } from "@/data/monitoring-mock";
+import { institutions } from "@/data/institutions-mock";
+import { formatDistanceToNow } from "date-fns";
+
+function formatFromFileName(fileName: string): BatchPipelineRow["format"] {
+  const lower = fileName.toLowerCase();
+  if (lower.endsWith(".json")) return "JSON";
+  if (lower.endsWith(".csv")) return "CSV";
+  return "TUDF";
+}
+
+function mapMonitoringStatusToPipeline(s: MonitoringBatchStatus): BatchPipelineRow["status"] {
+  switch (s) {
+    case "Completed":
+      return "completed";
+    case "Processing":
+      return "processing";
+    case "Failed":
+      return "error";
+    case "Queued":
+      return "queued";
+    case "Suspended":
+      return "processing";
+    default:
+      return "processing";
+  }
+}
+
+function memberNameForInstitution(institutionId: string): string {
+  const inst = institutions.find((i) => i.id === institutionId);
+  return inst ? (inst.tradingName ?? inst.name) : institutionId;
+}
+
+function parseUploaded(uploaded: string): Date {
+  const iso = uploaded.includes("T") ? uploaded : uploaded.replace(" ", "T");
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? new Date() : d;
+}
+
+function relativeUploaded(uploaded: string): string {
+  try {
+    return formatDistanceToNow(parseUploaded(uploaded), { addSuffix: true });
+  } catch {
+    return uploaded;
+  }
+}
+
+function computeProgress(job: BatchJob): number {
+  if (job.status === "Completed") return 100;
+  if (job.status === "Queued") return 0;
+  if (job.total_records <= 0) return 0;
+  if (job.status === "Failed") {
+    return Math.min(100, Math.round((job.success / job.total_records) * 100));
+  }
+  return Math.min(100, Math.round((job.success / job.total_records) * 100));
+}
+
+function computeQuality(job: BatchJob): number | null {
+  if (job.status === "Queued" && job.total_records === 0) return null;
+  return parseFloat(job.success_rate.toFixed(1));
+}
+
+function priorityForJob(job: BatchJob): BatchPipelineRow["priority"] {
+  if (job.status === "Failed") return "critical";
+  if (job.status === "Queued") return "low";
+  return "normal";
+}
+
+export function batchJobsToPipelineRows(jobs: BatchJob[]): BatchPipelineRow[] {
+  const sorted = [...jobs].sort((a, b) => {
+    const active = (s: MonitoringBatchStatus) => (s === "Queued" || s === "Processing" ? 0 : s === "Failed" ? 2 : 1);
+    const ra = active(a.status);
+    const rb = active(b.status);
+    if (ra !== rb) return ra - rb;
+    return parseUploaded(b.uploaded).getTime() - parseUploaded(a.uploaded).getTime();
+  });
+  return sorted.map((job) => ({
+    id: job.batch_id,
+    member: memberNameForInstitution(job.institution_id),
+    format: formatFromFileName(job.file_name),
+    records: job.total_records,
+    progress: computeProgress(job),
+    quality: computeQuality(job),
+    status: mapMonitoringStatusToPipeline(job.status),
+    time: relativeUploaded(job.uploaded),
+    priority: priorityForJob(job),
+  }));
+}
 
 function mulberry32(seed: number) {
   return function () {
@@ -155,25 +243,10 @@ export function createMockDashboardSnapshot(range: DashboardRange): DashboardSna
 
   const agents: AgentFleetItem[] = [...pipelineAgents, ...catalogAgents];
 
-  const formats = ["TUDF", "CSV", "JSON"] as const;
-  const statuses = ["processing", "completed", "error", "queued"] as const;
-  const batches: BatchPipelineRow[] = Array.from({ length: 6 }, (_, i) => {
-    const status = statuses[Math.floor(rand() * statuses.length)];
-    const progress = status === "completed" ? 100 : status === "queued" ? 0 : Math.round(15 + rand() * 80);
-    const quality = status === "queued" ? null : parseFloat(clamp(dataQualityScore - 6 + rand() * 10, 80, 100).toFixed(1));
-    const priority = rand() > 0.86 ? "critical" : rand() > 0.6 ? "normal" : "low";
-    return {
-      id: `BTC-${String(8800 + i).padStart(4, "0")}`,
-      member: institutions[(i + 1) % institutions.length],
-      format: formats[Math.floor(rand() * formats.length)],
-      records: Math.round(50_000 + rand() * 280_000),
-      progress,
-      quality,
-      status,
-      time: `${Math.round(4 + rand() * 40)}m ago`,
-      priority,
-    };
-  });
+  /** In-flight batches only — same records as Monitoring → Batch, filtered to `Processing` status. */
+  const batches: BatchPipelineRow[] = batchJobsToPipelineRows(
+    batchJobs.filter((j) => j.status === "Processing")
+  );
 
   const anomalies: AnomalyItem[] = dashboardData.anomalies.map((a) => ({
     id: a.id,

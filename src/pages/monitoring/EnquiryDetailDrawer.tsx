@@ -10,9 +10,11 @@ import type { EnquiryLogEntry } from "@/data/monitoring-mock";
 interface EnquiryDetailDrawerProps {
   enquiry: EnquiryLogEntry | null;
   onClose: () => void;
+  /** Mirrors list filters (subscriber institution, date range) from monitoring. */
+  filterContextSummary?: string;
 }
 
-export function EnquiryDetailDrawer({ enquiry, onClose }: EnquiryDetailDrawerProps) {
+export function EnquiryDetailDrawer({ enquiry, onClose, filterContextSummary }: EnquiryDetailDrawerProps) {
   if (!enquiry) return null;
 
   return (
@@ -23,6 +25,11 @@ export function EnquiryDetailDrawer({ enquiry, onClose }: EnquiryDetailDrawerPro
           <SheetDescription className="text-caption">
             Enquiry parameters and response summary
           </SheetDescription>
+          {filterContextSummary ? (
+            <p className="text-caption text-muted-foreground mt-2 rounded-md border border-border bg-muted/40 px-3 py-2">
+              Active filters: {filterContextSummary}
+            </p>
+          ) : null}
         </SheetHeader>
 
         <div className="space-y-6 mt-6">
@@ -36,6 +43,10 @@ export function EnquiryDetailDrawer({ enquiry, onClose }: EnquiryDetailDrawerPro
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Product</dt>
                 <dd className="font-medium">{enquiry.product}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-muted-foreground">Product ID</dt>
+                <dd className="font-mono text-caption">{enquiry.product_id}</dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Consumer ID</dt>

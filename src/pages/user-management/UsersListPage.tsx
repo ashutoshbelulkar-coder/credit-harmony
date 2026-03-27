@@ -14,7 +14,7 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
-import { mockUsers, institutionOptions, type ManagedUser, type UserRole, type UserStatus } from "@/data/user-management-mock";
+import { mockUsers, type ManagedUser, type UserRole, type UserStatus } from "@/data/user-management-mock";
 import { InviteUserModal } from "@/components/user-management/InviteUserModal";
 import { UserDetailDrawer } from "@/components/user-management/UserDetailDrawer";
 import { exportToCsv } from "@/lib/csv-export";
@@ -43,7 +43,6 @@ export function UsersListPage() {
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
-  const [institutionFilter, setInstitutionFilter] = useState("All");
   const [page, setPage] = useState(0);
   const [inviteOpen, setInviteOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
@@ -54,7 +53,6 @@ export function UsersListPage() {
     search.trim().length > 0,
     roleFilter !== "All",
     statusFilter !== "All",
-    institutionFilter !== "All",
   ].filter(Boolean).length;
 
   const filtered = useMemo(() => {
@@ -62,10 +60,9 @@ export function UsersListPage() {
       const matchSearch = !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
       const matchRole = roleFilter === "All" || u.role === roleFilter;
       const matchStatus = statusFilter === "All" || u.status === statusFilter;
-      const matchInst = institutionFilter === "All" || u.institution === institutionFilter;
-      return matchSearch && matchRole && matchStatus && matchInst;
+      return matchSearch && matchRole && matchStatus;
     });
-  }, [search, roleFilter, statusFilter, institutionFilter]);
+  }, [search, roleFilter, statusFilter]);
 
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
@@ -81,7 +78,7 @@ export function UsersListPage() {
         <div>
           <h1 className="text-h2 font-semibold text-foreground">Users</h1>
           <p className="text-caption text-muted-foreground mt-1">
-            Manage platform users, roles, and access across institutions.
+            Manage platform users, roles, and access.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -93,7 +90,6 @@ export function UsersListPage() {
                 { key: "name", label: "Name" },
                 { key: "email", label: "Email" },
                 { key: "role", label: "Role" },
-                { key: "institution", label: "Institution" },
                 { key: "status", label: "Status" },
                 { key: "lastActive", label: "Last Active" },
               ])
@@ -153,16 +149,6 @@ export function UsersListPage() {
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-caption text-muted-foreground">Institution</label>
-                <Select value={institutionFilter} onValueChange={(v) => { setInstitutionFilter(v); setPage(0); }}>
-                  <SelectTrigger className="h-8 w-full"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="All">All Institutions</SelectItem>
-                    {institutionOptions.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-              </div>
             </div>
           )}
         </div>
@@ -185,13 +171,6 @@ export function UsersListPage() {
               {statuses.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
             </SelectContent>
           </Select>
-          <Select value={institutionFilter} onValueChange={(v) => { setInstitutionFilter(v); setPage(0); }}>
-            <SelectTrigger className="h-8 w-[170px]"><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="All">All Institutions</SelectItem>
-              {institutionOptions.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
-            </SelectContent>
-          </Select>
         </div>
       </div>
 
@@ -203,7 +182,6 @@ export function UsersListPage() {
               <TableRow>
                 <TableHead>User</TableHead>
                 <TableHead>Role</TableHead>
-                <TableHead>Institution</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Last Active</TableHead>
                 <TableHead>MFA</TableHead>
@@ -212,7 +190,7 @@ export function UsersListPage() {
             </TableHeader>
             <TableBody>
               {paged.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground py-10">No users found</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-10">No users found</TableCell></TableRow>
               ) : paged.map((u) => {
                 const initials = u.name.split(" ").map((n) => n[0]).join("").slice(0, 2);
                 return (
@@ -229,7 +207,6 @@ export function UsersListPage() {
                       </div>
                     </TableCell>
                     <TableCell><Badge className={`border-0 text-[10px] ${roleColor[u.role]}`}>{u.role}</Badge></TableCell>
-                    <TableCell className="text-sm text-foreground">{u.institution}</TableCell>
                     <TableCell><Badge className={`border-0 text-[10px] ${statusColor[u.status]}`}>{u.status}</Badge></TableCell>
                     <TableCell className="text-sm text-muted-foreground">{u.lastActive}</TableCell>
                     <TableCell>

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Upload, FileJson, Code, Globe, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,7 +17,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SchemaTreeView } from "@/components/schema-mapper/shared/SchemaTreeView";
 import { FieldStatisticsPanel } from "@/components/schema-mapper/shared/FieldStatisticsPanel";
-import { telecomParsedFields, telecomFieldStatistics } from "@/data/schema-mapper-mock";
+import {
+  getParsedSourceFieldsForSourceType,
+  getSourceFieldStatisticsForSourceType,
+} from "@/data/schema-mapper-mock";
 import type { SourceMetadata, SourceType } from "@/types/schema-mapper";
 
 interface SourceDefinitionStepProps {
@@ -58,6 +61,15 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
       versionNumber: version,
     });
   }, [sourceName, sourceType, effectiveDate, version, onComplete]);
+
+  const previewParsedFields = useMemo(
+    () => getParsedSourceFieldsForSourceType(sourceType),
+    [sourceType],
+  );
+  const previewFieldStats = useMemo(
+    () => getSourceFieldStatisticsForSourceType(sourceType),
+    [sourceType],
+  );
 
   const isFormValid = sourceName.trim().length > 0 && sourceType && isParsed;
 
@@ -187,14 +199,14 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
               Source Schema Tree
             </p>
             <ScrollArea className="h-[280px]">
-              <SchemaTreeView nodes={telecomParsedFields} showSamples />
+              <SchemaTreeView nodes={previewParsedFields} showSamples />
             </ScrollArea>
           </div>
           <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
             <p className="mb-3 text-caption font-medium uppercase tracking-wider text-muted-foreground">
               Field Statistics
             </p>
-            <FieldStatisticsPanel stats={telecomFieldStatistics} />
+            <FieldStatisticsPanel stats={previewFieldStats} />
             <div className="mt-4 space-y-2">
               <p className="text-caption font-medium text-muted-foreground">Validation Notes</p>
               <div className="space-y-1">

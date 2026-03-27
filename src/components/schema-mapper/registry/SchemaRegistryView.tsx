@@ -1,4 +1,5 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ interface SchemaRegistryViewProps {
 
 export function SchemaRegistryView({ onCreateNew, onEditEntry, onViewAudit }: SchemaRegistryViewProps) {
   const { toast } = useToast();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [entries, setEntries] = useState<SchemaRegistryEntry[]>(schemaRegistryEntries);
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<RegistryFilterValues>({
@@ -60,6 +62,26 @@ export function SchemaRegistryView({ onCreateNew, onEditEntry, onViewAudit }: Sc
     (id: string) => entries.find((e) => e.id === id),
     [entries],
   );
+
+  /** Deep link from Data Products packet config: `?registry=<entryId>` opens the detail dialog. */
+  useEffect(() => {
+    const id = searchParams.get("registry");
+    if (!id) return;
+    const entry = findEntry(id);
+    if (entry) {
+      setDetailEntry(entry);
+      setDetailOpen(true);
+      setFilters((f) => ({ ...f, sourceType: entry.sourceType }));
+    }
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("registry");
+        return next;
+      },
+      { replace: true },
+    );
+  }, [searchParams, findEntry, setSearchParams]);
 
   const handleView = useCallback(
     (id: string) => {

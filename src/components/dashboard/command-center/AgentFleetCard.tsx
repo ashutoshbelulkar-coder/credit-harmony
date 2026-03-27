@@ -37,8 +37,8 @@ export function AgentFleetCard({
           {loading ? "—" : `${activeCount} Active`}
         </div>
       </CardHeader>
-      <CardContent>
-        <div className="max-h-[min(520px,55vh)] overflow-y-auto pr-1">
+      <CardContent className="min-h-0">
+        <div className="min-h-[12rem] max-h-[min(38vh,22rem)] sm:max-h-[min(48vh,26rem)] overflow-y-auto pr-1">
           {(loading ? [] : agents).map((a) => (
             <div
               key={a.id}

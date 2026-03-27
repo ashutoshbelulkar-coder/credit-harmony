@@ -2,11 +2,17 @@ import { useState, useMemo } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
-import { getConsortiumMemberships, type ConsortiumMembershipRow, type ConsortiumMembershipRole } from "@/data/institution-extensions-mock";
+import {
+  getConsortiumMemberships,
+  CONSORTIUM_ROLE_OPTIONS,
+  type ConsortiumMembershipRow,
+  type ConsortiumMembershipRole,
+} from "@/data/institution-extensions-mock";
 import { consortiums } from "@/data/consortiums-mock";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -51,35 +57,47 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
   // ── Add dialog ──────────────────────────────────────────────
   const [addOpen, setAddOpen] = useState(false);
   const [selectedConsortiumId, setSelectedConsortiumId] = useState<string>("");
-  const [selectedRole, setSelectedRole] = useState<ConsortiumMembershipRole>("Consumer");
+  const [selectedRoles, setSelectedRoles] = useState<ConsortiumMembershipRole[]>(["Consumer"]);
 
-  // Available consortiums = those not already joined
+  // Available consortiums = active ones not already joined
   const availableConsortiums = useMemo(
-    () => consortiums.filter((c) => !rows.some((r) => r.consortiumId === c.id)),
+    () =>
+      consortiums.filter(
+        (c) => c.status === "active" && !rows.some((r) => r.consortiumId === c.id)
+      ),
     [rows]
   );
 
   const handleAddOpen = () => {
     setSelectedConsortiumId(availableConsortiums[0]?.id ?? "");
-    setSelectedRole("Consumer");
+    setSelectedRoles(["Consumer"]);
     setAddOpen(true);
+  };
+
+  const toggleRole = (r: ConsortiumMembershipRole, checked: boolean) => {
+    setSelectedRoles((prev) => {
+      if (checked) return prev.includes(r) ? prev : [...prev, r];
+      const next = prev.filter((x) => x !== r);
+      return next.length ? next : ["Consumer"];
+    });
   };
 
   const handleAdd = () => {
     const consortium = consortiums.find((c) => c.id === selectedConsortiumId);
-    if (!consortium) return;
+    if (!consortium || selectedRoles.length === 0) return;
     const today = new Date().toISOString().split("T")[0];
+    const roleStr = [...selectedRoles].sort().join(", ");
     setRows((prev) => [
       ...prev,
       {
         consortiumId: consortium.id,
         consortiumName: consortium.name,
-        role: selectedRole,
+        role: roleStr,
         status: "pending",
         joinedDate: today,
       },
     ]);
-    toast.success(`Added to ${consortium.name} as ${selectedRole}`);
+    toast.success(`Added to ${consortium.name} — roles: ${roleStr}`);
     setAddOpen(false);
   };
 
@@ -110,7 +128,7 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
           disabled={availableConsortiums.length === 0}
         >
           <Plus className="w-3.5 h-3.5" />
-          Add to consortium
+          Add to Consortium
         </Button>
       </div>
 
@@ -264,22 +282,24 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
               )}
             </div>
 
-            <div className="space-y-1.5">
-              <Label className="text-caption">Role</Label>
-              <Select
-                value={selectedRole}
-                onValueChange={(v) => setSelectedRole(v as ConsortiumMembershipRole)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Contributor">Contributor</SelectItem>
-                  <SelectItem value="Consumer">Consumer</SelectItem>
-                </SelectContent>
-              </Select>
+            <div className="space-y-2">
+              <Label className="text-caption">Roles (multi-select)</Label>
+              <div className="rounded-lg border border-border p-3 space-y-2 max-h-48 overflow-y-auto">
+                {CONSORTIUM_ROLE_OPTIONS.map((r) => (
+                  <div key={r} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`consortium-role-${r}`}
+                      checked={selectedRoles.includes(r)}
+                      onCheckedChange={(v) => toggleRole(r, v === true)}
+                    />
+                    <Label htmlFor={`consortium-role-${r}`} className="text-caption font-normal cursor-pointer">
+                      {r}
+                    </Label>
+                  </div>
+                ))}
+              </div>
               <p className="text-caption text-muted-foreground">
-                Contributors submit data; Consumers read shared data.
+                Contributors submit data; Consumers read pooled data.
               </p>
             </div>
           </div>
@@ -292,7 +312,7 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
               type="button"
               size="sm"
               onClick={handleAdd}
-              disabled={!selectedConsortiumId}
+              disabled={!selectedConsortiumId || selectedRoles.length === 0}
             >
               Add membership
             </Button>

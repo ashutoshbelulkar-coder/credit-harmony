@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import {
@@ -83,6 +83,15 @@ function isWithinTimeRange(ts: string, timeRange: TimeRangeValue): boolean {
   return now - ms <= windowMs;
 }
 
+function isWithinDateRange(ts: string, from: string, to: string): boolean {
+  if (!from?.trim() || !to?.trim()) return true;
+  const t = new Date(ts.replace(" ", "T")).getTime();
+  const start = new Date(`${from.trim()}T00:00:00`).getTime();
+  const end = new Date(`${to.trim()}T23:59:59.999`).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end)) return true;
+  return t >= start && t <= end;
+}
+
 const statusStyles: Record<EnquiryStatus, string> = {
   Success: "bg-success/15 text-success",
   Failed: "bg-destructive/15 text-destructive",
@@ -135,13 +144,13 @@ export function InquiryApiSection({
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedEnquiry, setSelectedEnquiry] = useState<EnquiryLogEntry | null>(null);
   const [enquiryIdSearch, setEnquiryIdSearch] = useState("");
-  const [timeRange, setTimeRange] = useState<TimeRangeValue>("24h");
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const activeFilterCount = [
     enquiryIdSearch.trim().length > 0,
     filters.status !== "all",
     filters.subscriberId !== "all",
+    Boolean(filters.dateFrom?.trim() && filters.dateTo?.trim()),
   ].filter(Boolean).length;
 
   const set = (partial: Partial<MonitoringFilters>) =>
@@ -151,9 +160,22 @@ export function InquiryApiSection({
     if (filters.status !== "all" && e.status !== filters.status) return false;
     if (filters.subscriberId !== "all" && subscriberIdByApiKey[e.api_key] !== filters.subscriberId) return false;
     if (enquiryIdSearch.trim() && !e.enquiry_id.toLowerCase().includes(enquiryIdSearch.trim().toLowerCase())) return false;
-    if (!isWithinTimeRange(e.timestamp, timeRange)) return false;
+    if (!isWithinTimeRange(e.timestamp, filters.timeRange)) return false;
+    if (!isWithinDateRange(e.timestamp, filters.dateFrom, filters.dateTo)) return false;
     return true;
   });
+
+  const filterContextSummary = useMemo(() => {
+    const parts: string[] = [];
+    if (filters.subscriberId !== "all") {
+      const inst = institutions.find((i) => i.id === filters.subscriberId);
+      if (inst) parts.push(`Subscriber: ${inst.tradingName ?? inst.name}`);
+    }
+    if (filters.dateFrom?.trim() && filters.dateTo?.trim()) {
+      parts.push(`Dates: ${filters.dateFrom} → ${filters.dateTo}`);
+    }
+    return parts.length ? parts.join(" · ") : undefined;
+  }, [filters.subscriberId, filters.dateFrom, filters.dateTo]);
   const sorted = [...filtered].sort((a, b) => {
     if (!sortKey) return 0;
     const va = a[sortKey];
@@ -297,7 +319,13 @@ export function InquiryApiSection({
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-caption text-muted-foreground">Time</Label>
-                  <Select value={timeRange} onValueChange={(v) => { setTimeRange(v as TimeRangeValue); setPage(1); }}>
+                  <Select
+                    value={filters.timeRange}
+                    onValueChange={(v) => {
+                      set({ timeRange: v as TimeRangeValue });
+                      setPage(1);
+                    }}
+                  >
                     <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Time" /></SelectTrigger>
                     <SelectContent>
                       {ENQUIRY_TIME_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>)}
@@ -338,7 +366,13 @@ export function InquiryApiSection({
             </div>
             <div className="space-y-1.5 min-w-0">
               <Label className="text-caption text-muted-foreground">Time</Label>
-              <Select value={timeRange} onValueChange={(v) => { setTimeRange(v as TimeRangeValue); setPage(1); }}>
+              <Select
+                value={filters.timeRange}
+                onValueChange={(v) => {
+                  set({ timeRange: v as TimeRangeValue });
+                  setPage(1);
+                }}
+              >
                 <SelectTrigger className="h-8 w-[140px] text-caption"><SelectValue placeholder="Time" /></SelectTrigger>
                 <SelectContent>
                   {ENQUIRY_TIME_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>)}
@@ -401,7 +435,11 @@ export function InquiryApiSection({
         </div>
       </div>
 
-      <EnquiryDetailDrawer enquiry={selectedEnquiry} onClose={() => setSelectedEnquiry(null)} />
+      <EnquiryDetailDrawer
+        enquiry={selectedEnquiry}
+        onClose={() => setSelectedEnquiry(null)}
+        filterContextSummary={filterContextSummary}
+      />
     </div>
   );
 }

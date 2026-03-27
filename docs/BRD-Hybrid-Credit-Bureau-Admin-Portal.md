@@ -3,9 +3,9 @@
 
 **Document Type:** Business Requirements Document (BRD)
 **Classification:** Internal – Board & Audit Ready
-**Version:** 2.1
-**Status:** Updated – Includes Enterprise Use Cases, Security Requirements, Performance Targets, and Roadmap Modules
-**Last Updated:** 2026-03-27
+**Version:** 2.3
+**Status:** Updated – v2.3 documents mock-data alignment for Data Quality drift alerts and detailed Data Products / governance UX (see §3.3)
+**Last Updated:** 2026-03-28
 **Author:** Enterprise Business Analysis
 **Stakeholder Approval:** [To be completed]
 
@@ -18,6 +18,8 @@
 | 1.0     | 2026-03-18 | Business Analyst   | Initial BRD                                                                            | —           |
 | 2.0     | 2026-03-25 | Business Analyst   | Added Data Products module, Consortium Management, Enquiry Simulation, Institution Detail extensions (Consortium Memberships tab, Product Subscriptions tab); enhanced exception scenarios with sample data; typography and UI consistency standards documented. | —           |
 | 2.1     | 2026-03-27 | Enterprise Business Analysis | Added enterprise use cases (multi-country, multi-bureau, alternate data monetization); upgraded performance targets to production-grade (99.9% uptime, 5M API calls/day); enhanced security requirements (RBAC, ABAC, PII, consent enforcement, JWT best practices, API key lifecycle); added missing feature modules roadmap (CBS Integration, Live Enquiry, Scheduled Reporting, Multi-Bureau Comparison, Consumer Portal); aligned mock data architecture to JSON-only layer. | —           |
+| 2.2     | 2026-03-27 | Product / Engineering | **Platform feature enhancements (admin UX):** Renamed **Institution Management** to **Member Management** in navigation and key screens; data products tied to **Schema Mapper source types** with raw vs derived packet configuration and **Latest/Trended** enquiry mode; governance dashboard prioritizes period selection and **validation by member institution**; removed override/auto-accept trend from mock scope; validation rules reference **source types** from the schema registry; data quality monitoring adds **filters and institution comparison**; monitoring adds **calendar date range** and **role-appropriate institution filters**; user admin **drops institution** from list/invite; **Roles & Permissions** modeled as **navigation section × CRUD/export** matrix; member **billing CSV** by month/year; member **reports** aligned to central reporting catalogue; shared **institution filter** component for monitoring/governance. | —           |
+| 2.3     | 2026-03-28 | Product / Engineering | **Documentation & data alignment:** **Data Quality Monitoring** — `driftAlerts` mock records in `data-governance.json` refreshed to **March 2026** ISO timestamps and **source names aligned to Schema Mapper registry** so default date range (start of current month → today) and **Source type** filter return non-empty results; drift alert schema documented (id, type, source, message, timestamp, severity). **Data Products (product form)** — packets grouped by **category**; each group shows **distinct Schema Mapper source types** once (sorted labels); packet rows emphasize **packet label + description** with per-packet **Configure** (Raw vs Derived field selection) and **Enquiry settings** (scope, **Latest vs Trended**). **Navigation** — sidebar copy finalized: **Member Management** with sub-items **Member Institutions** (`/institutions`) and **Consortiums**; legacy `/institutions/data-submitters` and `/institutions/subscribers` redirect to unified list. | —           |
 
 **Distribution List:** Product Owner, Engineering Lead, Compliance Officer, Risk Manager, QA Lead, Project Sponsor.
 
@@ -36,6 +38,8 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is an enterprise web application
 The system provides institution onboarding and configuration governance, API and access management, consent and billing configuration for subscribers, data governance (schema mapping, validation rules, match review, data quality monitoring), monitoring and reporting, consortium management for multi-institution data sharing agreements, a data products catalogue with pricing and lifecycle management, an enquiry simulation tool for testing product responses before going live, and full auditability of all actions.
 
 Version 2.0 of this BRD documents the newly released capabilities as of 25 March 2026: **Data Products module** (product configurator + enquiry simulation), **Consortium Management** (list, detail, wizard), and **Institution Detail extensions** (Consortium Memberships tab, Product Subscriptions tab). These capabilities enable HCB to offer a structured product marketplace where institutions can subscribe to configured data products backed by packet-level data from the bureau and consortiums.
+
+**Version 2.3 (28 March 2026)** adds business-readable detail for **mock-data alignment** and **operator UX**: drift alerts in Data Quality Monitoring use **current-period** timestamps and **registry-aligned** source names so demos show real list content; the **Data Products** create/edit experience documents **distinct source types per category**, per-packet configuration, and **enquiry** settings; **Member Management** routes and sidebar labels are consolidated per §3.3.
 
 ---
 
@@ -76,14 +80,14 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 |-----------------------------------------|-------------|
 | **Authentication**                      | Login (email/password); session handling; protected routes; logout. |
 | **Dashboard**                           | Executive KPIs (API volume, error rate, SLA health, data quality); API usage trend; success vs failure; mapping accuracy; match confidence; SLA latency; rejection/override; recent activity; top institutions. |
-| **Institution Management**              | List (all / Data Submitters / Subscribers); filters (status, search); registration wizard (corporate details, participation type, compliance documents, review); institution detail with role-based tabs. |
+| **Member Management** (formerly Institution Management) | List (all / Data Submitters / Subscribers); filters (status, search); registration wizard (corporate details, participation type, compliance documents, review); member detail with role-based tabs; overview and tabs enhanced per v2.2 (stats sections, billing CSV period, reports from reporting catalogue, monitoring date range). |
 | **Institution Detail – Common**         | Overview (corporate details, compliance docs, role-based KPIs and charts); API & Access (type-based APIs, keys, rate limits, IP whitelist); Consortium Memberships tab (NEW); Product Subscriptions tab (NEW); Monitoring; Reports; Audit Trail; Users. |
 | **Institution Detail – Subscriber-only**| Alternate Data (source cards, enable, rate, consent, usage); Consent Configuration (policy, expiry, scope, capture mode, failure metrics); Billing (model, pricing table, usage charts, export reports). |
 | **Data Governance**                     | Dashboard; Schema Mapper / Auto-Mapping Review; Validation Rules; Match Review; Data Quality Monitoring; Governance Audit Logs. |
 | **Consortium Management (NEW)**         | Consortium list (search, filter, status badges); Consortium detail (Overview, Members, Data Contribution tabs); Consortium creation/edit wizard (Basic info, Members, Policy, Review steps). |
 | **Data Products (NEW)**                 | Product Configurator list (search, filter by status); Product detail (info, included packets, pricing, usage metrics); Product create/edit form; Enquiry Simulation tool. |
 | **Enquiry Simulation (NEW)**            | Form-based request builder; live Request JSON preview; Run action with 600ms simulation delay; Response JSON viewer with bureau/banking/consortium packet breakdown. |
-| **Navigation & UX**                     | Sidebar (Dashboard, Institution Management, Consortiums, Data Products with sub-nav, Data Governance, Monitoring, Reporting, Audit Logs, User Management, Agents); responsive layout; consistent compact typography. |
+| **Navigation & UX**                     | Sidebar (Dashboard, **Member Management** with sub-nav: Member Institutions, Consortiums; Data Products; Agents; Data Governance; Monitoring; Reporting; Audit Logs; Approval Queue; User Management); responsive layout; consistent compact typography. |
 | **Audit & Compliance**                  | Institution-level audit trail; governance audit logs; immutable event records. |
 
 ### 3.2 Out of Scope (Explicit Exclusions)
@@ -98,6 +102,37 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 | Consumer-facing credit report or dispute portal | Admin portal only. |
 | Automated credit scoring or decision engines | Not part of admin portal. |
 | Live bureau API calls from Enquiry Simulation | Simulation uses mock payloads only in V1. |
+
+### 3.3 Release v2.3 — Platform, Mock Data, and UX Detail (2026-03-28)
+
+This subsection records **implemented** behaviour and **fixture alignment** so business readers, auditors, and engineering share one definition of what the SPA demonstrates today.
+
+#### Data Quality Monitoring — Schema & mapping drift alerts
+
+| Topic | Detail |
+|-------|--------|
+| **Business intent** | Surface time-bound alerts when ingest schemas or field mappings diverge from approved definitions, so governance can act before downstream quality degrades. |
+| **User-facing filters** | **Date from / Date to** (defaults: first day of current calendar month → today); **Submitter institution** (all submitters from master list); **Compare to** (optional second institution for trend overlay); **Source type** (from Schema Mapper registry, or All). |
+| **Mock data contract** | Alerts are loaded from `src/data/data-governance.json` → `driftAlerts[]`. Each item: `id`, `type` (`schema` \| `mapping`), `source` (display name), `message`, `timestamp` (ISO 8601), `severity` (`low` \| `medium` \| `high`). |
+| **v2.3 data refresh** | Historical fixtures used **2025-02** timestamps; the page filters by the **selected calendar range**, so alerts fell outside the default window and the card showed an empty state. **v2.3** replaces the set with **eight** alerts dated **March 2026**, with `source` values chosen to match registry names (e.g. telecom, bank, utility, GST, MFI) so **Source type** filtering remains meaningful. |
+| **Acceptance (demo)** | With default dates in March 2026, the drift list is **non-empty**; narrowing **Source type** shows a subset whose `source` matches names under that type in the schema registry. |
+
+#### Data Products — Create / Edit product form
+
+| Topic | Detail |
+|-------|--------|
+| **Business intent** | Let operators compose a sellable product from internal catalogue packets, control which fields are exposed (raw ingest vs derived), and define enquiry behaviour for subscribers. |
+| **Packet catalogue linkage** | Each catalogue packet carries a **Schema Mapper `sourceType`** (and category group). The form **does not repeat** the same source-type label on every row; instead, for each **category** (e.g. Bureau, Banking, Consortium), the UI shows one line: **“Source types:”** followed by **distinct** human-readable labels, sorted. |
+| **Packet rows** | Each selectable packet shows **title** (`label`) and **description**; **Configure** opens a modal to select **Raw** (schema-aligned) and **Derived** fields where applicable. |
+| **Enquiry configuration** | Product-level **enquiry settings** include **data coverage scope** (e.g. SELF, NETWORK, CONSORTIUM, VERTICAL) and **Latest vs Trended** mode so the mock product preview JSON reflects subscriber-facing behaviour. |
+| **Persistence (mock)** | Saved products store `packetIds`, optional `packetConfigs`, and `enquiryConfig` in the in-memory catalogue context (no backend). |
+
+#### Member Management — Routes
+
+| Route | Behaviour |
+|-------|-----------|
+| `/institutions` | Primary **Member Institutions** list (all participation types; title reflects unified registry). |
+| `/institutions/data-submitters`, `/institutions/subscribers` | **Redirect** to `/institutions` (unified list; role-specific URLs retained for bookmarks). |
 
 ---
 
@@ -121,7 +156,7 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 ### 5.1 Current State (As-Is) — Version 2.0
 
 - **Authentication:** Simple email-based login; no RBAC; session in memory.
-- **Institution Management:** List with optional role filter; multi-step registration; institution detail with dynamic tabs including two new tabs: Consortium Memberships and Product Subscriptions.
+- **Member Management:** Unified list at `/institutions` (legacy role-specific routes redirect); multi-step registration; institution detail with dynamic tabs including Consortium Memberships and Product Subscriptions.
 - **Overview:** Role-based KPIs; corporate details; compliance documents; role-based charts.
 - **API & Access:** Type-based API cards; API keys table; rate limit edit modal.
 - **Alternate Data / Consent / Billing:** Subscriber-only tabs with config and edit/save patterns.
@@ -171,12 +206,12 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 | FR-D4  | The system shall display Success vs Failure distribution as a donut/pie chart. | Must | Chart renders; segments match defined metrics. |
 | FR-D5  | The system shall display additional charts (mapping accuracy, match confidence, SLA latency, rejection/override, recent activity, top institutions). | Should | Each chart/section is present and readable. |
 
-### 6.3 Institution Management – List and Navigation
+### 6.3 Member Management – List and Navigation
 
 | ID     | Requirement | Priority | Testable Acceptance Criteria |
 |--------|-------------|----------|------------------------------|
-| FR-I1  | The system shall provide a top-level navigation item "Institution Management" linking to the Data Submission Institutions list. | Must | Clicking navigates to `/institutions/data-submitters`. |
-| FR-I2  | Sub-navigation shall provide "Data Submission Institutions" and "Subscriber Institutions" links. | Must | Sub-items link to correct routes; active state is correct. |
+| FR-I1  | The system shall provide a top-level navigation item **"Member Management"** linking to the **Member Institutions** list. | Must | Clicking navigates to `/institutions`. |
+| FR-I2  | Under Member Management, sub-navigation shall provide **"Member Institutions"** and **"Consortiums"** links. | Must | Sub-items link to `/institutions` and `/consortiums`; active state is correct. |
 | FR-I3  | The institution list shall display: Institution Name, Type, Status, APIs Enabled, SLA Health, Last Updated. | Must | All columns present. |
 | FR-I4  | The list shall filter by role (Data Submitters or Subscribers) based on route. | Must | Each list shows only institutions with the correct participation flag. |
 | FR-I5  | The system shall support search and status filter on the institution list. | Should | Filters update results in real time. |
@@ -201,7 +236,7 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 | ID      | Requirement | Priority | Testable Acceptance Criteria |
 |---------|-------------|----------|------------------------------|
 | FR-ID1  | The institution detail header shall show name, type, status, and role badges. | Must | Header shows correct data. |
-| FR-ID2  | A back action shall return to the institution list. | Must | Back navigates to `/institutions/data-submitters`. |
+| FR-ID2  | A back action shall return to the member institution list. | Must | Back navigates to `/institutions`. |
 | FR-ID3  | Tabs shall render dynamically based on role: common tabs always present; subscriber-only tabs only when isSubscriber. | Must | Non-subscriber does not see Alternate Data, Consent, Billing. |
 | FR-ID4  | All tabs shall be visible in the tab bar with scroll on small screens. | Must | No overflow dropdown. |
 | FR-ID5  | Two new tabs shall always be present: Consortium Memberships and Product Subscriptions. | Must | Both tabs render for all institution types. |
@@ -244,6 +279,7 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 | FR-G3  | Schema Mapper shall support AI-assisted field-level mapping workflow with 7 steps. | Should | Wizard and workflow available. |
 | FR-G4  | Validation Rules shall allow creation and management of rules. | Should | Rules list and actions work. |
 | FR-G7  | Governance Audit Logs shall support filters and detail view. | Should | Filters and table work. |
+| FR-G8  | **Schema & mapping drift alerts** (Data Quality Monitoring) shall load from governance mock data; each alert shall include type, source, message, timestamp, and severity; **source** shall be filterable by **Schema Mapper source type** when the registry maps names to types. | Should | Default date range shows **non-empty** drift list when mock timestamps fall within the selected range; empty state only when no alert matches filters. |
 
 ### 6.10 Consortium Management (NEW)
 
@@ -275,6 +311,8 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 | FR-DP7  | The product detail page shall show: Product Info card (description, Product ID), Included Packets (badge list), Pricing card (model, price), Usage Metrics (Hits, Active Subscribers, Error Rate). | Must | All sections present. |
 | FR-DP8  | The product create/edit form shall collect: Name, Description, Data Packets (multi-select), Pricing Model (Per Hit / Subscription), Price. | Must | All fields present; validation applies. |
 | FR-DP9  | Saving a product in create mode shall add it to the product list; in edit mode shall update the existing product. | Must | List reflects changes after save. |
+| FR-DP10 | The product create/edit form shall group **data packets by category**; for each category, display **distinct source types** (from Schema Mapper) as a single line, not repeated per packet row. | Should | Source-type lines are deduplicated and sorted; packet rows show packet title and description. |
+| FR-DP11 | For each selected packet, **Configure** shall allow selection of **Raw** and **Derived** fields (mock); **Enquiry settings** shall support **Latest vs Trended** (and scope) per product. | Should | Modal and enquiry controls persist into mock product payload. |
 
 ### 6.12 Enquiry Simulation (NEW)
 
@@ -295,7 +333,7 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 
 | ID     | Requirement | Priority | Testable Acceptance Criteria |
 |--------|-------------|----------|------------------------------|
-| FR-N1  | The sidebar shall include: Dashboard, Institution Management, Consortiums, Data Products (with sub-items), Data Governance, Monitoring, Reporting, Audit Logs, Agents, Approval Queue, User Management. | Must | All items and sub-items link correctly. |
+| FR-N1  | The sidebar shall include: Dashboard, **Member Management** (sub-items: Member Institutions, Consortiums), Data Products (with sub-items), Agents, Data Governance, Monitoring, Reporting, Audit Logs, Approval Queue, User Management. | Must | All items and sub-items link correctly. |
 | FR-N2  | The system shall use a consistent compact typography scale: 10px body/captions, 12px section headings, 19px page titles, explicit pixel values. | Must | No custom token that browser may override; explicit `text-[10px]`, `text-[12px]` etc. used throughout. |
 | FR-N3  | The system shall use DashboardLayout for all authenticated pages. | Must | Header, sidebar, and main content area consistent across all pages. |
 | FR-N4  | The system shall be responsive; no horizontal scroll on mobile for main content. | Should | No overflow on standard viewports. |
@@ -347,10 +385,12 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 | Compliance Document | name, status (verified/pending), file reference | Institution onboarding |
 | API Key | key (masked), created, status | API & Access |
 | Audit Event | id, timestamp, user, action, category, details | Audit service |
+| **Drift alert** (schema/mapping) | id, type, source, message, timestamp, severity | Data Governance mock (`data-governance.json`) |
 | Governance entities | Mappings, Validation Rules, Match results, Quality metrics, Governance audit entries | Data Governance / Backend |
 
 ### 8.2 Data Rules
 
+- **Drift alerts (mock):** `timestamp` ISO 8601; must fall within operator-selected or default **date range** for the alert list to display the record; `source` should align with Schema Mapper **source names** for **source type** filtering.
 - **Institution status:** active | pending | suspended | draft.
 - **Participation:** At least one of isDataSubmitter or isSubscriber must be true for a registered institution.
 - **Billing model:** prepaid | postpaid | hybrid; creditBalance applicable for prepaid/hybrid.
@@ -465,7 +505,7 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 
 ### 11.1 Institution Registration (Happy Path)
 
-1. User navigates to Institution Management → Register Institution.
+1. User navigates to Member Management → Register Institution.
 2. Step 1: Enter corporate details; select at least one participation type.
 3. Validation passes; user proceeds to Step 2.
 4. Step 2: Dynamic document list shown; user uploads each document.
@@ -665,13 +705,13 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 
 - **Authentication:** Login, logout, session, and protected route behavior per FR-A1–FR-A5.
 - **Dashboard:** KPIs and charts per FR-D1–FR-D5.
-- **Institution list and nav:** Default to Data Submitters; filters and role-based lists per FR-I1–FR-I7.
+- **Member list and nav:** Member Institutions at `/institutions`; Consortiums; registration and navigation per FR-I1–FR-I7.
 - **Registration wizard:** Three steps; participation type and dynamic documents per FR-R1–FR-R8.
 - **Institution detail:** Dynamic tabs, order, and content per FR-ID1–FR-ID5; Consortium Memberships and Product Subscriptions tabs per FR-CM1–FR-CM4 and FR-PS1–FR-PS3.
 - **Consortium Management:** List, detail (3 tabs), and wizard per FR-CO1–FR-CO12.
-- **Data Products:** List, detail, create/edit form per FR-DP1–FR-DP9.
+- **Data Products:** List, detail, create/edit form per FR-DP1–FR-DP11.
 - **Enquiry Simulation:** Two-column layout, live request JSON, Run action, response viewer per FR-ES1–FR-ES10.
-- **Data Governance:** Sub-nav and sub-pages per FR-G1–FR-G7.
+- **Data Governance:** Sub-nav and sub-pages per FR-G1–FR-G8 (including drift alerts per §3.3).
 - **Global:** Sidebar, theme, layout, typography, responsiveness per FR-N1–FR-N6.
 - **Exceptions:** All negative scenarios in Section 12 handled as specified, including sample data validation errors.
 - **NFRs:** Performance, security, usability, and browser support per Section 7.
@@ -807,4 +847,4 @@ The following modules are identified as missing from V1/V2 and are required for 
 
 ---
 
-*End of BRD v2.1.*
+*End of BRD v2.3.*

@@ -29,10 +29,10 @@
     { "period": "D-1", "accuracy": 97.4 }
   ],
   "validationFailureBySource": [
-    { "source": "CBS Core", "failures": 1240, "total": 58000, "rate": 2.14 },
-    { "source": "Alternate Data", "failures": 890, "total": 42000, "rate": 2.12 },
-    { "source": "Bureau Incoming", "failures": 320, "total": 31000, "rate": 1.03 },
-    { "source": "Legacy Import", "failures": 450, "total": 15000, "rate": 3.0 }
+    { "institution": "First National Bank", "failures": 1240, "total": 58000, "rate": 2.14 },
+    { "institution": "Metro Credit Union", "failures": 890, "total": 42000, "rate": 2.12 },
+    { "institution": "Pacific Finance Corp", "failures": 320, "total": 31000, "rate": 1.03 },
+    { "institution": "Southern Trust Bank", "failures": 450, "total": 15000, "rate": 3.0 }
   ],
   "matchConfidenceDistribution": [
     { "bucket": "0–40", "count": 6, "min": 0, "max": 40 },
@@ -40,13 +40,6 @@
     { "bucket": "60–75", "count": 32, "min": 60, "max": 75 },
     { "bucket": "75–90", "count": 48, "min": 75, "max": 90 },
     { "bucket": "90–100", "count": 26, "min": 90, "max": 100 }
-  ],
-  "overrideVsAutoAcceptTrend": [
-    { "period": "W1", "override": 18, "autoAccept": 982 },
-    { "period": "W2", "override": 21, "autoAccept": 979 },
-    { "period": "W3", "override": 24, "autoAccept": 976 },
-    { "period": "W4", "override": 20, "autoAccept": 980 },
-    { "period": "W5", "override": 19, "autoAccept": 981 }
   ],
   "dataQualityScoreTrend": [
     { "period": "D-14", "score": 93.2 },
@@ -56,11 +49,11 @@
     { "period": "Today", "score": 94.8 }
   ],
   "rejectionReasonsBreakdown": [
-    { "name": "Invalid format", "value": 38 },
-    { "name": "Missing required field", "value": 28 },
-    { "name": "Out of range", "value": 18 },
-    { "name": "Cross-field mismatch", "value": 12 },
-    { "name": "Duplicate", "value": 4 }
+    { "name": "Format / datatype violation", "value": 38 },
+    { "name": "Mandatory field missing", "value": 28 },
+    { "name": "Numeric range breach", "value": 18 },
+    { "name": "Cross-field consistency", "value": 12 },
+    { "name": "Duplicate detection", "value": 4 }
   ],
   "dataSources": [
     { "id": "cbs-core", "name": "CBS Core" },
@@ -196,8 +189,14 @@
     { "period": "Today", "value": 94.8 }
   ],
   "driftAlerts": [
-    { "id": "drift-1", "type": "schema", "source": "CBS Core", "message": "New field 'occupation_type' detected in v2.2", "timestamp": "2025-02-17T09:00:00Z", "severity": "low" },
-    { "id": "drift-2", "type": "mapping", "source": "Alternate Data", "message": "Confidence drop on field 'mobile_no' below 85%", "timestamp": "2025-02-16T14:30:00Z", "severity": "medium" }
+    { "id": "drift-1", "type": "schema", "source": "Jio Telecom", "message": "New optional field 'roaming_data_mb' detected in ingest payload", "timestamp": "2026-03-26T08:15:00Z", "severity": "low" },
+    { "id": "drift-2", "type": "mapping", "source": "HDFC Bank", "message": "Mapping confidence for 'accounts.dpd' dropped 6% vs prior week", "timestamp": "2026-03-25T11:20:00Z", "severity": "medium" },
+    { "id": "drift-3", "type": "schema", "source": "Tata Power Utility", "message": "Enum expansion: payment_status gained value 'DISPUTED'", "timestamp": "2026-03-24T14:00:00Z", "severity": "low" },
+    { "id": "drift-4", "type": "mapping", "source": "GST Portal", "message": "Master field mismatch: GST 'turnover_band' vs canonical 'annual_turnover'", "timestamp": "2026-03-22T09:45:00Z", "severity": "high" },
+    { "id": "drift-5", "type": "schema", "source": "Airtel Telecom", "message": "Sample rate anomaly: 12% nulls on 'last_payment_status' (threshold 5%)", "timestamp": "2026-03-20T16:30:00Z", "severity": "medium" },
+    { "id": "drift-6", "type": "mapping", "source": "Mahanagar Gas Utility", "message": "Version drift: feed still on v1.0 while active schema is v1.1", "timestamp": "2026-03-18T10:00:00Z", "severity": "low" },
+    { "id": "drift-7", "type": "schema", "source": "BSNL Telecom", "message": "New nested path 'accounts.arrers' (typo) observed — possible upstream defect", "timestamp": "2026-03-15T13:40:00Z", "severity": "medium" },
+    { "id": "drift-8", "type": "mapping", "source": "Custom Micro-Finance", "message": "Archived mapping still referenced by batch job 'BATCH-9921'", "timestamp": "2026-03-10T07:00:00Z", "severity": "low" }
   ],
   "governanceAuditLogs": [
     { "changeId": "chg-001", "user": "Jane Smith", "role": "Data Governance Officer", "actionType": "mapping_approved", "entityAffected": "Mapping: cust_name → borrower_full_name", "oldValue": "Under Review", "newValue": "Approved", "timestamp": "2025-02-18T10:30:00Z", "ipAddress": "192.168.1.105" },

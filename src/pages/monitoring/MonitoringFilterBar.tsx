@@ -1,11 +1,6 @@
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { institutions } from "@/data/institutions-mock";
+import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
+import { InstitutionFilterSelect } from "@/components/shared/InstitutionFilterSelect";
 
 export type TimeRangeValue = "5m" | "1h" | "6h" | "24h";
 
@@ -34,9 +29,6 @@ interface MonitoringFilterBarProps {
   entityFilterMode?: MonitoringFilterEntityMode;
 }
 
-const dataSubmitters = institutions.filter((i) => i.isDataSubmitter);
-const subscribers = institutions.filter((i) => i.isSubscriber);
-
 export const defaultMonitoringFilters: MonitoringFilters = {
   dateFrom: "",
   dateTo: "",
@@ -53,41 +45,52 @@ export function MonitoringFilterBar({ filters, onFiltersChange, entityFilterMode
   const set = (partial: Partial<MonitoringFilters>) =>
     onFiltersChange({ ...filters, ...partial });
 
+  const showDateRange =
+    entityFilterMode === "data-submission-api" || entityFilterMode === "inquiry-api";
+
   return (
     <div className="flex flex-wrap items-end gap-3">
+      {showDateRange && (
+        <>
+          <div className="space-y-1.5">
+            <Label className="text-caption text-muted-foreground">Date from</Label>
+            <DatePicker
+              value={filters.dateFrom}
+              onChange={(v) => set({ dateFrom: v })}
+              placeholder="Any"
+              className="h-9 min-w-[140px] text-caption"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-caption text-muted-foreground">Date to</Label>
+            <DatePicker
+              value={filters.dateTo}
+              onChange={(v) => set({ dateTo: v })}
+              placeholder="Any"
+              className="h-9 min-w-[140px] text-caption"
+            />
+          </div>
+        </>
+      )}
       {entityFilterMode === "data-submission-api" && (
-        <Select value={filters.dataSubmitterId} onValueChange={(v) => set({ dataSubmitterId: v })}>
-          <SelectTrigger className="h-9 min-w-[180px] max-w-[240px] text-caption">
-            <SelectValue placeholder="Data submission institute" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all" className="text-caption">
-              All data submission institutes
-            </SelectItem>
-            {dataSubmitters.map((i) => (
-              <SelectItem key={i.id} value={i.id} className="text-caption">
-                {i.tradingName ?? i.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <InstitutionFilterSelect
+          mode="submitters"
+          value={filters.dataSubmitterId}
+          onValueChange={(v) => set({ dataSubmitterId: v })}
+          label="Institution"
+          allLabel="All data submission institutes"
+          triggerClassName="h-9 min-w-[180px] max-w-[240px]"
+        />
       )}
       {entityFilterMode === "inquiry-api" && (
-        <Select value={filters.subscriberId} onValueChange={(v) => set({ subscriberId: v })}>
-          <SelectTrigger className="h-9 min-w-[180px] max-w-[240px] text-caption">
-            <SelectValue placeholder="Subscriber" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all" className="text-caption">
-              All subscribers
-            </SelectItem>
-            {subscribers.map((i) => (
-              <SelectItem key={i.id} value={i.id} className="text-caption">
-                {i.tradingName ?? i.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <InstitutionFilterSelect
+          mode="subscribers"
+          value={filters.subscriberId}
+          onValueChange={(v) => set({ subscriberId: v })}
+          label="Institution"
+          allLabel="All subscribers"
+          triggerClassName="h-9 min-w-[180px] max-w-[240px]"
+        />
       )}
     </div>
   );

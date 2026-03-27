@@ -28,6 +28,9 @@ import { useCatalogMock } from "@/contexts/CatalogMockContext";
 import {
   buildProductPreviewJson,
   productCatalogPacketOptions,
+  DEFAULT_ENQUIRY_CONFIG,
+  normalizeEnquiryConfig,
+  SOURCE_TYPE_LABELS,
   type EnquiryConfig,
   type PacketConfig,
   type ProductCatalogPacketGroup,
@@ -36,7 +39,6 @@ import { PacketConfigModal } from "@/components/data-products/PacketConfigModal"
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
-const DEFAULT_ENQUIRY: EnquiryConfig = { impactType: "LOW", scope: "SELF", mode: "LIVE" };
 
 const SCOPE_TOOLTIPS: Record<EnquiryConfig["scope"], string> = {
   SELF: "Returns data sourced directly from the subject entity's own records.",
@@ -103,7 +105,7 @@ export default function ProductFormPage() {
   const [configuringPacketId, setConfiguringPacketId] = useState<string | null>(null);
 
   // ── Enquiry ────────────────────────────────────────────────
-  const [enquiryConfig, setEnquiryConfig] = useState<EnquiryConfig>(DEFAULT_ENQUIRY);
+  const [enquiryConfig, setEnquiryConfig] = useState<EnquiryConfig>(DEFAULT_ENQUIRY_CONFIG);
 
   // ── Hydrate from existing product ──────────────────────────
   useEffect(() => {
@@ -112,13 +114,13 @@ export default function ProductFormPage() {
       setDescription(existing.description);
       setOrderedPacketIds([...existing.packetIds]);
       setPacketConfigs(existing.packetConfigs ? [...existing.packetConfigs] : []);
-      setEnquiryConfig(existing.enquiryConfig ? { ...existing.enquiryConfig } : DEFAULT_ENQUIRY);
+      setEnquiryConfig(normalizeEnquiryConfig(existing.enquiryConfig));
     } else if (!isEdit) {
       setName("");
       setDescription("");
       setOrderedPacketIds([]);
       setPacketConfigs([]);
-      setEnquiryConfig(DEFAULT_ENQUIRY);
+      setEnquiryConfig(DEFAULT_ENQUIRY_CONFIG);
     }
   }, [existing, isEdit]);
 
@@ -137,20 +139,40 @@ export default function ProductFormPage() {
   // ── Field-level config ─────────────────────────────────────
   const getPacketConfig = useCallback(
     (packetId: string): PacketConfig =>
-      packetConfigs.find((c) => c.packetId === packetId) ?? { packetId, selectedFields: [] },
+      packetConfigs.find((c) => c.packetId === packetId) ?? {
+        packetId,
+        selectedFields: [],
+        selectedDerivedFields: [],
+      },
     [packetConfigs]
   );
 
-  const handleSavePacketFields = useCallback((packetId: string, fields: string[]) => {
-    setPacketConfigs((prev) => {
-      const without = prev.filter((c) => c.packetId !== packetId);
-      return [...without, { packetId, selectedFields: fields }];
-    });
-  }, []);
+  const handleSavePacketFields = useCallback(
+    (packetId: string, payload: { selectedFields: string[]; selectedDerivedFields: string[] }) => {
+      setPacketConfigs((prev) => {
+        const without = prev.filter((c) => c.packetId !== packetId);
+        return [
+          ...without,
+          {
+            packetId,
+            selectedFields: payload.selectedFields,
+            selectedDerivedFields: payload.selectedDerivedFields,
+          },
+        ];
+      });
+    },
+    []
+  );
 
   // ── Preview JSON ───────────────────────────────────────────
   const previewJson = useMemo(
-    () => buildProductPreviewJson(name, orderedPacketIds, packetConfigs, enquiryConfig),
+    () =>
+      buildProductPreviewJson(
+        name,
+        orderedPacketIds,
+        packetConfigs,
+        normalizeEnquiryConfig(enquiryConfig)
+      ),
     [name, orderedPacketIds, packetConfigs, enquiryConfig]
   );
 
@@ -173,7 +195,7 @@ export default function ProductFormPage() {
         price: 0,
         packetIds: orderedPacketIds,
         packetConfigs,
-        enquiryConfig,
+        enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
       });
       toast.success("Product updated");
       navigate(`/data-products/products/${id}`);
@@ -186,7 +208,7 @@ export default function ProductFormPage() {
         price: 0,
         packetIds: orderedPacketIds,
         packetConfigs,
-        enquiryConfig,
+        enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
       });
       toast.success("Product submitted for approval");
       navigate(`/data-products/products/${row.id}`);
@@ -282,17 +304,26 @@ export default function ProductFormPage() {
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              {Array.from(packetGroups.entries()).map(([group, packets], gi) => (
+              {Array.from(packetGroups.entries()).map(([group, packets], gi) => {
+                const uniqueSourceTypes = [...new Set(packets.map((p) => p.sourceType))].sort((a, b) =>
+                  SOURCE_TYPE_LABELS[a].localeCompare(SOURCE_TYPE_LABELS[b]),
+                );
+                return (
                 <div key={group}>
                   {gi > 0 && <Separator className="mb-4" />}
-                  <p className="text-caption font-semibold text-muted-foreground uppercase tracking-wide mb-2">
+                  <p className="text-caption font-semibold text-muted-foreground uppercase tracking-wide mb-1">
                     {group}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground mb-2">
+                    Source types:{" "}
+                    {uniqueSourceTypes.map((t) => SOURCE_TYPE_LABELS[t]).join(" · ")}
                   </p>
                   <ul className="space-y-1.5">
                     {packets.map((opt) => {
                       const isSelected = orderedPacketIds.includes(opt.id);
                       const cfg = getPacketConfig(opt.id);
-                      const fieldCount = cfg.selectedFields.length;
+                      const fieldCount =
+                        cfg.selectedFields.length + (cfg.selectedDerivedFields?.length ?? 0);
                       return (
                         <li
                           key={opt.id}
@@ -345,7 +376,8 @@ export default function ProductFormPage() {
                     })}
                   </ul>
                 </div>
-              ))}
+                );
+              })}
             </CardContent>
           </Card>
 
@@ -450,6 +482,31 @@ export default function ProductFormPage() {
                   ))}
                 </div>
               </div>
+
+              <Separator />
+
+              {/* Latest vs Trended (enquiry response shape) */}
+              <div className="space-y-2">
+                <Label className="text-caption font-medium">Enquiry data coverage</Label>
+                <p className="text-caption text-muted-foreground">
+                  Latest returns the current snapshot; Trended includes historical time series where configured.
+                </p>
+                <div className="flex flex-wrap gap-2 mt-1">
+                  {(["LATEST", "TRENDED"] as const).map((dt) => (
+                    <Button
+                      key={dt}
+                      type="button"
+                      variant={normalizeEnquiryConfig(enquiryConfig).dataType === dt ? "default" : "outline"}
+                      size="sm"
+                      onClick={() =>
+                        setEnquiryConfig((prev) => ({ ...prev, dataType: dt }))
+                      }
+                    >
+                      {dt === "LATEST" ? "Latest Data" : "Trended Data"}
+                    </Button>
+                  ))}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
@@ -507,6 +564,11 @@ export default function ProductFormPage() {
         onClose={() => setConfiguringPacketId(null)}
         selectedFields={
           configuringPacketId ? getPacketConfig(configuringPacketId).selectedFields : []
+        }
+        selectedDerivedFields={
+          configuringPacketId
+            ? getPacketConfig(configuringPacketId).selectedDerivedFields
+            : []
         }
         onSave={handleSavePacketFields}
       />

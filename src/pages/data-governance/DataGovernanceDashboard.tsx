@@ -38,7 +38,6 @@ import {
   mappingAccuracyTrend90,
   validationFailureBySource,
   matchConfidenceDistribution,
-  overrideVsAutoAcceptTrend,
   dataQualityScoreTrend,
   rejectionReasonsBreakdown,
 } from "@/data/data-governance-mock";
@@ -63,11 +62,6 @@ const validationFailureConfig = {
 
 const matchConfidenceConfig = {
   count: { label: "Matches", color: "hsl(var(--primary))" },
-} satisfies ChartConfig;
-
-const overrideTrendConfig = {
-  override: { label: "Override", color: "hsl(var(--warning))" },
-  autoAccept: { label: "Auto-Accept", color: "hsl(var(--success))" },
 } satisfies ChartConfig;
 
 const dataQualityConfig = {
@@ -107,11 +101,32 @@ export function DataGovernanceDashboard() {
 
   return (
     <div className="space-y-8 animate-fade-in">
-      <div>
-        <h1 className="text-h2 font-semibold text-foreground">Data Governance</h1>
-        <p className="mt-1 text-caption text-muted-foreground">
-          Mapping accuracy, validation, match confidence, and quality trends
-        </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <h1 className="text-h2 font-semibold text-foreground">Data Governance</h1>
+          <p className="mt-1 text-caption text-muted-foreground">
+            Mapping accuracy, validation, match confidence, and quality trends
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-col gap-1 sm:items-end">
+          <span className="text-caption font-medium text-muted-foreground">Mapping trend period</span>
+          <div className="flex gap-1.5">
+            {(["30", "60", "90"] as const).map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => setRange(d)}
+                className={`rounded-lg border px-2.5 py-1 text-caption font-medium transition-colors ${
+                  range === d
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background text-muted-foreground hover:bg-muted"
+                }`}
+              >
+                {d}d
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
       {/* KPI Cards – 6 cards, equal height */}
@@ -130,26 +145,9 @@ export function DataGovernanceDashboard() {
           className="xl:col-span-7 2xl:col-span-8"
         >
           <div className="h-full rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-6">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div>
-                <h2 className="text-h4 font-semibold text-foreground">Mapping Accuracy Trend</h2>
-                <p className="mt-1 text-caption text-muted-foreground">Accuracy over selected period</p>
-              </div>
-              <div className="flex gap-1.5">
-                {(["30", "60", "90"] as const).map((d) => (
-                  <button
-                    key={d}
-                    onClick={() => setRange(d)}
-                    className={`rounded-lg border px-2.5 py-1 text-caption font-medium transition-colors ${
-                      range === d
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : "border-border bg-background text-muted-foreground hover:bg-muted"
-                    }`}
-                  >
-                    {d}d
-                  </button>
-                ))}
-              </div>
+            <div>
+              <h2 className="text-h4 font-semibold text-foreground">Mapping Accuracy Trend</h2>
+              <p className="mt-1 text-caption text-muted-foreground">Accuracy over selected period (use selector at top)</p>
             </div>
             <div className="mt-4 h-[260px]">
               <ChartContainer config={mappingAccuracyConfig} className="h-full w-full">
@@ -186,8 +184,8 @@ export function DataGovernanceDashboard() {
           className="xl:col-span-5 2xl:col-span-4"
         >
           <div className="h-full rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-6">
-            <h2 className="text-h4 font-semibold text-foreground">Validation Failure by Source</h2>
-            <p className="mt-1 text-caption text-muted-foreground">Failure count by source</p>
+            <h2 className="text-h4 font-semibold text-foreground">Validation Errors by Institution</h2>
+            <p className="mt-1 text-caption text-muted-foreground">Failure count by submitting member institution</p>
             <div className="mt-4 h-[260px]">
               <ChartContainer config={validationFailureConfig} className="h-full w-full">
                 <BarChart
@@ -197,8 +195,8 @@ export function DataGovernanceDashboard() {
                 >
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" tickLine={false} axisLine={false} tickMargin={8} fontSize={10} />
-                  <YAxis type="category" dataKey="source" width={72} tickLine={false} axisLine={false} tickMargin={4} fontSize={10} />
-                  <ChartTooltip content={<ChartTooltipContent labelKey="source" />} />
+                  <YAxis type="category" dataKey="institution" width={100} tickLine={false} axisLine={false} tickMargin={4} fontSize={10} />
+                  <ChartTooltip content={<ChartTooltipContent labelKey="institution" />} />
                   <ChartLegend content={<ChartLegendContent />} />
                   <Bar dataKey="failures" fill="var(--color-failures)" radius={[0, 4, 4, 0]} barSize={18} />
                 </BarChart>
@@ -208,8 +206,8 @@ export function DataGovernanceDashboard() {
         </motion.div>
       </section>
 
-      {/* Row 2: Match Confidence Distribution + Override vs Auto-Accept */}
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+      {/* Row 2: Match Confidence Distribution */}
+      <section className="grid grid-cols-1 gap-4">
         <motion.div
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -230,32 +228,6 @@ export function DataGovernanceDashboard() {
                   <ChartTooltip content={<ChartTooltipContent labelKey="bucket" />} />
                   <ChartLegend content={<ChartLegendContent />} />
                   <Bar dataKey="count" fill="var(--color-count)" radius={[4, 4, 0, 0]} barSize={24} />
-                </BarChart>
-              </ChartContainer>
-            </div>
-          </div>
-        </motion.div>
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.15 }}
-        >
-          <div className="h-full rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-6">
-            <h2 className="text-h4 font-semibold text-foreground">Override vs Auto-Accept Trend</h2>
-            <p className="mt-1 text-caption text-muted-foreground">Weekly override and auto-accept counts</p>
-            <div className="mt-4 h-[240px]">
-              <ChartContainer config={overrideTrendConfig} className="h-full w-full">
-                <BarChart
-                  data={overrideVsAutoAcceptTrend}
-                  margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={8} fontSize={10} />
-                  <YAxis tickLine={false} axisLine={false} tickMargin={4} fontSize={10} width={32} />
-                  <ChartTooltip content={<ChartTooltipContent labelKey="period" />} />
-                  <ChartLegend content={<ChartLegendContent />} />
-                  <Bar dataKey="override" stackId="trend" fill="var(--color-override)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="autoAccept" stackId="trend" fill="var(--color-autoAccept)" radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ChartContainer>
             </div>

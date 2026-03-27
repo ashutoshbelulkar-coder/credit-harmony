@@ -2,9 +2,8 @@ import data from "./data-governance.json";
 import type {
   GovernanceKpi,
   MappingAccuracyPoint,
-  ValidationFailureBySource,
+  ValidationFailureByInstitution,
   MatchConfidenceBucket,
-  OverrideTrendPoint,
   RejectionReasonSlice,
   DataQualityTrendPoint,
   SourceSchemaField,
@@ -27,9 +26,8 @@ export const governanceKpis = data.governanceKpis as GovernanceKpi[];
 export const mappingAccuracyTrend30 = data.mappingAccuracyTrend30 as MappingAccuracyPoint[];
 export const mappingAccuracyTrend60 = data.mappingAccuracyTrend60 as MappingAccuracyPoint[];
 export const mappingAccuracyTrend90 = data.mappingAccuracyTrend90 as MappingAccuracyPoint[];
-export const validationFailureBySource = data.validationFailureBySource as ValidationFailureBySource[];
+export const validationFailureBySource = data.validationFailureBySource as ValidationFailureByInstitution[];
 export const matchConfidenceDistribution = data.matchConfidenceDistribution as MatchConfidenceBucket[];
-export const overrideVsAutoAcceptTrend = data.overrideVsAutoAcceptTrend as OverrideTrendPoint[];
 export const dataQualityScoreTrend = data.dataQualityScoreTrend as DataQualityTrendPoint[];
 export const rejectionReasonsBreakdown = data.rejectionReasonsBreakdown as RejectionReasonSlice[];
 export const dataSources = data.dataSources as { id: string; name: string }[];

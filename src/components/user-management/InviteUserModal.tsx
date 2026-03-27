@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { institutionOptions, type UserRole } from "@/data/user-management-mock";
+import { type UserRole } from "@/data/user-management-mock";
 
 const roles: UserRole[] = ["Super Admin", "Bureau Admin", "Analyst", "Viewer", "API User"];
 
@@ -21,17 +21,16 @@ export function InviteUserModal({ open, onOpenChange }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<string>("");
-  const [institution, setInstitution] = useState<string>("");
   const [sendEmail, setSendEmail] = useState(true);
 
   const handleSubmit = () => {
-    if (!name || !email || !role || !institution) {
+    if (!name || !email || !role) {
       toast.error("Please fill all required fields");
       return;
     }
     toast.success(`Invitation sent to ${email}`);
     onOpenChange(false);
-    setName(""); setEmail(""); setRole(""); setInstitution("");
+    setName(""); setEmail(""); setRole("");
   };
 
   return (
@@ -56,15 +55,6 @@ export function InviteUserModal({ open, onOpenChange }: Props) {
               <SelectTrigger><SelectValue placeholder="Select role" /></SelectTrigger>
               <SelectContent>
                 {roles.map((r) => <SelectItem key={r} value={r}>{r}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
-            <Label>Institution *</Label>
-            <Select value={institution} onValueChange={setInstitution}>
-              <SelectTrigger><SelectValue placeholder="Select institution" /></SelectTrigger>
-              <SelectContent>
-                {institutionOptions.map((i) => <SelectItem key={i} value={i}>{i}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>

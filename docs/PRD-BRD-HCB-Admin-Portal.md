@@ -1,14 +1,41 @@
 # Hybrid Credit Bureau (HCB) Admin Portal
 ## Complete Product Requirement Document (PRD) & Business Requirement Document (BRD)
 
-**Document Version:** 2.1
-**Date:** 2026-03-27
+**Document Version:** 2.3
+**Date:** 2026-03-28
 **Status:** Updated — Enterprise Edition; Production-Grade Requirements
 **Classification:** Internal – Confidential
 
 > **Change Summary v2.0:** Added Module 10 (Consortium Management), Module 11 (Data Products), Module 12 (Enquiry Simulation), Institution Detail extensions (Consortium Memberships tab, Product Subscriptions tab). Updated routing table, project structure, exception scenarios (with sample data), data models, API specs, and QA test suites. Typography system documented: compact 10px/12px scale with explicit pixel values to prevent browser-default overrides.
 
 > **Change Summary v2.1 (2026-03-27):** Upgraded performance targets to enterprise scale (99.9% uptime, 5M API calls/day, P95 ≤ 200ms latency). Enhanced security section (RBAC/ABAC, JWT best practices, PII encryption, consent enforcement at API level). Added enterprise use cases (multi-country, multi-bureau, alternate data monetization). Added missing feature modules roadmap (CBS Integration, Live Enquiry, Scheduled Reporting, Multi-Bureau Comparison, Consumer Portal, Advanced RBAC, Data Lineage). Aligned mock data architecture to JSON-only layer (no hardcoded values in components). Updated Business Goals with BO-10–BO-13.
+
+> **Change Summary v2.2 (2026-03-27) — Platform feature enhancements:** **Data Products** — catalogue packets carry Schema Mapper `sourceType`; packet configuration separates Raw (schema-aligned) vs Derived placeholder fields; enquiry configuration supports **Latest vs Trended** data coverage. **Schema Mapper** — UI labels aligned to “Source Type” / “Data Category” in wizard and registry contexts. **Dashboard** — Agent Fleet card uses responsive height; Active Batch Pipeline navigates to batch monitoring with queued/processing status query. **Member Management** — navigation and copy use **Member Management** / **Members**; institution overview focuses on retained KPIs and segregated submission (API/batch) and enquiry stats; consortium roles support multi-select; billing export is **month/year CSV-only**; reports scheduling pulls **report types from the Reporting module** catalogue; monitoring tab adds **date range** (default current month). **Data Governance** — mapping trend period control moved page-top; validation chart reframed as **errors by member institution** (data key `institution`); override vs auto-accept trend removed; validation rule creation uses **Schema Mapper source types** and institution list from master data; data quality monitoring adds **date range, submitter institution, source type, and optional comparison** on the trend chart. **Monitoring** — **date range** plus **InstitutionFilter** (submitters vs subscribers) on Data Submission API and Inquiry API layouts; enquiry detail drawer shows active filter context. **User management** — users list and invite flow **remove institution** column/field; **Roles & Permissions** uses a **section × (View, Create, Edit, Delete, Export)** matrix derived from main navigation (`nav-config`). **Shared component** — `InstitutionFilter` / `InstitutionFilterSelect` reused across monitoring and governance.
+
+> **Change Summary v2.3 (2026-03-28) — Documentation depth & mock alignment:**
+>
+> **A. Data Quality Monitoring (`/data-governance/data-quality-monitoring`)**  
+> - **Drift alerts dataset:** `driftAlerts` in `src/data/data-governance.json` holds **eight** records with **March 2026** `timestamp` values so the default filter window (**start of current month → today**) includes them.  
+> - **Registry alignment:** Each alert’s `source` string matches a **Schema Mapper registry** source name (e.g. bank, telecom, utility, GST, MFI) so the **Source type** `<Select>` (built from distinct `schemaRegistryEntries[].sourceType`) resolves to name sets via `namesBySourceType` and filtering behaves predictably.  
+> - **Alert fields:** `id`, `type` (`schema` \| `mapping`), `source`, `message`, `timestamp`, `severity` (`low` \| `medium` \| `high`).  
+> - **UI recap:** Date pickers; submitter institution; optional compare institution (trend series); source type; KPI strip; quality trend chart with threshold line; downloadable export control (mock).
+>
+> **B. Data Products — Product form (`/data-products/products/create`, `/data-products/products/:id/edit`)**  
+> - **Category sections:** Packets listed under **category** headings (Bureau / Banking / Consortium per mock).  
+> - **Source types line:** Per category, **one** line lists **unique** Schema Mapper source types (sorted, human-readable labels from `SOURCE_TYPE_LABELS`), replacing repeated per-row source-type noise.  
+> - **Packet row:** Checkbox, **packet label** as primary text, **description** as secondary; **Configure** opens `PacketConfigModal` for **Raw** vs **Derived** field checklists.  
+> - **Enquiry settings card:** Scope selector (SELF, NETWORK, CONSORTIUM, VERTICAL) with tooltips; **Latest vs Trended** toggle; live **product preview JSON** block reflects selections.  
+> - **Reorder:** Selected packets can be reordered (drag handle) for delivery order.  
+> - **Save:** Validates name and ≥1 packet; persists `packetIds`, `packetConfigs`, `enquiryConfig` via `CatalogMockContext` (mock).
+>
+> **C. Data Governance Dashboard (`/data-governance/dashboard`) — PRD correction**  
+> - Charts match implementation: **Mapping Accuracy Trend** (30/60/90-day toggle at page top); **Validation Errors by Institution** (vertical bar, `institution` key); **Match Confidence Distribution**; **Data Quality Score Trend**; **Rejection Reasons Breakdown** (donut). The **Override vs Auto-Accept** stacked chart is **not** present in the current build (removed per v2.2).
+>
+> **D. Member Management routing**  
+> - Canonical list: **`/institutions`** (“Member Institutions”). **`/institutions/data-submitters`** and **`/institutions/subscribers`** redirect to **`/institutions`**. Sidebar: **Member Management** ▶ Member Institutions, Consortiums.
+>
+> **E. Data models (Section 15)**  
+> - Added **DriftAlert** entity; extended **DataProduct** with optional `packetConfigs` and `enquiryConfig`; noted **ManagedUser** may omit institution in bureau-only mock.
 
 ---
 
@@ -187,14 +214,14 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 | **Business Value** | Single view of bureau health enables proactive issue detection |
 | **User Benefit** | Instant visibility into operational status without navigating multiple screens |
 
-#### Module 3: Institution Management
+#### Module 3: Member Management (formerly Institution Management)
 
 | Attribute | Detail |
 |-----------|--------|
-| **Feature Name** | Institution Lifecycle Management |
-| **Description** | Searchable institution registry with status filters, 3-step registration wizard (Corporate Details → Compliance Documents → Review), and detailed institution profiles with 9 tabbed views |
-| **Business Value** | Standardized onboarding reduces errors and accelerates time-to-live |
-| **User Benefit** | Guided wizard prevents missing information; tabbed detail view provides comprehensive institution context |
+| **Feature Name** | Member / institution lifecycle |
+| **Description** | **Member Institutions** registry at **`/institutions`** (unified list; optional role filter props exist for legacy titles). **Member Management** sidebar group: **Member Institutions**, **Consortiums**. 3-step registration wizard (Corporate Details → Compliance Documents → Review). Institution detail with tabbed views including Consortium Memberships and Product Subscriptions. |
+| **Business Value** | Standardized onboarding and a single place to manage members and consortium entry points |
+| **User Benefit** | Guided wizard; unified list and clear navigation labels |
 
 #### Module 4: Data Governance
 
@@ -251,14 +278,14 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 | **User Benefit** | Single view of all consortium memberships, data contributions, and sharing policies; guided wizard prevents incomplete setup. |
 | **Route** | `/consortiums` (list), `/consortiums/:id` (detail), `/consortiums/create` (wizard), `/consortiums/:id/edit` (edit wizard) |
 
-#### Module 11: Data Products (NEW — v2.0)
+#### Module 11: Data Products (NEW — v2.0; enhanced v2.2–v2.3)
 
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Data Product Configurator |
-| **Description** | Catalogue of configurable data products backed by bureau and consortium data packets. Includes: product list with search and status filter, product detail page (info, packets, pricing, usage metrics), and a create/edit form. Products are linked to one or more data packets and carry a pricing model (Per Hit or Subscription). |
-| **Business Value** | Enables HCB to publish structured, priced data products that subscriber institutions can discover and subscribe to, driving revenue and standardising data consumption. |
-| **User Benefit** | Bureau operators can define, version, and publish data products without engineering effort; subscribers can evaluate products before committing. |
+| **Description** | Catalogue of configurable data products. **v2.2–v2.3:** Packets are tied to Schema Mapper **`sourceType`**; create/edit form **groups packets by category**, shows **distinct source types once per category** (sorted labels), packet rows use **label + description**, **Configure** opens Raw/Derived field selection, **Enquiry settings** include scope and **Latest vs Trended**, reorderable list, live preview JSON. Product list/detail; mock pricing in catalogue context. |
+| **Business Value** | Sellable products align to governance taxonomy; operators can demo field-level and enquiry behaviour before APIs exist. |
+| **User Benefit** | Less repetitive UI; clearer mapping from catalogue to subscriber enquiry. |
 | **Route** | `/data-products/products` (list), `/data-products/products/:id` (detail), `/data-products/products/create` (create), `/data-products/products/:id/edit` (edit) |
 
 #### Module 12: Enquiry Simulation (NEW — v2.0)
@@ -693,13 +720,13 @@ Step 5: Reviewed items remain in queue with updated status
 | Recent Activity | Feed List | Row 6, 7/12 cols | `recentActivity` (5 items) |
 | Top Institutions | Leaderboard | Row 6, 5/12 cols | `topInstitutions` (4 items) |
 
-### 6.3 Institution List (`/institutions/data-submitters`, `/institutions/subscribers`)
+### 6.3 Member Institutions list (`/institutions`)
 
-**Purpose:** Browse, search, and manage registered institutions.
+**Purpose:** Browse, search, and manage registered institutions (members).
 
 | Element | Type | Location | Description | Data Source | Behaviour |
 |---------|------|----------|-------------|-------------|-----------|
-| Page Title | H1 | Top left | "Data Submission Institutions" or "Subscriber Institutions" | Route-derived | Changes based on `roleFilter` prop |
+| Page Title | H1 | Top left | **"Member Institutions"** (unified list). If `roleFilter` is ever set: "Data Submission Institutions" or "Subscriber Institutions". | Route / prop | Default route **`/institutions`** shows unified title. |
 | Register Button | Primary Button | Top right | "Register New Institution" | N/A | Navigates to `/institutions/register` |
 | Search Input | Text Input | Above table | Filter by institution name | User input | Real-time filtering of table rows |
 | Status Filter | Select Dropdown | Above table | Filter by status (All, Active, Pending, Suspended, Draft) | Static options | Filters table rows |
@@ -759,20 +786,18 @@ Step 5: Reviewed items remain in queue with updated status
 
 **Purpose:** Aggregated data governance metrics and trends.
 
+**Page chrome:** **Mapping trend period** control (**30d / 60d / 90d**) is at the **top-right** of the page (aligned with the title), not embedded inside the first chart card.
+
 | Element | Type | Description | Data Source |
 |---------|------|-------------|-------------|
-| Mapping Accuracy % | KPI Card | Current: 97.4%, Trend: up | `governanceKpis[0]` |
-| Validation Failure Rate % | KPI Card | Current: 2.1%, Trend: down | `governanceKpis[1]` |
-| Match Confidence Avg % | KPI Card | Current: 88.2%, Trend: up | `governanceKpis[2]` |
-| Override Rate % | KPI Card | Current: 4.3%, Trend: down | `governanceKpis[3]` |
-| Active Rule Sets | KPI Card | Current: 12, Trend: neutral | `governanceKpis[4]` |
-| Pending Approvals | KPI Card | Current: 7, Trend: neutral | `governanceKpis[5]` |
-| Mapping Accuracy Trend | Line Chart | 30/60/90 day toggle | `mappingAccuracyTrend30/60/90` |
-| Validation Failure by Source | Bar Chart | Per data source | `validationFailureBySource` |
-| Match Confidence Distribution | Bar Chart | Bucket histogram | `matchConfidenceDistribution` |
-| Override vs Auto-Accept | Stacked Bar | Weekly trend | `overrideVsAutoAcceptTrend` |
-| Data Quality Score Trend | Line Chart | 14-day trend | `dataQualityScoreTrend` |
-| Rejection Reasons Breakdown | Pie/Donut Chart | By category | `rejectionReasonsBreakdown` |
+| KPI row | 6 × KPI Card | Labels and values from mock (`governanceKpis`) | `governanceKpis` |
+| Mapping Accuracy Trend | Line Chart | Accuracy % over selected **30/60/90** day dataset | `mappingAccuracyTrend30` / `60` / `90` |
+| Validation Errors by Institution | Horizontal Bar Chart | **Failure count by submitting member institution** (vertical layout bar chart; `dataKey`: `institution`, `failures`) | `validationFailureBySource` |
+| Match Confidence Distribution | Bar Chart | Histogram buckets | `matchConfidenceDistribution` |
+| Data Quality Score Trend | Line Chart | Score over time | `dataQualityScoreTrend` |
+| Rejection Reasons Breakdown | Pie / Donut Chart | Share of rejection reasons | `rejectionReasonsBreakdown` |
+
+> **Note (v2.2 / PRD correction):** The **Override vs Auto-Accept** stacked chart is **not** implemented on this dashboard; validation emphasis moved to **errors by member institution**.
 
 ### 6.7 Schema Mapper Agent (`/data-governance/auto-mapping-review`)
 
@@ -1040,17 +1065,29 @@ Step 5: Reviewed items remain in queue with updated status
 | Pricing card | 2-column grid: Model (e.g. "Subscription") + Price (e.g. "4,500 / mo (mock)") |
 | Usage Metrics | 3-column KPI cards: Hits (30d), Active subscribers, Error rate — all with `text-h3` numbers |
 
-### 6.20 Product Form (`/data-products/products/create`, `/data-products/products/:id/edit`) — NEW v2.0
+### 6.20 Product Form (`/data-products/products/create`, `/data-products/products/:id/edit`) — NEW v2.0; **UX v2.3**
 
-**Purpose:** Create or edit a data product.
+**Purpose:** Create or edit a data product with catalogue alignment, field-level config, and enquiry behaviour.
 
-| Field | Type | Validation | Sample Value |
-|-------|------|-----------|--------------|
-| Product Name | Text Input | Required, max 200 chars | "SME Credit Decision Pack" |
-| Description | Textarea | Optional | "Core SME decisioning with bureau and consortium exposure." |
-| Data Packets | Multi-select checkboxes | At least one required | Bureau Score ✓, Consortium Exposure ✓ |
-| Pricing Model | Select | Required | Subscription |
-| Price | Number Input | Required, must be > 0 | 4500 |
+#### Layout
+
+| Section | Contents |
+|---------|----------|
+| **Basic info** | Product name (required), description (optional). |
+| **Data packets** | Packets grouped by **category** (Bureau, Banking, Consortium, etc. per mock). Each group header shows **category name**, then a single line: **Source types:** `Label1 · Label2 · …` where labels are **distinct** Schema Mapper source types in that group (sorted). |
+| **Packet row** | Checkbox; **packet label** (primary); **description** (muted); when selected, **Configure** opens **PacketConfigModal** (Raw fields vs Derived fields). Badge shows selected field count when > 0. |
+| **Packet order** | Selected packets appear in a **reorderable** list (drag handle) to define delivery order. |
+| **Enquiry settings** | **Data coverage scope** (select: SELF, NETWORK, CONSORTIUM, VERTICAL) with tooltips; **Latest vs Trended** control; optional fields per `EnquiryConfig` mock. |
+| **Preview** | Read-only JSON preview (`buildProductPreviewJson`) updates with packets, configs, and enquiry config. |
+| **Actions** | Cancel → list; Save → validates name + ≥1 packet; persists via mock context (`packetIds`, `packetConfigs`, `enquiryConfig`). |
+
+#### Field validation (mock)
+
+| Rule | Detail |
+|------|--------|
+| Product name | Required (trimmed non-empty). |
+| Data packets | At least one packet selected. |
+| Pricing | Mock save may use placeholder pricing in context (detail page may show separate pricing copy). |
 
 ### 6.21 Enquiry Simulation (`/data-products/enquiry-simulation`) — NEW v2.0
 
@@ -1125,6 +1162,36 @@ Step 5: Reviewed items remain in queue with updated status
 }
 ```
 
+### 6.22 Data Quality Monitoring (`/data-governance/data-quality-monitoring`) — **detailed v2.3**
+
+**Purpose:** Monitor composite quality metrics, trend vs threshold, optional institution comparison, and **schema & mapping drift alerts** filtered consistently with the rest of the page.
+
+#### Filters (top of page)
+
+| Control | Detail |
+|---------|--------|
+| **Date from / Date to** | ISO date strings; default **first day of current month** through **today** (`date-fns` + `yyyy-MM-dd`). Alerts must have `timestamp` within this inclusive range to appear. |
+| **Institution** | `InstitutionFilterSelect` limited to **data submitters**; drives slight KPI/trend adjustments via deterministic hash (mock). **All** clears institution-specific nudge. |
+| **Compare to** | Optional second submitter; when set, trend chart shows **primary** vs **comparison** series (`compareValue`). |
+| **Source type** | Options = distinct `sourceType` values from `schemaRegistryEntries` plus **All**. Drift list keeps alerts whose `source` matches a name under the chosen type (substring match against registry names). |
+
+#### Charts and KPIs
+
+| Block | Detail |
+|-------|--------|
+| KPI strip | Cards from `dataQualityMetrics` (values may adjust slightly when institution ≠ All). |
+| Quality trend | Line chart: `dataQualityTrendWithAnomaly`; optional second line for compare institution; horizontal **reference line** at threshold (94%). |
+| Export | Button triggers mock export (toast / client-side pattern). |
+
+#### Schema & mapping drift alerts (card)
+
+| Aspect | Detail |
+|--------|--------|
+| **Data** | `driftAlerts` from `src/data/data-governance.json` (loaded via `data-governance-mock`). |
+| **v2.3 mock refresh** | **Eight** alerts dated **March 2026**; `source` names align with registry (e.g. Jio Telecom, HDFC Bank, Tata Power Utility, GST Portal, Airtel, Mahanagar Gas, BSNL, Custom Micro-Finance). |
+| **Row display** | Type badge (`schema` / `mapping`), severity badge, source name, message, formatted timestamp. |
+| **Empty state** | Shown when no alert passes date + source-type filter (e.g. date range excludes all timestamps). |
+
 ### 6.15 App Sidebar
 
 **Purpose:** Primary navigation.
@@ -1133,9 +1200,8 @@ Step 5: Reviewed items remain in queue with updated status
 |---------|------|-------------|
 | Logo | Image + Text | "H" logo mark + "Hybrid Credit Bureau" text |
 | Dashboard | Nav Link | `/` |
-| Institution Management | Nav Group | Sub-items: Data Submission Institutions (`/institutions/data-submitters`), Subscriber Institutions (`/institutions/subscribers`) |
-| Consortiums | Nav Link | `/consortiums` (NEW v2.0) |
-| Data Products | Nav Group | Sub-items: Product Configurator (`/data-products/products`), Enquiry Simulation (`/data-products/enquiry-simulation`) (NEW v2.0) |
+| Member Management | Nav Group | Sub-items: **Member Institutions** (`/institutions`), **Consortiums** (`/consortiums`) |
+| Data Products | Nav Group | Sub-items: Product Configurator (`/data-products/products`), Enquiry simulation (`/data-products/enquiry-simulation`) |
 | Agents | Nav Link | `/agents` |
 | Data Governance | Nav Group | Sub-items: Dashboard, Schema Mapper Agent, Validation Rules, Identity Resolution Agent, Data Quality Monitoring, Governance Audit Logs |
 | Monitoring | Nav Group | Sub-items: Data Submission API, Data Submission Batch, Inquiry API, SLA Configuration, Alert Engine |
@@ -1538,13 +1604,13 @@ Example:
 
 ## 10. Filters and Search
 
-### 10.1 Institution List
+### 10.1 Member Institutions list (`/institutions`)
 
 | Filter | Type | Default | Options | Behaviour |
 |--------|------|---------|---------|-----------|
 | Search | Text Input | Empty | Free text | Filters by institution name (case-insensitive, client-side) |
 | Status | Select | "All" | All, Active, Pending, Suspended, Draft | Filters table rows by status |
-| Role Filter | Route-based | From URL | Data Submitters (`/institutions/data-submitters`), Subscribers (`/institutions/subscribers`) | Filters by `isDataSubmitter` or `isSubscriber` flag |
+| **Legacy routes** | Redirect | — | `/institutions/data-submitters`, `/institutions/subscribers` | Both **redirect** to **`/institutions`** (unified list). Component still supports optional `roleFilter` prop for future use. |
 
 ### 10.2 Users List
 
@@ -1553,7 +1619,7 @@ Example:
 | Search | Text Input | Empty | Free text | Filters by name or email |
 | Role | Select | "All" | Super Admin, Bureau Admin, Analyst, Viewer, API User | Single-select |
 | Status | Select | "All" | Active, Invited, Suspended, Deactivated | Single-select |
-| Institution | Select | "All" | 9 institution options | Single-select |
+| ~~Institution~~ | — | — | — | **Removed (v2.2)** from list/invite mock UI; bureau-scoped users only. |
 
 ### 10.3 Activity Log
 
@@ -1624,6 +1690,15 @@ Example:
 | Request Log | Timestamp (desc) | Request ID, Status, Response Time |
 | Batch Jobs | Upload Time (desc) | Batch ID, Status, Success Rate |
 | Approval Queue | Submitted Date (desc) | Name, Type, Status, Submitted By |
+
+### 10.11 Data Quality Monitoring
+
+| Filter | Type | Default | Options | Behaviour |
+|--------|------|---------|---------|-----------|
+| Date from / to | Date picker | Start of month → today | Custom | Filters **drift alert** rows by `timestamp` (inclusive day bounds) |
+| Institution | Select | All submitters | All + submitters | Adjusts KPI/trend mock; uses `InstitutionFilterSelect` |
+| Compare to | Select | None | None + submitters | Optional second series on trend chart |
+| Source type | Select | All | Distinct registry source types | Filters drift alerts by registry name ↔ type mapping |
 
 ---
 
@@ -1946,9 +2021,9 @@ src/
 |-------|-----------|--------|------|
 | `/login` | Login | None | Public |
 | `/` | Dashboard | DashboardLayout | Protected |
-| `/institutions` | InstitutionList | DashboardLayout | Protected |
-| `/institutions/data-submitters` | InstitutionList (roleFilter="dataSubmitter") | DashboardLayout | Protected |
-| `/institutions/subscribers` | InstitutionList (roleFilter="subscriber") | DashboardLayout | Protected |
+| `/institutions` | InstitutionList (unified) | DashboardLayout | Protected |
+| `/institutions/data-submitters` | `<Navigate to="/institutions" replace />` | DashboardLayout | Protected |
+| `/institutions/subscribers` | `<Navigate to="/institutions" replace />` | DashboardLayout | Protected |
 | `/institutions/register` | RegisterInstitution | DashboardLayout | Protected |
 | `/institutions/:id` | InstitutionDetail | DashboardLayout | Protected |
 | `/data-governance` | DataGovernanceLayout → Outlet | DashboardLayout | Protected |
@@ -2745,6 +2820,7 @@ ReportRow (standalone)
 AlertRule (standalone)
 ActiveAlert (standalone)
 GovernanceAuditLogEntry (standalone)
+DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   [v2.3]
 ```
 
 ### 15.2 Key Tables & Fields
@@ -2784,7 +2860,7 @@ GovernanceAuditLogEntry (standalone)
 | name | string | Yes | Full name |
 | email | string | Yes | Email address (unique) |
 | role | enum (5 roles) | Yes | Access level |
-| institution | string | Yes | Associated institution |
+| institution | string | No | Associated institution — **omitted in v2.2 mock list/invite** (bureau-only operators) |
 | status | enum (Active, Invited, Suspended, Deactivated) | Yes | Account status |
 | mfaEnabled | boolean | Yes | Multi-factor authentication |
 | lastActive | string | Yes | Last login timestamp |
@@ -2912,6 +2988,8 @@ GovernanceAuditLogEntry (standalone)
 | name | string | Yes | Product display name |
 | description | string | No | Human-readable description |
 | packetIds | string[] | Yes | References to included data packets |
+| packetConfigs | array | No | **v2.2+** Per-packet `{ packetId, selectedFields[], selectedDerivedFields[] }` from Packet Config modal |
+| enquiryConfig | object | No | **v2.2+** Scope, Latest/Trended, and related enquiry flags (`EnquiryConfig`) |
 | pricingModel | enum (perHit, subscription) | Yes | Revenue model |
 | price | number | Yes | Price in local currency units |
 | status | enum (active, draft) | Yes | Publication status |
@@ -2924,6 +3002,18 @@ GovernanceAuditLogEntry (standalone)
 | id | string | Yes | Primary key (e.g. "PKT_BUREAU_SCORE") |
 | name | string | Yes | Packet display name |
 | category | enum (bureau, banking, consortium) | Yes | Source category used for grouping in Enquiry Simulation response |
+| sourceType | string | Yes | **v2.2+** Schema Mapper source type key for catalogue + governance alignment |
+
+#### DriftAlert (mock — Governance v2.3)
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| id | string | Yes | Stable id (e.g. `drift-1`) |
+| type | enum (schema, mapping) | Yes | Alert category |
+| source | string | Yes | Display name; should match a **Schema Mapper** `sourceName` for source-type filtering |
+| message | string | Yes | Human-readable detail |
+| timestamp | string (ISO 8601) | Yes | Used for date-range filter; **v2.3** fixtures use **March 2026** to align with default UI window |
+| severity | enum (low, medium, high) | Yes | Display severity |
 
 #### GovernanceAuditLogEntry
 
@@ -3145,12 +3235,12 @@ GovernanceAuditLogEntry (standalone)
 | DASH-06 | Chart tooltips | Hover over chart data point | Tooltip displays with correct values | P1 |
 | DASH-07 | Chart legends | View chart legends | Legends display correct labels and colors | P1 |
 
-### 18.3 Institution Management
+### 18.3 Member Management
 
 | TC ID | Scenario | Steps | Expected Result | Priority |
 |-------|----------|-------|-----------------|----------|
-| INST-01 | List renders | Navigate to "/institutions/data-submitters" | Table shows filtered institutions (isDataSubmitter=true) | P0 |
-| INST-02 | Subscriber filter | Navigate to "/institutions/subscribers" | Table shows filtered institutions (isSubscriber=true) | P0 |
+| INST-01 | List renders | Navigate to "/institutions" | Table shows member institutions (unified list) | P0 |
+| INST-02 | Legacy redirect | Navigate to "/institutions/data-submitters" or "/institutions/subscribers" | URL resolves to `/institutions` (unified list) | P1 |
 | INST-03 | Search filter | Type "National" in search | Only "First National Bank" visible | P0 |
 | INST-04 | Status filter | Select "Suspended" | Only "Heritage Savings Bank" visible | P0 |
 | INST-05 | Navigate to detail | Click institution row | Navigate to "/institutions/:id" with correct data | P0 |
@@ -3170,7 +3260,7 @@ GovernanceAuditLogEntry (standalone)
 | GOV-04 | Wizard navigation | Complete Step 1 → Click Next | Advances through all 7 steps | P0 |
 | GOV-05 | Validation rules list | Navigate to "/data-governance/validation-rules" | Rules table renders with 3 rules | P0 |
 | GOV-06 | Match review clusters | Navigate to "/data-governance/match-review" | 3 match clusters render with confidence scores | P0 |
-| GOV-07 | Data quality alerts | Navigate to "/data-governance/data-quality-monitoring" | Quality metrics and drift alerts render | P0 |
+| GOV-07 | Data quality alerts | Navigate to "/data-governance/data-quality-monitoring" | KPIs, trend chart, **Schema & mapping drift alerts** list **non-empty** with default March 2026 window; **≥8** mock alerts in `data-governance.json` | P0 |
 | GOV-08 | Audit logs | Navigate to "/data-governance/governance-audit-logs" | 5 audit log entries render | P0 |
 | GOV-09 | Version diff viewer | Click "View Audit" on registry entry | Diff viewer renders | P1 |
 

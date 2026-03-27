@@ -71,32 +71,32 @@ export default function ProductListPage() {
         ]}
       />
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+        <div className="min-w-0 flex-1">
           <h1 className="text-h2 font-semibold text-foreground">Products</h1>
           <p className="text-caption text-muted-foreground mt-1">
             Configure catalogue products from internal data packets, pricing, and delivery order.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2 self-start">
+        <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:min-w-[min(100%,22rem)] sm:max-w-xl sm:grid-cols-2 sm:gap-2 sm:shrink-0">
           <Button
             type="button"
             variant="outline"
             size="sm"
-            className="gap-1.5"
+            className="h-8 min-h-8 w-full justify-center gap-1.5 px-3"
             onClick={() => navigate("/data-products/enquiry-simulation")}
           >
-            <FlaskConical className="h-4 w-4" />
-            Enquiry simulation
+            <FlaskConical className="h-4 w-4 shrink-0" />
+            <span className="text-center leading-tight">Enquiry simulation</span>
           </Button>
           <Button
             type="button"
             size="sm"
-            className="gap-1.5"
+            className="h-8 min-h-8 w-full justify-center gap-1.5 px-3"
             onClick={() => navigate("/data-products/products/create")}
           >
-            <Plus className="shrink-0" />
-            Create product
+            <Plus className="h-4 w-4 shrink-0" />
+            <span className="text-center leading-tight">Create product</span>
           </Button>
         </div>
       </div>

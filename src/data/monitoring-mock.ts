@@ -783,6 +783,8 @@ export interface EnquiryLogEntry {
   enquiry_id: string;
   api_key: string;
   product: string;
+  /** Data Products catalogue id (e.g. PRD_001); aligns monitoring with configured products. */
+  product_id: string;
   status: EnquiryStatus;
   response_time_ms: number;
   consumer_id: string;
@@ -792,26 +794,26 @@ export interface EnquiryLogEntry {
 
 /** Enquiry log entries with timestamps relative to now so they pass "Last 24 hrs" (and shorter) filters. */
 export const enquiryLogEntries: EnquiryLogEntry[] = [
-  { enquiry_id: "ENQ-887421", api_key: "sk_sub_***2a", product: "Credit Report + Telecom", status: "Success", response_time_ms: 320, consumer_id: "CON-9912", alternate_data_used: 1, timestamp: recentTs(5) },
-  { enquiry_id: "ENQ-887420", api_key: "sk_sub_***5b", product: "Credit Report", status: "Success", response_time_ms: 185, consumer_id: "CON-9911", alternate_data_used: 0, timestamp: recentTs(12) },
-  { enquiry_id: "ENQ-887419", api_key: "sk_sub_***2a", product: "Credit Report + Bank Statement", status: "Failed", response_time_ms: 90, consumer_id: "CON-9910", alternate_data_used: 0, timestamp: recentTs(18) },
-  { enquiry_id: "ENQ-887418", api_key: "sk_sub_***8c", product: "Credit Report + Telecom", status: "Success", response_time_ms: 410, consumer_id: "CON-9909", alternate_data_used: 1, timestamp: recentTs(25) },
-  { enquiry_id: "ENQ-887417", api_key: "sk_sub_***5b", product: "Credit Report", status: "Success", response_time_ms: 198, consumer_id: "CON-9908", alternate_data_used: 0, timestamp: recentTs(35) },
-  { enquiry_id: "ENQ-887416", api_key: "sk_sub_***2a", product: "Credit Report", status: "Success", response_time_ms: 165, consumer_id: "CON-9907", alternate_data_used: 0, timestamp: recentTs(48) },
-  { enquiry_id: "ENQ-887415", api_key: "sk_sub_***8c", product: "Credit Report + Bank Statement", status: "Success", response_time_ms: 520, consumer_id: "CON-9906", alternate_data_used: 2, timestamp: recentTs(62) },
-  { enquiry_id: "ENQ-887414", api_key: "sk_sub_***5b", product: "Credit Report + Telecom", status: "Success", response_time_ms: 380, consumer_id: "CON-9905", alternate_data_used: 1, timestamp: recentTs(75) },
-  { enquiry_id: "ENQ-887413", api_key: "sk_sub_***2a", product: "Full Package", status: "Success", response_time_ms: 610, consumer_id: "CON-9904", alternate_data_used: 2, timestamp: recentTs(95) },
-  { enquiry_id: "ENQ-887412", api_key: "sk_sub_***8c", product: "Credit Report", status: "Failed", response_time_ms: 88, consumer_id: "CON-9903", alternate_data_used: 0, timestamp: recentTs(110) },
-  { enquiry_id: "ENQ-887411", api_key: "sk_sub_***5b", product: "Credit Report + Bank Statement", status: "Success", response_time_ms: 445, consumer_id: "CON-9902", alternate_data_used: 1, timestamp: recentTs(130) },
-  { enquiry_id: "ENQ-887410", api_key: "sk_sub_***2a", product: "Credit Report + Telecom", status: "Success", response_time_ms: 298, consumer_id: "CON-9901", alternate_data_used: 1, timestamp: recentTs(180) },
-  { enquiry_id: "ENQ-887409", api_key: "sk_sub_***8c", product: "Credit Report", status: "Success", response_time_ms: 172, consumer_id: "CON-9900", alternate_data_used: 0, timestamp: recentTs(240) },
-  { enquiry_id: "ENQ-887408", api_key: "sk_sub_***5b", product: "Credit Report + Telecom", status: "Success", response_time_ms: 365, consumer_id: "CON-9899", alternate_data_used: 1, timestamp: recentTs(320) },
-  { enquiry_id: "ENQ-887407", api_key: "sk_sub_***2a", product: "Credit Report + Bank Statement", status: "Failed", response_time_ms: 102, consumer_id: "CON-9898", alternate_data_used: 0, timestamp: recentTs(400) },
-  { enquiry_id: "ENQ-887406", api_key: "sk_sub_***8c", product: "Full Package", status: "Success", response_time_ms: 588, consumer_id: "CON-9897", alternate_data_used: 2, timestamp: recentTs(480) },
-  { enquiry_id: "ENQ-887405", api_key: "sk_sub_***5b", product: "Credit Report", status: "Success", response_time_ms: 156, consumer_id: "CON-9896", alternate_data_used: 0, timestamp: recentTs(600) },
-  { enquiry_id: "ENQ-887404", api_key: "sk_sub_***2a", product: "Credit Report + Telecom", status: "Success", response_time_ms: 334, consumer_id: "CON-9895", alternate_data_used: 1, timestamp: recentTs(720) },
-  { enquiry_id: "ENQ-887403", api_key: "sk_sub_***8c", product: "Credit Report", status: "Success", response_time_ms: 201, consumer_id: "CON-9894", alternate_data_used: 0, timestamp: recentTs(900) },
-  { enquiry_id: "ENQ-887402", api_key: "sk_sub_***5b", product: "Credit Report + Bank Statement", status: "Success", response_time_ms: 412, consumer_id: "CON-9893", alternate_data_used: 1, timestamp: recentTs(1100) },
+  { enquiry_id: "ENQ-887421", api_key: "sk_sub_***2a", product: "Credit Report + Telecom", product_id: "PRD_006", status: "Success", response_time_ms: 320, consumer_id: "CON-9912", alternate_data_used: 1, timestamp: recentTs(5) },
+  { enquiry_id: "ENQ-887420", api_key: "sk_sub_***5b", product: "Credit Report", product_id: "PRD_004", status: "Success", response_time_ms: 185, consumer_id: "CON-9911", alternate_data_used: 0, timestamp: recentTs(12) },
+  { enquiry_id: "ENQ-887419", api_key: "sk_sub_***2a", product: "Credit Report + Bank Statement", product_id: "PRD_001", status: "Failed", response_time_ms: 90, consumer_id: "CON-9910", alternate_data_used: 0, timestamp: recentTs(18) },
+  { enquiry_id: "ENQ-887418", api_key: "sk_sub_***8c", product: "Credit Report + Telecom", product_id: "PRD_006", status: "Success", response_time_ms: 410, consumer_id: "CON-9909", alternate_data_used: 1, timestamp: recentTs(25) },
+  { enquiry_id: "ENQ-887417", api_key: "sk_sub_***5b", product: "Credit Report", product_id: "PRD_004", status: "Success", response_time_ms: 198, consumer_id: "CON-9908", alternate_data_used: 0, timestamp: recentTs(35) },
+  { enquiry_id: "ENQ-887416", api_key: "sk_sub_***2a", product: "Credit Report", product_id: "PRD_004", status: "Success", response_time_ms: 165, consumer_id: "CON-9907", alternate_data_used: 0, timestamp: recentTs(48) },
+  { enquiry_id: "ENQ-887415", api_key: "sk_sub_***8c", product: "Credit Report + Bank Statement", product_id: "PRD_001", status: "Success", response_time_ms: 520, consumer_id: "CON-9906", alternate_data_used: 2, timestamp: recentTs(62) },
+  { enquiry_id: "ENQ-887414", api_key: "sk_sub_***5b", product: "Credit Report + Telecom", product_id: "PRD_006", status: "Success", response_time_ms: 380, consumer_id: "CON-9905", alternate_data_used: 1, timestamp: recentTs(75) },
+  { enquiry_id: "ENQ-887413", api_key: "sk_sub_***2a", product: "Full Package", product_id: "PRD_009", status: "Success", response_time_ms: 610, consumer_id: "CON-9904", alternate_data_used: 2, timestamp: recentTs(95) },
+  { enquiry_id: "ENQ-887412", api_key: "sk_sub_***8c", product: "Credit Report", product_id: "PRD_004", status: "Failed", response_time_ms: 88, consumer_id: "CON-9903", alternate_data_used: 0, timestamp: recentTs(110) },
+  { enquiry_id: "ENQ-887411", api_key: "sk_sub_***5b", product: "Credit Report + Bank Statement", product_id: "PRD_001", status: "Success", response_time_ms: 445, consumer_id: "CON-9902", alternate_data_used: 1, timestamp: recentTs(130) },
+  { enquiry_id: "ENQ-887410", api_key: "sk_sub_***2a", product: "Credit Report + Telecom", product_id: "PRD_006", status: "Success", response_time_ms: 298, consumer_id: "CON-9901", alternate_data_used: 1, timestamp: recentTs(180) },
+  { enquiry_id: "ENQ-887409", api_key: "sk_sub_***8c", product: "Credit Report", product_id: "PRD_004", status: "Success", response_time_ms: 172, consumer_id: "CON-9900", alternate_data_used: 0, timestamp: recentTs(240) },
+  { enquiry_id: "ENQ-887408", api_key: "sk_sub_***5b", product: "Credit Report + Telecom", product_id: "PRD_006", status: "Success", response_time_ms: 365, consumer_id: "CON-9899", alternate_data_used: 1, timestamp: recentTs(320) },
+  { enquiry_id: "ENQ-887407", api_key: "sk_sub_***2a", product: "Credit Report + Bank Statement", product_id: "PRD_001", status: "Failed", response_time_ms: 102, consumer_id: "CON-9898", alternate_data_used: 0, timestamp: recentTs(400) },
+  { enquiry_id: "ENQ-887406", api_key: "sk_sub_***8c", product: "Full Package", product_id: "PRD_009", status: "Success", response_time_ms: 588, consumer_id: "CON-9897", alternate_data_used: 2, timestamp: recentTs(480) },
+  { enquiry_id: "ENQ-887405", api_key: "sk_sub_***5b", product: "Credit Report", product_id: "PRD_004", status: "Success", response_time_ms: 156, consumer_id: "CON-9896", alternate_data_used: 0, timestamp: recentTs(600) },
+  { enquiry_id: "ENQ-887404", api_key: "sk_sub_***2a", product: "Credit Report + Telecom", product_id: "PRD_006", status: "Success", response_time_ms: 334, consumer_id: "CON-9895", alternate_data_used: 1, timestamp: recentTs(720) },
+  { enquiry_id: "ENQ-887403", api_key: "sk_sub_***8c", product: "Credit Report", product_id: "PRD_004", status: "Success", response_time_ms: 201, consumer_id: "CON-9894", alternate_data_used: 0, timestamp: recentTs(900) },
+  { enquiry_id: "ENQ-887402", api_key: "sk_sub_***5b", product: "Credit Report + Bank Statement", product_id: "PRD_001", status: "Success", response_time_ms: 412, consumer_id: "CON-9893", alternate_data_used: 1, timestamp: recentTs(1100) },
 ];
 
 export const enquiryKpis = data.enquiryKpis as {

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo } from "react";
 import { Upload, FileJson, Code, Globe, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,13 +19,11 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { ChartContainer, type ChartConfig } from "@/components/ui/chart";
 import { SchemaTreeView } from "@/components/schema-mapper/shared/SchemaTreeView";
 import {
-  telecomParsedFields,
-  telecomFieldStatistics,
   ingestedSourceMetadataTelecom,
   similarityRankingForBarChart,
   previouslyIngestedSchemas,
-  utilityParsedFields,
-  utilityFieldStatistics,
+  getParsedSourceFieldsForIngestionScenario,
+  getSourceFieldStatisticsForIngestionScenario,
 } from "@/data/schema-mapper-mock";
 import type { IngestedSourceMetadata, ParsedSourceField, SourceFieldStatistics, SourceType } from "@/types/schema-mapper";
 import simulationDefaults from "@/data/simulation-defaults.json";
@@ -78,13 +76,15 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
       effectiveDate,
       versionNumber,
     };
-    const fields = selectedPreviousId === "utility-sample" ? utilityParsedFields : telecomParsedFields;
-    const stats = selectedPreviousId === "utility-sample" ? utilityFieldStatistics : telecomFieldStatistics;
+    const fields = getParsedSourceFieldsForIngestionScenario(sourceType, schemaInput, selectedPreviousId);
+    const stats = getSourceFieldStatisticsForIngestionScenario(sourceType, schemaInput, selectedPreviousId);
     onComplete(meta, fields, stats);
-  }, [initialMetadata, sourceName, sourceType, effectiveDate, versionNumber, selectedPreviousId, onComplete]);
+  }, [initialMetadata, sourceName, sourceType, effectiveDate, versionNumber, schemaInput, selectedPreviousId, onComplete]);
 
-  const parsedFields = selectedPreviousId === "utility-sample" ? utilityParsedFields : telecomParsedFields;
-  const fieldStats = selectedPreviousId === "utility-sample" ? utilityFieldStatistics : telecomFieldStatistics;
+  const parsedFields = useMemo(
+    () => getParsedSourceFieldsForIngestionScenario(sourceType, schemaInput, selectedPreviousId),
+    [sourceType, schemaInput, selectedPreviousId],
+  );
   const metadata = initialMetadata ?? ingestedSourceMetadataTelecom;
   const similarSchemas = Array.isArray(metadata.similarSchemas) ? metadata.similarSchemas : [];
   const similarityData = similarityRankingForBarChart;
@@ -255,7 +255,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
             </p>
             <div className="space-y-3">
               <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
-                <span className="text-caption text-muted-foreground">Source Category</span>
+                <span className="text-caption text-muted-foreground">Source Type</span>
                 <Badge variant="secondary" className="text-[9px] capitalize">{metadata.sourceCategory}</Badge>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-border px-3 py-2">
@@ -268,7 +268,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
               </div>
               <div>
                 <p className="text-[9px] font-medium uppercase tracking-wider text-muted-foreground mb-1.5">
-                  Similar Existing Schemas (Top 3)
+                  Similar Source Types (Top 3)
                 </p>
                 <ul className="space-y-1">
                   {similarSchemas.slice(0, 3).map((s) => (

@@ -135,7 +135,7 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
               className="w-full sm:w-auto"
             >
               <Plus className="h-4 w-4" />
-              Register Institution
+              Register member
             </Button>
           </div>
         </div>

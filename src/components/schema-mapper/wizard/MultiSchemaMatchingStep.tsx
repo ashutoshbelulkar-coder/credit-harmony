@@ -42,6 +42,9 @@ export function MultiSchemaMatchingStep({
     <div className="space-y-4">
       <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <h3 className="text-h4 font-semibold text-foreground mb-4">Global Schema Similarity Analysis</h3>
+        <p className="text-caption text-muted-foreground mb-3">
+          Incoming schema is ranked against registered Source Types in Schema Mapper (similarity to each type&apos;s reference mapping).
+        </p>
 
         <div className="min-w-0 overflow-x-auto rounded-lg border border-border">
           <Table>
@@ -49,9 +52,9 @@ export function MultiSchemaMatchingStep({
               <TableRow className="hover:bg-transparent">
                 <TableHead className={cn(tableHeaderClasses, "w-10")} />
                 <TableHead className={cn(tableHeaderClasses, "sticky top-0 z-10 bg-card min-w-[160px]")}>
-                  Existing Schema
+                  Source Type
                 </TableHead>
-                <TableHead className={cn(tableHeaderClasses, "min-w-[90px]")}>Category</TableHead>
+                <TableHead className={cn(tableHeaderClasses, "min-w-[90px]")}>Data Category</TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[100px]")}>Similarity %</TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[100px]")}>Shared Fields</TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[100px]")}>Recommended?</TableHead>

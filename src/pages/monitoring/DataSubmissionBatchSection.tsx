@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import { useSearchParams } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import {
@@ -57,6 +58,7 @@ import {
   type BatchDetail,
 } from "@/data/monitoring-mock";
 import { institutions } from "@/data/institutions-mock";
+import { InstitutionFilterSelect } from "@/components/shared/InstitutionFilterSelect";
 import { ProcessingTimeline } from "./ProcessingTimeline";
 import { BatchExecutionConsole } from "./BatchExecutionConsole";
 import type { MonitoringFilters } from "./MonitoringFilterBar";
@@ -86,7 +88,30 @@ const BATCH_TIME_OPTIONS: { value: BatchTimePeriod; label: string }[] = [
   { value: "all", label: "All time" },
 ];
 
-const dataSubmitters = institutions.filter((i) => i.isDataSubmitter);
+const PIPELINE_STATUS_VALUE = "__queued_or_processing__";
+const CUSTOM_MULTI_STATUS_VALUE = "__custom_multi__";
+
+function isQueuedProcessingMulti(st: BatchStatus[] | null): boolean {
+  if (!st || st.length !== 2) return false;
+  const set = new Set(st);
+  return set.has("Queued") && set.has("Processing");
+}
+
+function parseBatchStatusQuery(param: string | null): BatchStatus[] | null {
+  if (!param?.trim()) return null;
+  const map: Record<string, BatchStatus> = {
+    queued: "Queued",
+    processing: "Processing",
+    completed: "Completed",
+    failed: "Failed",
+    suspended: "Suspended",
+  };
+  const out = param
+    .split(",")
+    .map((s) => map[s.trim().toLowerCase()])
+    .filter((x): x is BatchStatus => Boolean(x));
+  return out.length ? out : null;
+}
 
 function isWithinTimePeriod(uploaded: string, period: BatchTimePeriod): boolean {
   if (period === "all") return true;
@@ -145,6 +170,7 @@ function exportFailuresCSV(failures: BatchDetail["record_failures"]) {
 }
 
 export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFilters }) {
+  const [searchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);
   const [sortKey, setSortKey] = useState<BatchSortKey>("uploaded");
@@ -152,19 +178,48 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
   const [batchIdSearch, setBatchIdSearch] = useState("");
   const [institutionFilter, setInstitutionFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
+  /** When set, table shows rows matching any of these statuses (e.g. from dashboard deep link). */
+  const [statusMultiFilter, setStatusMultiFilter] = useState<BatchStatus[] | null>(null);
   const [timePeriod, setTimePeriod] = useState<BatchTimePeriod>("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const statusQueryParam = searchParams.get("status");
+  const urlStatusParsed = useMemo(
+    () => parseBatchStatusQuery(statusQueryParam),
+    [statusQueryParam]
+  );
+
+  useEffect(() => {
+    if (!urlStatusParsed?.length) return;
+    if (urlStatusParsed.length === 1) {
+      setStatusFilter(urlStatusParsed[0]);
+      setStatusMultiFilter(null);
+    } else {
+      setStatusMultiFilter(urlStatusParsed);
+      setStatusFilter("all");
+    }
+    setPage(1);
+  }, [urlStatusParsed]);
+
+  const statusSelectValue = statusMultiFilter?.length
+    ? isQueuedProcessingMulti(statusMultiFilter)
+      ? PIPELINE_STATUS_VALUE
+      : CUSTOM_MULTI_STATUS_VALUE
+    : statusFilter;
 
   const activeFilterCount = [
     batchIdSearch.trim().length > 0,
     institutionFilter !== "all",
     statusFilter !== "all",
+    Boolean(statusMultiFilter?.length),
   ].filter(Boolean).length;
 
   const filtered = batchJobs.filter((b) => {
     if (batchIdSearch.trim() && !b.batch_id.toLowerCase().includes(batchIdSearch.trim().toLowerCase())) return false;
     if (institutionFilter !== "all" && b.institution_id !== institutionFilter) return false;
-    if (statusFilter !== "all" && b.status !== statusFilter) return false;
+    if (statusMultiFilter?.length) {
+      if (!statusMultiFilter.includes(b.status)) return false;
+    } else if (statusFilter !== "all" && b.status !== statusFilter) return false;
     if (!isWithinTimePeriod(b.uploaded, timePeriod)) return false;
     return true;
   });
@@ -322,22 +377,39 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
                     <Input placeholder="Search..." value={batchIdSearch} onChange={(e) => { setBatchIdSearch(e.target.value); setPage(1); }} className="h-8 pl-8 w-full text-caption" />
                   </div>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-caption text-muted-foreground">Institution</Label>
-                  <Select value={institutionFilter} onValueChange={(v) => { setInstitutionFilter(v); setPage(1); }}>
-                    <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Institution" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-caption">All institutions</SelectItem>
-                      {dataSubmitters.map((i) => <SelectItem key={i.id} value={i.id} className="text-caption">{i.tradingName ?? i.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <InstitutionFilterSelect
+                  mode="submitters"
+                  value={institutionFilter}
+                  onValueChange={(v) => {
+                    setInstitutionFilter(v);
+                    setPage(1);
+                  }}
+                  triggerClassName="w-full"
+                />
                 <div className="space-y-1.5">
                   <Label className="text-caption text-muted-foreground">Status</Label>
-                  <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
+                  <Select
+                    value={statusSelectValue}
+                    onValueChange={(v) => {
+                      setPage(1);
+                      if (v === PIPELINE_STATUS_VALUE) {
+                        setStatusMultiFilter(["Queued", "Processing"]);
+                        setStatusFilter("all");
+                      } else if (v === CUSTOM_MULTI_STATUS_VALUE) {
+                        /* no-op — placeholder from URL */
+                      } else {
+                        setStatusMultiFilter(null);
+                        setStatusFilter(v);
+                      }
+                    }}
+                  >
                     <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Status" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all" className="text-caption">All statuses</SelectItem>
+                      <SelectItem value={CUSTOM_MULTI_STATUS_VALUE} className="text-caption" disabled>
+                        Multiple (URL filter)
+                      </SelectItem>
+                      <SelectItem value={PIPELINE_STATUS_VALUE} className="text-caption">Queued or Processing</SelectItem>
                       {(["Completed", "Processing", "Failed", "Queued"] as const).map((s) => <SelectItem key={s} value={s} className="text-caption">{s}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -362,22 +434,39 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
                 <Input placeholder="Search..." value={batchIdSearch} onChange={(e) => { setBatchIdSearch(e.target.value); setPage(1); }} className="h-8 pl-8 w-[180px] text-caption" />
               </div>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-caption text-muted-foreground">Institution</Label>
-              <Select value={institutionFilter} onValueChange={(v) => { setInstitutionFilter(v); setPage(1); }}>
-                <SelectTrigger className="h-8 min-w-[180px] max-w-[220px] text-caption"><SelectValue placeholder="Institution" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-caption">All institutions</SelectItem>
-                  {dataSubmitters.map((i) => <SelectItem key={i.id} value={i.id} className="text-caption">{i.tradingName ?? i.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+            <InstitutionFilterSelect
+              mode="submitters"
+              value={institutionFilter}
+              onValueChange={(v) => {
+                setInstitutionFilter(v);
+                setPage(1);
+              }}
+              triggerClassName="min-w-[180px] max-w-[220px]"
+            />
             <div className="space-y-1.5">
               <Label className="text-caption text-muted-foreground">Status</Label>
-              <Select value={statusFilter} onValueChange={(v) => { setStatusFilter(v); setPage(1); }}>
-                <SelectTrigger className="h-8 w-[140px] text-caption"><SelectValue placeholder="Status" /></SelectTrigger>
+              <Select
+                value={statusSelectValue}
+                onValueChange={(v) => {
+                  setPage(1);
+                  if (v === PIPELINE_STATUS_VALUE) {
+                    setStatusMultiFilter(["Queued", "Processing"]);
+                    setStatusFilter("all");
+                  } else if (v === CUSTOM_MULTI_STATUS_VALUE) {
+                    /* no-op */
+                  } else {
+                    setStatusMultiFilter(null);
+                    setStatusFilter(v);
+                  }
+                }}
+              >
+                <SelectTrigger className="h-8 w-[180px] text-caption"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-caption">All statuses</SelectItem>
+                  <SelectItem value={CUSTOM_MULTI_STATUS_VALUE} className="text-caption" disabled>
+                    Multiple (URL filter)
+                  </SelectItem>
+                  <SelectItem value={PIPELINE_STATUS_VALUE} className="text-caption">Queued or Processing</SelectItem>
                   {(["Completed", "Processing", "Failed", "Queued"] as const).map((s) => <SelectItem key={s} value={s} className="text-caption">{s}</SelectItem>)}
                 </SelectContent>
               </Select>

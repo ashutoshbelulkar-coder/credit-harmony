@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -27,7 +27,9 @@ import {
   SheetTrigger,
 } from "@/components/ui/sheet";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
-import { ruleSets, validationRules, dataSources } from "@/data/data-governance-mock";
+import { ruleSets, validationRules } from "@/data/data-governance-mock";
+import { institutions } from "@/data/institutions-mock";
+import { schemaRegistryEntries } from "@/data/schema-mapper-mock";
 import type { ValidationRule, RuleType, RuleSeverity, ExpressionBlock } from "@/types/data-governance";
 import { Plus, Play, BarChart3, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -51,7 +53,9 @@ const OPERATORS = [
   { value: "not_empty", label: "Not empty" },
 ];
 
-const INSTITUTIONS = ["First National Bank", "Metro Credit Union", "Pacific Finance Corp", "All"];
+function formatSourceTypeLabel(sourceType: string) {
+  return sourceType.charAt(0).toUpperCase() + sourceType.slice(1);
+}
 
 export default function ValidationRules() {
   const [ruleSetId, setRuleSetId] = useState(ruleSets[0]?.id ?? "");
@@ -61,6 +65,11 @@ export default function ValidationRules() {
   const [impactPercent, setImpactPercent] = useState<number | null>(null);
 
   const rules = validationRules.filter((r) => r.ruleSetId === ruleSetId);
+
+  const sourceTypeOptions = useMemo(() => {
+    const set = new Set(schemaRegistryEntries.map((e) => e.sourceType));
+    return [...set].sort().map((st) => ({ value: st, label: formatSourceTypeLabel(st) }));
+  }, []);
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -111,6 +120,7 @@ export default function ValidationRules() {
               <SheetTitle>Create validation rule</SheetTitle>
             </SheetHeader>
             <RuleForm
+              sourceTypeOptions={sourceTypeOptions}
               onClose={() => setCreateOpen(false)}
               onTest={() => setTestResult({ passed: 9920, failed: 80, total: 10000 })}
               onImpact={() => setImpactPercent(0.8)}
@@ -190,12 +200,14 @@ export default function ValidationRules() {
 }
 
 function RuleForm({
+  sourceTypeOptions,
   onClose,
   onTest,
   onImpact,
   testResult,
   impactPercent,
 }: {
+  sourceTypeOptions: { value: string; label: string }[];
   onClose: () => void;
   onTest: () => void;
   onImpact: () => void;
@@ -205,8 +217,8 @@ function RuleForm({
   const [name, setName] = useState("");
   const [type, setType] = useState<RuleType>("format");
   const [severity, setSeverity] = useState<RuleSeverity>("error");
-  const [institutions, setInstitutions] = useState<string[]>(["All"]);
-  const [dataSource, setDataSource] = useState("CBS Core");
+  const [applicableInstitutionId, setApplicableInstitutionId] = useState("all");
+  const [sourceType, setSourceType] = useState(sourceTypeOptions[0]?.value ?? "bank");
   const [errorMessage, setErrorMessage] = useState("");
   const [effectiveDate, setEffectiveDate] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
@@ -242,30 +254,32 @@ function RuleForm({
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. PAN Format" className="h-9" />
       </div>
       <div className="space-y-2">
-        <Label>Applicable institution(s)</Label>
-        <Select
-          value={institutions[0]}
-          onValueChange={(v) => setInstitutions([v])}
-        >
+        <Label>Applicable institution</Label>
+        <Select value={applicableInstitutionId} onValueChange={setApplicableInstitutionId}>
           <SelectTrigger className="h-9">
             <SelectValue placeholder="Select" />
           </SelectTrigger>
           <SelectContent>
-            {INSTITUTIONS.map((i) => (
-              <SelectItem key={i} value={i}>{i}</SelectItem>
+            <SelectItem value="all">All institutions</SelectItem>
+            {institutions.map((i) => (
+              <SelectItem key={i.id} value={i.id}>
+                {i.tradingName ?? i.name}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
       <div className="space-y-2">
-        <Label>Applicable data source</Label>
-        <Select value={dataSource} onValueChange={setDataSource}>
+        <Label>Applicable source type (Schema Mapper)</Label>
+        <Select value={sourceType} onValueChange={setSourceType}>
           <SelectTrigger className="h-9">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {dataSources.map((ds) => (
-              <SelectItem key={ds.id} value={ds.name}>{ds.name}</SelectItem>
+            {sourceTypeOptions.map((o) => (
+              <SelectItem key={o.value} value={o.value}>
+                {o.label}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>

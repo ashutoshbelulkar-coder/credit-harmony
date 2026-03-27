@@ -26,14 +26,19 @@ function statusBadgeClass(status: BatchPipelineRow["status"]) {
   }
 }
 
+export const BATCH_PIPELINE_STATUS_QUERY = "status=queued,processing";
+
 export function ActiveBatchPipelineTable({
   rows,
   loading,
   onViewAll,
+  onRowNavigate,
 }: {
   rows: BatchPipelineRow[];
   loading?: boolean;
   onViewAll?: () => void;
+  /** Navigate when a row is clicked (e.g. deep-link to batch jobs with filters). */
+  onRowNavigate?: (row: BatchPipelineRow) => void;
 }) {
   return (
     <Card className="min-w-0 border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
@@ -41,7 +46,7 @@ export function ActiveBatchPipelineTable({
         <div className="min-w-0">
           <CardTitle className="text-h4 font-semibold text-foreground">Active Batch Pipeline</CardTitle>
           <p className="mt-1 text-caption text-muted-foreground">
-            Live view of member submissions moving through processing
+            Batches currently in Processing status (same source as Monitoring → Data Submission → Batch). Progress and quality follow each job&apos;s records and success rate.
           </p>
         </div>
         <div className="flex shrink-0 sm:items-start">
@@ -57,7 +62,7 @@ export function ActiveBatchPipelineTable({
           aria-label="Batch pipeline table, scroll horizontally on small screens"
         >
           <table className="w-full min-w-[640px] border-collapse text-sm">
-            <caption className="sr-only">Active batches with progress and quality</caption>
+            <caption className="sr-only">Batches in processing with progress and quality</caption>
             <thead>
               <tr className="text-caption text-muted-foreground border-b border-border">
                 <th
@@ -88,7 +93,23 @@ export function ActiveBatchPipelineTable({
             </thead>
             <tbody className="divide-y divide-border">
               {(loading ? [] : rows).map((r) => (
-                <tr key={r.id} className="group transition-colors hover:bg-muted/30">
+                <tr
+                  key={r.id}
+                  role={onRowNavigate ? "link" : undefined}
+                  tabIndex={onRowNavigate ? 0 : undefined}
+                  className={cn(
+                    "group transition-colors hover:bg-muted/30",
+                    onRowNavigate && "cursor-pointer",
+                  )}
+                  onClick={() => onRowNavigate?.(r)}
+                  onKeyDown={(e) => {
+                    if (!onRowNavigate) return;
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onRowNavigate(r);
+                    }
+                  }}
+                >
                   <td className="sticky left-0 z-[1] bg-card py-3 pr-2 font-mono text-primary shadow-[4px_0_12px_-4px_rgba(15,23,42,0.12)] transition-colors group-hover:bg-muted/30 dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.35)]">
                     <span className="inline-flex items-center gap-2 whitespace-nowrap">
                       {r.priority === "critical" && (
@@ -151,6 +172,13 @@ export function ActiveBatchPipelineTable({
                   </td>
                 </tr>
               ))}
+              {!loading && rows.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="py-6 text-center text-caption text-muted-foreground">
+                    No batches in processing right now. Open batch monitoring for the full queue and history.
+                  </td>
+                </tr>
+              )}
               {loading && (
                 <tr>
                   <td colSpan={7} className="py-3 text-caption text-muted-foreground">

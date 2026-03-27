@@ -20,6 +20,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import reportingData from "@/data/reporting.json";
 
 interface ReportDef {
   name: string;
@@ -28,17 +29,94 @@ interface ReportDef {
   frequency: string;
 }
 
-const submissionReports: ReportDef[] = [
-  { name: "Volume Report", description: "Daily/monthly submission volume breakdown", lastGenerated: "2026-02-18", frequency: "Daily" },
-  { name: "Rejection Report", description: "Rejected records with reason codes", lastGenerated: "2026-02-18", frequency: "Daily" },
-  { name: "SLA Report", description: "Processing time and SLA compliance metrics", lastGenerated: "2026-02-17", frequency: "Weekly" },
-];
+const REPORT_CATALOG = reportingData.reportTypes.filter((t) => t.value !== "all");
 
-const subscriberReports: ReportDef[] = [
-  { name: "Enquiry Report", description: "Enquiry volume, success rate, and latency", lastGenerated: "2026-02-19", frequency: "Daily" },
-  { name: "Billing Summary", description: "Usage, credits consumed, and outstanding balance", lastGenerated: "2026-02-15", frequency: "Monthly" },
-  { name: "Alternate Data Usage Report", description: "Usage by data source with cost breakdown", lastGenerated: "2026-02-18", frequency: "Weekly" },
-];
+const SUBMITTER_REPORT_VALUES = new Set([
+  "Submission Volume Report",
+  "SLA Performance Report",
+  "Consent Audit Report",
+  "Utilization Analysis Report",
+  "Alternate Data Usage Report",
+]);
+
+const SUBSCRIBER_REPORT_VALUES = new Set([
+  "Credit Score Summary Report",
+  "Enquiry Volume Report",
+  "Institution Billing Report",
+  "Alternate Data Usage Report",
+  "Utilization Analysis Report",
+  "Portfolio Risk Snapshot",
+]);
+
+const REPORT_META: Record<string, { description: string; frequency: string; lastGenerated: string }> = {
+  "Submission Volume Report": {
+    description: "Submission volumes and throughput (Reporting module)",
+    frequency: "Daily",
+    lastGenerated: "2026-02-18",
+  },
+  "SLA Performance Report": {
+    description: "Processing time and SLA compliance",
+    frequency: "Weekly",
+    lastGenerated: "2026-02-17",
+  },
+  "Consent Audit Report": {
+    description: "Consent capture and audit trail",
+    frequency: "Weekly",
+    lastGenerated: "2026-02-16",
+  },
+  "Utilization Analysis Report": {
+    description: "Capacity and utilization trends",
+    frequency: "Monthly",
+    lastGenerated: "2026-02-15",
+  },
+  "Alternate Data Usage Report": {
+    description: "Alternate data source usage and cost",
+    frequency: "Weekly",
+    lastGenerated: "2026-02-18",
+  },
+  "Credit Score Summary Report": {
+    description: "Score distribution and movement",
+    frequency: "Monthly",
+    lastGenerated: "2026-02-14",
+  },
+  "Enquiry Volume Report": {
+    description: "Enquiry volume, success rate, and latency",
+    frequency: "Daily",
+    lastGenerated: "2026-02-19",
+  },
+  "Institution Billing Report": {
+    description: "Credits, usage, and balances",
+    frequency: "Monthly",
+    lastGenerated: "2026-02-15",
+  },
+  "Portfolio Risk Snapshot": {
+    description: "Portfolio-level risk indicators",
+    frequency: "Weekly",
+    lastGenerated: "2026-02-12",
+  },
+};
+
+function catalogToReportDef(row: { value: string; label: string }): ReportDef {
+  const meta = REPORT_META[row.value] ?? {
+    description: `Standard report from Reporting module — ${row.label}`,
+    frequency: "Weekly",
+    lastGenerated: "2026-02-18",
+  };
+  return {
+    name: row.label,
+    description: meta.description,
+    lastGenerated: meta.lastGenerated,
+    frequency: meta.frequency,
+  };
+}
+
+const submissionReports: ReportDef[] = REPORT_CATALOG.filter((t) => SUBMITTER_REPORT_VALUES.has(t.value)).map(
+  catalogToReportDef
+);
+
+const subscriberReports: ReportDef[] = REPORT_CATALOG.filter((t) => SUBSCRIBER_REPORT_VALUES.has(t.value)).map(
+  catalogToReportDef
+);
 
 interface ScheduledReport {
   reportName: string;

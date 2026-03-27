@@ -1,4 +1,6 @@
 import data from "./data-products.json";
+import type { SourceType } from "@/types/schema-mapper";
+import { getRawIngestedFieldKeysForSourceType } from "@/data/schema-mapper-mock";
 
 export type DataPacketCategory = "Bureau" | "Banking" | "GST" | "Telecom" | "Consortium";
 export type DataPacketStatus = "active" | "deprecated" | "draft";
@@ -24,12 +26,18 @@ export interface DataPacket {
 export interface PacketConfig {
   packetId: string;
   selectedFields: string[];
+  /** Computed / transformed fields (extensible). */
+  selectedDerivedFields?: string[];
 }
+
+export type EnquiryDataType = "LATEST" | "TRENDED";
 
 export interface EnquiryConfig {
   impactType: "LOW" | "HIGH";
   scope: "SELF" | "NETWORK" | "CONSORTIUM" | "VERTICAL";
   mode: "LIVE" | "SYNTHETIC";
+  /** Latest snapshot vs trended time series for enquiry responses. */
+  dataType: EnquiryDataType;
 }
 
 export interface ConfiguredProduct {
@@ -50,8 +58,49 @@ export interface ProductCatalogPacketOption {
   label: string;
   description: string;
   category: ProductCatalogPacketGroup;
+  /** Schema Mapper Source Type — drives raw field catalogue. */
+  sourceType: SourceType;
   fields: string[];
   previewKey: string;
+}
+
+/** Placeholder derived fields per packet (future pipeline hooks). */
+export const derivedFieldTemplatesByPacketId: Record<string, string[]> = {
+  PKT_BCF: ["weighted_cashflow_score", "emi_burden_ratio", "income_stability_index"],
+  PKT_GST: ["turnover_momentum_index", "compliance_risk_tier"],
+  PKT_BLK: ["network_risk_rollup", "related_party_exposure_score"],
+  PKT_TBS: ["telco_credit_proxy", "mobility_stability_index"],
+  PKT_EMP: ["employment_verification_confidence", "income_band_estimate"],
+  PKT_DSP: ["discretionary_spend_ratio", "digital_credit_appetite_score"],
+  PKT_CON: ["cross_lender_stress_flag", "exposure_velocity_90d"],
+  PKT_FRD: ["fraud_probability_model", "identity_consistency_score"],
+  PKT_SYN: ["synthetic_profile_version", "scenario_calibration_id"],
+};
+
+export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
+  telecom: "Telecom",
+  utility: "Utility",
+  bank: "Bank",
+  gst: "GST",
+  custom: "Custom",
+};
+
+/** Union of catalog packet fields and Schema Mapper raw keys for the packet's source type. */
+export function getAllRawFieldKeysForPacketOption(opt: ProductCatalogPacketOption): string[] {
+  const fromMapper = getRawIngestedFieldKeysForSourceType(opt.sourceType);
+  const set = new Set<string>([...fromMapper, ...opt.fields]);
+  return [...set].sort((a, b) => a.localeCompare(b));
+}
+
+export const DEFAULT_ENQUIRY_CONFIG: EnquiryConfig = {
+  impactType: "LOW",
+  scope: "SELF",
+  mode: "LIVE",
+  dataType: "LATEST",
+};
+
+export function normalizeEnquiryConfig(partial?: Partial<EnquiryConfig> | null): EnquiryConfig {
+  return { ...DEFAULT_ENQUIRY_CONFIG, ...partial };
 }
 
 export const productCatalogPacketOptions = data.productCatalogPacketOptions as ProductCatalogPacketOption[];
@@ -92,7 +141,10 @@ export function getProductById(id: string): ConfiguredProduct | undefined {
 }
 
 export function getInitialProductsCatalogState(): ConfiguredProduct[] {
-  return structuredClone(configuredProducts);
+  return structuredClone(configuredProducts).map((p) => ({
+    ...p,
+    enquiryConfig: normalizeEnquiryConfig(p.enquiryConfig),
+  }));
 }
 
 export function catalogLabelForPacketId(packetId: string): string | undefined {
@@ -114,24 +166,39 @@ export function buildProductPreviewJson(
   packetConfigs: PacketConfig[],
   enquiryConfig: EnquiryConfig
 ): object {
-  const configMap = new Map(packetConfigs.map((c) => [c.packetId, c.selectedFields]));
+  const configMap = new Map(packetConfigs.map((c) => [c.packetId, c]));
   const resultData: Record<string, Record<string, unknown>> = {};
+  const ec = normalizeEnquiryConfig(enquiryConfig);
 
   for (const pid of orderedPacketIds) {
     const opt = productCatalogPacketOptions.find((o) => o.id === pid);
     if (!opt) continue;
     const fullPayload = packetMockData[pid] ?? {};
-    const selectedFields = configMap.get(pid);
+    const cfg = configMap.get(pid);
+    const selectedFields = cfg?.selectedFields;
     const filtered: Record<string, unknown> =
       selectedFields && selectedFields.length > 0
         ? Object.fromEntries(Object.entries(fullPayload).filter(([k]) => selectedFields.includes(k)))
         : { ...fullPayload };
+
+    const derivedSel = cfg?.selectedDerivedFields?.filter(Boolean) ?? [];
+    if (derivedSel.length > 0) {
+      filtered.__derived = Object.fromEntries(
+        derivedSel.map((d) => [d, `[computed:${d}]`])
+      );
+    }
+
     resultData[opt.previewKey] = filtered;
   }
 
   return {
     product: productName || "—",
-    enquiry: { impact: enquiryConfig.impactType, scope: enquiryConfig.scope, mode: enquiryConfig.mode },
+    enquiry: {
+      impact: ec.impactType,
+      scope: ec.scope,
+      mode: ec.mode,
+      dataType: ec.dataType,
+    },
     data: resultData,
   };
 }

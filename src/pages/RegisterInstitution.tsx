@@ -166,15 +166,15 @@ const RegisterInstitution = () => {
     <DashboardLayout>
       <div className="animate-fade-in space-y-4 sm:space-y-6">
         <PageBreadcrumb segments={[
-          { label: "Institutions", href: "/institutions" },
-          { label: "Register Institution" },
+          { label: "Members", href: "/institutions" },
+          { label: "Register member" },
         ]} />
 
         {/* Header row */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-xl font-bold text-foreground sm:text-2xl">Register Institution</h1>
-            <p className="text-caption text-muted-foreground mt-0.5">Complete all steps to register a new institution</p>
+            <h1 className="text-xl font-bold text-foreground sm:text-2xl">Register member</h1>
+            <p className="text-caption text-muted-foreground mt-0.5">Complete all steps to register a new member institution</p>
           </div>
           <Button variant="outline" size="sm" onClick={handleSaveDraft} className="gap-1.5 self-start">
             <Save className="w-3.5 h-3.5" /> Save Draft

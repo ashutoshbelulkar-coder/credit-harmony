@@ -3,55 +3,55 @@
     {
       "id": "PKT_BCF", "label": "Banking Cashflow Summary",
       "description": "Bank statement analysis: credits, debits, balances, salary detection and EMI outflow.",
-      "category": "Financial Data", "previewKey": "banking_cashflow",
+      "category": "Financial Data", "sourceType": "bank", "previewKey": "banking_cashflow",
       "fields": ["avg_monthly_balance","total_credits_6m","total_debits_6m","cash_deposit_ratio","income_stability_score","salary_detected","emi_outflow","bounce_instances","closing_balance_trend"]
     },
     {
       "id": "PKT_GST", "label": "GST Business Profile",
       "description": "GST filing behaviour, turnover trends, compliance score and customer concentration.",
-      "category": "Business Data", "previewKey": "gst_business_profile",
+      "category": "Business Data", "sourceType": "gst", "previewKey": "gst_business_profile",
       "fields": ["annual_turnover","gst_filing_regular","gst_return_type","sales_trend","top_customers_concentration","input_output_ratio","gst_compliance_score"]
     },
     {
       "id": "PKT_BLK", "label": "Business Linkages",
       "description": "Entity network mapping: related firms, shared directors and group-level risk exposure.",
-      "category": "Business Data", "previewKey": "business_linkages",
+      "category": "Business Data", "sourceType": "custom", "previewKey": "business_linkages",
       "fields": ["related_entities_count","shared_directors","high_risk_associations","group_exposure","network_risk_score"]
     },
     {
       "id": "PKT_TBS", "label": "Telecom Behavioral Score",
       "description": "Mobile usage patterns: recharge consistency, device stability and geo-mobility signals.",
-      "category": "Behavioral Data", "previewKey": "telecom_behavioral_score",
+      "category": "Behavioral Data", "sourceType": "telecom", "previewKey": "telecom_behavioral_score",
       "fields": ["mobile_recharge_consistency","avg_monthly_recharge","data_usage_pattern","device_stability","sim_age_months","geo_stability_score"]
     },
     {
       "id": "PKT_EMP", "label": "Employment Insights",
       "description": "Employment type, employer identity, tenure and income variability signals.",
-      "category": "Behavioral Data", "previewKey": "employment_insights",
+      "category": "Behavioral Data", "sourceType": "bank", "previewKey": "employment_insights",
       "fields": ["employment_type","employer_name","tenure_months","salary_estimate","income_variability","employment_stability_score"]
     },
     {
       "id": "PKT_DSP", "label": "Digital Spend Profile",
       "description": "UPI/card spend patterns across e-commerce, food, subscriptions and discretionary categories.",
-      "category": "Behavioral Data", "previewKey": "digital_spend_profile",
+      "category": "Behavioral Data", "sourceType": "bank", "previewKey": "digital_spend_profile",
       "fields": ["ecommerce_spend","food_delivery_spend","subscription_services_count","luxury_spend_ratio","spend_volatility","discretionary_income_score"]
     },
     {
       "id": "PKT_CON", "label": "Consortium Exposure",
       "description": "Cross-lender liability: active facilities, DPD history, overleveraging and enquiry velocity.",
-      "category": "Consortium Data", "previewKey": "consortium_exposure",
+      "category": "Consortium Data", "sourceType": "custom", "previewKey": "consortium_exposure",
       "fields": ["total_exposure","active_lenders","dpd_instances","overleveraged_flag","recent_enquiries","exposure_growth_trend"]
     },
     {
       "id": "PKT_FRD", "label": "Fraud Risk Signals",
       "description": "Device fingerprint, identity consistency, velocity checks and blacklist screening.",
-      "category": "Fraud Signals", "previewKey": "fraud_risk_signals",
+      "category": "Fraud Signals", "sourceType": "custom", "previewKey": "fraud_risk_signals",
       "fields": ["device_mismatch_flag","identity_inconsistency","velocity_checks_failed","blacklist_match","fraud_risk_score"]
     },
     {
       "id": "PKT_SYN", "label": "Synthetic Profile",
       "description": "Parameterised test profiles for simulation: risk score, income band and scenario tags.",
-      "category": "Synthetic / Test", "previewKey": "synthetic_profile",
+      "category": "Synthetic / Test", "sourceType": "custom", "previewKey": "synthetic_profile",
       "fields": ["risk_score","income_band","profile_type","scenario_tag"]
     }
   ],

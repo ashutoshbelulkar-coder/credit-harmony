@@ -27,7 +27,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 const navItems = [
   { title: "Dashboard", path: "/", icon: LayoutDashboard },
-  { title: "Institution Management", path: "/institutions", icon: Building2 },
+  { title: "Member Management", path: "/institutions", icon: Building2 },
   { title: "Data Products", path: "/data-products/products", icon: Package },
   { title: "Agents", path: "/agents", icon: Brain },
   { title: "Data Governance", path: "/data-governance", icon: ShieldCheck },

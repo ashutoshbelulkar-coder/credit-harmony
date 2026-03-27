@@ -151,8 +151,21 @@
     @apply border-border;
   }
 
+  /* Single scroll: app shell (DashboardLayout main) scrolls; prevent document + main both scrolling */
+  html {
+    height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    height: 100%;
+    margin: 0;
+    overflow: hidden;
+  }
+
+  #root {
+    height: 100%;
+    min-height: 0;
   }
 }
 

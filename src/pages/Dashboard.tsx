@@ -15,7 +15,10 @@ import { useState } from "react";
 import { useDashboardSnapshot } from "@/api/dashboard";
 import { AgentFleetCard } from "@/components/dashboard/command-center/AgentFleetCard";
 import { ProcessingThroughputCard } from "@/components/dashboard/command-center/ProcessingThroughputCard";
-import { ActiveBatchPipelineTable } from "@/components/dashboard/command-center/ActiveBatchPipelineTable";
+import {
+  ActiveBatchPipelineTable,
+  BATCH_PIPELINE_STATUS_QUERY,
+} from "@/components/dashboard/command-center/ActiveBatchPipelineTable";
 import { AnomalyFeed } from "@/components/dashboard/command-center/AnomalyFeed";
 import { MemberDataQualityCard } from "@/components/dashboard/command-center/MemberDataQualityCard";
 import { useNavigate } from "react-router-dom";
@@ -107,7 +110,12 @@ const Dashboard = () => {
         <ActiveBatchPipelineTable
           rows={snapshot.data?.commandCenter?.batches ?? []}
           loading={snapshot.isLoading}
-          onViewAll={() => navigate("/monitoring/data-submission-batch")}
+          onViewAll={() =>
+            navigate(`/monitoring/data-submission-batch?${BATCH_PIPELINE_STATUS_QUERY}`)
+          }
+          onRowNavigate={() =>
+            navigate(`/monitoring/data-submission-batch?${BATCH_PIPELINE_STATUS_QUERY}`)
+          }
         />
 
         <AnomalyFeed

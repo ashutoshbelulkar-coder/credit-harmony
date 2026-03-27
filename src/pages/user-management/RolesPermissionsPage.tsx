@@ -8,22 +8,35 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { Check, Minus, Users, Plus, Pencil, Trash2 } from "lucide-react";
 import { toast } from "sonner";
-import { roleDefinitions as initialRoles, permissions, type RoleDefinition } from "@/data/user-management-mock";
+import {
+  roleDefinitions as initialRoles,
+  createEmptySectionMatrix,
+  countEnabledSectionPermissions,
+  sectionPermissionSlotCount,
+  type RoleDefinition,
+  type SectionPermissionMatrix,
+} from "@/data/user-management-mock";
+import { permissionSections, permissionActions, type PermissionAction } from "@/lib/nav-config";
 
 interface RoleFormState {
   role: string;
   description: string;
-  permissions: Record<string, boolean>;
+  sectionPermissions: SectionPermissionMatrix;
 }
 
 const emptyForm: RoleFormState = {
   role: "",
   description: "",
-  permissions: Object.fromEntries(permissions.map((p) => [p, false])),
+  sectionPermissions: createEmptySectionMatrix(),
 };
 
 export function RolesPermissionsPage() {
@@ -35,29 +48,44 @@ export function RolesPermissionsPage() {
 
   const openCreate = () => {
     setEditingIndex(null);
-    setForm({ ...emptyForm, permissions: Object.fromEntries(permissions.map((p) => [p, false])) });
+    setForm({ ...emptyForm, sectionPermissions: createEmptySectionMatrix() });
     setDialogOpen(true);
   };
 
   const openEdit = (index: number) => {
     const r = roles[index];
     setEditingIndex(index);
-    setForm({ role: r.role, description: r.description, permissions: { ...r.permissions } });
+    setForm({
+      role: r.role,
+      description: r.description,
+      sectionPermissions: JSON.parse(JSON.stringify(r.sectionPermissions)) as SectionPermissionMatrix,
+    });
     setDialogOpen(true);
   };
 
-  const togglePermission = (perm: string) => {
+  const toggleSectionAction = (sectionId: string, action: PermissionAction) => {
     setForm((prev) => ({
       ...prev,
-      permissions: { ...prev.permissions, [perm]: !prev.permissions[perm] },
+      sectionPermissions: {
+        ...prev.sectionPermissions,
+        [sectionId]: {
+          ...prev.sectionPermissions[sectionId],
+          [action]: !prev.sectionPermissions[sectionId]?.[action],
+        },
+      },
     }));
   };
 
-  const toggleAll = (on: boolean) => {
-    setForm((prev) => ({
-      ...prev,
-      permissions: Object.fromEntries(permissions.map((p) => [p, on])),
-    }));
+  const toggleAllMatrix = (on: boolean) => {
+    setForm((prev) => {
+      const next = createEmptySectionMatrix();
+      for (const s of permissionSections) {
+        for (const a of permissionActions) {
+          next[s.id][a] = on;
+        }
+      }
+      return { ...prev, sectionPermissions: next };
+    });
   };
 
   const handleSave = () => {
@@ -70,7 +98,12 @@ export function RolesPermissionsPage() {
       setRoles((prev) =>
         prev.map((r, i) =>
           i === editingIndex
-            ? { ...r, role: form.role as any, description: form.description, permissions: { ...form.permissions } }
+            ? {
+                ...r,
+                role: form.role.trim(),
+                description: form.description,
+                sectionPermissions: JSON.parse(JSON.stringify(form.sectionPermissions)) as SectionPermissionMatrix,
+              }
             : r
         )
       );
@@ -84,11 +117,12 @@ export function RolesPermissionsPage() {
       setRoles((prev) => [
         ...prev,
         {
-          role: form.role.trim() as any,
+          role: form.role.trim(),
           description: form.description.trim(),
           userCount: 0,
           color: "hsl(220, 9%, 46%)",
-          permissions: { ...form.permissions },
+          permissions: {},
+          sectionPermissions: JSON.parse(JSON.stringify(form.sectionPermissions)) as SectionPermissionMatrix,
         },
       ]);
       toast.success(`Role "${form.role}" created`);
@@ -103,16 +137,15 @@ export function RolesPermissionsPage() {
     toast.success(`Role "${name}" deleted`);
   };
 
-  const enabledCount = Object.values(form.permissions).filter(Boolean).length;
+  const enabledCount = countEnabledSectionPermissions(form.sectionPermissions);
 
   return (
     <>
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-h2 font-semibold text-foreground">Roles & Permissions</h1>
           <p className="text-caption text-muted-foreground mt-1">
-            Define access levels and permission boundaries for each platform role.
+            Section-based access aligned with the main navigation (View, Create, Edit, Delete, Export).
           </p>
         </div>
         <Button onClick={openCreate}>
@@ -120,7 +153,6 @@ export function RolesPermissionsPage() {
         </Button>
       </div>
 
-      {/* Role Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-5">
         {roles.map((r, i) => (
           <Card key={`${r.role}-${i}`} className="border group relative">
@@ -135,14 +167,19 @@ export function RolesPermissionsPage() {
             </CardHeader>
             <CardContent className="pt-0 flex items-center justify-between">
               <div className="text-xs text-muted-foreground">
-                {Object.values(r.permissions).filter(Boolean).length} of {permissions.length} permissions
+                {countEnabledSectionPermissions(r.sectionPermissions)} of {sectionPermissionSlotCount} permissions
               </div>
               <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                 <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => openEdit(i)}>
                   <Pencil className="w-3.5 h-3.5" />
                 </Button>
                 {r.userCount === 0 && (
-                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => setDeleteConfirmIndex(i)}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 text-destructive"
+                    onClick={() => setDeleteConfirmIndex(i)}
+                  >
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 )}
@@ -152,35 +189,43 @@ export function RolesPermissionsPage() {
         ))}
       </div>
 
-      {/* Permission Matrix */}
       <Card className="mt-6">
         <CardHeader>
-          <CardTitle className="text-base">Permission Matrix</CardTitle>
-          <CardDescription>Granular access control across all platform roles</CardDescription>
+          <CardTitle className="text-base">Permission matrix</CardTitle>
+          <CardDescription>Enabled actions per navigation section and role</CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead className="min-w-[200px]">Permission</TableHead>
+                <TableHead className="min-w-[200px]">Section</TableHead>
                 {roles.map((r, i) => (
-                  <TableHead key={`${r.role}-${i}`} className="text-center min-w-[100px] text-xs">{r.role}</TableHead>
+                  <TableHead key={`${r.role}-${i}`} className="text-center min-w-[100px] text-xs">
+                    {r.role}
+                  </TableHead>
                 ))}
               </TableRow>
             </TableHeader>
             <TableBody>
-              {permissions.map((perm) => (
-                <TableRow key={perm}>
-                  <TableCell className="text-sm font-medium text-foreground">{perm}</TableCell>
-                  {roles.map((r, i) => (
-                    <TableCell key={`${r.role}-${i}`} className="text-center">
-                      {r.permissions[perm] ? (
-                        <Check className="w-4 h-4 text-success mx-auto" />
-                      ) : (
-                        <Minus className="w-4 h-4 text-muted-foreground/40 mx-auto" />
-                      )}
-                    </TableCell>
-                  ))}
+              {permissionSections.map((sec) => (
+                <TableRow key={sec.id}>
+                  <TableCell className="text-sm font-medium text-foreground">{sec.title}</TableCell>
+                  {roles.map((r, ri) => {
+                    const n = permissionActions.filter((a) => r.sectionPermissions[sec.id]?.[a]).length;
+                    return (
+                      <TableCell key={`${r.role}-${ri}`} className="text-center">
+                        {n === permissionActions.length ? (
+                          <Check className="w-4 h-4 text-success mx-auto" />
+                        ) : n === 0 ? (
+                          <Minus className="w-4 h-4 text-muted-foreground/40 mx-auto" />
+                        ) : (
+                          <span className="text-caption text-muted-foreground tabular-nums">
+                            {n}/{permissionActions.length}
+                          </span>
+                        )}
+                      </TableCell>
+                    );
+                  })}
                 </TableRow>
               ))}
             </TableBody>
@@ -188,22 +233,18 @@ export function RolesPermissionsPage() {
         </CardContent>
       </Card>
 
-      {/* Create / Edit Role Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editingIndex !== null ? "Edit Role" : "Create Role"}</DialogTitle>
             <DialogDescription>
-              {editingIndex !== null
-                ? "Modify role details and toggle permissions."
-                : "Define a new role and assign permissions."}
+              Assign permissions by main app section. Each section supports View, Create, Edit, Delete, and Export.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-5 py-2">
-            {/* Name */}
             <div className="space-y-1.5">
-              <Label>Role Name *</Label>
+              <Label>Role name *</Label>
               <Input
                 value={form.role}
                 onChange={(e) => setForm((prev) => ({ ...prev, role: e.target.value }))}
@@ -211,7 +252,6 @@ export function RolesPermissionsPage() {
               />
             </div>
 
-            {/* Description */}
             <div className="space-y-1.5">
               <Label>Description</Label>
               <Textarea
@@ -222,28 +262,39 @@ export function RolesPermissionsPage() {
               />
             </div>
 
-            {/* Permissions */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label>Permissions ({enabledCount}/{permissions.length})</Label>
+              <div className="flex items-center justify-between gap-2">
+                <Label>
+                  Section permissions ({enabledCount}/{sectionPermissionSlotCount})
+                </Label>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toggleAll(true)}>
-                    Enable All
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toggleAllMatrix(true)}>
+                    Enable all
                   </Button>
-                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toggleAll(false)}>
-                    Disable All
+                  <Button variant="outline" size="sm" className="h-7 text-xs" onClick={() => toggleAllMatrix(false)}>
+                    Disable all
                   </Button>
                 </div>
               </div>
 
-              <div className="border rounded-lg divide-y">
-                {permissions.map((perm) => (
-                  <div key={perm} className="flex items-center justify-between px-4 py-3">
-                    <span className="text-sm text-foreground">{perm}</span>
-                    <Switch
-                      checked={!!form.permissions[perm]}
-                      onCheckedChange={() => togglePermission(perm)}
-                    />
+              <div className="space-y-4 rounded-lg border border-border p-3">
+                {permissionSections.map((sec) => (
+                  <div key={sec.id} className="space-y-2 border-b border-border pb-3 last:border-0 last:pb-0">
+                    <p className="text-sm font-semibold text-foreground">{sec.title}</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                      {permissionActions.map((action) => (
+                        <div
+                          key={`${sec.id}-${action}`}
+                          className="flex items-center justify-between gap-2 rounded-md border border-border/80 bg-muted/20 px-2 py-1.5"
+                        >
+                          <span className="text-caption text-foreground">{action}</span>
+                          <Switch
+                            checked={!!form.sectionPermissions[sec.id]?.[action]}
+                            onCheckedChange={() => toggleSectionAction(sec.id, action)}
+                          />
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -251,25 +302,27 @@ export function RolesPermissionsPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleSave}>
-              {editingIndex !== null ? "Save Changes" : "Create Role"}
+            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+              Cancel
             </Button>
+            <Button onClick={handleSave}>{editingIndex !== null ? "Save changes" : "Create role"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation */}
       <Dialog open={deleteConfirmIndex !== null} onOpenChange={() => setDeleteConfirmIndex(null)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>Delete Role</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete "{deleteConfirmIndex !== null ? roles[deleteConfirmIndex]?.role : ""}"? This action cannot be undone.
+              Are you sure you want to delete &quot;
+              {deleteConfirmIndex !== null ? roles[deleteConfirmIndex]?.role : ""}&quot;? This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteConfirmIndex(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDeleteConfirmIndex(null)}>
+              Cancel
+            </Button>
             <Button variant="destructive" onClick={() => deleteConfirmIndex !== null && handleDelete(deleteConfirmIndex)}>
               Delete
             </Button>

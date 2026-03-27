@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, AlertTriangle, ExternalLink, Clock, Download } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertTriangle, ExternalLink, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses, detailPageTabTriggerBaseClasses } from "@/lib/typography";
 import { getInstitutionById, statusStyles } from "@/data/institutions-mock";
@@ -35,6 +35,14 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import institutionDetailData from "@/data/institution-detail.json";
+import {
+  apiSubmissionRequests,
+  apiSubmissionKpis,
+  batchJobs,
+  dataSubmitterIdByApiKey,
+  subscriberIdByApiKey,
+  enquiryLogEntries,
+} from "@/data/monitoring-mock";
 import UsersTab from "./institution-tabs/UsersTab";
 import ConsentConfigTab from "./institution-tabs/ConsentConfigTab";
 import BillingTab from "./institution-tabs/BillingTab";
@@ -43,6 +51,7 @@ import ReportsTab from "./institution-tabs/ReportsTab";
 import AuditTrailTab from "./institution-tabs/AuditTrailTab";
 import ConsortiumMembershipsTab from "./institution-tabs/ConsortiumMembershipsTab";
 import ProductSubscriptionsTab from "./institution-tabs/ProductSubscriptionsTab";
+import { useCatalogMock } from "@/contexts/CatalogMockContext";
 
 const InstitutionDetail = () => {
   const { id } = useParams();
@@ -67,7 +76,7 @@ const InstitutionDetail = () => {
         <div className="flex flex-col items-center justify-center py-20 space-y-4">
           <p className="text-muted-foreground">Institution not found.</p>
           <button onClick={() => navigate("/institutions")} className="text-primary hover:underline text-sm">
-            Back to Institutions
+            Back to members
           </button>
         </div>
       </DashboardLayout>
@@ -81,7 +90,7 @@ const InstitutionDetail = () => {
         <PageBreadcrumb
           segments={[
             { label: "Dashboard", href: "/" },
-            { label: "Institutions", href: "/institutions" },
+            { label: "Members", href: "/institutions" },
             { label: institution.name },
           ]}
         />
@@ -169,10 +178,7 @@ const {
   processingTimeData,
   enquiryVolumeData,
   successVsFailedData,
-  usageBySourceData,
   responseTimeData,
-  submitterKpis,
-  subscriberKpis,
 } = institutionDetailData;
 
 const PIE_COLORS = ["hsl(var(--success))", "hsl(var(--danger))"];
@@ -190,90 +196,132 @@ const successFailedConfig: ChartConfig = {
   Failed: { label: "Failed", color: "hsl(var(--danger))" },
 };
 const sourceConfig: ChartConfig = {
-  standard: { label: "Standard", color: "hsl(var(--primary))" },
-  alternate: { label: "Alternate", color: "hsl(var(--secondary))" },
+  standard: { label: "Core data product", color: "hsl(var(--primary))" },
+  alternate: { label: "Add-on data products", color: "hsl(var(--secondary))" },
 };
 const latencyConfig: ChartConfig = { latency: { label: "Latency (ms)", color: "hsl(var(--secondary))" } };
 
 const CHART_CARD = "bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] flex flex-col";
 
+function overviewSubmitterKeys(institutionId: string) {
+  return new Set(
+    Object.entries(dataSubmitterIdByApiKey)
+      .filter(([, id]) => id === institutionId)
+      .map(([k]) => k)
+  );
+}
+
+function overviewSubscriberKeys(institutionId: string) {
+  return new Set(
+    Object.entries(subscriberIdByApiKey)
+      .filter(([, id]) => id === institutionId)
+      .map(([k]) => k)
+  );
+}
+
 function OverviewTab({ institution }: { institution: Institution }) {
+  const { products: catalogProducts } = useCatalogMock();
   const docs = institution.complianceDocs || [];
+
+  const memberApiRequests = useMemo(
+    () => apiSubmissionRequests.filter((r) => overviewSubmitterKeys(institution.id).has(r.api_key)),
+    [institution.id]
+  );
+  const memberEnquiries = useMemo(
+    () => enquiryLogEntries.filter((e) => overviewSubscriberKeys(institution.id).has(e.api_key)),
+    [institution.id]
+  );
+  const memberBatches = useMemo(
+    () => batchJobs.filter((b) => b.institution_id === institution.id),
+    [institution.id]
+  );
+
+  const apiSuccessRate =
+    memberApiRequests.length > 0
+      ? (
+          (memberApiRequests.filter((r) => r.status === "Success").length / memberApiRequests.length) *
+          100
+        ).toFixed(1)
+      : "—";
+  const apiP95 =
+    memberApiRequests.length > 0
+      ? (() => {
+          const sorted = [...memberApiRequests.map((r) => r.response_time_ms)].sort((a, b) => a - b);
+          const i = Math.floor(0.95 * (sorted.length - 1));
+          return `${sorted[i]}ms`;
+        })()
+      : "—";
+
+  const enqSuccessRate =
+    memberEnquiries.length > 0
+      ? (
+          (memberEnquiries.filter((e) => e.status === "Success").length / memberEnquiries.length) *
+          100
+        ).toFixed(1)
+      : "—";
+  const enqP95 =
+    memberEnquiries.length > 0
+      ? (() => {
+          const sorted = [...memberEnquiries.map((e) => e.response_time_ms)].sort((a, b) => a - b);
+          const i = Math.floor(0.95 * (sorted.length - 1));
+          return `${sorted[i]}ms`;
+        })()
+      : "—";
+
+  const usageByProductChartData = useMemo(() => {
+    const counts = new Map<string, { standard: number; alternate: number }>();
+    for (const e of memberEnquiries) {
+      const id = e.product_id;
+      const row = counts.get(id) ?? { standard: 0, alternate: 0 };
+      if (e.alternate_data_used > 0) row.alternate += 1;
+      else row.standard += 1;
+      counts.set(id, row);
+    }
+    const nameById = new Map(catalogProducts.map((p) => [p.id, p.name]));
+    return [...counts.entries()]
+      .map(([productId, c]) => ({
+        productId,
+        productName: nameById.get(productId) ?? productId,
+        standard: c.standard,
+        alternate: c.alternate,
+      }))
+      .sort((a, b) => a.productId.localeCompare(b.productId));
+  }, [memberEnquiries, catalogProducts]);
+
+  const batchActive = memberBatches.filter((b) => b.status === "Queued" || b.status === "Processing").length;
+  const batchRecords = memberBatches.reduce((s, b) => s + b.total_records, 0);
+  const batchAvgSuccess =
+    memberBatches.length > 0
+      ? (memberBatches.reduce((s, b) => s + b.success_rate, 0) / memberBatches.length).toFixed(1)
+      : "—";
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards - horizontal strip at top, does not disturb charts */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          {institution.isDataSubmitter && (
-            <>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">Records Submitted Today</p>
-                <p className="text-h4 font-bold mt-1 text-foreground">{submitterKpis.recordsSubmittedToday}</p>
-              </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">File Success Rate</p>
-                <p className="text-h4 font-bold mt-1 text-success">{submitterKpis.fileSuccessRate}</p>
-              </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">Rejection Rate</p>
-                <p className="text-h4 font-bold mt-1 text-danger">{submitterKpis.rejectionRate}</p>
-              </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">Active Submission APIs</p>
-                <p className="text-h4 font-bold mt-1 text-foreground">{institution.apisEnabled}/3</p>
-              </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">Last File Upload</p>
-                <div className="flex items-center gap-1.5 mt-1">
-                  <Clock className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                  <p className="text-body font-medium text-foreground truncate">{submitterKpis.lastFileUpload}</p>
-                </div>
-              </div>
-            </>
-          )}
-          {institution.isSubscriber && (
-            <>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">Total Enquiries Today</p>
-                <p className="text-h4 font-bold mt-1 text-foreground">{subscriberKpis.totalEnquiriesToday}</p>
-              </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">P95 Latency</p>
-                <p className="text-h4 font-bold mt-1 text-foreground">{subscriberKpis.p95LatencyMs}</p>
-              </div>
-              {institution.creditBalance != null && (
-                <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                  <p className="text-caption text-muted-foreground">Available Credits</p>
-                  <p className="text-h4 font-bold mt-1 text-foreground">{institution.creditBalance.toLocaleString()}</p>
-                </div>
-              )}
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">Active APIs</p>
-                <p className="text-h4 font-bold mt-1 text-foreground">{subscriberKpis.activeApis}</p>
-              </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">Alternate Data Usage Today</p>
-                <p className="text-h4 font-bold mt-1 text-foreground">{subscriberKpis.alternateDataUsageToday}</p>
-              </div>
-            </>
-          )}
-          {!institution.isDataSubmitter && !institution.isSubscriber && (
-            <>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">APIs Enabled</p>
-                <p className={cn("text-h4 font-bold mt-1", institution.apisEnabled === 3 ? "text-success" : "text-foreground")}>{institution.apisEnabled}/3</p>
-              </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">SLA Health</p>
-                <p className={cn("text-h4 font-bold mt-1", institution.slaHealth >= 99 ? "text-success" : "text-foreground")}>{institution.slaHealth > 0 ? `${institution.slaHealth}%` : "—"}</p>
-              </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">Onboarded</p>
-                <p className="text-h4 font-bold mt-1 text-muted-foreground">{institution.onboardedDate || "—"}</p>
-              </div>
-            </>
-          )}
+      {/* Summary strip — aligns with Monitoring module; scoped to this member */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <p className="text-caption text-muted-foreground">APIs enabled</p>
+          <p className={cn("text-h4 font-bold mt-1", institution.apisEnabled === 3 ? "text-success" : "text-foreground")}>
+            {institution.apisEnabled}/3
+          </p>
         </div>
+        <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <p className="text-caption text-muted-foreground">SLA health</p>
+          <p className={cn("text-h4 font-bold mt-1", institution.slaHealth >= 99 ? "text-success" : "text-foreground")}>
+            {institution.slaHealth > 0 ? `${institution.slaHealth}%` : "—"}
+          </p>
+        </div>
+        <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <p className="text-caption text-muted-foreground">Onboarded</p>
+          <p className="text-h4 font-bold mt-1 text-muted-foreground">{institution.onboardedDate || "—"}</p>
+        </div>
+        {institution.isSubscriber && institution.creditBalance != null && (
+          <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+            <p className="text-caption text-muted-foreground">Available credits</p>
+            <p className="text-h4 font-bold mt-1 text-foreground">{institution.creditBalance.toLocaleString()}</p>
+          </div>
+        )}
+      </div>
 
       <div className="space-y-6">
         {/* Corporate Details */}
@@ -318,9 +366,35 @@ function OverviewTab({ institution }: { institution: Institution }) {
           </div>
         </div>
 
-        {/* Charts Section - Data Submission */}
+        {/* Data Submission (API) — Monitoring-aligned KPIs for this member */}
         {institution.isDataSubmitter && (
-          <>
+          <section className="space-y-4" aria-labelledby="ov-ds-api">
+            <div className="border-b border-border pb-2">
+              <h2 id="ov-ds-api" className="text-h4 font-semibold text-foreground">
+                Data Submission (API)
+              </h2>
+              <p className="text-caption text-muted-foreground mt-1">
+                Scoped to this member&apos;s submission API keys. Labels align with Monitoring → Data Submission API.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <p className="text-caption text-muted-foreground">Requests (sample set)</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">{memberApiRequests.length}</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <p className="text-caption text-muted-foreground">Success rate</p>
+                <p className="text-h4 font-bold mt-1 text-success">{apiSuccessRate}{apiSuccessRate !== "—" ? "%" : ""}</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <p className="text-caption text-muted-foreground">P95 latency</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">{apiP95}</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <p className="text-caption text-muted-foreground">Active API keys</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">{overviewSubmitterKeys(institution.id).size}</p>
+              </div>
+            </div>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               <div className="lg:col-span-7">
                 <div className={CHART_CARD}>
@@ -406,12 +480,74 @@ function OverviewTab({ institution }: { institution: Institution }) {
                 </div>
               </div>
             </div>
-          </>
+          </section>
         )}
 
-        {/* Charts Section - Subscriber */}
+        {/* Data Submission (Batch) */}
+        {institution.isDataSubmitter && (
+          <section className="space-y-4" aria-labelledby="ov-ds-batch">
+            <div className="border-b border-border pb-2">
+              <h2 id="ov-ds-batch" className="text-h4 font-semibold text-foreground">
+                Data Submission (Batch)
+              </h2>
+              <p className="text-caption text-muted-foreground mt-1">
+                Batch jobs for this member only (Monitoring → Data Submission Batch).
+              </p>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <p className="text-caption text-muted-foreground">Batches (member)</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">{memberBatches.length}</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <p className="text-caption text-muted-foreground">Queued / Processing</p>
+                <p className="text-h4 font-bold mt-1 text-warning">{batchActive}</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <p className="text-caption text-muted-foreground">Records in scope</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">{batchRecords.toLocaleString()}</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <p className="text-caption text-muted-foreground">Avg success rate</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">
+                  {batchAvgSuccess !== "—" ? `${batchAvgSuccess}%` : "—"}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Enquiry (API) */}
         {institution.isSubscriber && (
-          <>
+          <section className="space-y-4" aria-labelledby="ov-enq-api">
+            <div className="border-b border-border pb-2">
+              <h2 id="ov-enq-api" className="text-h4 font-semibold text-foreground">
+                Enquiry (API)
+              </h2>
+              <p className="text-caption text-muted-foreground mt-1">
+                Scoped to this subscriber member&apos;s keys. Labels align with Monitoring → Inquiry API.
+              </p>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <p className="text-caption text-muted-foreground">Enquiries (sample set)</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">{memberEnquiries.length}</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <p className="text-caption text-muted-foreground">Success rate</p>
+                <p className="text-h4 font-bold mt-1 text-success">{enqSuccessRate}{enqSuccessRate !== "—" ? "%" : ""}</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <p className="text-caption text-muted-foreground">P95 latency</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">{enqP95}</p>
+              </div>
+              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <p className="text-caption text-muted-foreground">Alt-data calls</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">
+                  {memberEnquiries.reduce((s, e) => s + e.alternate_data_used, 0)}
+                </p>
+              </div>
+            </div>
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               <div className="lg:col-span-7">
                 <div className={CHART_CARD}>
@@ -459,21 +595,40 @@ function OverviewTab({ institution }: { institution: Institution }) {
               <div className="lg:col-span-6">
                 <div className={CHART_CARD}>
                   <div className="mb-4">
-                    <h2 className="text-h4 font-semibold text-foreground">Usage by Data Source</h2>
-                    <p className="mt-1 text-caption text-muted-foreground">Standard vs alternate data source usage</p>
+                    <h2 className="text-h4 font-semibold text-foreground">Usage by Data Products</h2>
+                    <p className="mt-1 text-caption text-muted-foreground">
+                      Catalogue product IDs on the axis; hover for full product name. Stacked: core-only vs add-on hits per enquiry.
+                    </p>
                   </div>
                   <div className="flex-1">
-                    <ChartContainer config={sourceConfig} className="h-[260px] w-full">
-                      <BarChart data={usageBySourceData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="source" tickLine={false} axisLine={false} tickMargin={8} />
-                        <YAxis tickLine={false} axisLine={false} tickMargin={8} />
-                        <ChartTooltip content={<ChartTooltipContent />} />
-                        <ChartLegend content={<ChartLegendContent />} />
-                        <Bar dataKey="standard" stackId="a" fill="var(--color-standard)" radius={[0, 0, 0, 0]} />
-                        <Bar dataKey="alternate" stackId="a" fill="var(--color-alternate)" radius={[4, 4, 0, 0]} />
-                      </BarChart>
-                    </ChartContainer>
+                    {usageByProductChartData.length === 0 ? (
+                      <p className="text-caption text-muted-foreground flex min-h-[220px] items-center justify-center px-4 text-center">
+                        No enquiries in this sample for this member.
+                      </p>
+                    ) : (
+                      <ChartContainer config={sourceConfig} className="h-[260px] w-full">
+                        <BarChart data={usageByProductChartData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="productId" tickLine={false} axisLine={false} tickMargin={8} />
+                          <YAxis tickLine={false} axisLine={false} tickMargin={8} allowDecimals={false} />
+                          <ChartTooltip
+                            content={
+                              <ChartTooltipContent
+                                labelFormatter={(_, payload) => {
+                                  const row = payload?.[0]?.payload as
+                                    | { productId: string; productName: string }
+                                    | undefined;
+                                  return row ? `${row.productName} (${row.productId})` : "";
+                                }}
+                              />
+                            }
+                          />
+                          <ChartLegend content={<ChartLegendContent />} />
+                          <Bar dataKey="standard" stackId="a" fill="var(--color-standard)" radius={[0, 0, 0, 0]} />
+                          <Bar dataKey="alternate" stackId="a" fill="var(--color-alternate)" radius={[4, 4, 0, 0]} />
+                        </BarChart>
+                      </ChartContainer>
+                    )}
                   </div>
                 </div>
               </div>
@@ -498,7 +653,7 @@ function OverviewTab({ institution }: { institution: Institution }) {
                 </div>
               </div>
             </div>
-          </>
+          </section>
         )}
       </div>
     </div>

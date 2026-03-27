@@ -149,7 +149,7 @@ export function VersionDiffViewer({ onBack }: VersionDiffViewerProps) {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className={cn(tableHeaderClasses, "min-w-[50px]")}>Change</TableHead>
-                <TableHead className={cn(tableHeaderClasses, "min-w-[80px]")}>Category</TableHead>
+                <TableHead className={cn(tableHeaderClasses, "min-w-[80px]")}>Data Category</TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[150px]")}>Field / Item</TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[150px]")}>Previous</TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[150px]")}>New</TableHead>

@@ -1,4 +1,8 @@
+import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
+import { format, startOfMonth, parse, isWithinInterval, startOfDay, endOfDay } from "date-fns";
+import { DatePicker } from "@/components/ui/date-picker";
+import { Label } from "@/components/ui/label";
 import {
   LineChart,
   Line,
@@ -49,6 +53,17 @@ const breachConfig: ChartConfig = {
   breaches: { label: "Breaches", color: "hsl(var(--warning))" },
 };
 
+const TREND_REF_YEAR = 2026;
+
+function dayLabelInRange(dayLabel: string, fromStr: string, toStr: string): boolean {
+  if (!fromStr?.trim() || !toStr?.trim()) return true;
+  const d = parse(dayLabel.trim(), "MMM d", new Date(TREND_REF_YEAR, 0, 1));
+  if (Number.isNaN(d.getTime())) return true;
+  const from = startOfDay(new Date(`${fromStr}T12:00:00`));
+  const to = endOfDay(new Date(`${toStr}T12:00:00`));
+  return isWithinInterval(d, { start: from, end: to });
+}
+
 function KpiCard({ label, value, icon: Icon, color }: { label: string; value: string; icon: React.ComponentType<{ className?: string }>; color: string }) {
   return (
     <div className="bg-card rounded-xl border border-border p-4">
@@ -66,11 +81,41 @@ function KpiCard({ label, value, icon: Icon, color }: { label: string; value: st
 }
 
 export default function MonitoringTab({ isDataSubmitter, isSubscriber }: { isDataSubmitter: boolean; isSubscriber: boolean }) {
+  const now = new Date();
+  const [dateFrom, setDateFrom] = useState(format(startOfMonth(now), "yyyy-MM-dd"));
+  const [dateTo, setDateTo] = useState(format(now, "yyyy-MM-dd"));
+
+  const filteredIngestion = useMemo(
+    () => ingestionTrendData.filter((row) => dayLabelInRange(row.day, dateFrom, dateTo)),
+    [dateFrom, dateTo]
+  );
+  const filteredApiErrors = useMemo(
+    () => apiErrorTrendData.filter((row) => dayLabelInRange(row.day, dateFrom, dateTo)),
+    [dateFrom, dateTo]
+  );
+
   return (
     <div className="space-y-6">
       <div>
         <h3 className="text-h4 font-semibold text-foreground">Monitoring</h3>
         <p className="text-caption text-muted-foreground mt-1">Real-time health and performance metrics.</p>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="text-caption font-medium text-muted-foreground mb-3">Date range (charts)</p>
+        <div className="flex flex-wrap items-end gap-4">
+          <div className="space-y-1.5">
+            <Label className="text-caption text-muted-foreground">From</Label>
+            <DatePicker value={dateFrom} onChange={setDateFrom} className="h-9 text-caption" />
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-caption text-muted-foreground">To</Label>
+            <DatePicker value={dateTo} onChange={setDateTo} className="h-9 text-caption" />
+          </div>
+        </div>
+        <p className="text-caption text-muted-foreground mt-2">
+          Defaults to the current month through today. Trend series use labeled days in {TREND_REF_YEAR}.
+        </p>
       </div>
 
       {isDataSubmitter && (
@@ -85,7 +130,7 @@ export default function MonitoringTab({ isDataSubmitter, isSubscriber }: { isDat
             <div className="bg-card rounded-xl border border-border p-6">
               <h4 className="text-body font-semibold text-foreground mb-4">Ingestion Trend (7d)</h4>
               <ChartContainer config={ingestionConfig} className="h-[220px] w-full">
-                <LineChart data={ingestionTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
+                <LineChart data={filteredIngestion.length ? filteredIngestion : ingestionTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="day" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 10 }} />
@@ -124,7 +169,7 @@ export default function MonitoringTab({ isDataSubmitter, isSubscriber }: { isDat
             <div className="bg-card rounded-xl border border-border p-6">
               <h4 className="text-body font-semibold text-foreground mb-4">API Error Trend (7d)</h4>
               <ChartContainer config={errorConfig} className="h-[220px] w-full">
-                <LineChart data={apiErrorTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
+                <LineChart data={filteredApiErrors.length ? filteredApiErrors : apiErrorTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
                   <XAxis dataKey="day" tick={{ fontSize: 10 }} />
                   <YAxis tick={{ fontSize: 10 }} />

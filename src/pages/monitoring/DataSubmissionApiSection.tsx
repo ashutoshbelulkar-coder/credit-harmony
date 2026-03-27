@@ -134,6 +134,15 @@ function isWithinTimeRange(ts: string, timeRange: TimeRangeValue): boolean {
   return now - ms <= windowMs;
 }
 
+function isWithinDateRange(ts: string, from: string, to: string): boolean {
+  if (!from?.trim() || !to?.trim()) return true;
+  const t = parseTimestampToMs(ts);
+  const start = new Date(`${from.trim()}T00:00:00`).getTime();
+  const end = new Date(`${to.trim()}T23:59:59.999`).getTime();
+  if (Number.isNaN(start) || Number.isNaN(end)) return true;
+  return t >= start && t <= end;
+}
+
 export function DataSubmissionApiSection({
   filters,
   onFiltersChange,
@@ -154,6 +163,7 @@ export function DataSubmissionApiSection({
     if (filters.status !== "all" && r.status !== filters.status) return false;
     if (filters.dataSubmitterId !== "all" && dataSubmitterIdByApiKey[r.api_key] !== filters.dataSubmitterId) return false;
     if (!isWithinTimeRange(r.timestamp, filters.timeRange)) return false;
+    if (!isWithinDateRange(r.timestamp, filters.dateFrom, filters.dateTo)) return false;
     if (filters.requestIdSearch.trim() && !r.request_id.toLowerCase().includes(filters.requestIdSearch.trim().toLowerCase())) return false;
     return true;
   });
@@ -178,6 +188,7 @@ export function DataSubmissionApiSection({
     filters.requestIdSearch.trim().length > 0,
     filters.status !== "all",
     filters.dataSubmitterId !== "all",
+    Boolean(filters.dateFrom?.trim() && filters.dateTo?.trim()),
   ].filter(Boolean).length;
 
   const kpis = [

@@ -284,8 +284,8 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
                   This institution is already subscribed to all available products.
                 </p>
               ) : (
-                <ScrollArea className="max-h-56 rounded-md border border-border p-2">
-                  <div className="space-y-1.5">
+                <ScrollArea className="h-56 rounded-md border border-border">
+                  <div className="space-y-1.5 p-2">
                     {availableProducts.map((p) => (
                       <label
                         key={p.id}
