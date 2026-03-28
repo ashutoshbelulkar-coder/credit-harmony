@@ -83,11 +83,17 @@ export async function fetchConsortiumMembers(id: string): Promise<ConsortiumMemb
   }
 }
 
-export async function createConsortium(data: Partial<ConsortiumResponse>): Promise<ConsortiumResponse> {
+/** Create/update body: consortium fields plus optional members and dataPolicy (dev API persists these). */
+export type ConsortiumWritePayload = Partial<ConsortiumResponse> & {
+  members?: { institutionId: string | number; role?: string }[];
+  dataPolicy?: Record<string, unknown>;
+};
+
+export async function createConsortium(data: ConsortiumWritePayload): Promise<ConsortiumResponse> {
   return post<ConsortiumResponse>(BASE, data);
 }
 
-export async function updateConsortium(id: string, data: Partial<ConsortiumResponse>): Promise<ConsortiumResponse> {
+export async function updateConsortium(id: string, data: ConsortiumWritePayload): Promise<ConsortiumResponse> {
   return patch<ConsortiumResponse>(`${BASE}/${id}`, data);
 }
 

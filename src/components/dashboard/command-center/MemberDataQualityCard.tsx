@@ -1,7 +1,38 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { MemberQualityPoint } from "@/api/dashboard-types";
+import { effectiveRangeDays, type DashboardRange, type MemberQualityPoint } from "@/api/dashboard-types";
+import type { DashboardDateRange } from "@/components/dashboard/DashboardDateRangePicker";
 import { cn } from "@/lib/utils";
+
+function normalizePeriod(period: string): string {
+  return period.trim().toLowerCase();
+}
+
+/** Cell is non-placeholder: has volume, non-zero score, or anomaly. */
+function pointHasRenderableData(p: MemberQualityPoint): boolean {
+  return p.recordCount > 0 || p.qualityScore > 0 || p.anomalyFlag;
+}
+
+/**
+ * Roll-up column "30d" only when (1) the dashboard window is at least ~30 days and
+ * (2) the API returned at least one substantive point for that bucket — avoids a misleading
+ * 30d column while viewing Today / 7d when the backend still sends a static 30d row.
+ */
+function periodVisibleForSelectedRange(
+  period: string,
+  points: MemberQualityPoint[],
+  dateRange: DashboardDateRange | undefined
+): boolean {
+  if (!dateRange) return true;
+
+  if (normalizePeriod(period) !== "30d") return true;
+
+  const forPeriod = points.filter((p) => normalizePeriod(p.period) === "30d");
+  if (!forPeriod.some(pointHasRenderableData)) return false;
+
+  const dr = dateRange as DashboardRange;
+  return effectiveRangeDays(dr) >= 30;
+}
 
 /** Tags use green for any score strictly greater than 90% (project / BRD alignment). */
 function scoreClass(score: number) {
@@ -17,15 +48,19 @@ function scoreClass(score: number) {
 export function MemberDataQualityCard({
   points,
   loading,
+  dateRange,
   onOpenQualityCenter,
 }: {
   points: MemberQualityPoint[];
   loading?: boolean;
+  /** When set, roll-up columns such as `30d` are hidden unless they match the selected window and have data. */
+  dateRange?: DashboardDateRange;
   onOpenQualityCenter?: () => void;
 }) {
   // Simple grid “heatmap-like” table: members x periods
   const members = Array.from(new Set(points.map((p) => p.member)));
-  const periods = Array.from(new Set(points.map((p) => p.period)));
+  const periodsRaw = Array.from(new Set(points.map((p) => p.period)));
+  const periods = periodsRaw.filter((p) => periodVisibleForSelectedRange(p, points, dateRange));
 
   const byKey = new Map(points.map((p) => [`${p.member}__${p.period}`, p] as const));
 
@@ -43,54 +78,62 @@ export function MemberDataQualityCard({
         </Button>
       </CardHeader>
       <CardContent>
-        <div className="w-full overflow-x-auto">
-          <table className="min-w-[720px] w-full">
-            <thead>
-              <tr className="text-caption text-muted-foreground border-b border-border">
-                <th className="py-2 text-left font-medium">Member</th>
-                {periods.map((p) => (
-                  <th key={p} className="py-2 text-center font-medium">
-                    {p}
-                  </th>
+        {!loading && periods.length === 0 && members.length > 0 ? (
+          <p className="py-4 text-sm text-muted-foreground">
+            No period columns match this range. The 30-day roll-up appears only for 30d, 90d, or custom ranges of at
+            least 30 days when member quality data exists.
+          </p>
+        ) : null}
+        {loading || periods.length > 0 ? (
+          <div className="w-full overflow-x-auto">
+            <table className="min-w-[720px] w-full">
+              <thead>
+                <tr className="text-caption text-muted-foreground border-b border-border">
+                  <th className="py-2 text-left font-medium">Member</th>
+                  {periods.map((p) => (
+                    <th key={p} className="py-2 text-center font-medium">
+                      {p}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {(loading ? [] : members).map((m) => (
+                  <tr key={m}>
+                    <td className="py-2 pr-3 text-body font-medium text-foreground whitespace-nowrap">{m}</td>
+                    {periods.map((p) => {
+                      const point = byKey.get(`${m}__${p}`);
+                      return (
+                        <td key={p} className="py-2 text-center">
+                          {point ? (
+                            <span
+                              className={cn(
+                                "inline-flex items-center justify-center rounded-md border px-2 py-1 text-[10px] font-mono",
+                                scoreClass(point.qualityScore)
+                              )}
+                              title={`${m} · ${p}\nQuality ${point.qualityScore.toFixed(1)}%\nRecords ${new Intl.NumberFormat("en-IN").format(point.recordCount)}${point.anomalyFlag ? "\nFlagged for review" : ""}`}
+                            >
+                              {point.qualityScore.toFixed(1)}%
+                            </span>
+                          ) : (
+                            <span className="text-caption text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      );
+                    })}
+                  </tr>
                 ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {(loading ? [] : members).map((m) => (
-                <tr key={m}>
-                  <td className="py-2 pr-3 text-body font-medium text-foreground whitespace-nowrap">{m}</td>
-                  {periods.map((p) => {
-                    const point = byKey.get(`${m}__${p}`);
-                    return (
-                      <td key={p} className="py-2 text-center">
-                        {point ? (
-                          <span
-                            className={cn(
-                              "inline-flex items-center justify-center rounded-md border px-2 py-1 text-[10px] font-mono",
-                              scoreClass(point.qualityScore)
-                            )}
-                            title={`${m} · ${p}\nQuality ${point.qualityScore.toFixed(1)}%\nRecords ${new Intl.NumberFormat("en-IN").format(point.recordCount)}${point.anomalyFlag ? "\nFlagged for review" : ""}`}
-                          >
-                            {point.qualityScore.toFixed(1)}%
-                          </span>
-                        ) : (
-                          <span className="text-caption text-muted-foreground">—</span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-              {loading && (
-                <tr>
-                  <td colSpan={periods.length + 1} className="py-3 text-caption text-muted-foreground">
-                    Loading quality…
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                {loading && (
+                  <tr>
+                    <td colSpan={Math.max(1, periods.length) + 1} className="py-3 text-caption text-muted-foreground">
+                      Loading quality…
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

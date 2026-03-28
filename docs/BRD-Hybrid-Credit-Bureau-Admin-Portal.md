@@ -923,4 +923,27 @@ Every business action performed by a bureau operator must:
 
 ---
 
-*End of BRD v3.0 (2026-03-28)*
+### B.6 Quality assurance — automated tests and UI–API parity
+
+1. **Regression safety:** The SPA must ship with automated tests for shared calculation utilities, critical React surfaces, and HTTP integration against the documented admin API contract.
+2. **No false success:** Operator actions that imply persistence (membership changes, subscription changes, user lifecycle, batch controls, alert rules) must either call a mutating API or be explicitly labelled as non-persistent in the UI.
+3. **Traceability:** A maintained **API ↔ UI parity matrix** links screens to routes and persistence semantics (see `docs/technical/API-UI-Parity-Matrix.md`).
+4. **Production path:** In-memory or demo-only backends are acceptable for prototyping only; production requires durable storage and the hardening items in `docs/technical/Production-Backend-Roadmap.md`.
+
+#### B.6.1 Operational detail (2026-03-29) — “no guesswork”
+
+| Artifact | Purpose |
+|----------|---------|
+| `docs/technical/Developer-Handbook.md` | Step-by-step clone → install → run → test → troubleshoot; env vars; seeded accounts; **8091 vs 8080**; honesty about prototype limits |
+| `docs/technical/API-UI-Parity-Matrix.md` | Screen/action ↔ HTTP ↔ in-memory persistence; appendix lists Fastify routes for audit |
+| `docs/technical/Testing-Plan.md` | Strategy; **implemented** Vitest inventory vs aspirational Spring/JUnit tables |
+| `server/src/api.integration.test.ts` | Executable contract smoke (auth, institutions, dashboard, approvals, users, audit filter, alerts, reports, products, batch, consortium, memberships, subscriptions, roles) |
+| `vitest.config.ts` | Two projects: **client** (jsdom) + **server** (node); `npm run test` runs both |
+
+**CI / local gate:** `npm run test` must pass before a change-set is treated as regression-safe for this repository. **Build gate:** `npm run build` validates the production SPA bundle.
+
+**Stakeholder messaging:** When the BRD speaks of “the platform,” distinguish **prototype** (this repo: Fastify + JSON seed + in-memory mutations) from **target production** (durable DB, full RBAC matrix, observability) per `Production-Backend-Roadmap.md`.
+
+---
+
+*End of BRD v3.0 (2026-03-28; addendum 2026-03-29 — B.6 / B.6.1)*

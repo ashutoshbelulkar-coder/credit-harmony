@@ -62,6 +62,7 @@ const Dashboard = () => {
             <button
               type="button"
               className="h-7 px-2.5 rounded-md border border-border bg-background text-caption hover:bg-muted transition-colors"
+              title="Download current KPI snapshot as CSV (browser export; not a server-side report job)."
               onClick={() => {
                 const data = snapshot.data;
                 if (!data) {
@@ -144,6 +145,7 @@ const Dashboard = () => {
         <MemberDataQualityCard
           points={snapshot.data?.commandCenter?.memberQuality ?? []}
           loading={loading}
+          dateRange={range}
           onOpenQualityCenter={() => navigate("/data-governance/data-quality-monitoring")}
         />
       </div>

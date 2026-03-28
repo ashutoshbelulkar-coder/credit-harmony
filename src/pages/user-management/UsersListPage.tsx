@@ -19,7 +19,7 @@ import { UserDetailDrawer } from "@/components/user-management/UserDetailDrawer"
 import { exportToCsv } from "@/lib/csv-export";
 import { SkeletonTable } from "@/components/ui/skeleton-table";
 import { ApiErrorCard } from "@/components/ui/api-error-card";
-import { useUsers, useSuspendUser, useActivateUser } from "@/hooks/api/useUsers";
+import { useUsers, useSuspendUser, useActivateUser, useDeactivateUser } from "@/hooks/api/useUsers";
 import type { UserResponse } from "@/services/users.service";
 
 const statusColor: Record<string, string> = {
@@ -55,6 +55,7 @@ export function UsersListPage() {
   const { data: usersData, isLoading, isError, error, refetch } = useUsers();
   const suspendUser = useSuspendUser();
   const activateUser = useActivateUser();
+  const deactivateUser = useDeactivateUser();
 
   const allUsers: UserResponse[] = usersData?.content ?? usersData ?? [];
 
@@ -252,7 +253,13 @@ export function UsersListPage() {
                               <Shield className="w-3.5 h-3.5 mr-2" /> Activate
                             </DropdownMenuItem>
                           )}
-                          <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); }}>
+                          <DropdownMenuItem
+                            className="text-destructive"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              deactivateUser.mutate(u.id);
+                            }}
+                          >
                             <XCircle className="w-3.5 h-3.5 mr-2" /> Deactivate
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -280,7 +287,7 @@ export function UsersListPage() {
       </div>
 
       <InviteUserModal open={inviteOpen} onOpenChange={setInviteOpen} />
-      <UserDetailDrawer user={selectedUser as never} open={drawerOpen} onOpenChange={setDrawerOpen} />
+      <UserDetailDrawer user={selectedUser} open={drawerOpen} onOpenChange={setDrawerOpen} />
     </>
   );
 }

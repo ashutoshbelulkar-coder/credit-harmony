@@ -21,6 +21,7 @@ export interface AuditLogParams {
   userId?: string | number;
   actionType?: string;
   entityType?: string;
+  entityId?: string;
   from?: string;
   to?: string;
   page?: number;

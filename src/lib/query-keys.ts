@@ -28,6 +28,8 @@ export const QK = {
     billingSummary: (id: string | number) => ["institutions", String(id), "billing-summary"] as const,
     monitoringSummary: (id: string | number) => ["institutions", String(id), "monitoring-summary"] as const,
     overviewCharts: (id: string | number) => ["institutions", String(id), "overview-charts"] as const,
+    apiAccess: (id: string | number) => ["institutions", String(id), "api-access"] as const,
+    consent: (id: string | number) => ["institutions", String(id), "consent"] as const,
   },
 
   // ── Users ────────────────────────────────────────────────────────────────

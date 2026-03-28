@@ -191,6 +191,17 @@ export default function ConsortiumWizardPage() {
       toast.error("Complete required fields");
       return;
     }
+    const memberPayload = members.map((m) => ({
+      institutionId: m.institutionId,
+      role: m.role,
+    }));
+    const policyPayload = {
+      shareLoanData: dataPolicy.shareLoanData,
+      shareRepaymentHistory: dataPolicy.shareRepaymentHistory,
+      allowAggregation: dataPolicy.allowAggregation,
+      dataVisibility: dataPolicy.dataVisibility,
+    };
+
     if (isEdit && editId) {
       updateConsortium(
         {
@@ -202,6 +213,8 @@ export default function ConsortiumWizardPage() {
             governanceModel,
             description: description.trim() || undefined,
             status: existing?.status,
+            dataPolicy: policyPayload,
+            members: memberPayload,
           },
         },
         { onSuccess: () => navigate(`/consortiums/${editId}`) }
@@ -214,6 +227,8 @@ export default function ConsortiumWizardPage() {
           purpose,
           governanceModel,
           description: description.trim() || undefined,
+          dataPolicy: policyPayload,
+          members: memberPayload,
         },
         { onSuccess: (row) => navigate(`/consortiums/${row.id}`) }
       );

@@ -22,6 +22,7 @@ import {
 } from "lucide-react";
 
 import { toast } from "sonner";
+import { showDemoAccountRecoveryUi } from "@/lib/feature-flags";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -269,7 +270,13 @@ export default function Login() {
                 </div>
                 <button
                   type="button"
-                  onClick={() => toast.info("Password reset is not available in demo mode.")}
+                  onClick={() =>
+                    toast.info(
+                      showDemoAccountRecoveryUi()
+                        ? "Password reset is not wired in this demo build."
+                        : "Password reset is managed by your administrator."
+                    )
+                  }
                   className="text-[11px] font-medium text-crif-orange hover:text-crif-orange/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded transition-colors"
                 >
                   Forgot password?
@@ -294,31 +301,35 @@ export default function Login() {
                 </Button>
               </motion.div>
 
-              {/* SSO Divider */}
-              <motion.div
-                className="relative flex items-center py-1"
-                {...stagger}
-                {...staggerDelay(5)}
-              >
-                <div className="flex-1 border-t border-border" />
-                <span className="px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                  or
-                </span>
-                <div className="flex-1 border-t border-border" />
-              </motion.div>
+              {showDemoAccountRecoveryUi() && (
+                <>
+                  {/* SSO Divider */}
+                  <motion.div
+                    className="relative flex items-center py-1"
+                    {...stagger}
+                    {...staggerDelay(5)}
+                  >
+                    <div className="flex-1 border-t border-border" />
+                    <span className="px-3 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                      or
+                    </span>
+                    <div className="flex-1 border-t border-border" />
+                  </motion.div>
 
-              {/* SSO Button */}
-              <motion.div {...stagger} {...staggerDelay(6)}>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-11 w-full rounded-[10px] border-border text-[13px] font-medium text-foreground transition-all duration-200 hover:bg-muted hover:border-border"
-                  onClick={() => toast.info("SSO integration is not available in demo mode.")}
-                >
-                  <Building2 className="mr-2 h-4 w-4" />
-                  Sign in with SSO
-                </Button>
-              </motion.div>
+                  {/* SSO Button (demo / optional deployment) */}
+                  <motion.div {...stagger} {...staggerDelay(6)}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="h-11 w-full rounded-[10px] border-border text-[13px] font-medium text-foreground transition-all duration-200 hover:bg-muted hover:border-border"
+                      onClick={() => toast.info("SSO integration is not wired in this demo build.")}
+                    >
+                      <Building2 className="mr-2 h-4 w-4" />
+                      Sign in with SSO
+                    </Button>
+                  </motion.div>
+                </>
+              )}
             </form>
           </div>
 

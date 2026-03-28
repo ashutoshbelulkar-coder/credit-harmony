@@ -139,3 +139,27 @@
 | **Rationale** | Unblocks end-to-end UI testing without a separate Spring repo; Vite proxies `/api` to `127.0.0.1:8091` (`VITE_API_PROXY_TARGET` override). |
 | **Trade-offs** | Data resets on server restart; not suitable for production. Replace with TDL-001 PostgreSQL stack when hardening. |
 | **Security** | Default `JWT_SECRET` must be overridden outside local dev. |
+
+---
+
+## TDL-012: UI–API parity, Vitest server integration, demo UI flags
+
+| Field | Value |
+|-------|-------|
+| **Decision** | (1) Align high-impact UI actions with Fastify mutations (users PATCH/deactivate + audit, batch retry/cancel state changes, consortium `members`/`dataPolicy`, alert rule edit). (2) Export `buildServer()` from `server/src/index.ts` for `app.inject` tests; Vitest **projects** split client (jsdom + setup) vs server (node). (3) Gate non-functional login/SSO and clarify agents/dashboard copy via `src/lib/feature-flags.ts` (`VITE_SHOW_DEMO_AUTH_UI`). |
+| **Date** | 2026-03-29 |
+| **Status** | Accepted |
+| **Rationale** | Prevents “success toasts with no persistence”; integration tests catch route regressions without a live port; production builds hide misleading SSO/password-reset affordances unless explicitly enabled. |
+| **References** | [API-UI-Parity-Matrix.md](./API-UI-Parity-Matrix.md), [Production-Backend-Roadmap.md](./Production-Backend-Roadmap.md) |
+
+---
+
+## TDL-013: Developer Handbook + expanded Fastify integration coverage
+
+| Field | Value |
+|-------|-------|
+| **Decision** | (1) Add `docs/technical/Developer-Handbook.md` as the step-by-step operational guide (env, ports, accounts, troubleshooting, doc map). (2) Expand `server/src/api.integration.test.ts` with `describe.sequential`, shared `server/src/test-helpers.ts`, and routes covering refresh, dashboard metrics, approvals, users PATCH, audit filters, alert CRUD, reports, products, batch cancel, institution memberships/subscriptions, roles. (3) Add Fastify **route appendix** to `API-UI-Parity-Matrix.md`. (4) Add `src/test/lib/feature-flags.test.ts` for client flag consistency. |
+| **Date** | 2026-03-29 |
+| **Status** | Accepted |
+| **Rationale** | BRD/PRD QA sections must point to **executable** regression gates and **foolproof** onboarding; a single handbook reduces confusion between Spring-target docs and the shipped Fastify prototype. |
+| **References** | [Developer-Handbook.md](./Developer-Handbook.md), [Testing-Plan.md](./Testing-Plan.md) |

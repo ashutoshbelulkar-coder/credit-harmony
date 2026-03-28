@@ -122,13 +122,13 @@ describe("calcApprovedThisMonth", () => {
   });
 
   it("does NOT use a hardcoded date prefix — changes with month", () => {
-    const lastMonth = new Date();
-    lastMonth.setMonth(lastMonth.getMonth() - 1);
+    // Use explicit mid-month refs: setMonth(day-31) can overflow (e.g. Mar 31 → "Feb" becomes Mar),
+    // which falsely matches "this month" in UTC/local comparisons.
+    const febRef = new Date(2026, 1, 15);
     const items: ApprovalItem[] = [
-      { status: "approved", reviewedAt: new Date().toISOString() }, // this month
+      { status: "approved", reviewedAt: "2026-03-20T12:00:00.000Z" },
     ];
-    // When ref is last month, the above item should NOT be counted
-    expect(calcApprovedThisMonth(items, lastMonth)).toBe(0);
+    expect(calcApprovedThisMonth(items, febRef)).toBe(0);
   });
 });
 

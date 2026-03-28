@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import { QK } from "@/lib/query-keys";
 import { ApiError } from "@/lib/api-client";
 import {
+  createApiKey,
   fetchApiKeysByInstitution,
   regenerateApiKey,
   revokeApiKey,
@@ -16,13 +17,27 @@ export function useApiKeys(institutionId: string | number | undefined) {
   });
 }
 
+export function useCreateApiKey(institutionId: number) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (env: "sandbox" | "uat" | "prod") =>
+      createApiKey({ institutionId, environment: env }),
+    onSuccess: (row) => {
+      void qc.invalidateQueries({ queryKey: QK.apiKeys.byInstitution(institutionId) });
+      void qc.invalidateQueries({ queryKey: QK.apiKeys.all() });
+      toast.success(`New API key added — prefix ${row.keyPrefix}•••••••• (dev API stores metadata only).`);
+    },
+    onError: (e: ApiError) => toast.error(e.message ?? "Failed to create API key"),
+  });
+}
+
 export function useRegenerateApiKey() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (id: number) => regenerateApiKey(id),
     onSuccess: (_, id) => {
-      qc.invalidateQueries({ queryKey: QK.apiKeys.all() });
-      qc.invalidateQueries({ queryKey: ["api-keys"] });
+      void qc.invalidateQueries({ queryKey: QK.apiKeys.all() });
+      void qc.invalidateQueries({ queryKey: ["api-keys"] });
       toast.success(`API key #${id} regenerated successfully`);
     },
     onError: (e: ApiError) => toast.error(e.message ?? "Failed to regenerate API key"),

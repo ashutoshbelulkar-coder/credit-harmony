@@ -5,6 +5,7 @@
 import { get, post, postMultipart, patch, del, buildQuery, ApiError } from "@/lib/api-client";
 import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 import { institutions as mockInstitutions, getInstitutionById as mockGetById } from "@/data/institutions-mock";
+import tabsData from "@/data/institution-tabs.json";
 
 const BASE = "/v1/institutions";
 
@@ -178,7 +179,7 @@ export async function deleteInstitution(id: string | number): Promise<void> {
 
 export interface ConsortiumMembershipRow {
   membershipId: number;
-  consortiumId: number;
+  consortiumId: string | number;
   consortiumName: string;
   consortiumType: string;
   consortiumStatus: string;
@@ -187,14 +188,23 @@ export interface ConsortiumMembershipRow {
   joinedAt: string;
 }
 
+export interface CreateConsortiumMembershipBody {
+  consortiumId: string;
+  memberRole: string;
+  consortiumMemberStatus?: string;
+}
+
 export interface ProductSubscriptionRow {
   subscriptionId: number;
-  productId: number;
+  /** Catalogue id (e.g. PRD_001) when returned by API */
+  productId: string | number;
   productName: string;
   productStatus: string;
   pricingModel: string;
   subscribedAt: string;
   subscriptionStatus: string;
+  /** Effective rate after member-specific overrides */
+  ratePerCall?: number;
 }
 
 export interface BillingSummary {
@@ -202,6 +212,20 @@ export interface BillingSummary {
   creditBalance: number;
   activeSubscriptions: number;
   apiCalls30d: number;
+  lowCreditAlertThreshold?: number;
+}
+
+export interface InstitutionBillingPatchBody {
+  billingModel?: string;
+  lowCreditAlertThreshold?: number;
+  memberRateOverrides?: Record<string, number>;
+}
+
+export interface InstitutionBillingPatchResult {
+  billingModel: string;
+  creditBalance: number;
+  lowCreditAlertThreshold: number;
+  memberRateOverrides: Record<string, number>;
 }
 
 export interface MonitoringSummary {
@@ -214,22 +238,163 @@ export interface MonitoringSummary {
   totalRecords: number;
 }
 
+export interface InstitutionApiAccessSection {
+  enabled: boolean;
+  rateLimitPerMin: number;
+  ipWhitelist: string[];
+}
+
+export interface InstitutionEnquiryApiAccess extends InstitutionApiAccessSection {
+  concurrentLimit: number;
+}
+
+export interface InstitutionApiAccessPayload {
+  dataSubmission: InstitutionApiAccessSection;
+  enquiry: InstitutionEnquiryApiAccess;
+}
+
+export type InstitutionApiAccessPatch = Partial<{
+  dataSubmission: Partial<InstitutionApiAccessSection>;
+  enquiry: Partial<InstitutionEnquiryApiAccess>;
+}>;
+
+export type InstitutionConsentPolicy = "explicit" | "deemed" | "per-enquiry";
+export type InstitutionConsentCaptureMode = "api-header" | "upload-artifact" | "account-aggregator";
+
+export interface InstitutionConsentFailurePoint {
+  day: string;
+  failures: number;
+}
+
+export interface InstitutionConsentPayload {
+  policy: InstitutionConsentPolicy;
+  expiryDays: number;
+  scopeCreditReport: boolean;
+  scopeAlternateData: boolean;
+  captureMode: InstitutionConsentCaptureMode;
+  failureMetrics: InstitutionConsentFailurePoint[];
+}
+
+export type InstitutionConsentPatch = Partial<{
+  policy: InstitutionConsentPolicy;
+  expiryDays: number;
+  scopeCreditReport: boolean;
+  scopeAlternateData: boolean;
+  captureMode: InstitutionConsentCaptureMode;
+  failureMetrics: InstitutionConsentFailurePoint[];
+}>;
+
+export function defaultInstitutionApiAccessPayload(): InstitutionApiAccessPayload {
+  return {
+    dataSubmission: { enabled: true, rateLimitPerMin: 200, ipWhitelist: [] },
+    enquiry: { enabled: true, rateLimitPerMin: 100, ipWhitelist: [], concurrentLimit: 50 },
+  };
+}
+
 // ─── Institution Sub-resource API Calls ──────────────────────────────────────
 
 export async function fetchConsortiumMemberships(id: string | number): Promise<ConsortiumMembershipRow[]> {
   return get<ConsortiumMembershipRow[]>(`${BASE}/${id}/consortium-memberships`);
 }
 
+export async function createConsortiumMembership(
+  institutionId: string | number,
+  body: CreateConsortiumMembershipBody
+): Promise<ConsortiumMembershipRow> {
+  return post<ConsortiumMembershipRow>(`${BASE}/${institutionId}/consortium-memberships`, body);
+}
+
+export async function deleteConsortiumMembership(institutionId: string | number, membershipId: number): Promise<void> {
+  return del(`${BASE}/${institutionId}/consortium-memberships/${membershipId}`);
+}
+
 export async function fetchProductSubscriptions(id: string | number): Promise<ProductSubscriptionRow[]> {
   return get<ProductSubscriptionRow[]>(`${BASE}/${id}/product-subscriptions`);
+}
+
+export interface AddProductSubscriptionsBody {
+  productIds: string[];
+}
+
+export async function addProductSubscriptions(
+  institutionId: string | number,
+  body: AddProductSubscriptionsBody
+): Promise<ProductSubscriptionRow[]> {
+  return post<ProductSubscriptionRow[]>(`${BASE}/${institutionId}/product-subscriptions`, body);
+}
+
+export async function patchProductSubscription(
+  institutionId: string | number,
+  subscriptionId: number,
+  body: { subscriptionStatus: string }
+): Promise<ProductSubscriptionRow> {
+  return patch<ProductSubscriptionRow>(
+    `${BASE}/${institutionId}/product-subscriptions/${subscriptionId}`,
+    body
+  );
 }
 
 export async function fetchBillingSummary(id: string | number): Promise<BillingSummary> {
   return get<BillingSummary>(`${BASE}/${id}/billing-summary`);
 }
 
+export async function patchInstitutionBilling(
+  id: string | number,
+  body: InstitutionBillingPatchBody
+): Promise<InstitutionBillingPatchResult> {
+  return patch<InstitutionBillingPatchResult>(`${BASE}/${id}/billing`, body);
+}
+
 export async function fetchMonitoringSummary(id: string | number): Promise<MonitoringSummary> {
   return get<MonitoringSummary>(`${BASE}/${id}/monitoring-summary`);
+}
+
+export async function fetchInstitutionApiAccess(id: string | number): Promise<InstitutionApiAccessPayload> {
+  try {
+    return await get<InstitutionApiAccessPayload>(`${BASE}/${id}/api-access`);
+  } catch (err) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
+      return defaultInstitutionApiAccessPayload();
+    }
+    throw err;
+  }
+}
+
+export async function patchInstitutionApiAccess(
+  id: string | number,
+  body: InstitutionApiAccessPatch
+): Promise<InstitutionApiAccessPayload> {
+  return patch<InstitutionApiAccessPayload>(`${BASE}/${id}/api-access`, body);
+}
+
+export function defaultInstitutionConsentPayload(): InstitutionConsentPayload {
+  const metrics = (tabsData.consent?.consentFailureData ?? []) as InstitutionConsentFailurePoint[];
+  return {
+    policy: "explicit",
+    expiryDays: 90,
+    scopeCreditReport: true,
+    scopeAlternateData: false,
+    captureMode: "api-header",
+    failureMetrics: metrics.map((p) => ({ ...p })),
+  };
+}
+
+export async function fetchInstitutionConsent(id: string | number): Promise<InstitutionConsentPayload> {
+  try {
+    return await get<InstitutionConsentPayload>(`${BASE}/${id}/consent`);
+  } catch (err) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
+      return defaultInstitutionConsentPayload();
+    }
+    throw err;
+  }
+}
+
+export async function patchInstitutionConsent(
+  id: string | number,
+  body: InstitutionConsentPatch
+): Promise<InstitutionConsentPayload> {
+  return patch<InstitutionConsentPayload>(`${BASE}/${id}/consent`, body);
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -16,18 +16,24 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import tabsData from "@/data/institution-tabs.json";
-
-const { consentFailureData } = tabsData.consent;
+import {
+  defaultInstitutionConsentPayload,
+  type InstitutionConsentCaptureMode,
+  type InstitutionConsentPolicy,
+} from "@/services/institutions.service";
+import { useInstitutionConsent, usePatchInstitutionConsent } from "@/hooks/api/useInstitutions";
 
 const chartConfig: ChartConfig = {
   failures: { label: "Consent Failures", color: "hsl(var(--danger))" },
 };
 
-type ConsentPolicy = "explicit" | "deemed" | "per-enquiry";
-type CaptureMode = "api-header" | "upload-artifact" | "account-aggregator";
+type ConsentPolicy = InstitutionConsentPolicy;
+type CaptureMode = InstitutionConsentCaptureMode;
 
-export default function ConsentConfigTab() {
+export default function ConsentConfigTab({ institutionId }: { institutionId: string }) {
+  const { data, isLoading, isError, error, refetch } = useInstitutionConsent(institutionId);
+  const patchConsent = usePatchInstitutionConsent(institutionId);
+
   const [isEditing, setIsEditing] = useState(false);
   const [policy, setPolicy] = useState<ConsentPolicy>("explicit");
   const [expiryDays, setExpiryDays] = useState(90);
@@ -35,25 +41,36 @@ export default function ConsentConfigTab() {
   const [scopeAlternateData, setScopeAlternateData] = useState(false);
   const [captureMode, setCaptureMode] = useState<CaptureMode>("api-header");
 
-  const [savedState, setSavedState] = useState({
-    policy: "explicit" as ConsentPolicy,
-    expiryDays: 90,
-    scopeCreditReport: true,
-    scopeAlternateData: false,
-    captureMode: "api-header" as CaptureMode,
-  });
+  useEffect(() => {
+    if (!data || isEditing) return;
+    setPolicy(data.policy);
+    setExpiryDays(data.expiryDays);
+    setScopeCreditReport(data.scopeCreditReport);
+    setScopeAlternateData(data.scopeAlternateData);
+    setCaptureMode(data.captureMode);
+  }, [data, isEditing]);
 
   const handleSave = () => {
-    setSavedState({ policy, expiryDays, scopeCreditReport, scopeAlternateData, captureMode });
-    setIsEditing(false);
+    patchConsent.mutate(
+      {
+        policy,
+        expiryDays,
+        scopeCreditReport,
+        scopeAlternateData,
+        captureMode,
+      },
+      { onSuccess: () => setIsEditing(false) }
+    );
   };
 
   const handleCancel = () => {
-    setPolicy(savedState.policy);
-    setExpiryDays(savedState.expiryDays);
-    setScopeCreditReport(savedState.scopeCreditReport);
-    setScopeAlternateData(savedState.scopeAlternateData);
-    setCaptureMode(savedState.captureMode);
+    if (data) {
+      setPolicy(data.policy);
+      setExpiryDays(data.expiryDays);
+      setScopeCreditReport(data.scopeCreditReport);
+      setScopeAlternateData(data.scopeAlternateData);
+      setCaptureMode(data.captureMode);
+    }
     setIsEditing(false);
   };
 
@@ -69,6 +86,29 @@ export default function ConsentConfigTab() {
     { value: "account-aggregator", label: "Account Aggregator" },
   ];
 
+  const chartPoints = data?.failureMetrics ?? defaultInstitutionConsentPayload().failureMetrics;
+
+  if (isLoading && !data) {
+    return (
+      <div className="py-16 text-center text-sm text-muted-foreground">Loading consent configuration…</div>
+    );
+  }
+
+  if (isError && !data) {
+    return (
+      <div className="py-16 text-center space-y-3">
+        <p className="text-sm text-destructive">{error instanceof Error ? error.message : "Could not load consent settings."}</p>
+        <button
+          type="button"
+          onClick={() => refetch()}
+          className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-primary hover:bg-primary/10"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -78,6 +118,7 @@ export default function ConsentConfigTab() {
         </div>
         {!isEditing ? (
           <button
+            type="button"
             onClick={() => setIsEditing(true)}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border text-sm font-medium text-primary hover:bg-primary/10 transition-colors"
           >
@@ -87,16 +128,20 @@ export default function ConsentConfigTab() {
         ) : (
           <div className="flex items-center gap-2">
             <button
+              type="button"
               onClick={handleCancel}
-              className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors"
+              disabled={patchConsent.isPending}
+              className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
+              type="button"
               onClick={handleSave}
-              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+              disabled={patchConsent.isPending}
+              className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
-              Save
+              {patchConsent.isPending ? "Saving…" : "Save"}
             </button>
           </div>
         )}
@@ -228,7 +273,7 @@ export default function ConsentConfigTab() {
       <div className="bg-card rounded-xl border border-border p-6">
         <h4 className="text-body font-semibold text-foreground mb-4">Consent Failure Metrics</h4>
         <ChartContainer config={chartConfig} className="h-[250px] w-full">
-          <LineChart data={consentFailureData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
+          <LineChart data={chartPoints} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
             <XAxis dataKey="day" className="text-caption" tick={{ fontSize: 10 }} />
             <YAxis className="text-caption" tick={{ fontSize: 10 }} />

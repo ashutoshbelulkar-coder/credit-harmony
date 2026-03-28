@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { showDemoAgentsRequestUi } from "@/lib/feature-flags";
 
 const iconMap: Record<string, React.ElementType> = {
   Landmark, Home, Shield, UserCheck, Wifi, Car, Handshake, Settings,
@@ -297,7 +298,11 @@ export default function AgentsLandingPage() {
                 <Button
                   className="w-full gap-2"
                   onClick={() => {
-                    toast.info("Access request sent to your administrator. You'll be notified once approved.");
+                    toast.info(
+                      showDemoAgentsRequestUi()
+                        ? "Access request recorded in this demo only — no ticket was created."
+                        : "Contact your administrator to enable agent access or upgrade your plan."
+                    );
                     setRequestAccessAgent(null);
                   }}
                 >

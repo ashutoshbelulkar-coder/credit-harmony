@@ -14,7 +14,9 @@ import type {
   TopInstitution,
 } from "./dashboard-types";
 import { dashboardRangeKey } from "./dashboard-types";
-import { get, buildQuery } from "@/lib/api-client";
+import { ApiError, get, buildQuery } from "@/lib/api-client";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
+import { createMockDashboardSnapshot } from "./dashboard-mock";
 import {
   fetchDashboardActivity,
   fetchDashboardCommandCenter,
@@ -31,8 +33,11 @@ function metricsQueryParams(range: DashboardRange): Record<string, string> {
   };
 }
 
-async function fetchDashboardMetrics(range: DashboardRange): Promise<DashboardMetrics> {
-  const raw = await get<Record<string, unknown>>(`/v1/dashboard/metrics${buildQuery(metricsQueryParams(range))}`);
+async function fetchDashboardMetrics(range: DashboardRange, signal?: AbortSignal): Promise<DashboardMetrics> {
+  const raw = await get<Record<string, unknown>>(
+    `/v1/dashboard/metrics${buildQuery(metricsQueryParams(range))}`,
+    signal
+  );
   return {
     apiVolume24h: Number(raw.apiVolume24h ?? 0),
     apiVolumeChange: String(raw.apiVolumeChange ?? "—"),
@@ -45,8 +50,8 @@ async function fetchDashboardMetrics(range: DashboardRange): Promise<DashboardMe
   };
 }
 
-async function fetchDashboardCharts(range: DashboardRange): Promise<DashboardCharts> {
-  return get<DashboardCharts>(`/v1/dashboard/charts${buildQuery(metricsQueryParams(range))}`);
+async function fetchDashboardCharts(range: DashboardRange, signal?: AbortSignal): Promise<DashboardCharts> {
+  return get<DashboardCharts>(`/v1/dashboard/charts${buildQuery(metricsQueryParams(range))}`, signal);
 }
 
 /** Compact label for enquiry counts (matches KPI-style “349K”). */
@@ -234,10 +239,23 @@ const EMPTY_COMMAND_CENTER: CommandCenterSnapshot = {
   memberQuality: [],
 };
 
-async function fetchDashboardSnapshot(range: DashboardRange): Promise<DashboardSnapshot> {
+/** When dev mock fallback is on: use seeded dashboard JSON if the API is down or we have no JWT (mock login). */
+function shouldUseDashboardMock(err: unknown): boolean {
+  if (!clientMockFallbackEnabled) return false;
+  if (!(err instanceof ApiError)) return true;
+  if (err.code === "ERR_SESSION_EXPIRED" || err.code === "ERR_REFRESH_FAILED") return false;
+  return (
+    err.code === "ERR_TIMEOUT" ||
+    err.isUnauthorized ||
+    err.isNotFound ||
+    err.isServerError
+  );
+}
+
+async function fetchDashboardSnapshotFromApi(range: DashboardRange, signal?: AbortSignal): Promise<DashboardSnapshot> {
   const [metrics, chartsRaw] = await Promise.all([
-    fetchDashboardMetrics(range),
-    fetchDashboardCharts(range),
+    fetchDashboardMetrics(range, signal),
+    fetchDashboardCharts(range, signal),
   ]);
   const charts = normalizeDashboardCharts(chartsRaw);
 
@@ -251,7 +269,7 @@ async function fetchDashboardSnapshot(range: DashboardRange): Promise<DashboardS
   let liveCommandCenter: CommandCenterSnapshot = { ...EMPTY_COMMAND_CENTER };
 
   try {
-    const aux = Promise.all([fetchDashboardActivity(), fetchDashboardCommandCenter(range)]);
+    const aux = Promise.all([fetchDashboardActivity(signal), fetchDashboardCommandCenter(range, signal)]);
     const timeoutMs = 12_000;
     const timeout = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error("dashboard-aux-timeout")), timeoutMs);
@@ -282,10 +300,21 @@ async function fetchDashboardSnapshot(range: DashboardRange): Promise<DashboardS
   };
 }
 
+async function fetchDashboardSnapshot(range: DashboardRange, signal?: AbortSignal): Promise<DashboardSnapshot> {
+  try {
+    return await fetchDashboardSnapshotFromApi(range, signal);
+  } catch (err) {
+    if (shouldUseDashboardMock(err)) {
+      return createMockDashboardSnapshot(range);
+    }
+    throw err;
+  }
+}
+
 export function useDashboardSnapshot(range: DashboardRange) {
   return useQuery({
     queryKey: ["dashboardSnapshot", dashboardRangeKey(range)],
-    queryFn: () => fetchDashboardSnapshot(range),
+    queryFn: ({ signal }) => fetchDashboardSnapshot(range, signal),
     staleTime: 30_000,
     refetchInterval: 60_000,
     retry: 1,

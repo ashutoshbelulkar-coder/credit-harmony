@@ -49,7 +49,7 @@ The HCB Admin Portal is the primary control plane for bureau operators, complian
 |------------|---------|---------|
 | React | 18.x | UI framework |
 | TypeScript | 5.x | Type safety |
-| Vite | 5.x | Build tool and dev server (port 8080, proxies /api → :8090) |
+| Vite | 5.x | Build tool and dev server (port 8080; proxies `/api` → dev API, default `127.0.0.1:8091`) |
 | Tailwind CSS | 3.x | Utility-first styling |
 | shadcn/ui + Radix UI | — | Accessible headless component system |
 | Recharts | 2.x | Chart visualizations |
@@ -70,7 +70,7 @@ The frontend uses a fully wired API integration layer with mock fallback for off
 ### Architecture
 
 ```
-Pages → React Query Hooks → Services → api-client.ts → Backend (port 8090)
+Pages → React Query Hooks → Services → api-client.ts → Dev API (Fastify, port 8091) or future Spring host
                                    ↓ (on error)
                                 Mock data (src/data/*.json)
 ```
@@ -95,21 +95,24 @@ npm run dev
 # All pages render with static mock data — no backend required
 ```
 
-### Running with live backend
+### Running with live backend (in-repo Fastify API)
 
 ```sh
-# Start backend first (requires Java 17+)
-cd backend && mvn spring-boot:run -Dspring-boot.run.profiles=dev
+# Terminal 1 — local dev API (in-memory state, seeded from src/data JSON)
+npm run server
 
-# Frontend will automatically use backend through Vite proxy
+# Terminal 2 — SPA against real HTTP (disable mock fallback)
 VITE_USE_MOCK_FALLBACK=false npm run dev
 ```
 
+Optional: a separate Spring Boot backend on port 8090 can replace the dev API when wired; align `VITE_API_PROXY_TARGET` in `vite.config.ts` with that host.
+
 ### Vite Proxy
 
-`vite.config.ts` proxies all `/api` requests to `http://localhost:8090`:
+`vite.config.ts` proxies `/api` to `VITE_API_PROXY_TARGET` (default `http://127.0.0.1:8091` per `AGENTS.md`):
+
 ```
-Frontend (port 8080)  →  /api/v1/institutions  →  Backend (port 8090)
+Frontend (8080)  →  /api/v1/...  →  Dev API (8091)
 ```
 
 ### Wired Pages (v2.2)
@@ -603,6 +606,8 @@ backend/
 
 ## 11. Testing
 
+**This repository:** Run **`npm run test`** (Vitest — client + in-repo Fastify integration). Step-by-step setup, env vars, ports, and troubleshooting: **`docs/technical/Developer-Handbook.md`**. UI ↔ API mapping: **`docs/technical/API-UI-Parity-Matrix.md`**.
+
 ### Run Backend Tests
 ```bash
 cd backend
@@ -621,27 +626,30 @@ mvn test
 | T07 | Auth endpoint requires valid email format |
 | T08 | Internal errors return generic error codes |
 
-### Test the Full Auth Flow
+### Test the Full Auth Flow (in-repo Fastify API — port **8091**)
 ```bash
 # 1. Login
-curl -X POST http://localhost:8090/api/v1/auth/login \
+curl -X POST http://127.0.0.1:8091/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@hcb.com","password":"Admin@1234"}'
 
 # 2. Use the token
 ACCESS_TOKEN="<token from step 1>"
 curl -H "Authorization: Bearer $ACCESS_TOKEN" \
-  http://localhost:8090/api/v1/institutions
+  http://127.0.0.1:8091/api/v1/institutions
 
 # 3. Refresh the token
-curl -X POST http://localhost:8090/api/v1/auth/refresh \
+curl -X POST http://127.0.0.1:8091/api/v1/auth/refresh \
   -H "Content-Type: application/json" \
   -d '{"refresh_token":"<your_refresh_token>"}'
 
 # 4. Test suspended user (should return 401)
-curl -X POST http://localhost:8090/api/v1/auth/login \
+curl -X POST http://127.0.0.1:8091/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"suspended@hcb.com","password":"Suspended@1234"}'
+```
+
+*If you use a future Spring backend instead, replace host/port with that deployment; this repo’s dev server is Fastify on **8091**.*
 
 # 5. Test role-based access (Viewer cannot manage users)
 VIEWER_TOKEN="<viewer token>"
@@ -650,10 +658,22 @@ curl -H "Authorization: Bearer $VIEWER_TOKEN" \
 # Expected: 403 ERR_ACCESS_DENIED
 ```
 
-### Run Frontend Tests
+### Run Frontend + API integration tests (Vitest)
+
 ```bash
 npm run test
 ```
+
+Uses two Vitest projects: **client** (jsdom, `src/**/*.test.*`) and **server** (node, `server/**/*.test.ts`). Server tests call `buildServer()` and `app.inject()` — no listening port required.
+
+### Run Backend Tests (Spring / Java track)
+
+```bash
+cd backend
+mvn test
+```
+
+When the Java backend is not present, rely on the Fastify integration suite above.
 
 ---
 

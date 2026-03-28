@@ -30,7 +30,7 @@ export function InviteUserModal({ open, onOpenChange }: Props) {
       return;
     }
     inviteUser(
-      { email, role, sendWelcomeEmail: sendEmail, displayName: name } as Parameters<typeof inviteUser>[0],
+      { email, role, sendWelcomeEmail: sendEmail, displayName: name },
       {
         onSuccess: () => {
           onOpenChange(false);

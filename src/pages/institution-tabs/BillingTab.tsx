@@ -28,7 +28,12 @@ import {
 } from "@/components/ui/chart";
 import type { BillingModel } from "@/data/institutions-mock";
 import tabsData from "@/data/institution-tabs.json";
-import { useBillingSummary, useProductSubscriptions } from "@/hooks/api/useInstitutions";
+import {
+  useBillingSummary,
+  useProductSubscriptions,
+  usePatchInstitutionBilling,
+} from "@/hooks/api/useInstitutions";
+import type { ProductSubscriptionRow } from "@/services/institutions.service";
 
 const { creditTrendData } = tabsData.billing;
 
@@ -57,49 +62,42 @@ export default function BillingTab({
 }) {
   const { data: billingSummary } = useBillingSummary(institutionId);
   const { data: apiSubscriptions } = useProductSubscriptions(institutionId);
+  const patchBilling = usePatchInstitutionBilling(institutionId);
 
-  // Derive subscriptions from API data
+  // Derive subscriptions from API data (ratePerCall includes member overrides from server)
   const subscriptions = useMemo(() => {
     if (!apiSubscriptions) return [];
-    return (apiSubscriptions as Array<{
-      productId: number;
-      productName: string;
-      productStatus: string;
-      pricingModel: string;
-      subscriptionStatus: string;
-    }>).map((s) => ({
+    return (apiSubscriptions as ProductSubscriptionRow[]).map((s) => ({
       productId: String(s.productId),
       productName: s.productName,
       plan: "Standard",
       usage: "—",
       status: s.subscriptionStatus as "active" | "trial" | "suspended",
       pricingModel: s.pricingModel ?? "Per hit",
-      ratePerCall: 0,
+      ratePerCall: typeof s.ratePerCall === "number" && Number.isFinite(s.ratePerCall) ? s.ratePerCall : 0,
     }));
   }, [apiSubscriptions]);
 
-  /** Member-specific rate overrides; does not change global catalogue. */
+  /** Member-specific rate overrides while editing; server is source of truth after save/refetch. */
   const [rateOverrides, setRateOverrides] = useState<Record<string, number>>({});
   const [savedRateOverrides, setSavedRateOverrides] = useState<Record<string, number>>({});
+  const [isEditingModel, setIsEditingModel] = useState(false);
+  const [isEditingRates, setIsEditingRates] = useState(false);
 
   useEffect(() => {
-    setRateOverrides((prev) => {
-      const ids = new Set(subscriptions.map((s) => s.productId));
-      const next: Record<string, number> = {};
-      for (const [id, v] of Object.entries(prev)) {
-        if (ids.has(id)) next[id] = v;
-      }
-      return next;
-    });
-    setSavedRateOverrides((prev) => {
-      const ids = new Set(subscriptions.map((s) => s.productId));
-      const next: Record<string, number> = {};
-      for (const [id, v] of Object.entries(prev)) {
-        if (ids.has(id)) next[id] = v;
-      }
-      return next;
-    });
-  }, [subscriptions]);
+    if (isEditingRates) return;
+    if (subscriptions.length === 0) {
+      setRateOverrides({});
+      setSavedRateOverrides({});
+      return;
+    }
+    const fromApi: Record<string, number> = {};
+    for (const s of subscriptions) {
+      fromApi[s.productId] = s.ratePerCall;
+    }
+    setRateOverrides(fromApi);
+    setSavedRateOverrides({ ...fromApi });
+  }, [subscriptions, isEditingRates]);
 
   const rateForProduct = (productId: string, catalogRate: number) =>
     rateOverrides[productId] ?? catalogRate;
@@ -121,8 +119,6 @@ export default function BillingTab({
   const apiCreditBalance = billingSummary?.creditBalance ?? initBalance ?? 25000;
   const apiBillingModel = (billingSummary?.billingModel as BillingModel | undefined) ?? initModel ?? "prepaid";
 
-  const [isEditingModel, setIsEditingModel] = useState(false);
-  const [isEditingRates, setIsEditingRates] = useState(false);
   const [model, setModel] = useState<BillingModel>(apiBillingModel);
   const [alertThreshold, setAlertThreshold] = useState(5000);
   const currentYear = new Date().getFullYear();
@@ -135,9 +131,30 @@ export default function BillingTab({
     alertThreshold: 5000,
   });
 
-  const handleSaveModel = () => {
-    setSavedState({ model, alertThreshold });
-    setIsEditingModel(false);
+  useEffect(() => {
+    if (isEditingModel || !billingSummary) return;
+    const m = (billingSummary.billingModel as BillingModel) ?? "postpaid";
+    const t =
+      billingSummary.lowCreditAlertThreshold !== undefined &&
+      Number.isFinite(billingSummary.lowCreditAlertThreshold)
+        ? billingSummary.lowCreditAlertThreshold
+        : 5000;
+    setModel(m);
+    setAlertThreshold(t);
+    setSavedState({ model: m, alertThreshold: t });
+  }, [billingSummary, isEditingModel]);
+
+  const handleSaveModel = async () => {
+    try {
+      await patchBilling.mutateAsync({
+        billingModel: model,
+        lowCreditAlertThreshold: alertThreshold,
+      });
+      setSavedState({ model, alertThreshold });
+      setIsEditingModel(false);
+    } catch {
+      /* toast from mutation */
+    }
   };
 
   const handleCancelModel = () => {
@@ -146,9 +163,18 @@ export default function BillingTab({
     setIsEditingModel(false);
   };
 
-  const handleSaveRates = () => {
-    setSavedRateOverrides({ ...rateOverrides });
-    setIsEditingRates(false);
+  const handleSaveRates = async () => {
+    const memberRateOverrides: Record<string, number> = {};
+    for (const row of subscriptions) {
+      memberRateOverrides[row.productId] = rateForProduct(row.productId, row.ratePerCall);
+    }
+    try {
+      await patchBilling.mutateAsync({ memberRateOverrides });
+      setSavedRateOverrides({ ...rateOverrides });
+      setIsEditingRates(false);
+    } catch {
+      /* toast from mutation */
+    }
   };
 
   const handleCancelRates = () => {
@@ -246,8 +272,9 @@ export default function BillingTab({
               </button>
               <button
                 type="button"
-                onClick={handleSaveModel}
-                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors"
+                onClick={() => void handleSaveModel()}
+                disabled={patchBilling.isPending}
+                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 Save
               </button>
@@ -297,7 +324,7 @@ export default function BillingTab({
           <div>
             <h4 className="text-body font-semibold text-foreground">Subscribed Products</h4>
             <p className="text-caption text-muted-foreground mt-0.5">
-              Rates default from the catalogue; use Edit to set member-specific pricing (mock-only).
+              Rates default from the catalogue; use Edit to set member-specific pricing (saved to the dev API when connected).
             </p>
           </div>
           {!isEditingRates ? (
@@ -320,8 +347,9 @@ export default function BillingTab({
               </button>
               <button
                 type="button"
-                onClick={handleSaveRates}
-                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors"
+                onClick={() => void handleSaveRates()}
+                disabled={patchBilling.isPending}
+                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 Save
               </button>

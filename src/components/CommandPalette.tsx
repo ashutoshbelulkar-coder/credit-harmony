@@ -58,8 +58,15 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { data: institutionsPage } = useInstitutions({ size: 200 }, { enabled: !!user });
-  const { data: consortiumsPage } = useConsortiums({ size: 200 }, { enabled: !!user });
+  // Load heavy lists only when the palette is open — avoids a background /institutions?size=200 on every page.
+  const { data: institutionsPage, isFetching: institutionsLoading } = useInstitutions(
+    { size: 200 },
+    { enabled: !!user && open }
+  );
+  const { data: consortiumsPage, isFetching: consortiumsLoading } = useConsortiums(
+    { size: 200 },
+    { enabled: !!user && open }
+  );
   const consortiums = consortiumsPage?.content ?? [];
 
   useEffect(() => {
@@ -140,29 +147,37 @@ export function CommandPalette() {
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="Institutions">
-          {institutionItems.map((item) => (
-            <CommandItem key={item.path} onSelect={() => handleSelect(item.path)}>
-              <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
-              <div className="flex flex-col">
-                <span>{item.label}</span>
-                <span className="text-xs text-muted-foreground">{item.subtitle}</span>
-              </div>
-            </CommandItem>
-          ))}
+          {institutionsLoading && institutionItems.length === 0 ? (
+            <div className="px-2 py-3 text-sm text-muted-foreground">Loading institutions…</div>
+          ) : (
+            institutionItems.map((item) => (
+              <CommandItem key={item.path} onSelect={() => handleSelect(item.path)}>
+                <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-col">
+                  <span>{item.label}</span>
+                  <span className="text-xs text-muted-foreground">{item.subtitle}</span>
+                </div>
+              </CommandItem>
+            ))
+          )}
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="Consortiums">
-          {consortiums.map((c) => (
-            <CommandItem key={c.id} onSelect={() => handleSelect(`/consortiums/${c.id}`)}>
-              <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
-              <div className="flex flex-col">
-                <span>{c.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {c.type} · {c.membersCount} members
-                </span>
-              </div>
-            </CommandItem>
-          ))}
+          {consortiumsLoading && consortiums.length === 0 ? (
+            <div className="px-2 py-3 text-sm text-muted-foreground">Loading consortiums…</div>
+          ) : (
+            consortiums.map((c) => (
+              <CommandItem key={c.id} onSelect={() => handleSelect(`/consortiums/${c.id}`)}>
+                <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-col">
+                  <span>{c.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {c.type} · {c.membersCount} members
+                  </span>
+                </div>
+              </CommandItem>
+            ))
+          )}
         </CommandGroup>
       </CommandList>
     </CommandDialog>

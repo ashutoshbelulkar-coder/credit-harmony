@@ -30,9 +30,20 @@ export async function fetchApiKeysByInstitution(institutionId: string | number):
 }
 
 export async function regenerateApiKey(id: number): Promise<ApiKeyResponse> {
-  return post<ApiKeyResponse>(`${BASE}/${id}/regenerate`);
+  // Non-empty JSON body: some stacks reject `application/json` with an empty body (e.g. Fastify).
+  return post<ApiKeyResponse>(`${BASE}/${id}/regenerate`, {});
 }
 
 export async function revokeApiKey(id: number): Promise<void> {
-  return post(`${BASE}/${id}/revoke`);
+  return post(`${BASE}/${id}/revoke`, {});
+}
+
+export async function createApiKey(params: {
+  institutionId: number;
+  environment: "sandbox" | "uat" | "prod";
+}): Promise<ApiKeyResponse> {
+  return post<ApiKeyResponse>(BASE, {
+    institutionId: params.institutionId,
+    environment: params.environment,
+  });
 }

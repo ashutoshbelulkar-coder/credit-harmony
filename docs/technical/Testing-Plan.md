@@ -1,6 +1,23 @@
 # HCB Platform — Testing Plan
 
-**Version:** 3.0.0 | **Date:** 2026-03-28
+**Version:** 3.0.2 | **Date:** 2026-03-29
+
+---
+
+## Implemented tests in this repository (ground truth)
+
+Run from repo root: **`npm run test`**. Vitest loads **two projects** (`vitest.config.ts`): **client** (jsdom + `src/test/setup.ts`) and **server** (node).
+
+| Suite | File(s) | Count (approx.) | What is proven |
+|-------|---------|-----------------|----------------|
+| Server integration | `server/src/api.integration.test.ts` | 20 cases | Real Fastify app via `buildServer()` + `inject`; shared in-memory state — tests run **`describe.sequential`** to avoid cross-test races |
+| Server helpers | `server/src/test-helpers.ts` | — | DRY login + auth headers for integration tests |
+| API client | `src/test/lib/api-client.test.ts` | 19 | Error types, refresh behaviour, request shaping |
+| Feature flags | `src/test/lib/feature-flags.test.ts` | 2 | Demo UI toggles stay internally consistent |
+| Calculations | `src/test/calc/*.test.ts` | 84+ | KPI, batch, date filters — deterministic |
+| React | `src/test/components/*.tsx`, `src/test/auth/*.tsx` | 26+ | Critical queues/lists and auth provider |
+
+**Foolproof ops:** For clone-to-green steps, env vars, ports, seeded passwords, and troubleshooting, use **`docs/technical/Developer-Handbook.md`**.
 
 ---
 
@@ -11,6 +28,18 @@ The HCB Platform testing strategy covers four layers:
 2. **Backend Integration Tests** — API + DB end-to-end
 3. **Security Tests** — Authentication, authorization, data leakage
 4. **Frontend Component Tests** — React component rendering and interaction
+
+### Local Fastify dev API (this repository)
+
+| Layer | Tooling | Location / command |
+|-------|---------|-------------------|
+| HTTP integration (no port) | Vitest + `app.inject()` | `server/src/api.integration.test.ts` |
+| Client unit + component | Vitest + Testing Library + jsdom | `src/**/*.test.ts(x)` |
+| Run all | `npm run test` | `vitest.config.ts` uses **projects**: `client` and `server` |
+
+`buildServer()` is exported from `server/src/index.ts`; the CLI entrypoint only listens when the file is executed directly (`import.meta.url` matches `process.argv[1]`), so test imports do not start a listener.
+
+See also: [API-UI-Parity-Matrix.md](./API-UI-Parity-Matrix.md) for which UI actions must hit the API.
 
 ---
 

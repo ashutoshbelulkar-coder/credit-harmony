@@ -6,11 +6,16 @@ import {
   CONSORTIUM_ROLE_OPTIONS,
   type ConsortiumMembershipRole,
 } from "@/data/institution-extensions-mock";
-import { useConsortiumMemberships } from "@/hooks/api/useInstitutions";
+import {
+  useConsortiumMemberships,
+  useCreateConsortiumMembership,
+  useDeleteConsortiumMembership,
+} from "@/hooks/api/useInstitutions";
 import { useConsortiums } from "@/hooks/api/useConsortiums";
 import type { ConsortiumMembershipRow as ApiMembershipRow } from "@/services/institutions.service";
 
 type ConsortiumMembershipRow = {
+  membershipId: number;
   consortiumId: string;
   consortiumName: string;
   role: string;
@@ -37,7 +42,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -59,6 +63,9 @@ const statusClass: Record<string, string> = {
 
 export default function ConsortiumMembershipsTab({ institutionId }: Props) {
   const { data: apiMemberships } = useConsortiumMemberships(institutionId);
+  const { mutateAsync: createMembershipAsync, isPending: creatingMembership } =
+    useCreateConsortiumMembership(institutionId);
+  const { mutate: deleteMembership, isPending: deletingMembership } = useDeleteConsortiumMembership(institutionId);
   const { data: consortiumsPage } = useConsortiums({ size: 100 });
   const allConsortiums = consortiumsPage?.content ?? [];
 
@@ -69,6 +76,7 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
     if (!apiMemberships) return;
     setRows(
       (apiMemberships as ApiMembershipRow[]).map((m) => ({
+        membershipId: m.membershipId,
         consortiumId: String(m.consortiumId),
         consortiumName: m.consortiumName,
         role: m.memberRole,
@@ -98,6 +106,13 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
     setAddOpen(true);
   };
 
+  // Keep Select value valid if memberships refetch changes `availableConsortiums` while dialog is open
+  useEffect(() => {
+    if (!addOpen || availableConsortiums.length === 0) return;
+    const ok = availableConsortiums.some((c) => String(c.id) === selectedConsortiumId);
+    if (!ok) setSelectedConsortiumId(String(availableConsortiums[0].id));
+  }, [addOpen, availableConsortiums, selectedConsortiumId]);
+
   const toggleRole = (r: ConsortiumMembershipRole, checked: boolean) => {
     setSelectedRoles((prev) => {
       if (checked) return prev.includes(r) ? prev : [...prev, r];
@@ -106,23 +121,32 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
     });
   };
 
-  const handleAdd = () => {
+  const handleAdd = async () => {
+    if (!selectedConsortiumId.trim()) {
+      toast.error("Choose a consortium.");
+      return;
+    }
     const consortium = allConsortiums.find((c) => String(c.id) === selectedConsortiumId);
-    if (!consortium || selectedRoles.length === 0) return;
-    const today = new Date().toISOString().split("T")[0];
+    if (!consortium) {
+      toast.error("That consortium is not available. Refresh the page or check the dev API.");
+      return;
+    }
+    if (selectedRoles.length === 0) {
+      toast.error("Select at least one role.");
+      return;
+    }
     const roleStr = [...selectedRoles].sort().join(", ");
-    setRows((prev) => [
-      ...prev,
-      {
-        consortiumId: String(consortium.id),
-        consortiumName: consortium.name,
-        role: roleStr,
-        status: "pending",
-        joinedDate: today,
-      },
-    ]);
-    toast.success(`Added to ${consortium.name} — roles: ${roleStr}`);
-    setAddOpen(false);
+    try {
+      await createMembershipAsync({
+        consortiumId: selectedConsortiumId,
+        memberRole: roleStr,
+        consortiumMemberStatus: "pending",
+      });
+      toast.success(`Added to ${consortium.name} — roles: ${roleStr}`);
+      setAddOpen(false);
+    } catch {
+      /* useCreateConsortiumMembership onError toast */
+    }
   };
 
   // ── Remove dialog ───────────────────────────────────────────
@@ -130,11 +154,13 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
 
   const handleRemoveConfirm = () => {
     if (!removeTarget) return;
-    setRows((prev) =>
-      prev.filter((r) => r.consortiumId !== removeTarget.consortiumId)
-    );
-    toast.success(`Removed from ${removeTarget.consortiumName}`);
-    setRemoveTarget(null);
+    const { membershipId, consortiumName } = removeTarget;
+    deleteMembership(membershipId, {
+      onSuccess: () => {
+        toast.success(`Removed from ${consortiumName}`);
+        setRemoveTarget(null);
+      },
+    });
   };
 
   return (
@@ -152,7 +178,7 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
           disabled={availableConsortiums.length === 0}
         >
           <Plus className="w-3.5 h-3.5" />
-          Add to Consortium
+          Join consortium…
         </Button>
       </div>
 
@@ -164,7 +190,7 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
           </p>
         ) : (
           rows.map((r) => (
-            <Card key={r.consortiumId}>
+            <Card key={r.membershipId}>
               <CardContent className="pt-4 space-y-1">
                 <div className="flex items-start justify-between gap-2">
                   <p className="text-body font-medium text-foreground">{r.consortiumName}</p>
@@ -231,7 +257,7 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
               ) : (
                 rows.map((r) => (
                   <tr
-                    key={r.consortiumId}
+                    key={r.membershipId}
                     className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
                   >
                     <td className="px-4 py-3 text-body text-foreground">{r.consortiumName}</td>
@@ -274,9 +300,10 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
       <Dialog open={addOpen} onOpenChange={(v) => !v && setAddOpen(false)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Add to consortium</DialogTitle>
+            <DialogTitle>Join a consortium</DialogTitle>
             <p className="text-caption text-muted-foreground mt-0.5">
-              Select a consortium and membership role for this institution.
+              Choose consortium and roles, then click <span className="font-medium text-foreground">Add membership</span>{" "}
+              — that step saves to the dev API.
             </p>
           </DialogHeader>
 
@@ -336,9 +363,9 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
               type="button"
               size="sm"
               onClick={handleAdd}
-              disabled={!selectedConsortiumId || selectedRoles.length === 0}
+              disabled={!selectedConsortiumId || selectedRoles.length === 0 || creatingMembership}
             >
-              Add membership
+              {creatingMembership ? "Adding…" : "Add membership"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -361,13 +388,15 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            <AlertDialogCancel disabled={deletingMembership}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant="destructive"
+              disabled={deletingMembership}
               onClick={handleRemoveConfirm}
             >
-              Remove
-            </AlertDialogAction>
+              {deletingMembership ? "Removing…" : "Remove"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -10,7 +10,7 @@ import {
   updateConsortium,
   deleteConsortium,
   type ConsortiumListParams,
-  type ConsortiumResponse,
+  type ConsortiumWritePayload,
 } from "@/services/consortiums.service";
 
 export function useConsortiums(params?: ConsortiumListParams, options?: { enabled?: boolean }) {
@@ -40,8 +40,13 @@ export function useConsortiumMembers(id: string | undefined) {
 export function useCreateConsortium() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (data: Partial<ConsortiumResponse>) => createConsortium(data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: QK.consortiums.all() }); toast.success("Consortium created"); },
+    mutationFn: (data: ConsortiumWritePayload) => createConsortium(data),
+    onSuccess: (row) => {
+      qc.invalidateQueries({ queryKey: QK.consortiums.all() });
+      qc.invalidateQueries({ queryKey: QK.consortiums.detail(row.id) });
+      qc.invalidateQueries({ queryKey: QK.consortiums.members(row.id) });
+      toast.success("Consortium created");
+    },
     onError: (e: ApiError) => toast.error(e.message),
   });
 }
@@ -49,10 +54,11 @@ export function useCreateConsortium() {
 export function useUpdateConsortium() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<ConsortiumResponse> }) => updateConsortium(id, data),
+    mutationFn: ({ id, data }: { id: string; data: ConsortiumWritePayload }) => updateConsortium(id, data),
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: QK.consortiums.all() });
       qc.invalidateQueries({ queryKey: QK.consortiums.detail(id) });
+      qc.invalidateQueries({ queryKey: QK.consortiums.members(id) });
       toast.success("Consortium updated");
     },
     onError: (e: ApiError) => toast.error(e.message),

@@ -1,4 +1,4 @@
-import { get, post, patch, del, buildQuery, ApiError } from "@/lib/api-client";
+import { get, post, patch, buildQuery, ApiError } from "@/lib/api-client";
 import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 import { mockUsers } from "@/data/user-management-mock";
 
@@ -74,7 +74,7 @@ export async function fetchUserById(id: string | number): Promise<UserResponse> 
   return get<UserResponse>(`${BASE}/${id}`);
 }
 
-export async function updateUser(id: string | number, data: Partial<UserResponse>): Promise<UserResponse> {
+export async function updateUser(id: string | number, data: Partial<UserResponse> & { roles?: string[] }): Promise<UserResponse> {
   return patch<UserResponse>(`${BASE}/${id}`, data);
 }
 
@@ -86,10 +86,19 @@ export async function activateUser(id: string | number): Promise<void> {
   return post(`${BASE}/${id}/activate`);
 }
 
-export async function deleteUser(id: string | number): Promise<void> {
-  return del(`${BASE}/${id}`);
+export async function deactivateUser(id: string | number): Promise<void> {
+  return post(`${BASE}/${id}/deactivate`);
 }
 
-export async function inviteUser(data: { email: string; role: string; institutionId?: number }): Promise<UserResponse> {
-  return post<UserResponse>(`${BASE}/invitations`, data);
+export async function inviteUser(data: {
+  email: string;
+  role: string;
+  institutionId?: number;
+  displayName?: string;
+  givenName?: string;
+  familyName?: string;
+  sendWelcomeEmail?: boolean;
+}): Promise<UserResponse> {
+  const { sendWelcomeEmail: _sw, ...body } = data;
+  return post<UserResponse>(`${BASE}/invitations`, body);
 }

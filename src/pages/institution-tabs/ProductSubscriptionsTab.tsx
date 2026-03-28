@@ -2,11 +2,16 @@ import { useState, useMemo, useEffect } from "react";
 import { Plus, PowerOff, Power } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
-import { useProductSubscriptions } from "@/hooks/api/useInstitutions";
+import {
+  useProductSubscriptions,
+  useAddProductSubscriptions,
+  usePatchProductSubscription,
+} from "@/hooks/api/useInstitutions";
 import { useProducts } from "@/hooks/api/useProducts";
 import type { ProductSubscriptionRow as ApiSubscriptionRow } from "@/services/institutions.service";
 
 type ProductSubscriptionRow = {
+  subscriptionId: number;
   productId: string;
   productName: string;
   plan: string;
@@ -27,7 +32,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -49,6 +53,10 @@ const statusClass: Record<string, string> = {
 
 export default function ProductSubscriptionsTab({ institutionId }: Props) {
   const { data: apiSubscriptions } = useProductSubscriptions(institutionId);
+  const { mutateAsync: addSubscriptionsAsync, isPending: addingSubscriptions } =
+    useAddProductSubscriptions(institutionId);
+  const { mutateAsync: patchSubscriptionAsync, isPending: patchingSubscription } =
+    usePatchProductSubscription(institutionId);
   const { data: productsPage } = useProducts({ size: 100 });
   const catalogProducts = productsPage?.content ?? [];
 
@@ -58,6 +66,7 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
     if (!apiSubscriptions) return;
     setRows(
       (apiSubscriptions as ApiSubscriptionRow[]).map((s) => ({
+        subscriptionId: s.subscriptionId,
         productId: String(s.productId),
         productName: s.productName,
         plan: "Standard",
@@ -82,26 +91,28 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
     setAddOpen(true);
   };
 
-  const handleAdd = () => {
-    if (selectedProductIds.length === 0) return;
+  const handleAdd = async () => {
+    if (selectedProductIds.length === 0) {
+      toast.error("Select at least one product.");
+      return;
+    }
     const selectedProducts = catalogProducts.filter((p) => selectedProductIds.includes(String(p.id)));
-    if (selectedProducts.length === 0) return;
-    setRows((prev) => [
-      ...prev,
-      ...selectedProducts.map((product) => ({
-        productId: String(product.id),
-        productName: product.name,
-        plan: "Starter",
-        usage: "0 enquiries / mo",
-        status: "active" as const,
-      })),
-    ]);
-    toast.success(
-      selectedProducts.length === 1
-        ? `Subscribed to ${selectedProducts[0].name}`
-        : `Subscribed to ${selectedProducts.length} products`
-    );
-    setAddOpen(false);
+    if (selectedProducts.length === 0) {
+      toast.error("Selected products are not in the catalogue. Refresh or check the dev API.");
+      return;
+    }
+    try {
+      await addSubscriptionsAsync({ productIds: selectedProductIds });
+      toast.success(
+        selectedProducts.length === 1
+          ? `Subscribed to ${selectedProducts[0].name}`
+          : `Subscribed to ${selectedProducts.length} products`
+      );
+      setAddOpen(false);
+      setSelectedProductIds([]);
+    } catch {
+      /* toast from hook */
+    }
   };
 
   const toggleSelectedProduct = (pId: string, checked: boolean | "indeterminate") => {
@@ -122,23 +133,25 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
       : "activate"
     : null;
 
-  const handleToggleConfirm = () => {
+  const handleToggleConfirm = async () => {
     if (!toggleTarget) return;
     const next: ProductSubscriptionRow["status"] =
       toggleTarget.status === "active" || toggleTarget.status === "trial"
         ? "suspended"
         : "active";
-    setRows((prev) =>
-      prev.map((r) =>
-        r.productId === toggleTarget.productId ? { ...r, status: next } : r
-      )
-    );
-    toast.success(
-      next === "active"
-        ? `${toggleTarget.productName} subscription activated`
-        : `${toggleTarget.productName} subscription suspended`
-    );
-    setToggleTarget(null);
+    const name = toggleTarget.productName;
+    try {
+      await patchSubscriptionAsync({
+        subscriptionId: toggleTarget.subscriptionId,
+        subscriptionStatus: next,
+      });
+      toast.success(
+        next === "active" ? `${name} subscription activated` : `${name} subscription suspended`
+      );
+      setToggleTarget(null);
+    } catch {
+      /* toast from hook */
+    }
   };
 
   return (
@@ -241,7 +254,7 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
                   const isActive = r.status === "active" || r.status === "trial";
                   return (
                     <tr
-                      key={r.productId}
+                      key={r.subscriptionId}
                       className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
                     >
                       <td className="px-4 py-3 text-caption text-muted-foreground tabular-nums">{r.productId}</td>
@@ -293,7 +306,8 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
           <DialogHeader>
             <DialogTitle>Add subscription</DialogTitle>
             <p className="text-caption text-muted-foreground mt-0.5">
-              Subscribe this institution to an active product from the catalogue.
+              Pick products from the catalogue, then use <span className="font-medium text-foreground">Add subscription</span>{" "}
+              below — that saves to the dev API.
             </p>
           </DialogHeader>
 
@@ -344,10 +358,12 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
             <Button
               type="button"
               size="sm"
-              onClick={handleAdd}
-              disabled={selectedProductIds.length === 0}
+              onClick={() => void handleAdd()}
+              disabled={selectedProductIds.length === 0 || addingSubscriptions}
             >
-              Add subscription{selectedProductIds.length > 1 ? "s" : ""}
+              {addingSubscriptions
+                ? "Saving…"
+                : `Add subscription${selectedProductIds.length > 1 ? "s" : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -384,17 +400,15 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className={
-                pendingAction === "suspend"
-                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  : ""
-              }
-              onClick={handleToggleConfirm}
+            <AlertDialogCancel disabled={patchingSubscription}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant={pendingAction === "suspend" ? "destructive" : "default"}
+              disabled={patchingSubscription}
+              onClick={() => void handleToggleConfirm()}
             >
-              {pendingAction === "suspend" ? "Suspend" : "Activate"}
-            </AlertDialogAction>
+              {patchingSubscription ? "Saving…" : pendingAction === "suspend" ? "Suspend" : "Activate"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

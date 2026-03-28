@@ -70,8 +70,8 @@ export interface DashboardActivityRow {
   userEmail: string;
 }
 
-export async function fetchDashboardActivity(): Promise<DashboardActivityRow[]> {
-  return get<DashboardActivityRow[]>(`${BASE}/activity`);
+export async function fetchDashboardActivity(signal?: AbortSignal): Promise<DashboardActivityRow[]> {
+  return get<DashboardActivityRow[]>(`${BASE}/activity`, signal);
 }
 
 // ── Dashboard Command Center ──────────────────────────────────────────────────
@@ -98,8 +98,12 @@ function commandCenterQueryParams(range: DashboardRange): Record<string, string>
   };
 }
 
-export async function fetchDashboardCommandCenter(range: DashboardRange): Promise<DashboardCommandCenterPayload> {
+export async function fetchDashboardCommandCenter(
+  range: DashboardRange,
+  signal?: AbortSignal
+): Promise<DashboardCommandCenterPayload> {
   return get<DashboardCommandCenterPayload>(
-    `${BASE}/command-center${buildQuery(commandCenterQueryParams(range))}`
+    `${BASE}/command-center${buildQuery(commandCenterQueryParams(range))}`,
+    signal
   );
 }

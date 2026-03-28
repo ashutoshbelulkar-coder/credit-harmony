@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { dataPath } from "./paths.js";
 
@@ -39,6 +40,12 @@ export interface AppState {
   governanceKpis: any;
   dataQualityRows: any[];
   dataSubmitterIdByApiKey: Record<string, string>;
+  /** Per-institution consortium memberships (dev API; in-memory). */
+  institutionConsortiumMemberships: any[];
+  institutionConsortiumMembershipNextId: number;
+  /** Per-institution product subscriptions (dev API; in-memory). */
+  institutionProductSubscriptions: any[];
+  institutionProductSubscriptionNextId: number;
   alertCharts: {
     triggeredOverTime: unknown[];
     byDomain: unknown[];
@@ -50,6 +57,16 @@ export interface AppState {
   dashboardSeed: Record<string, unknown>;
   /** Static template for institution overview tab charts (until per-institution analytics exist). */
   institutionOverviewCharts: Record<string, unknown>;
+  /** Consortium member rows (persisted in dev API; replaces stub GET /consortiums/:id/members). */
+  consortiumMembers: {
+    id: string;
+    consortiumId: string;
+    institutionId: number;
+    role: string;
+    joinedAt: string;
+  }[];
+  /** Template series for new institutions' consent failure chart (from `institution-tabs.json`). */
+  consentFailureMetricsTemplate: { day: string; failures: number }[];
 }
 
 function readDataJson(name: string) {
@@ -90,6 +107,29 @@ export function createInitialState(): AppState {
   const instData = readDataJson("institutions.json");
   const institutions = (instData.institutions as any[]).map(toInstitutionRecord);
   const institutionNextId = institutions.reduce((m, r) => Math.max(m, r.id), 0) + 1;
+
+  const tabsSeed = readDataJson("institution-tabs.json");
+  const consentFailureMetricsTemplate = JSON.parse(
+    JSON.stringify((tabsSeed.consent?.consentFailureData as { day: string; failures: number }[]) ?? [])
+  ) as { day: string; failures: number }[];
+  const defaultConsentConfig = () => ({
+    policy: "explicit",
+    expiryDays: 90,
+    scopeCreditReport: true,
+    scopeAlternateData: false,
+    captureMode: "api-header",
+  });
+  for (const inst of institutions) {
+    const base = defaultConsentConfig();
+    if (!inst.consentConfig || typeof inst.consentConfig !== "object") {
+      inst.consentConfig = { ...base };
+    } else {
+      inst.consentConfig = { ...base, ...inst.consentConfig };
+    }
+    if (!Array.isArray(inst.consentFailureMetrics) || inst.consentFailureMetrics.length === 0) {
+      inst.consentFailureMetrics = JSON.parse(JSON.stringify(consentFailureMetricsTemplate));
+    }
+  }
 
   const approvalData = readDataJson("approval-queue.json");
   const approvals = [...approvalData.approvalQueueItems];
@@ -181,6 +221,46 @@ export function createInitialState(): AppState {
   const consortiums = [...(consData.consortiums ?? [])] as any[];
   const consortiumNextId = consortiums.length + 1;
 
+  const membersByConsortiumId = (consData.membersByConsortiumId ?? {}) as Record<
+    string,
+    { institutionId?: string; institutionName?: string; role?: string; joinedDate?: string; status?: string }[]
+  >;
+  const consortiumMembers: AppState["consortiumMembers"] = [];
+  for (const [cid, mlist] of Object.entries(membersByConsortiumId)) {
+    for (const m of mlist ?? []) {
+      const parsedId = parseInt(String(m.institutionId ?? "").replace(/\D/g, ""), 10);
+      const byId = Number.isFinite(parsedId) ? institutions.find((i) => i.id === parsedId) : undefined;
+      const byName = m.institutionName
+        ? institutions.find((i) => i.name === m.institutionName)
+        : undefined;
+      const inst = byId ?? byName;
+      if (!inst) continue;
+      consortiumMembers.push({
+        id: randomUUID(),
+        consortiumId: cid,
+        institutionId: inst.id,
+        role: String(m.role ?? "Consumer"),
+        joinedAt: m.joinedDate ? `${m.joinedDate}T00:00:00.000Z` : new Date().toISOString(),
+      });
+    }
+  }
+
+  let institutionConsortiumMembershipNextId = 1;
+  const institutionConsortiumMemberships: any[] = [];
+  const seedConsortia = consortiums.slice(0, 2);
+  for (const inst of institutions) {
+    for (const c of seedConsortia) {
+      institutionConsortiumMemberships.push({
+        membershipId: institutionConsortiumMembershipNextId++,
+        institutionId: inst.id,
+        consortiumId: String(c.id),
+        memberRole: "member",
+        consortiumMemberStatus: "active",
+        joinedAt: "2026-01-01T00:00:00.000Z",
+      });
+    }
+  }
+
   const prodData = readDataJson("data-products.json");
   const products = [...(prodData.configuredProducts ?? prodData.products ?? [])] as any[];
   const productNextId =
@@ -188,6 +268,21 @@ export function createInitialState(): AppState {
       const n = parseInt(String(p.id).replace(/\D/g, ""), 10);
       return Number.isFinite(n) ? Math.max(m, n) : m;
     }, 0) + 1;
+
+  let institutionProductSubscriptionNextId = 1;
+  const institutionProductSubscriptions: any[] = [];
+  const seedSubProducts = products.slice(0, 2);
+  for (const inst of institutions) {
+    for (const p of seedSubProducts) {
+      institutionProductSubscriptions.push({
+        subscriptionId: institutionProductSubscriptionNextId++,
+        institutionId: inst.id,
+        productId: String(p.id),
+        subscriptionStatus: "active",
+        subscribedAt: "2026-01-15T00:00:00.000Z",
+      });
+    }
+  }
 
   const um = readDataJson("user-management.json");
   const roles = (um.roleDefinitions as any[]).map((r: any, i: number) => ({
@@ -284,6 +379,10 @@ export function createInitialState(): AppState {
     governanceKpis: dgData.governanceKpis ?? dgData,
     dataQualityRows: dgData.validationFailureBySource ?? [],
     dataSubmitterIdByApiKey,
+    institutionConsortiumMemberships,
+    institutionConsortiumMembershipNextId,
+    institutionProductSubscriptions,
+    institutionProductSubscriptionNextId,
     alertCharts: {
       triggeredOverTime: alertData.alertsTriggeredOverTime ?? [],
       byDomain: alertData.alertsByDomain ?? [],
@@ -306,6 +405,8 @@ export function createInitialState(): AppState {
     },
     dashboardSeed: dashboardData as Record<string, unknown>,
     institutionOverviewCharts: institutionDetailFile as Record<string, unknown>,
+    consortiumMembers,
+    consentFailureMetricsTemplate,
   };
 }
 

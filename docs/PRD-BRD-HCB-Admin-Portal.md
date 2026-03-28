@@ -4378,4 +4378,21 @@ Added in Phase 6/7. All endpoints require `Bearer <access_token>` and any of the
 
 ---
 
-*End of Document — v3.2 (2026-03-28)*
+### G.22 Automated testing and local API parity (2026-03-29)
+
+| Requirement | Implementation |
+|-------------|----------------|
+| CI / local verification | `npm run test` runs Vitest **client** (jsdom) and **server** (node) projects |
+| HTTP regression | `server/src/api.integration.test.ts` uses `buildServer()` + Fastify `inject` — **sequential** suite covering login, bad-password 401, **refresh rotation**, institutions 401/200, **dashboard metrics**, **approvals list + approve**, **users list + PATCH**, **audit-logs entity filter**, **alert-rule create/patch/delete**, **reports POST**, **products list**, **batch retry + cancel**, **consortium members**, **institution consortium-memberships + product-subscriptions**, **roles** |
+| Shared test helpers | `server/src/test-helpers.ts` — `loginAsAdmin`, `authHeaders` |
+| Client coverage | Pure calcs (`src/test/calc/*`), `api-client`, feature flags, `AuthContext`, `InstitutionList`, `ApprovalQueuePage` |
+| UI ↔ route traceability | `docs/technical/API-UI-Parity-Matrix.md` (+ route appendix) |
+| Onboarding / ops narrative | `docs/technical/Developer-Handbook.md` — env vars, ports **8080/8091**, mock fallback, troubleshooting matrix |
+| Demo-only affordances | Login SSO / password-reset rows and agents “request access” messaging respect `VITE_SHOW_DEMO_AUTH_UI`; production builds default to non-misleading copy |
+| Hardening beyond prototype | `docs/technical/Production-Backend-Roadmap.md` |
+
+**Note:** `docs/technical/Testing-Plan.md` still contains **target** Spring/JUnit scenario tables for a future backend; the **implemented** column is Vitest + Fastify — see that file’s section “Implemented tests in this repository.”
+
+---
+
+*End of Document — v3.2 (2026-03-28; addendum G.22 — 2026-03-29)*

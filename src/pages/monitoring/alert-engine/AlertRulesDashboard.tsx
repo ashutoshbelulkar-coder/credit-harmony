@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/select";
 import { type AlertRuleDomain, type SeverityLevel } from "@/data/alert-engine-mock";
 import { Plus, Pencil, Power, PowerOff, Trash2 } from "lucide-react";
-import { useAlertRules, useCreateAlertRule, useToggleAlertRule, useDeleteAlertRule } from "@/hooks/api/useAlerts";
+import { useAlertRules, useCreateAlertRule, useUpdateAlertRule, useToggleAlertRule, useDeleteAlertRule } from "@/hooks/api/useAlerts";
 import type { AlertRuleResponse } from "@/services/alerts.service";
 
 type AlertRule = AlertRuleResponse;
@@ -220,6 +220,92 @@ function CreateAlertRuleSheet({
   );
 }
 
+function EditAlertRuleSheet({
+  rule,
+  open,
+  onOpenChange,
+}: {
+  rule: AlertRule | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  const { mutate: updateRule, isPending } = useUpdateAlertRule();
+  const [name, setName] = useState("");
+  const [domain, setDomain] = useState<AlertRuleDomain | "">("");
+  const [condition, setCondition] = useState("");
+  const [severity, setSeverity] = useState<SeverityLevel>("Warning");
+
+  useEffect(() => {
+    if (!rule || !open) return;
+    setName(rule.name);
+    setDomain((rule.domain as AlertRuleDomain) || "");
+    setCondition(rule.condition);
+    setSeverity((rule.severity as SeverityLevel) || "Warning");
+  }, [rule, open]);
+
+  const save = () => {
+    if (!rule) return;
+    updateRule(
+      {
+        id: rule.id,
+        data: {
+          name: name.trim() || rule.name,
+          domain: domain || rule.domain,
+          condition: condition.trim() || rule.condition,
+          severity: severity || rule.severity,
+        },
+      },
+      { onSuccess: () => onOpenChange(false) }
+    );
+  };
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="sm:max-w-lg overflow-y-auto">
+        <SheetHeader>
+          <SheetTitle>Edit alert rule</SheetTitle>
+        </SheetHeader>
+        <div className="space-y-4 pt-6">
+          <div className="space-y-2">
+            <Label>Name</Label>
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label>Domain</Label>
+            <Select value={domain} onValueChange={(v) => setDomain(v as AlertRuleDomain)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {DOMAINS.map((d) => (
+                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Condition</Label>
+            <Input value={condition} onChange={(e) => setCondition(e.target.value)} />
+          </div>
+          <div className="space-y-2">
+            <Label>Severity</Label>
+            <Select value={severity} onValueChange={(v) => setSeverity(v as SeverityLevel)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                {SEVERITIES.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex gap-2 pt-2">
+            <Button onClick={save} disabled={isPending}>{isPending ? "Saving…" : "Save changes"}</Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
+          </div>
+        </div>
+      </SheetContent>
+    </Sheet>
+  );
+}
+
 export function AlertRulesDashboard() {
   const { data: apiRules } = useAlertRules();
   const { mutate: createRule, isPending: creating } = useCreateAlertRule();
@@ -228,6 +314,7 @@ export function AlertRulesDashboard() {
 
   const [rules, setRules] = useState<AlertRule[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
+  const [editRule, setEditRule] = useState<AlertRule | null>(null);
   const [page, setPage] = useState(1);
 
   // Sync API data into local display state
@@ -306,7 +393,15 @@ export function AlertRulesDashboard() {
                   <td className="px-5 py-4 text-caption text-muted-foreground whitespace-nowrap">{r.lastTriggered ?? "—"}</td>
                   <td className="px-5 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit"><Pencil className="w-3.5 h-3.5" /></Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title="Edit"
+                        onClick={() => setEditRule(r)}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8" title={r.status === "Enabled" ? "Disable" : "Enable"} onClick={() => toggleStatus(r.id)} disabled={toggling}>
                         {r.status === "Enabled" ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
                       </Button>
@@ -332,6 +427,7 @@ export function AlertRulesDashboard() {
         </div>
       </div>
       <CreateAlertRuleSheet open={createOpen} onOpenChange={setCreateOpen} onCreated={handleCreated} />
+      <EditAlertRuleSheet rule={editRule} open={editRule !== null} onOpenChange={(v) => !v && setEditRule(null)} />
     </section>
   );
 }

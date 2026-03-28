@@ -68,6 +68,50 @@ export class ApiError extends Error {
   }
 }
 
+// ─── Fetch timeouts (hung proxy / dead target otherwise pend forever) ─────────
+
+const JSON_REQUEST_TIMEOUT_MS = 45_000;
+/** `fetch` can resolve after headers; `res.json()` can still stall forever without this. */
+const JSON_BODY_READ_TIMEOUT_MS = 30_000;
+const REFRESH_TIMEOUT_MS = 20_000;
+const MULTIPART_TIMEOUT_MS = 120_000;
+
+function isAbortOrTimeout(err: unknown): boolean {
+  if (err instanceof DOMException) return err.name === "AbortError" || err.name === "TimeoutError";
+  return err instanceof Error && err.name === "AbortError";
+}
+
+/**
+ * `fetch` with a deadline; merges optional caller `signal` (abort cancels timer and request).
+ */
+async function timedFetch(input: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const outer = init.signal;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => {
+    ctrl.abort(new DOMException("Request timed out", "TimeoutError"));
+  }, timeoutMs);
+
+  const onOuterAbort = () => {
+    clearTimeout(timer);
+    if (!ctrl.signal.aborted) ctrl.abort(outer!.reason);
+  };
+
+  if (outer) {
+    if (outer.aborted) {
+      clearTimeout(timer);
+      throw new DOMException("Aborted", "AbortError");
+    }
+    outer.addEventListener("abort", onOuterAbort, { once: true });
+  }
+
+  try {
+    return await fetch(input, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+    outer?.removeEventListener("abort", onOuterAbort);
+  }
+}
+
 // ─── Refresh Queue ────────────────────────────────────────────────────────────
 
 /**
@@ -82,12 +126,27 @@ async function performTokenRefresh(): Promise<string> {
     throw new ApiError(401, "ERR_NO_REFRESH_TOKEN", "No refresh token available");
   }
 
-  const res = await fetch(`${BASE_URL}/v1/auth/refresh`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    // Backend AuthController reads Map key "refresh_token"
-    body: JSON.stringify({ refresh_token: refreshToken }),
-  });
+  let res: Response;
+  try {
+    res = await timedFetch(
+      `${BASE_URL}/v1/auth/refresh`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refresh_token: refreshToken }),
+      },
+      REFRESH_TIMEOUT_MS
+    );
+  } catch (e) {
+    if (isAbortOrTimeout(e)) {
+      throw new ApiError(
+        408,
+        "ERR_TIMEOUT",
+        "Auth refresh timed out — ensure the API is reachable (e.g. npm run server on port 8091)."
+      );
+    }
+    throw e;
+  }
 
   if (!res.ok) {
     clearTokens();
@@ -95,7 +154,15 @@ async function performTokenRefresh(): Promise<string> {
     throw new ApiError(401, "ERR_REFRESH_FAILED", "Session expired — please sign in again");
   }
 
-  const data = await res.json() as { accessToken: string; refreshToken: string };
+  let data: { accessToken: string; refreshToken: string };
+  try {
+    data = await readJsonBody<{ accessToken: string; refreshToken: string }>(res);
+  } catch (e) {
+    if (isAbortOrTimeout(e)) {
+      throw new ApiError(408, "ERR_TIMEOUT", "Reading auth refresh response timed out.");
+    }
+    throw e;
+  }
   setAccessToken(data.accessToken);
   setRefreshToken(data.refreshToken);
   return data.accessToken;
@@ -129,9 +196,13 @@ async function coreFetch<T>(path: string, options: RequestOptions = {}): Promise
   const { method = "GET", body, anonymous = false, signal } = options;
 
   const headers: Record<string, string> = {
-    "Content-Type": "application/json",
     Accept: "application/json",
   };
+  /** Fastify rejects `Content-Type: application/json` with an empty body; only set when we send JSON. */
+  const serializedBody = body !== undefined ? JSON.stringify(body) : undefined;
+  if (serializedBody !== undefined) {
+    headers["Content-Type"] = "application/json";
+  }
 
   if (!anonymous) {
     try {
@@ -144,12 +215,29 @@ async function coreFetch<T>(path: string, options: RequestOptions = {}): Promise
   }
 
   const url = `${BASE_URL}${path}`;
-  const res = await fetch(url, {
-    method,
-    headers,
-    body: body !== undefined ? JSON.stringify(body) : undefined,
-    signal,
-  });
+  let res: Response;
+  try {
+    res = await timedFetch(
+      url,
+      {
+        method,
+        headers,
+        body: serializedBody,
+        signal,
+      },
+      JSON_REQUEST_TIMEOUT_MS
+    );
+  } catch (e) {
+    if (isAbortOrTimeout(e)) {
+      throw new ApiError(
+        408,
+        "ERR_TIMEOUT",
+        `Request timed out (${path}) — is the dev API running? Try npm run server (port 8091).`,
+        path
+      );
+    }
+    throw e;
+  }
 
   // On 401 (token expired mid-flight), refresh and retry once
   if (res.status === 401 && !anonymous && _accessToken) {
@@ -157,12 +245,16 @@ async function coreFetch<T>(path: string, options: RequestOptions = {}): Promise
     try {
       const newToken = await getOrRefreshToken();
       headers["Authorization"] = `Bearer ${newToken}`;
-      const retry = await fetch(url, {
-        method,
-        headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-        signal,
-      });
+      const retry = await timedFetch(
+        url,
+        {
+          method,
+          headers,
+          body: serializedBody,
+          signal,
+        },
+        JSON_REQUEST_TIMEOUT_MS
+      );
       return parseResponse<T>(retry, path);
     } catch {
       clearTokens();
@@ -174,21 +266,56 @@ async function coreFetch<T>(path: string, options: RequestOptions = {}): Promise
   return parseResponse<T>(res, path);
 }
 
+async function readJsonBody<T>(res: Response): Promise<T> {
+  let tid: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    tid = setTimeout(
+      () => reject(new DOMException("Response body read timed out", "TimeoutError")),
+      JSON_BODY_READ_TIMEOUT_MS
+    );
+  });
+  try {
+    return await Promise.race([res.json() as Promise<T>, timeout]);
+  } finally {
+    if (tid !== undefined) clearTimeout(tid);
+  }
+}
+
 async function parseResponse<T>(res: Response, path: string): Promise<T> {
   if (res.ok) {
     if (res.status === 204) return undefined as T;
-    return res.json() as Promise<T>;
+    try {
+      return await readJsonBody<T>(res);
+    } catch (e) {
+      if (isAbortOrTimeout(e)) {
+        throw new ApiError(
+          408,
+          "ERR_TIMEOUT",
+          `Reading response body timed out (${path}) — the API may be stalled or the proxy misconfigured.`,
+          path
+        );
+      }
+      throw e;
+    }
   }
 
   let code = `ERR_HTTP_${res.status}`;
   let message = res.statusText || `Request failed with status ${res.status}`;
 
   try {
-    const err = await res.json() as { error?: string; message?: string };
+    const err = await readJsonBody<{ error?: string; message?: string }>(res);
     if (err.error) code = err.error;
     if (err.message) message = err.message;
-  } catch {
-    // response body is not JSON — use statusText
+  } catch (e) {
+    if (isAbortOrTimeout(e)) {
+      throw new ApiError(
+        408,
+        "ERR_TIMEOUT",
+        `Reading error response timed out (${path})`,
+        path
+      );
+    }
+    // response body is not JSON or other parse issue — use statusText
   }
 
   throw new ApiError(res.status, code, message, path);
@@ -212,14 +339,27 @@ async function fetchMultipart<T>(
   }
 
   const url = `${BASE_URL}${path}`;
-  let res = await fetch(url, { method, headers, body, signal });
+  let res: Response;
+  try {
+    res = await timedFetch(url, { method, headers, body, signal }, MULTIPART_TIMEOUT_MS);
+  } catch (e) {
+    if (isAbortOrTimeout(e)) {
+      throw new ApiError(
+        408,
+        "ERR_TIMEOUT",
+        `Upload timed out (${path}) — check your connection and API availability.`,
+        path
+      );
+    }
+    throw e;
+  }
 
   if (res.status === 401 && !anonymous) {
     _accessToken = null;
     try {
       const newToken = await getOrRefreshToken();
       headers["Authorization"] = `Bearer ${newToken}`;
-      res = await fetch(url, { method, headers, body, signal });
+      res = await timedFetch(url, { method, headers, body, signal }, MULTIPART_TIMEOUT_MS);
       return parseResponse<T>(res, path);
     } catch {
       clearTokens();

@@ -1,7 +1,8 @@
 import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertTriangle, ExternalLink, Copy } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses, detailPageTabTriggerBaseClasses } from "@/lib/typography";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
@@ -32,12 +33,18 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import { useInstitution, useInstitutionOverviewCharts } from "@/hooks/api/useInstitutions";
-import { useApiKeys, useRegenerateApiKey, useRevokeApiKey } from "@/hooks/api/useApiKeys";
+import {
+  useInstitution,
+  useInstitutionOverviewCharts,
+  useInstitutionApiAccess,
+  usePatchInstitutionApiAccess,
+} from "@/hooks/api/useInstitutions";
+import { useApiKeys, useCreateApiKey, useRegenerateApiKey, useRevokeApiKey } from "@/hooks/api/useApiKeys";
 import { useApiRequests, useEnquiries } from "@/hooks/api/useMonitoring";
 import { useBatchJobs } from "@/hooks/api/useBatchJobs";
 import { useProducts } from "@/hooks/api/useProducts";
 import type { InstitutionResponse } from "@/services/institutions.service";
+import { defaultInstitutionApiAccessPayload } from "@/services/institutions.service";
 import type { ApiKeyResponse } from "@/services/apiKeys.service";
 import type { ApiRequestRecord, EnquiryRecord } from "@/services/monitoring.service";
 import type { BatchJobResponse } from "@/services/batchJobs.service";
@@ -183,7 +190,7 @@ const InstitutionDetail = () => {
         {activeTab === "Products" && (
           <ProductSubscriptionsTab institutionId={String(institution.id)} />
         )}
-        {activeTab === "Consent" && <ConsentConfigTab />}
+        {activeTab === "Consent" && <ConsentConfigTab institutionId={String(institution.id)} />}
         {activeTab === "Billing" && (
           <BillingTab
             institutionId={String(institution.id)}
@@ -688,6 +695,8 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
 
 /* ─────────────── API & ACCESS TAB ─────────────── */
 
+type ApiAccessCardKey = "dataSubmission" | "enquiry";
+
 function ApiAccessTab({
   institutionId,
   isDataSubmitter,
@@ -698,29 +707,62 @@ function ApiAccessTab({
   isSubscriber: boolean;
 }) {
   const [envTab, setEnvTab] = useState<"sandbox" | "uat" | "prod">("sandbox");
-  const [editingApi, setEditingApi] = useState<string | null>(null);
+  const [editingKey, setEditingKey] = useState<ApiAccessCardKey | null>(null);
   const [editRate, setEditRate] = useState("");
 
+  const { data: apiAccessData } = useInstitutionApiAccess(institutionId);
+  const { mutate: patchApiAccess, isPending: patchingAccess } = usePatchInstitutionApiAccess(institutionId);
+  const access = apiAccessData ?? defaultInstitutionApiAccessPayload();
+
   const { data: apiKeys = [], isLoading: keysLoading } = useApiKeys(institutionId);
+  const { mutate: createKey, isPending: creatingKey } = useCreateApiKey(institutionId);
   const { mutate: regenerate, isPending: regenerating } = useRegenerateApiKey();
   const { mutate: revoke, isPending: revoking } = useRevokeApiKey();
 
-  // Filter keys by environment tab
-  const filteredKeys: ApiKeyResponse[] = apiKeys.filter(
-    (k) => !k.environment || k.environment.toLowerCase() === envTab
-  );
+  // Filter keys by environment tab (`production` matches prod tab)
+  const filteredKeys: ApiKeyResponse[] = apiKeys.filter((k) => {
+    const e = (k.environment ?? "").toLowerCase();
+    if (envTab === "prod") return e === "prod" || e === "production";
+    return e === envTab;
+  });
 
   const displayedKeys = filteredKeys.length > 0 ? filteredKeys : apiKeys;
 
-  // API cards derived from institution role
-  const apiCards = [
-    ...(isDataSubmitter
-      ? [{ name: "Data Submission API", enabled: true, rateLimit: "200/min", ipWhitelist: [] as string[], lastUsed: "—" }]
-      : []),
-    ...(isSubscriber
-      ? [{ name: "Enquiry API", enabled: true, rateLimit: "100/min", ipWhitelist: [] as string[], lastUsed: "—" }]
-      : []),
-  ];
+  const apiCards = useMemo(() => {
+    const cards: Array<{
+      key: ApiAccessCardKey;
+      name: string;
+      enabled: boolean;
+      rateLimit: string;
+      ipWhitelist: string[];
+      lastUsed: string;
+      concurrentLimit?: number;
+    }> = [];
+    if (isDataSubmitter) {
+      const s = access.dataSubmission;
+      cards.push({
+        key: "dataSubmission",
+        name: "Data Submission API",
+        enabled: s.enabled,
+        rateLimit: `${s.rateLimitPerMin}/min`,
+        ipWhitelist: s.ipWhitelist ?? [],
+        lastUsed: "—",
+      });
+    }
+    if (isSubscriber) {
+      const e = access.enquiry;
+      cards.push({
+        key: "enquiry",
+        name: "Enquiry API",
+        enabled: e.enabled,
+        rateLimit: `${e.rateLimitPerMin}/min`,
+        ipWhitelist: e.ipWhitelist ?? [],
+        lastUsed: "—",
+        concurrentLimit: e.concurrentLimit,
+      });
+    }
+    return cards;
+  }, [access, isDataSubmitter, isSubscriber]);
 
   return (
     <div className="space-y-6">
@@ -745,8 +787,13 @@ function ApiAccessTab({
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b border-border">
           <h3 className="text-h4 font-semibold text-foreground">API Keys</h3>
-          <button className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors">
-            Generate New Key
+          <button
+            type="button"
+            disabled={creatingKey}
+            onClick={() => createKey(envTab)}
+            className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {creatingKey ? "Generating…" : "Generate New Key"}
           </button>
         </div>
         <div className="min-w-0 overflow-x-auto">
@@ -768,7 +815,29 @@ function ApiAccessTab({
               <tbody className="divide-y divide-border">
                 {displayedKeys.map((k) => (
                   <tr key={k.id}>
-                    <td className="px-5 py-4 text-body text-foreground font-mono">{k.keyPrefix}••••••••</td>
+                    <td className="px-5 py-4">
+                      <div className="flex min-w-0 max-w-[min(100%,20rem)] items-center gap-2">
+                        <span className="truncate font-mono text-body text-foreground" title={`${k.keyPrefix} (prefix only)`}>
+                          {k.keyPrefix}••••••••
+                        </span>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-md border border-border p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                          aria-label={`Copy key prefix for key ${k.id}`}
+                          title="Copy key prefix (full secret is not shown)"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(k.keyPrefix);
+                              toast.success("Key prefix copied");
+                            } catch {
+                              toast.error("Could not copy to clipboard");
+                            }
+                          }}
+                        >
+                          <Copy className="h-4 w-4" aria-hidden />
+                        </button>
+                      </div>
+                    </td>
                     <td className="px-5 py-4 text-body text-muted-foreground">
                       {k.createdAt ? new Date(k.createdAt).toLocaleDateString() : "—"}
                     </td>
@@ -816,15 +885,30 @@ function ApiAccessTab({
       {apiCards.length > 0 && (
         <div className={cn("grid gap-4", apiCards.length <= 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-3")}>
           {apiCards.map((api) => (
-            <div key={api.name} className="bg-card rounded-xl border border-border p-5">
+            <div key={api.key} className="bg-card rounded-xl border border-border p-5">
               <div className="flex items-center justify-between mb-3">
                 <h4 className="text-body font-semibold text-foreground">{api.name}</h4>
-                <div className={cn(
-                  "w-10 h-6 rounded-full flex items-center px-0.5 transition-colors cursor-pointer",
-                  api.enabled ? "bg-success justify-end" : "bg-muted justify-start"
-                )}>
-                  <div className="w-5 h-5 rounded-full bg-card shadow-sm" />
-                </div>
+                <button
+                  type="button"
+                  disabled={patchingAccess}
+                  onClick={() => {
+                    const patch =
+                      api.key === "dataSubmission"
+                        ? { dataSubmission: { enabled: !api.enabled } }
+                        : { enquiry: { enabled: !api.enabled } };
+                    patchApiAccess(patch);
+                  }}
+                  className={cn(
+                    "w-10 h-6 rounded-full flex items-center px-0.5 transition-colors shrink-0",
+                    api.enabled ? "bg-success justify-end" : "bg-muted justify-start",
+                    patchingAccess ? "opacity-50" : "cursor-pointer"
+                  )}
+                  aria-label={`${api.enabled ? "Disable" : "Enable"} ${api.name}`}
+                  aria-pressed={api.enabled}
+                >
+                  <span className="sr-only">Toggle API enabled</span>
+                  <span className="w-5 h-5 rounded-full bg-card shadow-sm block" />
+                </button>
               </div>
               <div className="space-y-1.5">
                 <div className="flex justify-between items-center">
@@ -832,8 +916,13 @@ function ApiAccessTab({
                   <div className="flex items-center gap-1.5">
                     <span className="text-caption text-foreground font-medium">{api.rateLimit}</span>
                     <button
-                      onClick={() => { setEditingApi(api.name); setEditRate(api.rateLimit.replace("/min", "")); }}
-                      className="px-2 py-0.5 rounded border border-primary/30 text-caption font-medium text-primary hover:bg-primary/10 transition-colors"
+                      type="button"
+                      disabled={patchingAccess}
+                      onClick={() => {
+                        setEditingKey(api.key);
+                        setEditRate(String(api.rateLimit.replace("/min", "")));
+                      }}
+                      className="px-2 py-0.5 rounded border border-primary/30 text-caption font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
                     >
                       Edit
                     </button>
@@ -847,11 +936,11 @@ function ApiAccessTab({
                   <span className="text-caption text-muted-foreground">Last Used</span>
                   <span className="text-caption text-foreground">{api.lastUsed}</span>
                 </div>
-                {isSubscriber && api.name === "Enquiry API" && (
+                {api.key === "enquiry" && api.concurrentLimit != null && (
                   <>
                     <div className="flex justify-between">
                       <span className="text-caption text-muted-foreground">Concurrent Limit</span>
-                      <span className="text-caption text-foreground font-medium">50</span>
+                      <span className="text-caption text-foreground font-medium">{api.concurrentLimit}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-caption text-muted-foreground">Credit Check Config</span>
@@ -866,21 +955,52 @@ function ApiAccessTab({
       )}
 
       {/* Edit Rate Limit Dialog */}
-      <Dialog open={!!editingApi} onOpenChange={(open) => !open && setEditingApi(null)}>
+      <Dialog
+        open={!!editingKey}
+        onOpenChange={(open) => {
+          if (!open) setEditingKey(null);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Edit Rate Limit — {editingApi}</DialogTitle>
+            <DialogTitle>
+              Edit Rate Limit —{" "}
+              {editingKey === "dataSubmission" ? "Data Submission API" : editingKey === "enquiry" ? "Enquiry API" : ""}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1.5">Rate Limit (requests/min)</label>
-              <Input type="number" value={editRate} onChange={(e) => setEditRate(e.target.value)} min={1} />
+              <Input type="number" value={editRate} onChange={(e) => setEditRate(e.target.value)} min={1} disabled={patchingAccess} />
             </div>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setEditingApi(null)} className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
+              <button
+                type="button"
+                disabled={patchingAccess}
+                onClick={() => setEditingKey(null)}
+                className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
                 Cancel
               </button>
-              <button onClick={() => setEditingApi(null)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+              <button
+                type="button"
+                disabled={patchingAccess}
+                onClick={() => {
+                  if (!editingKey) return;
+                  const n = Math.max(1, Math.floor(Number(editRate)));
+                  if (!Number.isFinite(n)) {
+                    toast.error("Enter a valid rate (requests per minute).");
+                    return;
+                  }
+                  patchApiAccess(
+                    editingKey === "dataSubmission"
+                      ? { dataSubmission: { rateLimitPerMin: n } }
+                      : { enquiry: { rateLimitPerMin: n } },
+                    { onSuccess: () => setEditingKey(null) }
+                  );
+                }}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
                 Save
               </button>
             </div>
