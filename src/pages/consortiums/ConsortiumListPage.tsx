@@ -12,6 +12,7 @@ import {
   consortiumListLabel,
   consortiumListLabelStyles,
   consortiumTypeBadgeClass,
+  type ConsortiumStatus,
   type ConsortiumType,
 } from "@/data/consortiums-mock";
 import {
@@ -21,17 +22,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
 import { SkeletonTable } from "@/components/ui/skeleton-table";
 import { ApiErrorCard } from "@/components/ui/api-error-card";
 import { useConsortiums } from "@/hooks/api/useConsortiums";
 
 export default function ConsortiumListPage() {
   const navigate = useNavigate();
-  const { consortiums: contextConsortiums } = useCatalogMock();
   const { data: apiData, isLoading, isError, error, refetch } = useConsortiums();
-  // Prefer API data when available, fall back to context (local mock mutations)
-  const consortiums = (apiData as unknown as typeof contextConsortiums) ?? contextConsortiums;
+  const consortiums = apiData?.content ?? [];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -41,7 +39,7 @@ export default function ConsortiumListPage() {
       const q = search.toLowerCase();
       const matchSearch =
         c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q);
-      const listLab = consortiumListLabel(c.status);
+      const listLab = consortiumListLabel(c.status as ConsortiumStatus);
       const matchStatus =
         statusFilter === "all" ||
         (statusFilter === "active" && listLab === "Active") ||

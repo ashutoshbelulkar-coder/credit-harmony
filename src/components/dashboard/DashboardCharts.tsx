@@ -4,7 +4,9 @@ import {
 import {
   ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent, type ChartConfig,
 } from "@/components/ui/chart";
-import type { DashboardCharts as DashboardChartsData } from "@/api/dashboard-types";
+import type { DashboardCharts as DashboardChartsData, DashboardRange } from "@/api/dashboard-types";
+import { apiUsageChartHeading, apiUsageChartRangeDescription } from "@/api/dashboard-types";
+import type { DashboardDateRange } from "@/components/dashboard/DashboardDateRangePicker";
 
 const apiUsageConfig = {
   volume: { label: "API Volume", color: "hsl(var(--primary))" },
@@ -34,7 +36,15 @@ const rejectionOverrideConfig = {
   overridden: { label: "Overridden", color: "hsl(var(--warning))" },
 } satisfies ChartConfig;
 
-export function ApiUsageChart({ data, loading }: { data?: DashboardChartsData; loading?: boolean }) {
+export function ApiUsageChart({
+  data,
+  loading,
+  dateRange,
+}: {
+  data?: DashboardChartsData;
+  loading?: boolean;
+  dateRange?: DashboardDateRange;
+}) {
   const apiUsageData = data?.apiUsageTrend ?? [];
   const successFailureData = data
     ? [
@@ -43,13 +53,17 @@ export function ApiUsageChart({ data, loading }: { data?: DashboardChartsData; l
       ]
     : [];
 
+  const dr = dateRange as DashboardRange | undefined;
+  const heading = dr ? apiUsageChartHeading(dr) : "API usage trend";
+  const sub = dr ? apiUsageChartRangeDescription(dr) : "Request volume and error rate";
+
   return (
     <section aria-label="API usage and reliability" className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-12">
       <div className="lg:col-span-8">
         <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
           <header>
-            <h2 className="text-h4 font-semibold text-foreground">API Usage Trend (30 days)</h2>
-            <p className="mt-1 text-caption text-muted-foreground">Request volume and error rate across the last 30 days</p>
+            <h2 className="text-h4 font-semibold text-foreground">{heading}</h2>
+            <p className="mt-1 text-caption text-muted-foreground">{sub}</p>
           </header>
           <div className="mt-3 flex-1">
             <ChartContainer config={apiUsageConfig} className="h-[200px] min-h-[200px] md:h-[240px] laptop:h-[260px] desktop:h-[280px] w-full">

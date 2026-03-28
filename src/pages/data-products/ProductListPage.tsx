@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Search, Eye, Pencil, Plus, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
 import { SkeletonTable } from "@/components/ui/skeleton-table";
 import { ApiErrorCard } from "@/components/ui/api-error-card";
 import { useProducts } from "@/hooks/api/useProducts";
@@ -19,7 +18,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  configuredProducts,
   productPricingLabel,
+  productStatusFromApi,
+  type ConfiguredProduct,
   type ProductLifecycleStatus,
 } from "@/data/data-products-mock";
 
@@ -37,9 +39,23 @@ const statusLabel: Record<ProductLifecycleStatus, string> = {
 
 export default function ProductListPage() {
   const navigate = useNavigate();
-  const { products: contextProducts } = useCatalogMock();
-  const { data: apiProducts, isLoading, isError, error, refetch } = useProducts();
-  const products = (apiProducts as unknown as typeof contextProducts) ?? contextProducts;
+  const { data: apiProducts, isLoading, isError, error, refetch } = useProducts({ size: 100 });
+  const products = useMemo((): ConfiguredProduct[] => {
+    const apiList = apiProducts?.content ?? [];
+    const apiById = new Map(apiList.map((p) => [p.id, p]));
+    return configuredProducts.map((p) => {
+      const o = apiById.get(p.id);
+      if (!o) return p;
+      return {
+        ...p,
+        name: o.name,
+        description: o.description ?? p.description,
+        status: productStatusFromApi(o.status),
+        lastUpdated: o.lastUpdated ?? p.lastUpdated,
+        price: o.price ?? p.price,
+      };
+    });
+  }, [apiProducts]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 

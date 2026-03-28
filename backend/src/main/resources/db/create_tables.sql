@@ -175,14 +175,16 @@ CREATE INDEX idx_users_status         ON users (user_account_status);
 
 -- ----------------------------------------------------------------------------
 -- user_role_assignments (mapping; supports institution-scoped role grants)
+-- Surrogate id matches JPA @GeneratedValue on UserRoleAssignment
 -- ----------------------------------------------------------------------------
 CREATE TABLE user_role_assignments (
+    id             INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id        INTEGER  NOT NULL REFERENCES users(id)        ON DELETE CASCADE,
     role_id        INTEGER  NOT NULL REFERENCES roles(id)        ON DELETE RESTRICT,
     institution_id INTEGER  REFERENCES institutions(id)          ON DELETE CASCADE,
     assigned_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     assigned_by    INTEGER  REFERENCES users(id)                 ON DELETE SET NULL,
-    PRIMARY KEY (user_id, role_id, institution_id)
+    UNIQUE(user_id, role_id, institution_id)
 );
 
 CREATE INDEX idx_ura_user_id ON user_role_assignments (user_id);

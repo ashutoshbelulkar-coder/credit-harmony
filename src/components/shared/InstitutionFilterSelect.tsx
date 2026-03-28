@@ -7,7 +7,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { institutions } from "@/data/institutions-mock";
+import { useAuth } from "@/contexts/AuthContext";
+import { useInstitutions } from "@/hooks/api/useInstitutions";
 import { cn } from "@/lib/utils";
 
 export type InstitutionFilterMode = "submitters" | "subscribers" | "all";
@@ -29,11 +30,15 @@ export function InstitutionFilterSelect({
   triggerClassName?: string;
   id?: string;
 }) {
+  const { user } = useAuth();
+  const { data: page } = useInstitutions({ size: 300 }, { enabled: !!user });
+  const institutions = page?.content ?? [];
+
   const list = useMemo(() => {
     if (mode === "submitters") return institutions.filter((i) => i.isDataSubmitter);
     if (mode === "subscribers") return institutions.filter((i) => i.isSubscriber);
     return institutions;
-  }, [mode]);
+  }, [mode, institutions]);
 
   return (
     <div className="space-y-1.5">
@@ -51,7 +56,7 @@ export function InstitutionFilterSelect({
             {allLabel}
           </SelectItem>
           {list.map((i) => (
-            <SelectItem key={i.id} value={i.id} className="text-caption">
+            <SelectItem key={i.id} value={String(i.id)} className="text-caption">
               {i.tradingName ?? i.name}
             </SelectItem>
           ))}

@@ -5,7 +5,6 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { CatalogMockProvider } from "@/contexts/CatalogMockContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { queryClient } from "@/lib/query-client";
 
@@ -27,11 +26,9 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
           */}
           <BrowserRouter>
             <AuthProvider>
-              <CatalogMockProvider>
-                <ErrorBoundary>
-                  {children}
-                </ErrorBoundary>
-              </CatalogMockProvider>
+              <ErrorBoundary>
+                {children}
+              </ErrorBoundary>
             </AuthProvider>
           </BrowserRouter>
         </TooltipProvider>

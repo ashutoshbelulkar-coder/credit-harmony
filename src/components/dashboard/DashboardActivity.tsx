@@ -45,10 +45,10 @@ export function DashboardActivity({
         </div>
       </div>
 
-      {/* Top Institutions */}
+      {/* Top institutions by enquiry volume (live data from /v1/dashboard/charts). */}
       <div className="lg:col-span-2 laptop:col-span-5 bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <div className="flex items-center justify-between border-b border-border pb-4">
-          <h2 className="text-label uppercase tracking-[0.08em] text-muted-foreground">Top Institutions</h2>
+          <h2 className="text-label uppercase tracking-[0.08em] text-muted-foreground">Top institutions</h2>
           <BarChart3 className="h-4 w-4 text-muted-foreground" />
         </div>
         <div className="mt-4 space-y-4">
@@ -56,7 +56,7 @@ export function DashboardActivity({
             <div key={inst.name} className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-body font-medium text-foreground">{inst.name}</span>
-                <span className="text-caption text-muted-foreground">{inst.requests} reqs</span>
+                <span className="text-caption text-muted-foreground">{inst.requests} enquiries</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="flex-1">

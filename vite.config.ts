@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       "/api": {
-        target: "http://localhost:8090",
+        target: process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8091",
         changeOrigin: true,
         secure: false,
       },

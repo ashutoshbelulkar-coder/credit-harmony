@@ -19,9 +19,10 @@ import {
   getMockPayloadForPacket,
   getPacketsByIds,
   enquirySectionKeyForPacket,
+  productStatusFromApi,
   resolvePayloadPacketName,
 } from "@/data/data-products-mock";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
+import { useProducts } from "@/hooks/api/useProducts";
 import { cn } from "@/lib/utils";
 import simulationDefaults from "@/data/simulation-defaults.json";
 
@@ -36,12 +37,23 @@ const sectionTitles: Record<(typeof sectionOrder)[number], string> = {
 
 export default function EnquirySimulationPage() {
   const navigate = useNavigate();
-  const { products } = useCatalogMock();
+  const { data: productsPage } = useProducts({ size: 100 });
   const productOptions = useMemo(() => {
-    const map = new Map(configuredProducts.map((p) => [p.id, p]));
-    products.forEach((p) => map.set(p.id, p));
-    return Array.from(map.values());
-  }, [products]);
+    const apiList = productsPage?.content ?? [];
+    const apiById = new Map(apiList.map((p) => [p.id, p]));
+    return configuredProducts.map((p) => {
+      const o = apiById.get(p.id);
+      if (!o) return p;
+      return {
+        ...p,
+        name: o.name,
+        description: o.description ?? p.description,
+        status: productStatusFromApi(o.status),
+        lastUpdated: o.lastUpdated ?? p.lastUpdated,
+        price: o.price ?? p.price,
+      };
+    });
+  }, [productsPage]);
   const [productId, setProductId] = useState(productOptions[0]?.id ?? "");
   const [customerName, setCustomerName] = useState(DEFAULTS.customerName);
   const [consumerId, setConsumerId] = useState(DEFAULTS.consumerId);

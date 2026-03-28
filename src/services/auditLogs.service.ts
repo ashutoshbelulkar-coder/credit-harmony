@@ -1,8 +1,8 @@
 import { get, buildQuery, ApiError } from "@/lib/api-client";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 import type { PagedResponse } from "./institutions.service";
 
 const BASE = "/v1/audit-logs";
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 export interface AuditLogEntry {
   id: number;
@@ -36,7 +36,7 @@ export async function fetchAuditLogs(params?: AuditLogParams): Promise<PagedResp
   try {
     return await get<PagedResponse<AuditLogEntry>>(`${BASE}${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       // Fall back to user-management mock activity logs
       const { mockActivity } = await import("@/data/user-management-mock");
       const list = (mockActivity ?? []).map((a, i) => ({

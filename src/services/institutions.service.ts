@@ -1,12 +1,12 @@
 /**
  * Institution service — normalised API calls for the institutions domain.
- * Falls back to mock data when VITE_USE_MOCK_FALLBACK=true and backend unreachable.
+ * Falls back to mock data when `clientMockFallbackEnabled` (dev + VITE_USE_MOCK_FALLBACK) and backend unreachable.
  */
-import { get, post, patch, del, buildQuery, ApiError } from "@/lib/api-client";
+import { get, post, postMultipart, patch, del, buildQuery, ApiError } from "@/lib/api-client";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 import { institutions as mockInstitutions, getInstitutionById as mockGetById } from "@/data/institutions-mock";
 
 const BASE = "/v1/institutions";
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 // ─── Response Types ──────────────────────────────────────────────────────────
 
@@ -33,6 +33,17 @@ export interface InstitutionResponse {
   apisEnabledCount: number;
   createdAt: string;
   updatedAt: string;
+  complianceDocs?: { name: string; status: string }[];
+}
+
+export interface InstitutionOverviewChartsPayload {
+  submissionVolumeData: { day: string; volume: number }[];
+  successVsRejectedData: { name: string; value: number }[];
+  rejectionReasonsData: { reason: string; count: number }[];
+  processingTimeData: { day: string; avgMs: number }[];
+  enquiryVolumeData: { day: string; volume: number }[];
+  successVsFailedData: { name: string; value: number }[];
+  responseTimeData: { day: string; latency: number }[];
 }
 
 export interface InstitutionListParams {
@@ -90,7 +101,7 @@ export async function fetchInstitutions(
   try {
     return await get<PagedResponse<InstitutionResponse>>(`${BASE}${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       let list = mockInstitutions.map(normaliseMockInstitution);
       if (params?.search) {
         const q = params.search.toLowerCase();
@@ -115,11 +126,26 @@ export async function fetchInstitutions(
   }
 }
 
+export async function fetchInstitutionOverviewCharts(id: string | number): Promise<InstitutionOverviewChartsPayload> {
+  return get<InstitutionOverviewChartsPayload>(`${BASE}/${id}/overview-charts`);
+}
+
+export async function uploadInstitutionDocument(
+  institutionId: string | number,
+  documentName: string,
+  file: File
+): Promise<{ complianceDocs: { name: string; status: string }[] }> {
+  const fd = new FormData();
+  fd.append("documentName", documentName);
+  fd.append("file", file);
+  return postMultipart<{ complianceDocs: { name: string; status: string }[] }>(`${BASE}/${institutionId}/documents`, fd);
+}
+
 export async function fetchInstitutionById(id: string | number): Promise<InstitutionResponse> {
   try {
     return await get<InstitutionResponse>(`${BASE}/${id}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       const m = mockGetById(String(id));
       if (!m) throw new ApiError(404, "ERR_NOT_FOUND", `Institution ${id} not found`);
       return normaliseMockInstitution(m);

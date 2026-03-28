@@ -85,7 +85,8 @@ async function performTokenRefresh(): Promise<string> {
   const res = await fetch(`${BASE_URL}/v1/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refreshToken }),
+    // Backend AuthController reads Map key "refresh_token"
+    body: JSON.stringify({ refresh_token: refreshToken }),
   });
 
   if (!res.ok) {
@@ -193,6 +194,43 @@ async function parseResponse<T>(res: Response, path: string): Promise<T> {
   throw new ApiError(res.status, code, message, path);
 }
 
+async function fetchMultipart<T>(
+  path: string,
+  options: { method?: string; body: FormData; anonymous?: boolean; signal?: AbortSignal }
+): Promise<T> {
+  const { method = "POST", body, anonymous = false, signal } = options;
+  const headers: Record<string, string> = { Accept: "application/json" };
+
+  if (!anonymous) {
+    try {
+      const token = await getOrRefreshToken();
+      headers["Authorization"] = `Bearer ${token}`;
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError(401, "ERR_AUTH", "Authentication failed");
+    }
+  }
+
+  const url = `${BASE_URL}${path}`;
+  let res = await fetch(url, { method, headers, body, signal });
+
+  if (res.status === 401 && !anonymous) {
+    _accessToken = null;
+    try {
+      const newToken = await getOrRefreshToken();
+      headers["Authorization"] = `Bearer ${newToken}`;
+      res = await fetch(url, { method, headers, body, signal });
+      return parseResponse<T>(res, path);
+    } catch {
+      clearTokens();
+      window.dispatchEvent(new CustomEvent("auth:session-expired"));
+      throw new ApiError(401, "ERR_SESSION_EXPIRED", "Session expired — please sign in again", path);
+    }
+  }
+
+  return parseResponse<T>(res, path);
+}
+
 // ─── Public Typed Helpers ────────────────────────────────────────────────────
 
 export function get<T>(path: string, signal?: AbortSignal): Promise<T> {
@@ -201,6 +239,11 @@ export function get<T>(path: string, signal?: AbortSignal): Promise<T> {
 
 export function post<T>(path: string, body?: unknown): Promise<T> {
   return coreFetch<T>(path, { method: "POST", body });
+}
+
+/** POST `multipart/form-data` — do not set Content-Type; boundary is added by the browser. */
+export function postMultipart<T>(path: string, formData: FormData, signal?: AbortSignal): Promise<T> {
+  return fetchMultipart<T>(path, { body: formData, signal });
 }
 
 export function postAnon<T>(path: string, body?: unknown): Promise<T> {

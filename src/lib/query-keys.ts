@@ -27,6 +27,7 @@ export const QK = {
     productSubscriptions: (id: string | number) => ["institutions", String(id), "product-subscriptions"] as const,
     billingSummary: (id: string | number) => ["institutions", String(id), "billing-summary"] as const,
     monitoringSummary: (id: string | number) => ["institutions", String(id), "monitoring-summary"] as const,
+    overviewCharts: (id: string | number) => ["institutions", String(id), "overview-charts"] as const,
   },
 
   // ── Users ────────────────────────────────────────────────────────────────

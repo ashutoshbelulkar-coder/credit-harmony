@@ -1,7 +1,8 @@
 import { get, buildQuery, ApiError } from "@/lib/api-client";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
+import type { DashboardRange } from "@/api/dashboard-types";
 
 const BASE = "/v1/dashboard";
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 export interface DashboardMetrics {
   apiVolume24h: number;
@@ -48,7 +49,7 @@ export async function fetchDashboardSnapshot(range: string) {
     ]);
     return { metrics, charts };
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       return null; // Caller falls back to createMockDashboardSnapshot
     }
     throw err;
@@ -75,14 +76,30 @@ export async function fetchDashboardActivity(): Promise<DashboardActivityRow[]> 
 
 // ── Dashboard Command Center ──────────────────────────────────────────────────
 
-export interface DashboardCommandCenter {
+export interface DashboardCommandCenterPayload {
   pendingApprovals: number;
   activeAlerts: number;
   pendingOnboarding: number;
   activeInstitutions: number;
   recentErrors1h: number;
+  /** Fleet + pipeline + anomalies + member quality (DB-backed when backend supports them). */
+  agents?: unknown[];
+  batches?: unknown[];
+  anomalies?: unknown[];
+  memberQuality?: unknown[];
 }
 
-export async function fetchDashboardCommandCenter(): Promise<DashboardCommandCenter> {
-  return get<DashboardCommandCenter>(`${BASE}/command-center`);
+function commandCenterQueryParams(range: DashboardRange): Record<string, string> {
+  if (range.kind === "preset") return { range: range.preset };
+  return {
+    range: "custom",
+    from: range.from.toISOString().slice(0, 10),
+    to: (range.to ?? new Date()).toISOString().slice(0, 10),
+  };
+}
+
+export async function fetchDashboardCommandCenter(range: DashboardRange): Promise<DashboardCommandCenterPayload> {
+  return get<DashboardCommandCenterPayload>(
+    `${BASE}/command-center${buildQuery(commandCenterQueryParams(range))}`
+  );
 }

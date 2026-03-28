@@ -1,8 +1,8 @@
 import { get, post, patch, del, buildQuery, ApiError } from "@/lib/api-client";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 import type { PagedResponse } from "./institutions.service";
 
 const BASE = "/v1/consortiums";
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 export interface ConsortiumResponse {
   id: string;
@@ -41,7 +41,7 @@ export async function fetchConsortiums(params?: ConsortiumListParams): Promise<P
   try {
     return await get<PagedResponse<ConsortiumResponse>>(`${BASE}${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       const { consortiums: mockList } = await import("@/data/consortiums-mock");
       let list = [...mockList] as ConsortiumResponse[];
       if (params?.search) {
@@ -61,7 +61,7 @@ export async function fetchConsortiumById(id: string): Promise<ConsortiumRespons
   try {
     return await get<ConsortiumResponse>(`${BASE}/${id}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       const { consortiums: mockList } = await import("@/data/consortiums-mock");
       const found = mockList.find((c) => c.id === id);
       if (!found) throw new ApiError(404, "ERR_NOT_FOUND", `Consortium ${id} not found`);
@@ -75,7 +75,7 @@ export async function fetchConsortiumMembers(id: string): Promise<ConsortiumMemb
   try {
     return await get<ConsortiumMember[]>(`${BASE}/${id}/members`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       const { consortiumMembersByConsortiumId } = await import("@/data/consortiums-mock");
       return ((consortiumMembersByConsortiumId as Record<string, unknown[]>)[id] ?? []) as ConsortiumMember[];
     }

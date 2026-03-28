@@ -126,3 +126,16 @@
 | **Status** | Accepted |
 | **Problem Solved** | Original mock data used generic `status` field across 8+ domains with incompatible enum sets, causing filter confusion and type safety violations. |
 | **Rationale** | Domain-scoped names enable unambiguous filtering, prevent cross-domain status comparisons, and allow per-domain CHECK constraints. |
+
+---
+
+## TDL-011: Local development API — Node (Fastify) + in-memory seed
+
+| Field | Value |
+|-------|-------|
+| **Decision** | Ship a `server/` Fastify app on port **8091** (configurable via `PORT`) exposing `/api/v1/*` routes aligned with `src/services/*.ts`; seed data loaded from `src/data/*.json`; in-memory state only (no SQLite/Postgres in this process). |
+| **Date** | 2026-03-28 |
+| **Status** | Accepted (dev harness) |
+| **Rationale** | Unblocks end-to-end UI testing without a separate Spring repo; Vite proxies `/api` to `127.0.0.1:8091` (`VITE_API_PROXY_TARGET` override). |
+| **Trade-offs** | Data resets on server restart; not suitable for production. Replace with TDL-001 PostgreSQL stack when hardening. |
+| **Security** | Default `JWT_SECRET` must be overridden outside local dev. |

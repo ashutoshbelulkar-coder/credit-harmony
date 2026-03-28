@@ -20,8 +20,9 @@ import {
   Users,
   Package,
 } from "lucide-react";
-import { institutions } from "@/data/institutions-mock";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useInstitutions } from "@/hooks/api/useInstitutions";
+import { useConsortiums } from "@/hooks/api/useConsortiums";
 
 const navigationItems = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard, group: "Navigation" },
@@ -56,7 +57,10 @@ const navigationItems = [
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
-  const { consortiums } = useCatalogMock();
+  const { user } = useAuth();
+  const { data: institutionsPage } = useInstitutions({ size: 200 }, { enabled: !!user });
+  const { data: consortiumsPage } = useConsortiums({ size: 200 }, { enabled: !!user });
+  const consortiums = consortiumsPage?.content ?? [];
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -69,14 +73,16 @@ export function CommandPalette() {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
+  const apiInstitutions = institutionsPage?.content ?? [];
+
   const institutionItems = useMemo(
     () =>
-      institutions.map((inst) => ({
+      apiInstitutions.map((inst) => ({
         label: inst.name,
         path: `/institutions/${inst.id}`,
-        subtitle: `${inst.type} · ${inst.status}`,
+        subtitle: `${inst.institutionType} · ${inst.institutionLifecycleStatus}`,
       })),
-    []
+    [apiInstitutions]
   );
 
   const handleSelect = (path: string) => {

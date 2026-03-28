@@ -397,6 +397,7 @@ Content-Type: application/json
 | `compliance@fnb.co.ke` | `Comply@1234` | Analyst | First National Bank | FNB compliance analyst |
 | `ops@metrocu.co.ke` | `OpsUser@1234` | Analyst | Metro Credit Union | Ops analyst |
 | `suspended@hcb.com` | `Suspended@1234` | Analyst | — | **Suspended** — login will return 401 |
+| `david.kim@pacificfin.com` | `David@1234` | Analyst | Pacific Finance | Extra seed user (see `seed_data.sql`) |
 
 ### Using the Token
 ```bash

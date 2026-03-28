@@ -13,8 +13,12 @@ import {
   type ConsortiumResponse,
 } from "@/services/consortiums.service";
 
-export function useConsortiums(params?: ConsortiumListParams) {
-  return useQuery({ queryKey: QK.consortiums.list(params), queryFn: () => fetchConsortiums(params) });
+export function useConsortiums(params?: ConsortiumListParams, options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: QK.consortiums.list(params),
+    queryFn: () => fetchConsortiums(params),
+    enabled: options?.enabled ?? true,
+  });
 }
 
 export function useConsortium(id: string | undefined) {

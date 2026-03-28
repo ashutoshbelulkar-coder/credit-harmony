@@ -161,35 +161,50 @@ INSERT OR IGNORE INTO compliance_documents (institution_id, document_name, docum
 -- suspended@hcb.com      → Suspended@1234
 -- sarah.chen@fnb.co.za   → Sarah@1234
 -- james.mthembu@fnb.co.za → James@1234
+-- david.kim@pacificfin.com → David@1234
 -- ============================================================================
 INSERT OR IGNORE INTO users
     (id, email, password_hash, display_name, given_name, family_name,
      user_account_status, mfa_enabled, institution_id, created_at)
 VALUES
-(1,  'admin@hcb.com',           '$2a$12$KIXqJ5vg7wT8X1oMzN9pRONyf3kzxHjRuPyB3MCqD8nZ1Z2lQFvhe',
+(1,  'admin@hcb.com',           '$2b$12$XXkH89KDr2OEbRIYtTBNd.dwaKZdpDAtYkc98lncLpiZfqxuJGf0K',
  'HCB Admin',         'HCB',     'Admin',    'active',    1, NULL,        '2024-01-10 00:00:00'),
-(2,  'super@hcb.com',           '$2a$12$YbNx9K3pWfHm1TlQ4dA7eOZrg5xMjVsNcPqD2IuB8nK3Y1ZvQGwhe',
+(2,  'super@hcb.com',           '$2b$12$d.P/nQYxO1UoKdvuc3wK8eZfIY/xdtKH16uZ03bfHqG17H1AflLre',
  'Super Admin',       'Super',   'Admin',    'active',    1, NULL,        '2024-01-10 00:00:00'),
-(3,  'bureau.admin@hcb.com',    '$2a$12$DmPq8L4rXgIn2UmR5eB8fPWsh6yNkWtOdQrE3JvC9oL4Z2AuRHxie',
+(3,  'bureau.admin@hcb.com',    '$2b$12$.UseXJQpziQH0G3Zc0Vf9O5p/JyyOusUjcYmBsNmvlLF.1UFAkV7G',
  'Bureau Admin',      'Bureau',  'Admin',    'active',    0, NULL,        '2024-02-01 00:00:00'),
-(4,  'analyst@hcb.com',         '$2a$12$FnQt9M5sYhJo3VnS6fC9gQXti7zOlXuPeRsF4KwD0pM5A3BvSIyje',
+(4,  'analyst@hcb.com',         '$2b$12$WdOcJXxxymk6xc4v9IORH.CW08ohmXOehU/6CTXq2yvgYZ.2S5I0O',
  'HCB Analyst',       'HCB',     'Analyst',  'active',    0, NULL,        '2024-03-01 00:00:00'),
-(5,  'viewer@hcb.com',          '$2a$12$GpRu0N6tZiKp4WoT7gD0hRYuj8APmYvQfStG5LxE1qN6B4CwTJzke',
+(5,  'viewer@hcb.com',          '$2b$12$yAPgQNO8uqBIm42A7I7SuOaeE2dOVT2MC53EI/FAByai91OkOUvM.',
  'Dashboard Viewer',  'Dash',    'Viewer',   'active',    0, NULL,        '2024-04-01 00:00:00'),
-(6,  'apiuser@hcb.com',         '$2a$12$HqSv1O7uAjLq5XpU8hE1iSZvk9BQnZwRgTuH6MyF2rO7C5DxUKale',
+(6,  'apiuser@hcb.com',         '$2b$12$uB/dkhJELC/H/XQY3Pk/EuvT76s7tvb0bMXfAAwc1ggCLnt/CvNt6',
  'API Integration',   'API',     'User',     'active',    0, NULL,        '2024-05-01 00:00:00'),
-(7,  'inst.admin@fnb.co.ke',    '$2a$12$IrTw2P8vBkMr6YqV9iF2jTAwl0CRoAxShUvI7NzG3sP8D6EyVLbme',
+(7,  'inst.admin@fnb.co.ke',    '$2b$12$Dd9KL0zRAHgKbIupFC53debqKL3YPW/6yKIlcWHp69.tAwSQIYgAu',
  'FNB Admin',         'FNB',     'Admin',    'active',    1, 1,           '2024-01-15 00:00:00'),
-(8,  'compliance@fnb.co.ke',    '$2a$12$JsUx3Q9wClNs7ZrW0jG3kUBxm1DSoBytIVwJ8OAH4tQ9E7FzWMcne',
+(8,  'compliance@fnb.co.ke',    '$2b$12$H9eJ1B1VI1gQTpxU2C7D5u6UwAmwqnTBlKmXNsyv36Nv52LCtrMWK',
  'Sarah Chen',        'Sarah',   'Chen',     'active',    1, 1,           '2024-01-15 00:00:00'),
-(9,  'ops@metrocu.co.ke',       '$2a$12$KtVy4R0xDmOt8AsX1kH4lVCyn2ETPcZuJWxK9PBI5uR0F8GAXNdoe',
+(9,  'ops@metrocu.co.ke',       '$2b$12$9fOs3X/cPh33YwfCRAQskummA4NpyPGAYoWFkdD823n5Lo3tkeQCW',
  'Priya Naidoo',      'Priya',   'Naidoo',   'active',    1, 2,           '2024-03-01 00:00:00'),
-(10, 'suspended@hcb.com',       '$2a$12$LuWz5S1yEnPu9BtY2lI5mWDzo3FUQdAvKXyL0QCJ6vS1G9HBYOpfe',
+(10, 'suspended@hcb.com',       '$2b$12$aaNpYk/TirDe0lYOz87BvuG2mDoSenuEmkWJxC6MXYyGClQWAQl5O',
  'Suspended User',    'Suspended','User',    'suspended', 0, NULL,        '2024-06-01 00:00:00'),
-(11, 'james.mthembu@fnb.co.za', '$2a$12$MvXA6T2zFoQv0CuZ3mJ6nXEAp4GVReBwLYzM1RDK7wT2H0ICZPqge',
+(11, 'james.mthembu@fnb.co.za', '$2b$12$BP7qwA.NKmXKVHvluAE5M.z3m5rY3mPW0gVXeLs7dtPj/Jv9qAWtC',
  'James Mthembu',     'James',   'Mthembu',  'active',    1, 1,           '2024-02-10 00:00:00'),
-(12, 'david.kim@pacificfin.com','$2a$12$NwYB7U3AGpRw1DvA4nK7oYFBq5HWSfCxMZAN2SEL8xU3I1JDAQrhe',
+(12, 'david.kim@pacificfin.com','$2b$12$DroxkL/KnJEP3kyH9wj0TOFN6A105m3XJGs7J9MlskDzC9AJXCwla',
  'David Kim',         'David',   'Kim',      'active',    0, 3,           '2024-03-20 00:00:00');
+
+-- Ensure password hashes match README (INSERT OR IGNORE leaves stale rows on re-seed)
+UPDATE users SET password_hash = '$2b$12$XXkH89KDr2OEbRIYtTBNd.dwaKZdpDAtYkc98lncLpiZfqxuJGf0K' WHERE email = 'admin@hcb.com';
+UPDATE users SET password_hash = '$2b$12$d.P/nQYxO1UoKdvuc3wK8eZfIY/xdtKH16uZ03bfHqG17H1AflLre' WHERE email = 'super@hcb.com';
+UPDATE users SET password_hash = '$2b$12$.UseXJQpziQH0G3Zc0Vf9O5p/JyyOusUjcYmBsNmvlLF.1UFAkV7G' WHERE email = 'bureau.admin@hcb.com';
+UPDATE users SET password_hash = '$2b$12$WdOcJXxxymk6xc4v9IORH.CW08ohmXOehU/6CTXq2yvgYZ.2S5I0O' WHERE email = 'analyst@hcb.com';
+UPDATE users SET password_hash = '$2b$12$yAPgQNO8uqBIm42A7I7SuOaeE2dOVT2MC53EI/FAByai91OkOUvM.' WHERE email = 'viewer@hcb.com';
+UPDATE users SET password_hash = '$2b$12$uB/dkhJELC/H/XQY3Pk/EuvT76s7tvb0bMXfAAwc1ggCLnt/CvNt6' WHERE email = 'apiuser@hcb.com';
+UPDATE users SET password_hash = '$2b$12$Dd9KL0zRAHgKbIupFC53debqKL3YPW/6yKIlcWHp69.tAwSQIYgAu' WHERE email = 'inst.admin@fnb.co.ke';
+UPDATE users SET password_hash = '$2b$12$H9eJ1B1VI1gQTpxU2C7D5u6UwAmwqnTBlKmXNsyv36Nv52LCtrMWK' WHERE email = 'compliance@fnb.co.ke';
+UPDATE users SET password_hash = '$2b$12$9fOs3X/cPh33YwfCRAQskummA4NpyPGAYoWFkdD823n5Lo3tkeQCW' WHERE email = 'ops@metrocu.co.ke';
+UPDATE users SET password_hash = '$2b$12$aaNpYk/TirDe0lYOz87BvuG2mDoSenuEmkWJxC6MXYyGClQWAQl5O' WHERE email = 'suspended@hcb.com';
+UPDATE users SET password_hash = '$2b$12$BP7qwA.NKmXKVHvluAE5M.z3m5rY3mPW0gVXeLs7dtPj/Jv9qAWtC' WHERE email = 'james.mthembu@fnb.co.za';
+UPDATE users SET password_hash = '$2b$12$DroxkL/KnJEP3kyH9wj0TOFN6A105m3XJGs7J9MlskDzC9AJXCwla' WHERE email = 'david.kim@pacificfin.com';
 
 -- ============================================================================
 -- USER ROLE ASSIGNMENTS
@@ -767,9 +782,9 @@ VALUES
 (2, 1, 'P95 Latency',  '850ms',   '<= 800ms', 'resolved',     '2026-02-24 14:30:00', '2026-02-24 14:32:00', '2026-02-24 15:00:00'),
 (5, 4, 'P95 Latency',  '430ms',   '<= 400ms', 'resolved',     '2026-02-23 16:45:00', '2026-02-23 16:50:00', '2026-02-23 17:30:00'),
 (6, NULL,'Schema Drift', 'Critical','Critical', 'resolved',    '2026-02-22 11:00:00', '2026-02-22 11:05:00', '2026-02-22 12:00:00'),
--- Future incidents
-(1, 1, 'Success Rate', '97.2%',   '>= 99%',  'open',          '2026-04-02 10:00:00', NULL,                   NULL),
-(3, 2, 'Batch Success Rate','93.0%','>= 95%', 'open',          '2026-04-07 09:30:00', NULL,                   NULL);
+-- Future incidents (status must satisfy alert_incidents CHECK)
+(1, 1, 'Success Rate', '97.2%',   '>= 99%',  'active',        '2026-04-02 10:00:00', NULL,                   NULL),
+(3, 2, 'Batch Success Rate','93.0%','>= 95%', 'active',        '2026-04-07 09:30:00', NULL,                   NULL);
 
 -- ============================================================================
 -- AUDIT LOGS (seed from activity-log.json)

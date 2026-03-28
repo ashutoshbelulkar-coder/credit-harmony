@@ -1,8 +1,8 @@
 import { get, post, buildQuery, ApiError } from "@/lib/api-client";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 import { approvalQueueItems as mockItems } from "@/data/approval-queue-mock";
 
 const BASE = "/v1/approvals";
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 import type { PagedResponse } from "./institutions.service";
 
@@ -36,7 +36,7 @@ export async function fetchApprovals(params?: ApprovalListParams): Promise<Paged
   try {
     return await get<PagedResponse<ApprovalResponse>>(`${BASE}${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       let list = [...mockItems] as ApprovalResponse[];
       if (params?.type && params.type !== "all") list = list.filter((i) => i.type === params.type);
       if (params?.status && params.status !== "all") list = list.filter((i) => i.status === params.status);

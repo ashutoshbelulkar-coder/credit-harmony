@@ -1,8 +1,8 @@
 import { get, post, buildQuery, ApiError } from "@/lib/api-client";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 import { batchJobs as mockBatchJobs, batchDetails as mockBatchDetails, batchKpis as mockBatchKpis } from "@/data/monitoring-mock";
 
 const BASE = "/v1/batch-jobs";
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 import type { PagedResponse } from "./institutions.service";
 
@@ -54,7 +54,7 @@ export async function fetchBatchJobs(params?: BatchJobParams): Promise<PagedResp
   try {
     return await get<PagedResponse<BatchJobResponse>>(`${BASE}${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       const list = mockBatchJobs.map(normaliseMockBatchJob);
       const page = params?.page ?? 0;
       const size = params?.size ?? 20;
@@ -68,7 +68,7 @@ export async function fetchBatchJobById(id: string): Promise<BatchJobResponse> {
   try {
     return await get<BatchJobResponse>(`${BASE}/${id}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       const m = mockBatchJobs.find((j) => j.batch_id === id);
       if (!m) throw new ApiError(404, "ERR_NOT_FOUND", `Batch ${id} not found`);
       return normaliseMockBatchJob(m);
@@ -81,7 +81,7 @@ export async function fetchBatchDetail(id: string) {
   try {
     return await get(`${BASE}/${id}/detail`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       return mockBatchDetails[id] ?? null;
     }
     throw err;
@@ -92,7 +92,7 @@ export async function fetchBatchKpis() {
   try {
     return await get(`${BASE}/kpis`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) return mockBatchKpis;
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) return mockBatchKpis;
     throw err;
   }
 }

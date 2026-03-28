@@ -566,3 +566,17 @@ Added to `src/api/dashboard.ts`:
 - **Frontend tests:** ✅ 130/130 PASS (`npm run test`)
 - **Frontend build:** ✅ `npm run build` exits 0 (no type errors, no module resolution errors)
 - **New lint errors introduced:** None (pre-existing errors unchanged)
+
+---
+
+### Sprint execution — local Node API harness (2026-03-28)
+
+| Gate | Command / check | Expected |
+|------|-----------------|----------|
+| API boot | `npm run server:start` (default **127.0.0.1:8091**) | Server logs “HCB API listening” |
+| Auth smoke | `POST /api/v1/auth/login` with `admin@hcb.com` / `Admin@1234` | 200 + `accessToken`, `refreshToken`, `user` |
+| Institutions smoke | `GET /api/v1/institutions` with `Authorization: Bearer <access>` | 200 + paged `content` |
+| Frontend regression | `npm run test` | All Vitest tests pass |
+| Production bundle | `npm run build` | Vite build succeeds |
+
+**Note:** If port 8091 is blocked, set `PORT` and `VITE_API_PROXY_TARGET` to a free port and restart Vite.

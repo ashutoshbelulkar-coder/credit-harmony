@@ -1502,6 +1502,131 @@ apis:
     joins_required: [compliance_documents, product_subscriptions, consortium_members]
     tables_used: [institutions, compliance_documents, product_subscriptions, consortium_members]
 
+  - name: get_institution_consortium_memberships
+    group: INSTITUTIONS
+    endpoint: "GET /api/v1/institutions/:id/consortium-memberships"
+    method: GET
+    description: >
+      Returns all consortium memberships for a single institution.
+      Each row is assembled via JOIN — no membership attributes are stored on institutions.
+    response_schema:
+      data:
+        - membership_id: integer
+          consortium_id: integer
+          consortium_name: string
+          consortium_type: string
+          consortium_status: string
+          member_role: string
+          consortium_member_status: string
+          joined_at: datetime
+    joins_required: [consortium_members, consortiums]
+    tables_used: [consortium_members, consortiums]
+    ssot_owner: consortium_members
+    roles_allowed: [SUPER_ADMIN, BUREAU_ADMIN, ANALYST, VIEWER]
+
+  - name: get_institution_product_subscriptions
+    group: INSTITUTIONS
+    endpoint: "GET /api/v1/institutions/:id/product-subscriptions"
+    method: GET
+    description: >
+      Returns all product subscriptions for a single institution.
+      Subscription status and timestamps owned by product_subscriptions;
+      product name and pricing owned by products.
+    response_schema:
+      data:
+        - subscription_id: integer
+          product_id: integer
+          product_name: string
+          product_status: string
+          pricing_model: string
+          subscribed_at: datetime
+          subscription_status: string
+    joins_required: [product_subscriptions, products]
+    tables_used: [product_subscriptions, products]
+    ssot_owner: product_subscriptions
+    roles_allowed: [SUPER_ADMIN, BUREAU_ADMIN, ANALYST, VIEWER]
+
+  - name: get_institution_billing_summary
+    group: INSTITUTIONS
+    endpoint: "GET /api/v1/institutions/:id/billing-summary"
+    method: GET
+    description: >
+      Aggregated billing overview for a single institution.
+      All values are derived at query time — no derived totals stored in DB.
+    response_schema:
+      billing_model: "string (from institutions.billing_model)"
+      credit_balance: "decimal (from institutions.credit_balance)"
+      active_subscriptions: "COUNT(product_subscriptions WHERE status='active')"
+      api_calls_30d: "COUNT(api_requests WHERE occurred_at >= now()-30d)"
+    joins_required: [product_subscriptions, api_requests]
+    tables_used: [institutions, product_subscriptions, api_requests]
+    derived_metrics: true
+    roles_allowed: [SUPER_ADMIN, BUREAU_ADMIN, ANALYST, VIEWER]
+
+  - name: get_institution_monitoring_summary
+    group: INSTITUTIONS
+    endpoint: "GET /api/v1/institutions/:id/monitoring-summary"
+    method: GET
+    description: >
+      Aggregated monitoring KPIs for a single institution over the last 30 days.
+      All KPIs are derived at query time from operational log tables.
+    response_schema:
+      total_requests: "COUNT(api_requests)"
+      successful_requests: "COUNT(api_requests WHERE status='success')"
+      avg_latency_ms: "ROUND(AVG(response_time_ms), 1)"
+      success_rate_pct: "derived: (successful/total)*100"
+      total_batches: "COUNT(batch_jobs)"
+      active_batches: "COUNT(batch_jobs WHERE status IN ('queued','processing'))"
+      total_records: "SUM(batch_jobs.total_records)"
+    joins_required: []
+    tables_used: [api_requests, batch_jobs]
+    derived_metrics: true
+    roles_allowed: [SUPER_ADMIN, BUREAU_ADMIN, ANALYST, VIEWER]
+
+  # ─── DASHBOARD ───────────────────────────────────────────────────────────────
+
+  - name: get_dashboard_activity
+    group: DASHBOARD
+    endpoint: "GET /api/v1/dashboard/activity"
+    method: GET
+    description: >
+      Returns the 20 most recent audit log entries joined with user display names.
+      Used to populate the Dashboard Recent Activity feed with live data.
+    response_schema:
+      data:
+        - id: integer
+          action_type: string
+          entity_type: string
+          entity_id: string
+          description: string
+          audit_outcome: "string (success|failure|partial)"
+          occurred_at: datetime
+          user_name: "string (from users.display_name)"
+          user_email: "string (from users.email)"
+    joins_required: [users]
+    tables_used: [audit_logs, users]
+    ssot_owner: audit_logs
+    sort: "occurred_at DESC LIMIT 20"
+    roles_allowed: [SUPER_ADMIN, BUREAU_ADMIN, ANALYST, VIEWER]
+
+  - name: get_dashboard_command_center
+    group: DASHBOARD
+    endpoint: "GET /api/v1/dashboard/command-center"
+    method: GET
+    description: >
+      Returns aggregated counts for the Dashboard Command Center overlay.
+      All counts derived at query time — never stored as denormalized columns.
+    response_schema:
+      pending_approvals: "COUNT(approval_queue WHERE status='pending')"
+      active_alerts: "COUNT(alert_incidents WHERE status IN ('active','acknowledged'))"
+      pending_onboarding: "COUNT(institutions WHERE lifecycle_status='Pending Approval')"
+      active_institutions: "COUNT(institutions WHERE lifecycle_status='active')"
+      recent_errors_1h: "COUNT(api_requests WHERE status='failed' AND occurred_at >= now()-1h)"
+    joins_required: []
+    tables_used: [approval_queue, alert_incidents, institutions, api_requests]
+    derived_metrics: true
+    roles_allowed: [SUPER_ADMIN, BUREAU_ADMIN, ANALYST, VIEWER]
+
   - name: create_institution
     group: INSTITUTIONS
     endpoint: "POST /api/v1/institutions"

@@ -1,8 +1,8 @@
 import { get, post, patch, del, ApiError } from "@/lib/api-client";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 import { roleDefinitions as mockRoles } from "@/data/user-management-mock";
 
 const BASE = "/v1/roles";
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 export interface RoleResponse {
   id: string;
@@ -27,7 +27,7 @@ export async function fetchRoles(): Promise<RoleResponse[]> {
   try {
     return await get<RoleResponse[]>(BASE);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       return mockRoles.map((r) => ({
         id: r.id,
         roleName: r.name,

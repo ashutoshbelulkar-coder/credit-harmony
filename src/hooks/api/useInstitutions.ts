@@ -14,14 +14,19 @@ import {
   fetchProductSubscriptions,
   fetchBillingSummary,
   fetchMonitoringSummary,
+  fetchInstitutionOverviewCharts,
   type InstitutionListParams,
   type InstitutionResponse,
 } from "@/services/institutions.service";
 
-export function useInstitutions(params?: InstitutionListParams) {
+export function useInstitutions(
+  params?: InstitutionListParams,
+  options?: { enabled?: boolean }
+) {
   return useQuery({
     queryKey: QK.institutions.list(params),
     queryFn: () => fetchInstitutions(params),
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -39,7 +44,6 @@ export function useCreateInstitution() {
     mutationFn: (data: Partial<InstitutionResponse>) => createInstitution(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.institutions.all() });
-      toast.success("Institution registered successfully");
     },
     onError: (e: ApiError) => toast.error(e.message),
   });
@@ -122,6 +126,14 @@ export function useMonitoringSummary(id: string | number | undefined) {
   return useQuery({
     queryKey: QK.institutions.monitoringSummary(id ?? ""),
     queryFn: () => fetchMonitoringSummary(id!),
+    enabled: !!id,
+  });
+}
+
+export function useInstitutionOverviewCharts(id: string | number | undefined) {
+  return useQuery({
+    queryKey: QK.institutions.overviewCharts(id ?? ""),
+    queryFn: () => fetchInstitutionOverviewCharts(id!),
     enabled: !!id,
   });
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Upload, Building2, FileText, Eye, CheckCircle2, AlertCircle, Save } from "lucide-react";
@@ -9,6 +10,8 @@ import { z } from "zod";
 import { institutionTypes } from "@/data/institutions-mock";
 import { toast } from "sonner";
 import { useCreateInstitution } from "@/hooks/api/useInstitutions";
+import { QK } from "@/lib/query-keys";
+import { uploadInstitutionDocument } from "@/services/institutions.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +62,7 @@ interface UploadedDoc {
   name: string;
   fileName: string;
   size: number;
+  file?: File;
 }
 
 const baseDocs = [
@@ -82,7 +86,8 @@ const RegisterInstitution = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
-  const { mutate: createInstitution, isPending: submitting } = useCreateInstitution();
+  const queryClient = useQueryClient();
+  const { mutateAsync: createInstitution, isPending: submitting } = useCreateInstitution();
 
   const form = useForm<CorporateDetailsFormData>({
     resolver: zodResolver(corporateDetailsSchema),
@@ -126,7 +131,7 @@ const RegisterInstitution = () => {
       }
       setUploadedDocs((prev) => {
         const filtered = prev.filter((d) => d.name !== docName);
-        return [...filtered, { name: docName, fileName: file.name, size: file.size }];
+        return [...filtered, { name: docName, fileName: file.name, size: file.size, file }];
       });
       toast.success(`${file.name} uploaded`);
     };
@@ -135,11 +140,17 @@ const RegisterInstitution = () => {
 
   const handleSaveDraft = () => {
     const data = form.getValues();
-    localStorage.setItem("hcb_draft_institution", JSON.stringify({ corporateDetails: data, uploadedDocs }));
+    localStorage.setItem(
+      "hcb_draft_institution",
+      JSON.stringify({
+        corporateDetails: data,
+        uploadedDocs: uploadedDocs.map(({ name, fileName, size }) => ({ name, fileName, size })),
+      })
+    );
     toast.success("Draft saved");
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const data = form.getValues();
     const requiredDocs = getRequiredDocs(data.isDataSubmitter, data.isSubscriber);
     const stringFields = Object.entries(data).filter(([, v]) => typeof v === "string") as [string, string][];
@@ -156,8 +167,13 @@ const RegisterInstitution = () => {
       toast.error(`Please upload all ${requiredDocs.length} required documents`);
       return;
     }
-    createInstitution(
-      {
+    const missingFiles = uploadedDocs.filter((d) => !d.file);
+    if (missingFiles.length > 0) {
+      toast.error("Each required document must have a file attached. Re-upload any items loaded from a draft.");
+      return;
+    }
+    try {
+      const inst = await createInstitution({
         name: data.legalName,
         tradingName: data.tradingName,
         registrationNumber: data.registrationNumber,
@@ -168,15 +184,29 @@ const RegisterInstitution = () => {
         contactPhone: data.contactPhone,
         isDataSubmitter: data.isDataSubmitter,
         isSubscriber: data.isSubscriber,
-        institutionLifecycleStatus: "Pending Approval",
-      },
-      {
-        onSuccess: () => {
-          toast.success("Institution submitted for Super Admin approval. Track status in the Approval Queue.");
-          navigate("/approval-queue");
-        },
+        institutionLifecycleStatus: "pending",
+      });
+      let uploadFailed = false;
+      for (const d of uploadedDocs) {
+        if (!d.file) continue;
+        try {
+          await uploadInstitutionDocument(inst.id, d.name, d.file);
+        } catch {
+          uploadFailed = true;
+        }
       }
-    );
+      await queryClient.invalidateQueries({ queryKey: QK.institutions.detail(String(inst.id)) });
+      if (uploadFailed) {
+        toast.error(
+          "Institution was created, but one or more document uploads failed. Retry uploads from the member record when available."
+        );
+      } else {
+        toast.success("Institution submitted for Super Admin approval. Track status in the Approval Queue.");
+      }
+      navigate("/approval-queue");
+    } catch {
+      // createInstitution mutation surfaces errors via onError toast
+    }
   };
 
   const values = form.watch();

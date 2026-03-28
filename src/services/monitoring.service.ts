@@ -8,9 +8,9 @@ import {
   successVsFailureData,
   topRejectionReasonsData,
 } from "@/data/monitoring-mock";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 
 const BASE = "/v1/monitoring";
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 import type { PagedResponse } from "./institutions.service";
 
@@ -104,7 +104,7 @@ export async function fetchApiRequests(params?: ApiRequestListParams): Promise<P
   try {
     return await get<PagedResponse<ApiRequestRecord>>(`${BASE}/api-requests${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       const list = mockRequests.map(normaliseMockRequest);
       const page = params?.page ?? 0;
       const size = params?.size ?? 20;
@@ -118,7 +118,7 @@ export async function fetchMonitoringKpis(): Promise<MonitoringKpis> {
   try {
     return await get<MonitoringKpis>(`${BASE}/kpis`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       return mockKpis as MonitoringKpis;
     }
     throw err;
@@ -129,7 +129,7 @@ export async function fetchEnquiries(params?: ApiRequestListParams): Promise<Pag
   try {
     return await get<PagedResponse<EnquiryRecord>>(`${BASE}/enquiries${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       const list = (mockEnquiries ?? []).map(normaliseMockEnquiry);
       const page = params?.page ?? 0;
       const size = params?.size ?? 20;
@@ -143,7 +143,7 @@ export async function fetchMonitoringCharts(): Promise<MonitoringCharts> {
   try {
     return await get<MonitoringCharts>(`${BASE}/charts`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       return { apiCallVolume30Days, latencyTrendData, successVsFailureData, topRejectionReasonsData };
     }
     throw err;

@@ -9,11 +9,11 @@ import {
   severityDistribution as mockSeverityDist,
   mttrTrendData as mockMttr,
 } from "@/data/alert-engine-mock";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 
 const BASE_RULES = "/v1/alert-rules";
 const BASE_INCIDENTS = "/v1/alert-incidents";
 const BASE_SLA = "/v1/sla-configs";
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 import type { PagedResponse } from "./institutions.service";
 
@@ -77,7 +77,7 @@ export async function fetchAlertRules(): Promise<AlertRuleResponse[]> {
   try {
     return await get<AlertRuleResponse[]>(BASE_RULES);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) return mockRules as AlertRuleResponse[];
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) return mockRules as AlertRuleResponse[];
     throw err;
   }
 }
@@ -108,7 +108,7 @@ export async function fetchAlertIncidents(params?: { status?: string; page?: num
   try {
     return await get<PagedResponse<AlertIncidentResponse>>(`${BASE_INCIDENTS}${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       const list = mockActiveAlerts.map((a) => ({
         alertId: a.alert_id,
         domain: a.domain,
@@ -139,7 +139,7 @@ export async function fetchSlaConfigs(): Promise<SlaConfigResponse[]> {
   try {
     return await get<SlaConfigResponse[]>(BASE_SLA);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) return mockSlaConfigs as SlaConfigResponse[];
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) return mockSlaConfigs as SlaConfigResponse[];
     throw err;
   }
 }
@@ -154,7 +154,7 @@ export async function fetchAlertCharts(): Promise<AlertCharts> {
   try {
     return await get<AlertCharts>("/v1/alert-incidents/charts");
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       return {
         triggeredOverTime: mockTriggeredOverTime,
         byDomain: mockByDomain,
@@ -170,7 +170,7 @@ export async function fetchBreachHistory(params?: { domain?: string; severity?: 
   try {
     return await get<BreachRecord[]>(`/v1/alert-incidents/breach-history${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) return mockBreachHistory as BreachRecord[];
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) return mockBreachHistory as BreachRecord[];
     throw err;
   }
 }

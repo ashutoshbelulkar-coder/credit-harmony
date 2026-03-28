@@ -1,8 +1,8 @@
 import { get, post, del, buildQuery, ApiError } from "@/lib/api-client";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 import type { PagedResponse } from "./institutions.service";
 
 const BASE = "/v1/reports";
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 export interface ReportResponse {
   id: string;
@@ -43,7 +43,7 @@ export async function fetchReports(params?: ReportListParams): Promise<PagedResp
   try {
     return await get<PagedResponse<ReportResponse>>(`${BASE}${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       // Import mock inline to avoid circular deps
       const { default: data } = await import("@/data/reporting.json");
       const list = (data.reports ?? []) as ReportResponse[];

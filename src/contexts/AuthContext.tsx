@@ -7,7 +7,7 @@
  *  - On app mount: attempts silent session restore via /auth/refresh.
  *  - On auth:session-expired event: clears user state and redirects to /login.
  *
- * Fallback: when VITE_USE_MOCK_FALLBACK=true and the backend is unreachable,
+ * Fallback: when `clientMockFallbackEnabled` (dev + VITE_USE_MOCK_FALLBACK) and the backend is unreachable,
  * login accepts any non-empty password and derives role from email prefix
  * (mirrors the previous demo-only behaviour for development convenience).
  */
@@ -28,9 +28,10 @@ import {
   getRefreshToken,
   clearTokens,
   postAnon,
-  get,
+  post,
   ApiError,
 } from "@/lib/api-client";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -61,7 +62,6 @@ interface AuthContextValue {
 
 // ─── Mock Fallback ────────────────────────────────────────────────────────────
 
-const USE_MOCK_FALLBACK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 function mockUserFromEmail(email: string): AuthUser {
   const lower = email.toLowerCase();
@@ -104,7 +104,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     (async () => {
       try {
         const res = await postAnon<AuthResponse>("/v1/auth/refresh", {
-          refreshToken: stored,
+          refresh_token: stored,
         });
         setAccessToken(res.accessToken);
         setRefreshToken(res.refreshToken);
@@ -141,11 +141,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setUser(res.user);
       } catch (err) {
         // Graceful mock fallback for development/demo when backend is offline
-        if (USE_MOCK_FALLBACK && err instanceof ApiError && err.isServerError) {
+        if (clientMockFallbackEnabled && err instanceof ApiError && err.isServerError) {
           setUser(mockUserFromEmail(email));
           return;
         }
-        if (USE_MOCK_FALLBACK && !(err instanceof ApiError)) {
+        if (clientMockFallbackEnabled && !(err instanceof ApiError)) {
           // Network error (backend not running)
           setUser(mockUserFromEmail(email));
           return;
@@ -158,8 +158,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Logout ────────────────────────────────────────────────────────────────
   const logout = useCallback(async () => {
+    const rt = getRefreshToken();
     try {
-      await get("/v1/auth/logout");
+      if (rt) {
+        await post("/v1/auth/logout", { refresh_token: rt });
+      }
     } catch {
       // Ignore logout API errors — always clear local state
     } finally {

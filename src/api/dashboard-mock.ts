@@ -11,7 +11,7 @@ import type {
   AgentFleetItem,
   MemberQualityPoint,
 } from "./dashboard-types";
-import { dashboardRangeKey } from "./dashboard-types";
+import { dashboardRangeKey, effectiveRangeDays } from "./dashboard-types";
 import { mockAgents } from "@/data/agents-mock";
 import dashboardData from "@/data/dashboard.json";
 import { batchJobs, type BatchJob, type BatchStatus as MonitoringBatchStatus } from "@/data/monitoring-mock";
@@ -130,19 +130,59 @@ function fmtChange(n: number): string {
   return `${sign}${Math.abs(n).toFixed(1)}%`;
 }
 
+function trendBarCount(range: DashboardRange): number {
+  if (range.kind === "preset") {
+    switch (range.preset) {
+      case "today":
+        return 8;
+      case "7d":
+        return 7;
+      case "30d":
+        return 10;
+      case "90d":
+        return 12;
+      default:
+        return 7;
+    }
+  }
+  const d = effectiveRangeDays(range);
+  return Math.min(14, Math.max(5, Math.ceil(d / 7)));
+}
+
+function trendLabels(range: DashboardRange, barCount: number): string[] {
+  if (range.kind === "preset" && range.preset === "today") {
+    return Array.from({ length: barCount }, (_, i) => `${String(3 * i).padStart(2, "0")}h`);
+  }
+  if (range.kind === "preset" && range.preset === "7d") {
+    return Array.from({ length: barCount }, (_, i) => (i === barCount - 1 ? "Today" : `D-${barCount - 1 - i}`));
+  }
+  if (range.kind === "preset" && (range.preset === "30d" || range.preset === "90d")) {
+    const step = range.preset === "30d" ? 3 : 7;
+    return Array.from({ length: barCount }, (_, i) =>
+      i === barCount - 1 ? "Now" : `D-${(barCount - 1 - i) * step}`
+    );
+  }
+  return Array.from({ length: barCount }, (_, i) => `P${i + 1}`);
+}
+
 export function createMockDashboardSnapshot(range: DashboardRange): DashboardSnapshot {
   const key = dashboardRangeKey(range);
+  // Stable “daily run rate” so only the selected window length changes totals (longer ⇒ more requests).
+  const stable = mulberry32(hashString("hcb-dashboard:stable-base"));
   const rand = mulberry32(hashString(`hcb-dashboard:${key}`));
 
-  // Base knobs (kept stable per range)
-  const baseVolume = 900_000 + Math.floor(rand() * 600_000);
-  const errorRate = clamp(0.15 + rand() * 0.25, 0.05, 1.5);
-  const slaHealth = clamp(99.3 + rand() * 0.6, 95, 100);
-  const dataQualityScore = clamp(92 + rand() * 6.5, 80, 100);
+  const periodDays = effectiveRangeDays(range);
+  const dailyVolume = 880_000 + Math.floor(stable() * 520_000); // ~0.88–1.4M requests / day
+  const windowJitter = 0.97 + rand() * 0.06;
+  const totalApiVolume = Math.max(1, Math.round(dailyVolume * periodDays * windowJitter));
+
+  const errorRate = clamp(0.15 + stable() * 0.25, 0.05, 1.5);
+  const slaHealth = clamp(99.3 + stable() * 0.6, 95, 100);
+  const dataQualityScore = clamp(92 + stable() * 6.5, 80, 100);
 
   const metrics: DashboardMetrics = {
-    apiVolume24h: baseVolume,
-    apiVolumeChange: fmtChange((rand() - 0.35) * 20),
+    apiVolume24h: totalApiVolume,
+    apiVolumeChange: fmtChange((rand() - 0.35) * 12),
     errorRate: parseFloat(errorRate.toFixed(2)),
     errorRateChange: fmtChange((rand() - 0.6) * 0.5),
     slaHealth: parseFloat(slaHealth.toFixed(1)),
@@ -151,19 +191,24 @@ export function createMockDashboardSnapshot(range: DashboardRange): DashboardSna
     dataQualityChange: fmtChange((rand() - 0.35) * 4),
   };
 
-  // Keep charts aligned with the same base metrics.
-  const apiUsageTrend = Array.from({ length: 7 }, (_, i) => {
-    const label = i === 6 ? "Today" : `D-${(6 - i) * 5}`;
-    const v = Math.round(baseVolume * (0.78 + rand() * 0.35));
+  const bars = trendBarCount(range);
+  const labels = trendLabels(range, bars);
+  const weights = Array.from({ length: bars }, () => 0.55 + rand() * 0.9);
+  const wSum = weights.reduce((a, b) => a + b, 0);
+  const apiUsageTrend = weights.map((w, i) => {
+    const v = Math.round((totalApiVolume * w) / wSum);
     const e = clamp(errorRate + (rand() - 0.5) * 0.06, 0.05, 2.0);
-    return { day: label, volume: v, errors: parseFloat(e.toFixed(2)) };
+    return { day: labels[i] ?? `S${i + 1}`, volume: v, errors: parseFloat(e.toFixed(2)) };
   });
+
+  const failCount = Math.round((totalApiVolume * errorRate) / 100);
+  const successCount = Math.max(0, totalApiVolume - failCount);
 
   const charts: DashboardCharts = {
     apiUsageTrend,
     successFailure: {
-      success: Math.round(clamp(100 - errorRate * 10 - rand() * 3, 85, 99)),
-      failure: 0,
+      success: successCount,
+      failure: failCount,
     },
     mappingAccuracy: Array.from({ length: 5 }, (_, i) => ({
       week: `W${i + 1}`,
@@ -188,9 +233,9 @@ export function createMockDashboardSnapshot(range: DashboardRange): DashboardSna
       overridden: Math.round(12 + rand() * 18),
     })),
   };
-  charts.successFailure.failure = 100 - charts.successFailure.success;
 
   const institutions = dashboardData.institutions;
+  const topReqScale = periodDays / 30;
 
   const activity: DashboardActivitySnapshot = {
     recentActivity: dashboardData.recentActivity.map((row) => ({
@@ -199,11 +244,12 @@ export function createMockDashboardSnapshot(range: DashboardRange): DashboardSna
       time: row.time,
       status: (row.status === "error" ? "warning" : row.status) as DashboardActivityStatus,
     })),
+    // Synthetic top-by-enquiry counts when API is unavailable (matches live /charts topInstitutions semantics).
     topInstitutions: [
-      { name: institutions[0], requests: `${Math.round(300 + rand() * 220)}K`, quality: Math.round(clamp(dataQualityScore + rand() * 3, 80, 99)), sla: parseFloat(clamp(slaHealth + rand() * 0.2, 95, 100).toFixed(1)) },
-      { name: institutions[1], requests: `${Math.round(180 + rand() * 160)}K`, quality: Math.round(clamp(dataQualityScore - 2 + rand() * 4, 75, 99)), sla: parseFloat(clamp(slaHealth - 0.2 + rand() * 0.3, 90, 100).toFixed(1)) },
-      { name: institutions[2], requests: `${Math.round(120 + rand() * 120)}K`, quality: Math.round(clamp(dataQualityScore - 5 + rand() * 5, 70, 99)), sla: parseFloat(clamp(slaHealth - 0.6 + rand() * 0.6, 85, 100).toFixed(1)) },
-      { name: institutions[3], requests: `${Math.round(90 + rand() * 110)}K`, quality: Math.round(clamp(dataQualityScore - 1 + rand() * 4, 75, 99)), sla: parseFloat(clamp(slaHealth - 0.1 + rand() * 0.3, 90, 100).toFixed(1)) },
+      { name: institutions[0], requests: `${Math.max(1, Math.round((300 + rand() * 220) * topReqScale))}K`, quality: Math.round(clamp(dataQualityScore + rand() * 3, 80, 99)), sla: parseFloat(clamp(slaHealth + rand() * 0.2, 95, 100).toFixed(1)) },
+      { name: institutions[1], requests: `${Math.max(1, Math.round((180 + rand() * 160) * topReqScale))}K`, quality: Math.round(clamp(dataQualityScore - 2 + rand() * 4, 75, 99)), sla: parseFloat(clamp(slaHealth - 0.2 + rand() * 0.3, 90, 100).toFixed(1)) },
+      { name: institutions[2], requests: `${Math.max(1, Math.round((120 + rand() * 120) * topReqScale))}K`, quality: Math.round(clamp(dataQualityScore - 5 + rand() * 5, 70, 99)), sla: parseFloat(clamp(slaHealth - 0.6 + rand() * 0.6, 85, 100).toFixed(1)) },
+      { name: institutions[3], requests: `${Math.max(1, Math.round((90 + rand() * 110) * topReqScale))}K`, quality: Math.round(clamp(dataQualityScore - 1 + rand() * 4, 75, 99)), sla: parseFloat(clamp(slaHealth - 0.1 + rand() * 0.3, 90, 100).toFixed(1)) },
     ],
   };
 

@@ -106,20 +106,22 @@ public class SecurityConfig {
                 auth.anyRequest().authenticated();
             })
 
-            // Security headers
-            .headers(headers -> headers
-                .frameOptions(frame -> {
+            // Security headers (no CSP in dev — H2 console uses inline scripts blocked by default-src 'self')
+            .headers(headers -> {
+                headers.frameOptions(frame -> {
                     if ("dev".equalsIgnoreCase(activeProfile)) {
                         frame.sameOrigin(); // Allow H2 console frame in dev
                     } else {
                         frame.deny();
                     }
-                })
-                .contentSecurityPolicy(csp ->
-                    csp.policyDirectives("default-src 'self'; frame-ancestors 'self'"))
-                .referrerPolicy(referrer ->
-                    referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
-            )
+                });
+                if (!"dev".equalsIgnoreCase(activeProfile)) {
+                    headers.contentSecurityPolicy(csp ->
+                        csp.policyDirectives("default-src 'self'; frame-ancestors 'self'"));
+                }
+                headers.referrerPolicy(referrer ->
+                    referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN));
+            })
 
             // Error handling — no internal details exposed
             .exceptionHandling(ex -> ex

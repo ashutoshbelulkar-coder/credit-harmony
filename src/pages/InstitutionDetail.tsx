@@ -32,8 +32,7 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import institutionDetailData from "@/data/institution-detail.json";
-import { useInstitution } from "@/hooks/api/useInstitutions";
+import { useInstitution, useInstitutionOverviewCharts } from "@/hooks/api/useInstitutions";
 import { useApiKeys, useRegenerateApiKey, useRevokeApiKey } from "@/hooks/api/useApiKeys";
 import { useApiRequests, useEnquiries } from "@/hooks/api/useMonitoring";
 import { useBatchJobs } from "@/hooks/api/useBatchJobs";
@@ -220,16 +219,6 @@ const InstitutionDetail = () => {
 
 /* ─────────────── OVERVIEW TAB ─────────────── */
 
-const {
-  submissionVolumeData,
-  successVsRejectedData,
-  rejectionReasonsData,
-  processingTimeData,
-  enquiryVolumeData,
-  successVsFailedData,
-  responseTimeData,
-} = institutionDetailData;
-
 const PIE_COLORS = ["hsl(var(--success))", "hsl(var(--danger))"];
 
 const volumeConfig: ChartConfig = { volume: { label: "Volume", color: "hsl(var(--primary))" } };
@@ -262,6 +251,15 @@ function calcP95(values: number[]): string {
 function OverviewTab({ institution }: { institution: InstitutionResponse }) {
   const institutionId = String(institution.id);
 
+  const { data: overviewCharts } = useInstitutionOverviewCharts(institution.id);
+  const submissionVolumeData = overviewCharts?.submissionVolumeData ?? [];
+  const successVsRejectedData = overviewCharts?.successVsRejectedData ?? [];
+  const rejectionReasonsData = overviewCharts?.rejectionReasonsData ?? [];
+  const processingTimeData = overviewCharts?.processingTimeData ?? [];
+  const enquiryVolumeData = overviewCharts?.enquiryVolumeData ?? [];
+  const successVsFailedData = overviewCharts?.successVsFailedData ?? [];
+  const responseTimeData = overviewCharts?.responseTimeData ?? [];
+
   const { data: apiRequestsPage } = useApiRequests({ institutionId, size: 200 });
   const { data: enquiriesPage } = useEnquiries({ institutionId, size: 200 });
   const { data: batchPage } = useBatchJobs({ institutionId });
@@ -272,7 +270,7 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
   const memberBatches: BatchJobResponse[] = batchPage?.content ?? [];
   const catalogProducts = productsPage?.content ?? [];
 
-  const docs = (institution as unknown as { complianceDocs?: { name: string; status: string }[] }).complianceDocs ?? [];
+  const docs = institution.complianceDocs ?? [];
 
   const apiSuccessRate = useMemo(() => {
     if (memberApiRequests.length === 0) return "—";
@@ -424,7 +422,7 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
                 <p className="text-h4 font-bold mt-1 text-foreground">{institution.apisEnabledCount}</p>
               </div>
             </div>
-            {/* Static trend charts — institution-scoped chart API planned in Phase 7 */}
+            {/* Trend charts from overview-charts API (template until per-member series exist) */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               <div className="lg:col-span-7">
                 <div className={CHART_CARD}>

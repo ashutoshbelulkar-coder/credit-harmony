@@ -1,7 +1,7 @@
 import { get, post, buildQuery, ApiError } from "@/lib/api-client";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 
 const BASE = "/v1/api-keys";
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 export interface ApiKeyResponse {
   id: number;
@@ -24,7 +24,7 @@ export async function fetchApiKeysByInstitution(institutionId: string | number):
   try {
     return await get<ApiKeyResponse[]>(`${BASE}${buildQuery({ institutionId })}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) return [];
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) return [];
     throw err;
   }
 }

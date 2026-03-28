@@ -1,8 +1,8 @@
 import { get, post, patch, del, buildQuery, ApiError } from "@/lib/api-client";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 import { mockUsers } from "@/data/user-management-mock";
 
 const BASE = "/v1/users";
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 export interface UserResponse {
   id: number;
@@ -54,7 +54,7 @@ export async function fetchUsers(params?: UserListParams): Promise<PagedResponse
   try {
     return await get<PagedResponse<UserResponse>>(`${BASE}${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       let list = mockUsers.map(normaliseMockUser);
       if (params?.search) {
         const q = params.search.toLowerCase();

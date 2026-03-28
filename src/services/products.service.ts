@@ -1,8 +1,8 @@
 import { get, post, patch, del, buildQuery, ApiError } from "@/lib/api-client";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 import type { PagedResponse } from "./institutions.service";
 
 const BASE = "/v1/products";
-const USE_MOCK = import.meta.env.VITE_USE_MOCK_FALLBACK === "true";
 
 export interface ProductResponse {
   id: string;
@@ -32,7 +32,7 @@ export async function fetchProducts(params?: ProductListParams): Promise<PagedRe
   try {
     return await get<PagedResponse<ProductResponse>>(`${BASE}${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (USE_MOCK && isNetworkOrServerError(err)) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       const { configuredProducts } = await import("@/data/data-products-mock");
       const list = (configuredProducts ?? []).map((p) => ({
         id: p.id,

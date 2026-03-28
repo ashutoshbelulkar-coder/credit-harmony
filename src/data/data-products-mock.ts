@@ -5,6 +5,13 @@ import { getRawIngestedFieldKeysForSourceType } from "@/data/schema-mapper-mock"
 export type DataPacketCategory = "Bureau" | "Banking" | "GST" | "Telecom" | "Consortium";
 export type DataPacketStatus = "active" | "deprecated" | "draft";
 export type ProductLifecycleStatus = "draft" | "active" | "approval_pending";
+
+/** Map API / server product status strings onto catalogue lifecycle values. */
+export function productStatusFromApi(apiStatus: string): ProductLifecycleStatus {
+  if (apiStatus === "active") return "active";
+  if (apiStatus === "draft") return "draft";
+  return "approval_pending";
+}
 export type ProductPricingModel = "per_hit" | "subscription";
 export type ProductCatalogPacketGroup =
   | "Financial Data"
