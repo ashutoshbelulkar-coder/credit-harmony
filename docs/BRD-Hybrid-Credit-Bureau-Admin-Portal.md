@@ -847,4 +847,80 @@ The following modules are identified as missing from V1/V2 and are required for 
 
 ---
 
-*End of BRD v2.3.*
+## SECTION B — BUSINESS DATA GOVERNANCE REQUIREMENTS (v3.0 Addition)
+
+**Version:** 3.0 | **Date:** 2026-03-28 | **Mandatory for all system implementations**
+
+---
+
+### B.1 Business-Level Normalization Principles
+
+The HCB platform is built on the principle that **each fact about a business entity is recorded once, in one place, by one authoritative system**. Duplication of business facts is a compliance risk, a data quality risk, and a regulatory reporting risk.
+
+**Business Rationale:**
+- Regulatory reporting requires a single authoritative source for institution status, consumer data, and transaction records
+- Data protection laws (GDPR, PDPA, DPDP Act) require clear ownership and accountability for personal data
+- Credit bureau accuracy standards require that no conflicting attribute values exist across system modules
+- Audit trails must uniquely identify the source of truth for every business decision
+
+---
+
+### B.2 Attribute Ownership for Business Stakeholders
+
+| Business Concept | Technical Owner | Business Owner |
+|-----------------|-----------------|----------------|
+| Institution identity and status | `institutions` table | Bureau Operations |
+| User identity and access | `users` + `user_role_assignments` | Security & Compliance |
+| Credit profile accuracy | `credit_profiles` (batch-computed) | Credit Risk |
+| Consent records | `enquiries.consent_reference` | Compliance Officer |
+| API usage and billing | `api_requests` (append-only) | Finance |
+| Schema governance versions | `mapping_versions` | Data Governance Team |
+| SLA threshold configuration | `sla_configs` | Platform Operations |
+| Approval workflow decisions | `approval_queue` + `audit_logs` | Bureau Admin |
+
+---
+
+### B.3 Data Consistency Guarantees for Business Operations
+
+1. **Institution status is always authoritative in `institutions` table.** Any other system displaying institution status must derive it via API.
+2. **User roles are always resolved via `user_role_assignments`.** No cached role lists are considered authoritative.
+3. **All approval decisions are immutable** once written to `approval_queue` with a `reviewed_at` timestamp.
+4. **Audit logs are legally admissible records** — they are append-only and never modified after creation.
+5. **Soft deletes preserve business history** — no entity is permanently erased; deleted entities remain in the database with `is_deleted=1` for compliance and audit purposes.
+
+---
+
+### B.4 Action-Driven API Business Policy
+
+Every business action performed by a bureau operator must:
+1. Be initiated through a secure API endpoint
+2. Result in a database state change in the owner table
+3. Generate a corresponding audit log entry
+4. Be protected by appropriate role-based access control
+
+**Business actions requiring API enforcement:**
+- Institution onboarding, suspension, reactivation
+- User creation, role assignment, suspension
+- Schema mapping approval or rejection
+- Product creation and approval
+- Consortium creation and governance
+- Report generation and delivery
+- Alert rule configuration
+- SLA threshold updates
+
+---
+
+### B.5 Regulatory and Compliance Alignment
+
+| Requirement | Implementation |
+|-------------|---------------|
+| Data Subject Rights (DPDP/GDPR) | Consumer PII encrypted at rest; hash-only matching; deletion via soft-delete + PII erasure API |
+| Audit Trail (Basel, SOX) | Immutable `audit_logs` with 7-year retention (2,555 days) |
+| Data Minimization | PII never stored in logs; only `user_id` FK in audit records |
+| Access Control | Role-based deny-by-default; institution-scoped roles for data isolation |
+| Consent Enforcement | `enquiries.consent_reference` mandatory for hard pulls |
+| Breach Notification | `sla_breaches` + `alert_incidents` enable automated breach detection |
+
+---
+
+*End of BRD v3.0 (2026-03-28)*

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,8 @@ import {
   type SectionPermissionMatrix,
 } from "@/data/user-management-mock";
 import { permissionSections, permissionActions, type PermissionAction } from "@/lib/nav-config";
+import { useRoles } from "@/hooks/api/useRoles";
+import type { RoleResponse } from "@/services/roles.service";
 
 interface RoleFormState {
   role: string;
@@ -39,8 +41,27 @@ const emptyForm: RoleFormState = {
   sectionPermissions: createEmptySectionMatrix(),
 };
 
+function apiRoleToDefinition(r: RoleResponse): RoleDefinition {
+  return {
+    role: r.roleName,
+    description: r.description ?? "",
+    userCount: 0,
+    color: "hsl(220, 9%, 46%)",
+    permissions: {},
+    sectionPermissions: (r.permissions as SectionPermissionMatrix) ?? createEmptySectionMatrix(),
+  };
+}
+
 export function RolesPermissionsPage() {
+  const { data: apiRoles } = useRoles();
   const [roles, setRoles] = useState<RoleDefinition[]>([...initialRoles]);
+
+  // Seed from API data when available; fall back to static mock if API unreachable
+  useEffect(() => {
+    if (apiRoles && apiRoles.length > 0) {
+      setRoles(apiRoles.map(apiRoleToDefinition));
+    }
+  }, [apiRoles]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [form, setForm] = useState<RoleFormState>({ ...emptyForm });

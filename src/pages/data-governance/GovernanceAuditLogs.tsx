@@ -15,7 +15,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { DatePicker } from "@/components/ui/date-picker";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -27,43 +26,56 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { tableHeaderClasses } from "@/lib/typography";
-import { governanceAuditLogs, filterInstitutions } from "@/data/data-governance-mock";
-import type { GovernanceAuditLogEntry } from "@/types/data-governance";
+import { filterInstitutions } from "@/data/data-governance-mock";
 import { ChevronDown, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuditLogs } from "@/hooks/api/useAuditLogs";
+import { SkeletonTable } from "@/components/ui/skeleton-table";
+import type { AuditLogEntry } from "@/services/auditLogs.service";
 
 const ACTION_TYPES = [
-  "mapping_approved",
-  "mapping_rejected",
-  "rule_created",
-  "rule_updated",
-  "rule_activated",
-  "merge_performed",
-  "override_performed",
-  "config_changed",
+  "MAPPING_APPROVED",
+  "MAPPING_REJECTED",
+  "RULE_CREATED",
+  "RULE_UPDATED",
+  "RULE_ACTIVATED",
+  "MERGE_PERFORMED",
+  "OVERRIDE_PERFORMED",
+  "CONFIG_CHANGED",
 ];
 
-const USERS = Array.from(new Set(governanceAuditLogs.map((e) => e.user)));
 const INSTITUTIONS = filterInstitutions;
+
+interface SelectedEntry {
+  id: number;
+  userEmail: string;
+  actionType: string;
+  entityType: string;
+  entityId: string;
+  description?: string;
+  ipAddressHash?: string;
+  auditOutcome: string;
+  occurredAt: string;
+}
 
 export default function GovernanceAuditLogs() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
-  const [userFilter, setUserFilter] = useState<string>("all");
   const [actionFilter, setActionFilter] = useState<string>("all");
-  const [institutionFilter, setInstitutionFilter] = useState<string>("all");
-  const [selectedEntry, setSelectedEntry] = useState<GovernanceAuditLogEntry | null>(null);
+  const [selectedEntry, setSelectedEntry] = useState<SelectedEntry | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
-  const filtered = useMemo(() => {
-    return governanceAuditLogs.filter((entry) => {
-      if (dateFrom && entry.timestamp < dateFrom) return false;
-      if (dateTo && entry.timestamp > dateTo + "T23:59:59") return false;
-      if (userFilter !== "all" && entry.user !== userFilter) return false;
-      if (actionFilter !== "all" && entry.actionType !== actionFilter) return false;
-      return true;
-    });
-  }, [dateFrom, dateTo, userFilter, actionFilter]);
+  const { data, isLoading } = useAuditLogs({
+    entityType: "GOVERNANCE",
+    actionType: actionFilter !== "all" ? actionFilter : undefined,
+    from: dateFrom || undefined,
+    to: dateTo || undefined,
+    size: 50,
+  });
+
+  const entries: AuditLogEntry[] = data?.content ?? [];
+
+  const filtered = useMemo(() => entries, [entries]);
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -85,7 +97,7 @@ export default function GovernanceAuditLogs() {
         </CollapsibleTrigger>
         <CollapsibleContent>
           <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-2">
                 <Label className="text-caption">Date from</Label>
                 <DatePicker value={dateFrom} onChange={setDateFrom} className="h-8" />
@@ -93,22 +105,6 @@ export default function GovernanceAuditLogs() {
               <div className="space-y-2">
                 <Label className="text-caption">Date to</Label>
                 <DatePicker value={dateTo} onChange={setDateTo} className="h-8" />
-              </div>
-              <div className="space-y-2">
-                <Label className="text-caption">User</Label>
-                <Select value={userFilter} onValueChange={setUserFilter}>
-                  <SelectTrigger className="h-8">
-                    <SelectValue placeholder="All users" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All users</SelectItem>
-                    {USERS.map((u) => (
-                      <SelectItem key={u} value={u}>
-                        {u}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
               <div className="space-y-2">
                 <Label className="text-caption">Action type</Label>
@@ -120,7 +116,7 @@ export default function GovernanceAuditLogs() {
                     <SelectItem value="all">All actions</SelectItem>
                     {ACTION_TYPES.map((a) => (
                       <SelectItem key={a} value={a}>
-                        {a.replace(/_/g, " ")}
+                        {a.replace(/_/g, " ").toLowerCase()}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -128,7 +124,7 @@ export default function GovernanceAuditLogs() {
               </div>
               <div className="space-y-2">
                 <Label className="text-caption">Institution</Label>
-                <Select value={institutionFilter} onValueChange={setInstitutionFilter}>
+                <Select defaultValue="all">
                   <SelectTrigger className="h-8">
                     <SelectValue placeholder="All" />
                   </SelectTrigger>
@@ -149,7 +145,7 @@ export default function GovernanceAuditLogs() {
 
       {/* Desktop: always-visible filters */}
       <div className="hidden rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] md:block">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-2">
             <Label className="text-caption">Date from</Label>
             <DatePicker value={dateFrom} onChange={setDateFrom} className="h-8" />
@@ -157,22 +153,6 @@ export default function GovernanceAuditLogs() {
           <div className="space-y-2">
             <Label className="text-caption">Date to</Label>
             <DatePicker value={dateTo} onChange={setDateTo} className="h-8" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-caption">User</Label>
-            <Select value={userFilter} onValueChange={setUserFilter}>
-              <SelectTrigger className="h-8">
-                <SelectValue placeholder="All users" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All users</SelectItem>
-                {USERS.map((u) => (
-                  <SelectItem key={u} value={u}>
-                    {u}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
           <div className="space-y-2">
             <Label className="text-caption">Action type</Label>
@@ -184,7 +164,7 @@ export default function GovernanceAuditLogs() {
                 <SelectItem value="all">All actions</SelectItem>
                 {ACTION_TYPES.map((a) => (
                   <SelectItem key={a} value={a}>
-                    {a.replace(/_/g, " ")}
+                    {a.replace(/_/g, " ").toLowerCase()}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -192,7 +172,7 @@ export default function GovernanceAuditLogs() {
           </div>
           <div className="space-y-2">
             <Label className="text-caption">Institution</Label>
-            <Select value={institutionFilter} onValueChange={setInstitutionFilter}>
+            <Select defaultValue="all">
               <SelectTrigger className="h-8">
                 <SelectValue placeholder="All" />
               </SelectTrigger>
@@ -209,92 +189,94 @@ export default function GovernanceAuditLogs() {
         </div>
       </div>
 
-      {/* Table – scrollable on mobile */}
-      <div className="min-w-0 overflow-x-auto rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className={tableHeaderClasses}>Change ID</TableHead>
-              <TableHead className={tableHeaderClasses}>User</TableHead>
-              <TableHead className={tableHeaderClasses}>Role</TableHead>
-              <TableHead className={tableHeaderClasses}>Action Type</TableHead>
-              <TableHead className={tableHeaderClasses}>Entity Affected</TableHead>
-              <TableHead className={tableHeaderClasses}>Old Value</TableHead>
-              <TableHead className={tableHeaderClasses}>New Value</TableHead>
-              <TableHead className={tableHeaderClasses}>Timestamp</TableHead>
-              <TableHead className={tableHeaderClasses}>IP Address</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.map((entry) => (
-              <TableRow
-                key={entry.changeId}
-                className="cursor-pointer"
-                onClick={() => setSelectedEntry(entry)}
-              >
-                <TableCell className="text-body font-medium">{entry.changeId}</TableCell>
-                <TableCell className="text-body">{entry.user}</TableCell>
-                <TableCell className="text-body">{entry.role}</TableCell>
-                <TableCell className="text-body">{entry.actionType.replace(/_/g, " ")}</TableCell>
-                <TableCell className="max-w-[200px] truncate text-body" title={entry.entityAffected}>
-                  {entry.entityAffected}
-                </TableCell>
-                <TableCell className="max-w-[120px] truncate text-body" title={entry.oldValue}>
-                  {entry.oldValue}
-                </TableCell>
-                <TableCell className="max-w-[120px] truncate text-body" title={entry.newValue}>
-                  {entry.newValue}
-                </TableCell>
-                <TableCell className="whitespace-nowrap text-caption text-muted-foreground">
-                  {new Date(entry.timestamp).toLocaleString()}
-                </TableCell>
-                <TableCell className="text-caption">{entry.ipAddress}</TableCell>
+      {isLoading ? (
+        <SkeletonTable rows={8} cols={6} />
+      ) : (
+        <div className="min-w-0 overflow-x-auto rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className={tableHeaderClasses}>Log ID</TableHead>
+                <TableHead className={tableHeaderClasses}>User</TableHead>
+                <TableHead className={tableHeaderClasses}>Action Type</TableHead>
+                <TableHead className={tableHeaderClasses}>Entity</TableHead>
+                <TableHead className={tableHeaderClasses}>Description</TableHead>
+                <TableHead className={tableHeaderClasses}>Outcome</TableHead>
+                <TableHead className={tableHeaderClasses}>Timestamp</TableHead>
+                <TableHead className={tableHeaderClasses}>IP Hash</TableHead>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
+            </TableHeader>
+            <TableBody>
+              {filtered.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
+                    No governance audit logs found
+                  </TableCell>
+                </TableRow>
+              ) : filtered.map((entry) => (
+                <TableRow
+                  key={entry.id}
+                  className="cursor-pointer"
+                  onClick={() => setSelectedEntry(entry)}
+                >
+                  <TableCell className="text-body font-medium">{entry.id}</TableCell>
+                  <TableCell className="text-body">{entry.userEmail ?? "System"}</TableCell>
+                  <TableCell className="text-body">
+                    {entry.actionType.replace(/_/g, " ").toLowerCase()}
+                  </TableCell>
+                  <TableCell className="text-body">
+                    {entry.entityType}/{entry.entityId}
+                  </TableCell>
+                  <TableCell className="max-w-[250px] truncate text-body" title={entry.description}>
+                    {entry.description ?? "—"}
+                  </TableCell>
+                  <TableCell className="text-body">{entry.auditOutcome}</TableCell>
+                  <TableCell className="whitespace-nowrap text-caption text-muted-foreground">
+                    {new Date(entry.occurredAt).toLocaleString()}
+                  </TableCell>
+                  <TableCell className="text-caption font-mono">
+                    {entry.ipAddressHash ?? "—"}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
 
-      {/* Detail modal – read-only */}
+      {/* Detail modal */}
       <Dialog open={!!selectedEntry} onOpenChange={(open) => !open && setSelectedEntry(null)}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Change details</DialogTitle>
+            <DialogTitle>Audit Log Details</DialogTitle>
           </DialogHeader>
           {selectedEntry && (
             <ScrollArea className="max-h-[70vh]">
               <div className="grid gap-4 py-2">
                 <div className="grid grid-cols-2 gap-2 text-body">
-                  <span className="text-muted-foreground">Change ID</span>
-                  <span className="font-medium">{selectedEntry.changeId}</span>
+                  <span className="text-muted-foreground">Log ID</span>
+                  <span className="font-medium">{selectedEntry.id}</span>
                   <span className="text-muted-foreground">User</span>
-                  <span className="font-medium">{selectedEntry.user}</span>
-                  <span className="text-muted-foreground">Role</span>
-                  <span className="font-medium">{selectedEntry.role}</span>
+                  <span className="font-medium">{selectedEntry.userEmail ?? "System"}</span>
                   <span className="text-muted-foreground">Action Type</span>
                   <span className="font-medium">{selectedEntry.actionType.replace(/_/g, " ")}</span>
-                  <span className="text-muted-foreground">Entity Affected</span>
-                  <span className="font-medium">{selectedEntry.entityAffected}</span>
+                  <span className="text-muted-foreground">Entity</span>
+                  <span className="font-medium">{selectedEntry.entityType}/{selectedEntry.entityId}</span>
+                  <span className="text-muted-foreground">Outcome</span>
+                  <span className="font-medium">{selectedEntry.auditOutcome}</span>
                   <span className="text-muted-foreground">Timestamp</span>
-                  <span className="font-medium">{new Date(selectedEntry.timestamp).toLocaleString()}</span>
-                  <span className="text-muted-foreground">IP Address</span>
-                  <span className="font-medium">{selectedEntry.ipAddress}</span>
+                  <span className="font-medium">{new Date(selectedEntry.occurredAt).toLocaleString()}</span>
+                  <span className="text-muted-foreground">IP Hash</span>
+                  <span className="font-medium font-mono text-caption">{selectedEntry.ipAddressHash ?? "—"}</span>
                 </div>
-                <div className="rounded-lg border border-border bg-muted/30 p-4">
-                  <p className="text-caption font-medium uppercase tracking-wider text-muted-foreground">
-                    Value comparison
-                  </p>
-                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
-                    <div>
-                      <p className="text-caption text-muted-foreground">Old value</p>
-                      <p className="mt-1 break-words font-mono text-body">{selectedEntry.oldValue}</p>
-                    </div>
-                    <div>
-                      <p className="text-caption text-muted-foreground">New value</p>
-                      <p className="mt-1 break-words font-mono text-body">{selectedEntry.newValue}</p>
-                    </div>
+                {selectedEntry.description && (
+                  <div className="rounded-lg border border-border bg-muted/30 p-4">
+                    <p className="text-caption font-medium uppercase tracking-wider text-muted-foreground">
+                      Description
+                    </p>
+                    <p className="mt-2 text-body">{selectedEntry.description}</p>
                   </div>
-                </div>
+                )}
               </div>
             </ScrollArea>
           )}

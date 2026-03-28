@@ -31,7 +31,6 @@ import {
 import { Check, ChevronRight, FileStack, Shield, Users, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses } from "@/lib/typography";
-import { institutions } from "@/data/institutions-mock";
 import {
   consortiumGovernanceModels,
   consortiumPurposes,
@@ -39,8 +38,9 @@ import {
   type ConsortiumMember,
   type ConsortiumType,
 } from "@/data/consortiums-mock";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
 import { toast } from "sonner";
+import { useConsortium, useConsortiumMembers, useCreateConsortium, useUpdateConsortium } from "@/hooks/api/useConsortiums";
+import { useInstitutions } from "@/hooks/api/useInstitutions";
 
 const steps = [
   { title: "Basic info", shortTitle: "Info", icon: FileStack },
@@ -76,20 +76,16 @@ export default function ConsortiumWizardPage() {
   const { id: paramId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const {
-    consortiums,
-    membersByConsortiumId,
-    addConsortium,
-    updateConsortium,
-  } = useCatalogMock();
 
   const isEdit = Boolean(paramId && location.pathname.endsWith("/edit"));
   const editId = isEdit ? paramId! : undefined;
 
-  const existing = useMemo(
-    () => (editId ? consortiums.find((c) => c.id === editId) : undefined),
-    [editId, consortiums]
-  );
+  const { data: existing } = useConsortium(editId);
+  const { data: existingMembers } = useConsortiumMembers(editId);
+  const { mutate: createConsortium, isPending: creating } = useCreateConsortium();
+  const { mutate: updateConsortium, isPending: updating } = useUpdateConsortium();
+  const { data: institutionsPage } = useInstitutions({ size: 50 });
+  const institutionList = institutionsPage?.content ?? [];
 
   const [currentStep, setCurrentStep] = useState(0);
   const [name, setName] = useState("");
@@ -111,12 +107,11 @@ export default function ConsortiumWizardPage() {
   useEffect(() => {
     if (existing && editId) {
       setName(existing.name);
-      setType(existing.type);
-      setPurpose(existing.purpose);
-      setGovernanceModel(existing.governanceModel);
+      setType((existing.type as ConsortiumType) ?? "Closed");
+      setPurpose(existing.purpose ?? consortiumPurposes[0]);
+      setGovernanceModel(existing.governanceModel ?? consortiumGovernanceModels[0]);
       setDescription(existing.description ?? "");
-      setDataPolicy({ ...existing.dataPolicy });
-      setMembers([...(membersByConsortiumId[editId] ?? [])]);
+      // dataPolicy is a UI-only construct; keep form defaults when loading existing
     } else if (!isEdit) {
       setName("");
       setType("Closed");
@@ -132,7 +127,16 @@ export default function ConsortiumWizardPage() {
       });
       setCurrentStep(0);
     }
-  }, [existing, editId, isEdit, membersByConsortiumId]);
+  }, [existing, editId, isEdit]);
+
+  // Seed members from API when editing
+  useEffect(() => {
+    if (!existingMembers) return;
+    const rows = Array.isArray(existingMembers)
+      ? existingMembers
+      : (existingMembers as { content?: ConsortiumMember[] }).content ?? [];
+    if (rows.length > 0) setMembers(rows as ConsortiumMember[]);
+  }, [existingMembers]);
 
   const addInstitution = useCallback((instId: string, instName: string) => {
     setMembers((prev) => {
@@ -187,38 +191,32 @@ export default function ConsortiumWizardPage() {
       toast.error("Complete required fields");
       return;
     }
-    const summary = buildSummaryFromPolicy(dataPolicy);
-    if (isEdit && editId && existing) {
-      updateConsortium(editId, {
-        consortium: {
-          name: name.trim(),
-          type,
-          purpose,
-          governanceModel,
-          description: description.trim() || undefined,
-          dataPolicy,
-          status: existing.status,
+    if (isEdit && editId) {
+      updateConsortium(
+        {
+          id: editId,
+          data: {
+            name: name.trim(),
+            type,
+            purpose,
+            governanceModel,
+            description: description.trim() || undefined,
+            status: existing?.status,
+          },
         },
-        members,
-        contributionSummary: summary,
-      });
-      toast.success("Consortium updated");
-      navigate(`/consortiums/${editId}`);
+        { onSuccess: () => navigate(`/consortiums/${editId}`) }
+      );
     } else {
-      const row = addConsortium({
-        consortium: {
+      createConsortium(
+        {
           name: name.trim(),
           type,
           purpose,
           governanceModel,
           description: description.trim() || undefined,
-          dataPolicy,
         },
-        members,
-        contributionSummary: summary,
-      });
-      toast.success("Consortium created");
-      navigate(`/consortiums/${row.id}`);
+        { onSuccess: (row) => navigate(`/consortiums/${row.id}`) }
+      );
     }
   };
 
@@ -448,15 +446,15 @@ export default function ConsortiumWizardPage() {
                   <CommandList>
                     <CommandEmpty>No institution found.</CommandEmpty>
                     <CommandGroup>
-                      {institutions.map((inst) => (
+                      {institutionList.map((inst) => (
                         <CommandItem
                           key={inst.id}
-                          value={`${inst.name} ${inst.type}`}
-                          onSelect={() => addInstitution(inst.id, inst.name)}
+                          value={`${inst.name} ${inst.institutionType}`}
+                          onSelect={() => addInstitution(String(inst.id), inst.name)}
                         >
                           <span className="truncate">{inst.name}</span>
                           <span className="text-caption text-muted-foreground ml-2 truncate">
-                            {inst.type}
+                            {inst.institutionType}
                           </span>
                         </CommandItem>
                       ))}
@@ -600,8 +598,8 @@ export default function ConsortiumWizardPage() {
                   : "Full details"}
               </p>
             </div>
-            <Button type="button" onClick={handleSubmit} className="gap-2">
-              {isEdit ? "Save changes" : "Create consortium"}
+            <Button type="button" onClick={handleSubmit} disabled={creating || updating} className="gap-2">
+              {creating || updating ? "Saving…" : (isEdit ? "Save changes" : "Create consortium")}
               <ChevronRight className="w-4 h-4" />
             </Button>
           </CardContent>

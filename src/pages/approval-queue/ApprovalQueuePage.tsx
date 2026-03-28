@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ClipboardCheck, Clock, CheckCircle2, XCircle, AlertTriangle, ThumbsUp, ThumbsDown, MessageSquare, Building2, ScrollText, Users, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -11,11 +11,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
-import { approvalQueueItems as initialItems } from "@/data/approval-queue-mock";
+import { SkeletonKpiCards } from "@/components/ui/skeleton-table";
+import { ApiErrorCard } from "@/components/ui/api-error-card";
 import type { ApprovalItem, ApprovalStatus } from "@/types/approval-queue";
+import { calcPendingCount, calcApprovedThisMonth, calcChangesRequestedCount } from "@/lib/calc/kpiCalc";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { format } from "date-fns";
+import { useApprovals, useApproveItem, useRejectItem, useRequestChanges } from "@/hooks/api/useApprovals";
 
 const statusConfig: Record<ApprovalStatus, { label: string; color: string; icon: React.ElementType }> = {
   pending: { label: "Pending", color: "bg-warning/15 text-warning border-warning/20", icon: Clock },
@@ -25,12 +27,23 @@ const statusConfig: Record<ApprovalStatus, { label: string; color: string; icon:
 };
 
 export function ApprovalQueuePage() {
-  const [items, setItems] = useState<ApprovalItem[]>(initialItems);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [tab, setTab] = useState("all");
   const [detailItem, setDetailItem] = useState<ApprovalItem | null>(null);
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; item: ApprovalItem | null; mode: "reject" | "changes" }>({ open: false, item: null, mode: "reject" });
   const [reason, setReason] = useState("");
+
+  const { data: approvalsData, isLoading, isError, error, refetch } = useApprovals();
+  const approveItem = useApproveItem();
+  const rejectItemMutation = useRejectItem();
+  const requestChangesMutation = useRequestChanges();
+
+  const items: ApprovalItem[] = useMemo(() => {
+    if (!approvalsData) return [];
+    if (Array.isArray(approvalsData)) return approvalsData as ApprovalItem[];
+    if (Array.isArray((approvalsData as { content?: ApprovalItem[] }).content)) return (approvalsData as { content: ApprovalItem[] }).content;
+    return [];
+  }, [approvalsData]);
 
   const tabTypeMap: Record<string, string> = {
     institutions: "institution",
@@ -45,21 +58,22 @@ export function ApprovalQueuePage() {
     return true;
   });
 
-  const pendingCount = items.filter((i) => i.status === "pending").length;
-  const approvedToday = items.filter((i) => i.status === "approved" && i.reviewedAt?.startsWith("2026-03-")).length;
-  const changesCount = items.filter((i) => i.status === "changes_requested").length;
+  const pendingCount = calcPendingCount(items);
+  const approvedToday = calcApprovedThisMonth(items);
+  const changesCount = calcChangesRequestedCount(items);
 
   const handleApprove = (item: ApprovalItem) => {
-    setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "approved" as const, reviewedBy: "Super Admin", reviewedAt: new Date().toISOString() } : i));
-    toast.success(`"${item.name}" has been approved`);
+    approveItem.mutate({ id: item.id, comment: "Approved via portal" });
     setDetailItem(null);
   };
 
   const handleRejectOrChanges = () => {
     if (!rejectDialog.item || !reason.trim()) return;
-    const newStatus = rejectDialog.mode === "reject" ? "rejected" : "changes_requested";
-    setItems((prev) => prev.map((i) => i.id === rejectDialog.item!.id ? { ...i, status: newStatus as ApprovalStatus, rejectionReason: reason, reviewedBy: "Super Admin", reviewedAt: new Date().toISOString() } : i));
-    toast.success(`"${rejectDialog.item.name}" ${rejectDialog.mode === "reject" ? "rejected" : "sent back for changes"}`);
+    if (rejectDialog.mode === "reject") {
+      rejectItemMutation.mutate({ id: rejectDialog.item.id, reason });
+    } else {
+      requestChangesMutation.mutate({ id: rejectDialog.item.id, comment: reason });
+    }
     setRejectDialog({ open: false, item: null, mode: "reject" });
     setReason("");
     setDetailItem(null);
@@ -83,6 +97,9 @@ export function ApprovalQueuePage() {
         </div>
 
         {/* KPIs */}
+        {isLoading && <SkeletonKpiCards count={4} />}
+        {isError && <ApiErrorCard error={error} onRetry={() => refetch()} />}
+        {!isLoading && !isError && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {kpis.map((kpi) => (
             <Card key={kpi.label} className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
@@ -98,6 +115,7 @@ export function ApprovalQueuePage() {
             </Card>
           ))}
         </div>
+        )}
 
         {/* Filters + Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">

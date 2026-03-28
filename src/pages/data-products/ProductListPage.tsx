@@ -8,6 +8,9 @@ import { Search, Eye, Pencil, Plus, FlaskConical } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import { useCatalogMock } from "@/contexts/CatalogMockContext";
+import { SkeletonTable } from "@/components/ui/skeleton-table";
+import { ApiErrorCard } from "@/components/ui/api-error-card";
+import { useProducts } from "@/hooks/api/useProducts";
 import {
   Select,
   SelectContent,
@@ -34,7 +37,9 @@ const statusLabel: Record<ProductLifecycleStatus, string> = {
 
 export default function ProductListPage() {
   const navigate = useNavigate();
-  const { products } = useCatalogMock();
+  const { products: contextProducts } = useCatalogMock();
+  const { data: apiProducts, isLoading, isError, error, refetch } = useProducts();
+  const products = (apiProducts as unknown as typeof contextProducts) ?? contextProducts;
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
@@ -122,6 +127,9 @@ export default function ProductListPage() {
           </SelectContent>
         </Select>
       </div>
+
+      {isLoading && <SkeletonTable rows={5} cols={5} />}
+      {isError && <ApiErrorCard error={error} onRetry={() => refetch()} />}
 
       <div className="md:hidden space-y-3">
         {filtered.length === 0 ? (

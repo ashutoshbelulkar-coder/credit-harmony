@@ -110,7 +110,9 @@ function PageLoader() {
 }
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
+  // Wait for silent session restore before deciding to redirect
+  if (isLoading) return <PageLoader />;
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 }

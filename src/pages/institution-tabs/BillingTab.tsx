@@ -28,9 +28,7 @@ import {
 } from "@/components/ui/chart";
 import type { BillingModel } from "@/data/institutions-mock";
 import tabsData from "@/data/institution-tabs.json";
-import { getProductSubscriptions } from "@/data/institution-extensions-mock";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
-import { productPricingLabel } from "@/data/data-products-mock";
+import { useBillingSummary, useProductSubscriptions } from "@/hooks/api/useInstitutions";
 
 const { creditTrendData } = tabsData.billing;
 
@@ -57,22 +55,30 @@ export default function BillingTab({
   billingModel?: BillingModel;
   creditBalance?: number;
 }) {
-  const { products: catalogProducts } = useCatalogMock();
+  const { data: billingSummary } = useBillingSummary(institutionId);
+  const { data: apiSubscriptions } = useProductSubscriptions(institutionId);
 
-  // Join subscriptions with catalog to get rate info
+  // Derive subscriptions from API data
   const subscriptions = useMemo(() => {
-    const subs = getProductSubscriptions(institutionId);
-    return subs.map((s) => {
-      const cat = catalogProducts.find((p) => p.id === s.productId);
-      return {
-        ...s,
-        pricingModel: cat ? productPricingLabel[cat.pricingModel] : "Per hit",
-        ratePerCall: cat?.price ?? 0,
-      };
-    });
-  }, [institutionId, catalogProducts]);
+    if (!apiSubscriptions) return [];
+    return (apiSubscriptions as Array<{
+      productId: number;
+      productName: string;
+      productStatus: string;
+      pricingModel: string;
+      subscriptionStatus: string;
+    }>).map((s) => ({
+      productId: String(s.productId),
+      productName: s.productName,
+      plan: "Standard",
+      usage: "—",
+      status: s.subscriptionStatus as "active" | "trial" | "suspended",
+      pricingModel: s.pricingModel ?? "Per hit",
+      ratePerCall: 0,
+    }));
+  }, [apiSubscriptions]);
 
-  /** Member-specific rate overrides (mock); does not change global catalogue. */
+  /** Member-specific rate overrides; does not change global catalogue. */
   const [rateOverrides, setRateOverrides] = useState<Record<string, number>>({});
   const [savedRateOverrides, setSavedRateOverrides] = useState<Record<string, number>>({});
 
@@ -112,9 +118,12 @@ export default function BillingTab({
     [subscriptions, rateOverrides]
   );
 
+  const apiCreditBalance = billingSummary?.creditBalance ?? initBalance ?? 25000;
+  const apiBillingModel = (billingSummary?.billingModel as BillingModel | undefined) ?? initModel ?? "prepaid";
+
   const [isEditingModel, setIsEditingModel] = useState(false);
   const [isEditingRates, setIsEditingRates] = useState(false);
-  const [model, setModel] = useState<BillingModel>(initModel || "prepaid");
+  const [model, setModel] = useState<BillingModel>(apiBillingModel);
   const [alertThreshold, setAlertThreshold] = useState(5000);
   const currentYear = new Date().getFullYear();
   const yearOptions = [currentYear, currentYear - 1, currentYear - 2];
@@ -122,7 +131,7 @@ export default function BillingTab({
   const [exportYear, setExportYear] = useState(String(currentYear));
 
   const [savedState, setSavedState] = useState({
-    model: (initModel || "prepaid") as BillingModel,
+    model: apiBillingModel,
     alertThreshold: 5000,
   });
 
@@ -264,7 +273,7 @@ export default function BillingTab({
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5">Current Credit Balance</label>
                 <div className="h-10 flex items-center px-3 rounded-md border border-border bg-muted/50 text-sm font-medium text-foreground">
-                  {(initBalance ?? 25000).toLocaleString()}
+                  {apiCreditBalance.toLocaleString()}
                 </div>
               </div>
               <div>

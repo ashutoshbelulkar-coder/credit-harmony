@@ -20,6 +20,7 @@ import {
 } from "@/components/ui/chart";
 import { CheckCircle2, AlertTriangle, Copy, TrendingUp, ShieldAlert, Clock, Zap } from "lucide-react";
 import tabsData from "@/data/institution-tabs.json";
+import { useMonitoringSummary } from "@/hooks/api/useInstitutions";
 
 const ICON_MAP = { CheckCircle2, AlertTriangle, Copy, TrendingUp, ShieldAlert, Clock, Zap } as const;
 type IconKey = keyof typeof ICON_MAP;
@@ -80,10 +81,33 @@ function KpiCard({ label, value, icon: Icon, color }: { label: string; value: st
   );
 }
 
-export default function MonitoringTab({ isDataSubmitter, isSubscriber }: { isDataSubmitter: boolean; isSubscriber: boolean }) {
+export default function MonitoringTab({ institutionId, isDataSubmitter, isSubscriber }: { institutionId?: string | number; isDataSubmitter: boolean; isSubscriber: boolean }) {
+  const { data: monSummary } = useMonitoringSummary(institutionId);
   const now = new Date();
   const [dateFrom, setDateFrom] = useState(format(startOfMonth(now), "yyyy-MM-dd"));
   const [dateTo, setDateTo] = useState(format(now, "yyyy-MM-dd"));
+
+  // Override static KPI values with live data from API when available
+  const liveSubmissionKpis = useMemo(() => {
+    if (!monSummary) return submissionKpis;
+    return submissionKpis.map((k) => {
+      if (k.label.toLowerCase().includes("total")) return { ...k, value: String(monSummary.totalRequests ?? k.value) };
+      if (k.label.toLowerCase().includes("success")) return { ...k, value: `${monSummary.successRatePct ?? k.value}%` };
+      if (k.label.toLowerCase().includes("batch")) return { ...k, value: String(monSummary.totalBatches ?? k.value) };
+      if (k.label.toLowerCase().includes("latency") || k.label.toLowerCase().includes("avg")) return { ...k, value: `${monSummary.avgLatencyMs ?? k.value}ms` };
+      return k;
+    });
+  }, [monSummary]);
+
+  const liveSubscriberKpis = useMemo(() => {
+    if (!monSummary) return subscriberKpis;
+    return subscriberKpis.map((k) => {
+      if (k.label.toLowerCase().includes("request")) return { ...k, value: String(monSummary.totalRequests ?? k.value) };
+      if (k.label.toLowerCase().includes("success")) return { ...k, value: `${monSummary.successRatePct ?? k.value}%` };
+      if (k.label.toLowerCase().includes("latency") || k.label.toLowerCase().includes("avg")) return { ...k, value: `${monSummary.avgLatencyMs ?? k.value}ms` };
+      return k;
+    });
+  }, [monSummary]);
 
   const filteredIngestion = useMemo(
     () => ingestionTrendData.filter((row) => dayLabelInRange(row.day, dateFrom, dateTo)),
@@ -122,7 +146,7 @@ export default function MonitoringTab({ isDataSubmitter, isSubscriber }: { isDat
         <div className="space-y-6">
           <h4 className="text-body font-semibold text-foreground">Data Submission Monitoring</h4>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {submissionKpis.map((k) => (
+            {liveSubmissionKpis.map((k) => (
               <KpiCard key={k.label} {...k} />
             ))}
           </div>
@@ -161,7 +185,7 @@ export default function MonitoringTab({ isDataSubmitter, isSubscriber }: { isDat
           {isDataSubmitter && <div className="border-t border-border" />}
           <h4 className="text-body font-semibold text-foreground">Subscriber Monitoring</h4>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {subscriberKpis.map((k) => (
+            {liveSubscriberKpis.map((k) => (
               <KpiCard key={k.label} {...k} />
             ))}
           </div>

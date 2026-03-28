@@ -8,6 +8,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { institutionTypes } from "@/data/institutions-mock";
 import { toast } from "sonner";
+import { useCreateInstitution } from "@/hooks/api/useInstitutions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -81,6 +82,7 @@ const RegisterInstitution = () => {
   const navigate = useNavigate();
   const [currentStep, setCurrentStep] = useState(0);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
+  const { mutate: createInstitution, isPending: submitting } = useCreateInstitution();
 
   const form = useForm<CorporateDetailsFormData>({
     resolver: zodResolver(corporateDetailsSchema),
@@ -154,8 +156,27 @@ const RegisterInstitution = () => {
       toast.error(`Please upload all ${requiredDocs.length} required documents`);
       return;
     }
-    toast.success("Institution submitted for Super Admin approval. Track status in the Approval Queue.");
-    navigate("/approval-queue");
+    createInstitution(
+      {
+        name: data.legalName,
+        tradingName: data.tradingName,
+        registrationNumber: data.registrationNumber,
+        institutionType: data.institutionType,
+        jurisdiction: data.jurisdiction,
+        licenseNumber: data.licenseNumber,
+        contactEmail: data.contactEmail,
+        contactPhone: data.contactPhone,
+        isDataSubmitter: data.isDataSubmitter,
+        isSubscriber: data.isSubscriber,
+        institutionLifecycleStatus: "Pending Approval",
+      },
+      {
+        onSuccess: () => {
+          toast.success("Institution submitted for Super Admin approval. Track status in the Approval Queue.");
+          navigate("/approval-queue");
+        },
+      }
+    );
   };
 
   const values = form.watch();
@@ -305,8 +326,8 @@ const RegisterInstitution = () => {
                 Next <ArrowRight className="w-4 h-4" />
               </Button>
             ) : (
-              <Button onClick={handleSubmit} variant="default" className="gap-1.5 bg-success hover:bg-success/90 text-success-foreground">
-                <CheckCircle2 className="w-4 h-4" /> Submit for Review
+              <Button onClick={handleSubmit} variant="default" disabled={submitting} className="gap-1.5 bg-success hover:bg-success/90 text-success-foreground">
+                <CheckCircle2 className="w-4 h-4" /> {submitting ? "Submitting…" : "Submit for Review"}
               </Button>
             )}
           </div>

@@ -3625,4 +3625,757 @@ Prior to v2.0, custom Tailwind tokens (`text-caption`, `text-body`, `text-h4`) w
 
 ---
 
-*End of Document — v2.1 (2026-03-27)*
+## SECTION A — DATA NORMALIZATION PRINCIPLES (v3.0 Addition)
+
+**Document Version:** 3.0 | **Date:** 2026-03-28 | **Effective immediately for all backend implementations**
+
+---
+
+### A.1 Single Source of Truth Architecture
+
+The HCB platform mandates a strict Single Source of Truth (SSoT) data architecture. Every business attribute is stored in exactly one owner table. No attribute may be physically duplicated across tables.
+
+**Hard Rules:**
+- `NR-001` No duplicate attributes across tables
+- `NR-002` Single owner per entity type (e.g., institution `name` lives only in `institutions`)
+- `NR-003` All cross-table references use foreign keys exclusively
+- `NR-004` No denormalized shortcuts (counts, averages computed at query time)
+- `NR-005` Domain-scoped status fields with CHECK constraint enums
+- `NR-006` Soft delete mandatory (`is_deleted`, `deleted_at`) on all mutable entities
+- `NR-007` All timestamps stored as UTC ISO-8601
+
+---
+
+### A.2 Attribute Ownership Rules
+
+| Attribute | Owner Table | Access Pattern |
+|-----------|------------|----------------|
+| Institution name, trading name | `institutions` | FK join from all referencing tables |
+| User email, display name, password hash | `users` | FK join; no copies anywhere |
+| Role names, descriptions | `roles` | FK via `user_role_assignments` |
+| Permission definitions | `permissions` | FK via `role_permissions` |
+| Consumer PII (name, DOB, ID) | `consumers` | Encrypted at app layer; hash for matching |
+| Product names, pricing model | `products` | FK from `enquiries`, `product_subscriptions` |
+| Consortium names, data policy | `consortiums` | FK from `consortium_members` |
+| API key raw value | `api_keys` (write-once) | Never stored in logs; log uses `api_key_id` FK |
+| IP addresses | Hashed before any storage | SHA-256; never plain text |
+| Severity level | Per domain owner table | Canonical enum: INFO/WARNING/CRITICAL |
+
+---
+
+### A.3 API Join-Based Data Retrieval
+
+All API response payloads assemble data via SQL joins. No denormalized data is persisted during API read operations.
+
+**Example — Institution list with compliance count:**
+```sql
+SELECT i.id, i.name, i.institution_lifecycle_status,
+       COUNT(cd.id) AS compliance_docs_count,
+       COUNT(cm.id) AS consortium_memberships_count
+FROM institutions i
+LEFT JOIN compliance_documents cd ON cd.institution_id = i.id
+LEFT JOIN consortium_members cm ON cm.institution_id = i.id
+WHERE i.is_deleted = 0
+GROUP BY i.id;
+```
+
+Response DTOs may contain view-friendly assembled data but such data is **never written back to the database**.
+
+---
+
+### A.4 Data Consistency Guarantees
+
+1. **Transactional consistency**: Multi-table write operations are wrapped in database transactions. Rollback on any failure.
+2. **Referential integrity**: `PRAGMA foreign_keys = ON` enforced for all SQLite sessions. PostgreSQL FK constraints enforced in production.
+3. **Soft delete propagation**: Deleting an entity sets `is_deleted=1` only on the owner table. Related tables reference via FK and apply `ON DELETE CASCADE` or `ON DELETE SET NULL` per design.
+4. **Audit trail completeness**: Every business action generates an immutable `audit_logs` row. No business operation is considered complete without its audit log entry.
+5. **Append-only operational logs**: `api_requests` and `audit_logs` are insert-only. No UPDATE or DELETE operations on these tables.
+
+---
+
+### A.5 Action-Driven API Policy
+
+Every UI action must be backed by a corresponding API call and database update:
+
+| UI Action | API Endpoint | Tables Modified |
+|-----------|-------------|-----------------|
+| Register institution | `POST /api/v1/institutions` | institutions, approval_queue, audit_logs |
+| Suspend institution | `POST /api/v1/institutions/:id/suspend` | institutions, audit_logs |
+| Approve queue item | `POST /api/v1/approvals/:id/approve` | approval_queue, target entity, audit_logs |
+| Assign user role | `POST /api/v1/users/:id/assign-role` | user_role_assignments, audit_logs |
+| Rotate API key | `POST /api/v1/api-keys/:id/regenerate` | api_keys, audit_logs |
+| Create report request | `POST /api/v1/reports` | reports, audit_logs |
+
+**No UI state mutation is valid unless it is backed by an API call that updates the database.**
+
+---
+
+### A.6 Operational Constraints
+
+1. **No direct frontend data mutation**: The frontend never writes to localStorage or sessionStorage as a substitute for API calls in production.
+2. **No plaintext PII in logs**: Audit logs and API request logs contain only FK references, hashed identifiers, and non-sensitive metadata.
+3. **No raw API keys in logs**: `api_requests` table stores `api_key_id` (FK integer), never the raw key string.
+4. **No computed fields stored**: Credit scores, success rates, data quality percentages are computed at query time.
+5. **Schema migration required for production changes**: No DDL changes applied directly to production database; all schema changes via versioned migration scripts.
+
+---
+
+---
+
+## Appendix G: UI Action → API Contract (v3.1)
+
+> **Purpose**: For every user-facing button, filter, pagination control, and page-load event, this appendix documents the exact API endpoint called, the request parameters, the success behaviour visible to the user, and the precise error handling strategy. This is the authoritative reference for QA testing, backend integration, and incident debugging.
+
+> **Global error-handling rules** (apply to every action below unless overridden):
+>
+> | Condition | What the user sees |
+> |-----------|-------------------|
+> | Mock fallback active (`VITE_USE_MOCK_FALLBACK=true`, no backend running) | Data loads silently from static JSON — no error shown |
+> | 401 Unauthorised (access token expired) | API client auto-retries with refresh token; if refresh also fails → redirected to `/login` |
+> | 403 Forbidden | `ApiErrorCard` — "Access denied. You don't have permission to view this content." |
+> | 404 Not Found | `ApiErrorCard` — "Not found. The requested resource could not be found." |
+> | 500 / 502 / 503 Server Error | `ApiErrorCard` with **Try again** button; retried up to 3× by React Query |
+> | Network unreachable / CORS / timeout | `ApiErrorCard` — "Connection error. Unable to reach the server." with **Try again** button |
+> | Mutation (write) failure | `toast.error("…")` with the error message; data is NOT changed in local state |
+> | Successful mutation | `toast.success("…")` + relevant query invalidated → list auto-refreshes |
+
+---
+
+### G.1 Authentication — `/login`
+
+#### Action: **Login** (Submit button / pressing Enter in the password field)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/auth/login` |
+| **Trigger** | User clicks **Login** or presses Enter |
+| **Request body** | `{ "email": "user@example.com", "password": "••••" }` |
+| **Validation (client)** | Email must be non-empty and match email regex; password must be non-empty. Errors shown inline beneath the input before the API call is made. |
+| **Success** | Tokens stored in memory (access token) and `sessionStorage` (refresh token). User navigated to `/`. Toast: none. |
+| **401 Wrong credentials** | Inline error below the form: "Invalid email or password." No redirect. |
+| **403 Account locked** | Inline error: "Your account has been suspended. Contact your administrator." |
+| **500 / network error** | Inline error: "Server error. Please try again." Retry is manual (re-submit). |
+| **Empty fields** | Client-side validation prevents submission; field outlines turn red with message. |
+
+#### Action: **Sign out** (sidebar / header logout menu item)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/auth/logout` |
+| **Trigger** | User clicks **Sign out** |
+| **Request body** | `{ "refreshToken": "…" }` (sent from sessionStorage) |
+| **Success** | Tokens cleared from memory and sessionStorage. User navigated to `/login`. |
+| **Error** | Tokens cleared locally regardless; user redirected to `/login`. API failure is silent. |
+
+---
+
+### G.2 Dashboard — `/`
+
+#### Action: **Page load** (automatic on mount)
+
+| Hook | API | Params | Refresh interval |
+|------|-----|--------|-----------------|
+| `useDashboardSnapshot` → `fetchDashboardMetrics` | `GET /api/v1/dashboard/metrics` | none | 30 s |
+| `useDashboardSnapshot` → `fetchDashboardCharts` | `GET /api/v1/dashboard/charts` | none | 60 s |
+
+**Success**: KPI cards, charts, and activity feed populate from API data.  
+**Error**: Each section shows `ApiErrorCard` independently; the rest of the page still renders.
+
+#### Action: **Active Batch Pipeline → navigate to Batch Monitoring**
+
+No API call. Navigates to `/monitoring/data-submission-batch?status=Processing,Queued` (client-side route).
+
+#### Action: **Dashboard KPI "View All" / section links**
+
+No API call. Client-side navigation to the respective module route.
+
+---
+
+### G.3 Member Institutions — `/institutions`
+
+#### Action: **Page load / filter change / pagination**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/institutions` |
+| **Trigger** | Page mount, any filter change (status, role, search), or page number change |
+| **Query params** | `?status=Active&role=DataSubmitter&search=bank&page=0&size=20` |
+| **Success** | Table rows, total count, and page controls update. |
+| **Error** | `ApiErrorCard` replaces the table with **Try again** button; filters remain interactive. |
+
+#### Action: **Register Member** (button top-right)
+
+No API call on button click. Navigates to `/institutions/register`.
+
+#### Action: **Suspend** (row action)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/institutions/:id/suspend` |
+| **Trigger** | User clicks **Suspend** in the row action menu and confirms the dialog |
+| **Request body** | `{ "reason": "Admin-initiated suspension" }` |
+| **Success** | `toast.success("Institution suspended")` + institution list re-fetched |
+| **Error** | `toast.error("Failed to suspend institution: [message]")` — no state change |
+
+#### Action: **Export CSV** (button)
+
+No API call. Client-side CSV generation from the currently loaded `institutions` array. File download triggered in browser.
+
+#### Action: **View** (row click / View button)
+
+No API call. Navigates to `/institutions/:id`.
+
+---
+
+### G.4 Institution Registration Wizard — `/institutions/register`
+
+#### Action: **Submit** (Step 3 — final step)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/institutions` |
+| **Trigger** | User clicks **Submit Registration** on the Review & Submit step |
+| **Request body** | Full institution payload from all wizard steps (corporate details, compliance docs, role flags) |
+| **Success** | `toast.success("Institution submitted for approval")`. User navigated to `/institutions`. The new institution appears in Approval Queue. |
+| **400 Validation error** | Inline errors on the relevant step fields. Wizard stays open. |
+| **409 Duplicate** | `toast.error("An institution with this registration number already exists.")` |
+| **500 / network** | `toast.error("Failed to submit. Please try again.")` — wizard data retained so user can retry |
+
+#### Action: **Save Draft** (intermediate steps)
+
+No API call in current implementation. State held in component memory.
+
+---
+
+### G.5 Institution Detail — `/institutions/:id`
+
+#### Action: **Page load**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/institutions/:id` |
+| **Success** | Institution header, tabs, and summary cards populate. |
+| **404** | `ApiErrorCard` — "Institution not found." with link back to list. |
+| **Error** | `ApiErrorCard` with **Try again**. |
+
+#### Action: **Edit Institution** (Edit button in header)
+
+No API call on button click. Opens inline edit form or navigates to edit route (current implementation: inline dialog).
+
+#### Action: **Save Changes** (Edit dialog)
+
+| Field | Value |
+|-------|-------|
+| **API** | `PATCH /api/v1/institutions/:id` |
+| **Request body** | Changed fields only (partial update) |
+| **Success** | `toast.success("Institution updated")` + institution data re-fetched |
+| **Error** | `toast.error("Update failed: [message]")` — dialog remains open |
+
+#### Action: **Audit Trail Tab — page load**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/audit-logs?entityType=INSTITUTION&entityId=:id&size=20` |
+| **Success** | Audit event rows populate. |
+| **Error** | `SkeletonTable` shown during load; empty state shown on error. |
+
+---
+
+### G.6 Approval Queue — `/approval-queue`
+
+#### Action: **Page load / tab switch / status filter**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/approval-queue` |
+| **Trigger** | Mount, tab switch (All / Institutions / Mappings / Consortiums / Products), status dropdown change |
+| **Query params** | `?category=institutions&status=Pending&page=0&size=20` |
+| **Success** | KPI cards (Pending, Approved This Month, Changes Requested, Total) and table populate. |
+| **Error** | `ApiErrorCard` replaces the table and KPI section. |
+
+#### Action: **Approve** (row button → confirm dialog)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/approval-queue/:id/approve` |
+| **Trigger** | User clicks **Approve** and confirms in the dialog |
+| **Request body** | `{ "comment": "Approved" }` (optional) |
+| **Success** | `toast.success("Item approved")` + queue re-fetched + KPI cards update |
+| **Error** | `toast.error("Approval failed: [message]")` — item stays in Pending state |
+
+#### Action: **Reject** (row button → confirm dialog)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/approval-queue/:id/reject` |
+| **Trigger** | User clicks **Reject** and confirms with optional rejection reason |
+| **Request body** | `{ "reason": "Incomplete documentation" }` |
+| **Success** | `toast.success("Item rejected")` + queue re-fetched |
+| **Error** | `toast.error("Rejection failed: [message]")` |
+
+#### Action: **Request Changes** (row button → dialog)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/approval-queue/:id/request-changes` |
+| **Trigger** | User clicks **Request Changes** and submits the reason |
+| **Request body** | `{ "message": "Please resubmit with updated compliance documents" }` |
+| **Success** | `toast.success("Change request sent")` + queue re-fetched |
+| **Error** | `toast.error("Failed to request changes: [message]")` |
+
+---
+
+### G.7 Users List — `/user-management/users`
+
+#### Action: **Page load / filter change**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/users` |
+| **Query params** | `?role=Admin&status=Active&search=john&page=0&size=20` |
+| **Success** | User rows, status badges, and role tags render. |
+| **Error** | `ApiErrorCard` with **Try again**. |
+
+#### Action: **Suspend User** (row action)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/users/:id/suspend` |
+| **Success** | `toast.success("User suspended")` + list re-fetched. Row shows "Suspended" badge. |
+| **Error** | `toast.error("Failed to suspend user: [message]")` — no state change |
+
+#### Action: **Activate User** (row action)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/users/:id/activate` |
+| **Success** | `toast.success("User activated")` + list re-fetched. Row shows "Active" badge. |
+| **Error** | `toast.error("Failed to activate user: [message]")` |
+
+#### Action: **Invite User** (button top-right → dialog)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/users/invite` |
+| **Request body** | `{ "email": "new@example.com", "role": "Analyst" }` |
+| **Success** | `toast.success("Invitation sent to [email]")` + list re-fetched |
+| **400 Invalid email** | Inline validation error in the invite dialog |
+| **409 User exists** | `toast.error("A user with this email already exists.")` |
+| **Error** | `toast.error("Failed to send invite: [message]")` |
+
+#### Action: **Export CSV** (button)
+
+No API call. Client-side CSV from the currently loaded `users` array.
+
+---
+
+### G.8 Monitoring — Data Submission API — `/monitoring/data-submission-api`
+
+#### Action: **Page load** (automatic on mount, re-run every 30 s)
+
+| Hook | API | Purpose |
+|------|-----|---------|
+| `useMonitoringKpis` | `GET /api/v1/monitoring/kpis` | KPI card values (total calls, success rate, P95 latency, etc.) |
+| `useMonitoringCharts` | `GET /api/v1/monitoring/charts` | Volume / latency / pie / rejection charts (refreshed every 60 s) |
+| `useApiRequests(params)` | `GET /api/v1/monitoring/api-requests` | Request log table (server-paginated) |
+
+**Success**: All three sections populate independently.  
+**KPI error**: KPI cards fall back to computing from the current page of `api-requests` using `calcApiRequestKpis`.  
+**Charts error**: Charts show "No chart data available" placeholder.  
+**Table error**: `ApiErrorCard` with **Try again** inside the table card.
+
+#### Action: **Status / Institution filter change**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/monitoring/api-requests?status=Failed&institutionId=inst_001&page=0&size=10` |
+| **Trigger** | Any filter dropdown change; resets to page 1 |
+| **Success** | Table rows update to match server-filtered results. Pagination totals reflect filter. |
+| **Error** | `ApiErrorCard` inside the table card with **Try again** button. |
+
+#### Action: **Date range filter (dateFrom / dateTo)**
+
+| Field | Value |
+|-------|-------|
+| **Params sent to API** | `dateFrom=2026-03-01&dateTo=2026-03-28` |
+| **Client-side only** | `timeRange` (Last 5 min / 1 hr / 6 hr / 24 hr) — not sent to API; applied client-side on current page rows |
+| **requestIdSearch** | Applied client-side on current page rows only |
+
+#### Action: **Pagination (Previous / Next)**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/monitoring/api-requests?…&page=2&size=10` |
+| **Success** | Table rows update. Page counter and "Showing X–Y of Z" update. |
+| **Error** | `ApiErrorCard` inside table card. |
+
+#### Action: **View** (row button → RequestDetailDrawer)
+
+No API call. Selected row data is passed as props to the drawer. All information already in the fetched row.
+
+#### Action: **Retry** (inside RequestDetailDrawer — Failed requests)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/monitoring/api-requests/:requestId/retry` *(future endpoint — currently a stub)* |
+| **Current behaviour** | Drawer closes; no API call; toast: none |
+
+---
+
+### G.9 Monitoring — Enquiry API — `/monitoring/enquiry-api`
+
+#### Action: **Page load** (automatic, re-run every 30 s)
+
+| Hook | API | Purpose |
+|------|-----|---------|
+| `useEnquiries(params)` | `GET /api/v1/monitoring/enquiries` | Enquiry log table (server-paginated) |
+| KPI cards | **Mock only** (`enquiryKpis` from `monitoring-mock`) | No enquiry KPI endpoint exists yet |
+| Charts | **Mock only** (`enquiryVolumeData` etc.) | No enquiry chart endpoint exists yet |
+
+**Table error**: `SkeletonTable` during loading; empty state if no rows returned.
+
+#### Action: **Status / Institution filter change**
+
+| Field | Value |
+|-------|-------|
+| **Params sent to API** | `status=Failed&institutionId=inst_002` |
+| **Client-side only** | `timeRange`, `enquiryIdSearch` |
+
+#### Action: **View** (row button → EnquiryDetailDrawer)
+
+No API call. Drawer receives adapted row data via `toMockEnquiry()` adapter function.
+
+---
+
+### G.10 Monitoring — Batch — `/monitoring/data-submission-batch`
+
+#### Action: **Page load** (automatic)
+
+| Hook | API | Purpose |
+|------|-----|---------|
+| `useBatchJobs` | `GET /api/v1/batch-jobs` | Batch job pipeline cards |
+| `useBatchKpis` | `GET /api/v1/batch-jobs/kpis` | KPI summary cards |
+
+**Error**: `ApiErrorCard` shown for each section independently.
+
+#### Action: **View Details** (pipeline card → BatchExecutionConsole)
+
+No API call. Console data comes from static `batch-console.json` mock. This is a known limitation — a live console log endpoint is in the roadmap.
+
+---
+
+### G.11 Alert Engine — `/monitoring/alert-engine`
+
+#### Action: **Page load**
+
+| Hook | API | Purpose |
+|------|-----|---------|
+| `useAlertRules` | `GET /api/v1/alert-rules` | Alert rules list (seeds local state) |
+| `useAlertIncidents` | `GET /api/v1/alert-incidents` | Active/historical incidents |
+| `useSlaConfigs` | `GET /api/v1/sla-configs` | SLA configuration cards (seeds local state) |
+| `useBreachHistory` | `GET /api/v1/sla-configs/breach-history` | SLA breach history table (seeds local state) |
+
+**Error**: Each section shows `ApiErrorCard` independently.
+
+#### Action: **Create / Edit Alert Rule** (dialog → Save)
+
+| Field | Value |
+|-------|-------|
+| **Current behaviour** | Local state update only; `toast.success("Alert rule saved")`. No API mutation wired yet. |
+| **Planned API** | `POST /api/v1/alert-rules` / `PATCH /api/v1/alert-rules/:id` |
+| **Error (future)** | `toast.error("Failed to save alert rule: [message]")` |
+
+#### Action: **Toggle Alert Rule** (enable/disable switch)
+
+| Field | Value |
+|-------|-------|
+| **Current behaviour** | Local state update only. |
+| **Planned API** | `PATCH /api/v1/alert-rules/:id` with `{ "isActive": true/false }` |
+
+#### Action: **Acknowledge Incident** (button)
+
+| Field | Value |
+|-------|-------|
+| **Current behaviour** | Local state update only; `toast.success("Incident acknowledged")`. |
+| **Planned API** | `POST /api/v1/alert-incidents/:id/acknowledge` |
+
+---
+
+### G.12 Reports — `/reporting`
+
+#### Action: **Page load**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/reports` |
+| **Hook** | `useReports` in `ReportingLayout` |
+| **Success** | `reports` local state seeded from API. Report list renders. |
+| **Error** | Silently falls back to empty `reports` state. `ApiErrorCard` shown inside the list area. |
+
+#### Action: **Request Report** (dialog → Submit)
+
+| Field | Value |
+|-------|-------|
+| **Current behaviour** | Adds to local `reports` state with `status: "Pending"`. `toast.success("Report request submitted")`. |
+| **Planned API** | `POST /api/v1/reports` |
+| **Planned request body** | `{ "reportType": "Credit Risk Summary", "dateFrom": "2026-03-01", "dateTo": "2026-03-31", "format": "PDF" }` |
+| **Error (future)** | `toast.error("Failed to request report: [message]")` |
+
+#### Action: **Download Report** (button)
+
+No API call. Client-side file download from a pre-signed URL (planned) or direct S3/blob link. Currently a stub.
+
+---
+
+### G.13 Consortiums — `/consortiums`
+
+#### Action: **Page load / filter change**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/consortiums` |
+| **Success** | Consortium cards or table renders. |
+| **Error** | `ApiErrorCard` with **Try again**; falls back to `CatalogMockContext` data if available. |
+
+#### Action: **Create Consortium** (button → Wizard)
+
+No API on button click. Navigates to `/consortiums/create`.
+
+#### Action: **Wizard Submit** (final step)
+
+| Field | Value |
+|-------|-------|
+| **Planned API** | `POST /api/v1/consortiums` |
+| **Current behaviour** | Local state update. `toast.success("Consortium created")`. |
+| **Error (future)** | `toast.error("Failed to create consortium: [message]")` |
+
+#### Action: **View Detail** (card / row click)
+
+No API on click. Navigates to `/consortiums/:id`. Detail page calls `GET /api/v1/consortiums/:id` on mount.
+
+---
+
+### G.14 Data Products — `/data-products/products`
+
+#### Action: **Page load**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/products` |
+| **Success** | Product cards render. |
+| **Error** | `ApiErrorCard`; falls back to `CatalogMockContext` data. |
+
+#### Action: **Create Product** (button → Form)
+
+No API on button click. Navigates to `/data-products/products/create`.
+
+#### Action: **Product Form Submit**
+
+| Field | Value |
+|-------|-------|
+| **Planned API** | `POST /api/v1/products` |
+| **Current behaviour** | Local state + `CatalogMockContext` update. `toast.success("Product created")`. |
+| **Error (future)** | `toast.error("Failed to save product: [message]")` |
+
+---
+
+### G.15 Activity Log — `/user-management/activity`
+
+#### Action: **Page load / action filter change / pagination**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/audit-logs` |
+| **Query params** | `?actionType=LOGIN&page=0&size=10` |
+| **Success** | Audit log rows render with user avatar, action badge, status badge. |
+| **Error** | `ApiErrorCard` with **Try again** replaces the table. |
+
+#### Action: **Search** (text input)
+
+Client-side filter applied across the current page's `userEmail`, `description`, and `actionType` fields. No API call triggered by search text change alone.
+
+#### Action: **Status filter** (Success / Failed dropdown)
+
+Client-side filter applied on current page. Mapped from `auditOutcome === "SUCCESS"`.
+
+#### Action: **Pagination**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/audit-logs?page=N&size=10` |
+| **Success** | Table rows update. |
+| **Error** | `ApiErrorCard` with **Try again**. |
+
+---
+
+### G.16 Governance Audit Logs — `/data-governance/audit-logs`
+
+#### Action: **Page load / date / action filter change**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/audit-logs?entityType=GOVERNANCE&actionType=RULE_CREATED&from=2026-03-01&to=2026-03-28&size=50` |
+| **Success** | Audit log rows populate. |
+| **Error** | `SkeletonTable` during load; empty state on empty result. |
+
+#### Action: **Row click → Detail Dialog**
+
+No API call. Dialog displays fields from the already-loaded `AuditLogEntry` (id, userEmail, actionType, entityType, entityId, description, auditOutcome, occurredAt, ipAddressHash).
+
+---
+
+### G.17 Roles & Permissions — `/user-management/roles`
+
+#### Action: **Page load**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/roles` |
+| **Success** | `roles` local state seeded from API via `useEffect`. Role cards and permission matrix render. |
+| **Error / offline** | Falls back to `roleDefinitions` from `user-management-mock`. No error shown. |
+
+#### Action: **Create Role** (dialog → Create role button)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/roles` (via `useCreateRole` mutation — currently local state only) |
+| **Request body** | `{ "roleName": "Compliance Officer", "description": "…", "permissions": { "institutions": { "view": true, "create": false, … }, … } }` |
+| **Success** | `toast.success("Role created")` + `roles` invalidated + roles list re-fetched |
+| **Duplicate** | `toast.error("A role with this name already exists.")` (client-side check) |
+| **Error** | `toast.error("Failed to create role: [message]")` — dialog remains open |
+
+#### Action: **Edit Role** (pencil icon → dialog → Save changes)
+
+| Field | Value |
+|-------|-------|
+| **API** | `PATCH /api/v1/roles/:id` (via `useUpdateRole` — currently local state only) |
+| **Request body** | Changed fields only |
+| **Success** | `toast.success("Role updated")` + list re-fetched |
+| **Error** | `toast.error("Failed to update role: [message]")` |
+
+#### Action: **Delete Role** (trash icon → confirm dialog → Delete)
+
+| Field | Value |
+|-------|-------|
+| **API** | `DELETE /api/v1/roles/:id` (via `useDeleteRole` — currently local state only) |
+| **Guard** | Delete button only shown when `role.userCount === 0` (checked client-side) |
+| **Success** | `toast.success("Role deleted")` + list re-fetched |
+| **Error** | `toast.error("Failed to delete role: [message]")` |
+
+#### Action: **Enable all / Disable all** (permission matrix bulk toggle)
+
+Client-side only. Toggles all permissions in the form state. No API call until **Save changes** is clicked.
+
+---
+
+### G.18 API Keys (Service layer ready, no dedicated page yet)
+
+> The `apiKeys.service.ts` and service layer are wired but no dedicated page exists. When a page is built, the following API contract applies:
+
+| Action | API |
+|--------|-----|
+| List API keys | `GET /api/v1/api-keys` |
+| Generate API key | `POST /api/v1/api-keys` |
+| Revoke API key | `DELETE /api/v1/api-keys/:id` |
+| Rotate API key | `POST /api/v1/api-keys/:id/rotate` |
+
+**Error handling**: All mutations use `toast.error()` on failure; key list re-fetched on success.
+
+---
+
+### G.19 Global Cross-Cutting API Behaviours
+
+#### Token Refresh (automatic, invisible to user)
+
+When any API call returns `401`:
+1. The `api-client.ts` intercepts and pauses the failed request.
+2. A single `POST /api/v1/auth/refresh` is issued with the refresh token from `sessionStorage`.
+3. If refresh succeeds: the failed request is retried with the new access token. User sees nothing.
+4. If refresh fails (refresh token expired/revoked): all queued requests are rejected, tokens cleared, user redirected to `/login` with `toast.error("Your session has expired. Please sign in again.")`.
+5. Only one refresh request is ever in-flight at a time (shared promise queue prevents race conditions).
+
+#### React Query Retry Policy
+
+| Error type | Retries |
+|------------|---------|
+| Network error | 3 × (exponential backoff: 1 s, 2 s, 4 s) |
+| 4xx (client errors) | 0 retries |
+| 5xx (server errors) | 3 × |
+
+#### Optimistic Updates
+
+Currently **not used** — all mutations wait for server confirmation before updating the UI. This prevents partial-failure confusion. Optimistic updates are on the roadmap for high-frequency actions (approve/reject queue items).
+
+#### Loading States
+
+| Pattern | Component | Used in |
+|---------|-----------|---------|
+| Table skeleton | `SkeletonTable` | All list pages |
+| KPI skeleton | `SkeletonKpiCards` | Dashboard, Approval Queue |
+| Spinner (inline) | Lucide `Loader2` | Mutation buttons while pending |
+
+#### Empty States
+
+When an API returns zero results (not an error — HTTP 200 with empty `content[]`):
+- Tables: row with message "No [items] found" spanning all columns
+- Dashboards: "No data available" placeholder in chart area
+
+---
+
+### G.20 Mock Fallback Behaviour (Development / Testing)
+
+When `VITE_USE_MOCK_FALLBACK=true` (set in `.env.development`):
+- Every service function catches network/server errors and returns static mock data from `src/data/*.json`.
+- **No error is surfaced to the user** — the app appears fully functional.
+- KPI values, table rows, charts, and filters all work against the static JSON dataset.
+- This mode is the default for `npm run dev` with no backend running.
+
+**To test real API error handling**, set `VITE_USE_MOCK_FALLBACK=false` with the backend offline and reload the page.
+
+---
+
+---
+
+### G.21 Institution Sub-Resource API Contracts (v3.2)
+
+Added in Phase 6/7. All endpoints require `Bearer <access_token>` and any of the roles `SUPER_ADMIN`, `BUREAU_ADMIN`, `ANALYST`, `VIEWER`.
+
+#### GET /api/v1/institutions/{id}/consortium-memberships
+
+- **UI trigger:** `ConsortiumMembershipsTab` renders on Institution Detail > Memberships tab
+- **Response:** `Array<{ membershipId, consortiumId, consortiumName, consortiumType, consortiumStatus, memberRole, consortiumMemberStatus, joinedAt }>`
+- **Error:** 404 if institution not found; 403 if role insufficient
+
+#### GET /api/v1/institutions/{id}/product-subscriptions
+
+- **UI trigger:** `ProductSubscriptionsTab` renders on Institution Detail > Products tab; `BillingTab` uses it for pricing table
+- **Response:** `Array<{ subscriptionId, productId, productName, productStatus, pricingModel, subscribedAt, subscriptionStatus }>`
+- **Error:** 404 if institution not found
+
+#### GET /api/v1/institutions/{id}/billing-summary
+
+- **UI trigger:** `BillingTab` reads `billingModel`, `creditBalance`, `activeSubscriptions`, `apiCalls30d`
+- **Response:** `{ billingModel, creditBalance, activeSubscriptions, apiCalls30d }`
+- **Error:** 404 if institution not found
+
+#### GET /api/v1/institutions/{id}/monitoring-summary
+
+- **UI trigger:** `MonitoringTab` overlays live KPIs on top of static chart data
+- **Response:** `{ totalRequests, successfulRequests, avgLatencyMs, successRatePct, totalBatches, activeBatches, totalRecords }`
+- **Error:** 404 if institution not found
+
+#### GET /api/v1/dashboard/activity
+
+- **UI trigger:** `useDashboardSnapshot` assembles `DashboardSnapshot.activity.recentActivity` from live rows
+- **Response:** `Array<{ id, actionType, entityType, entityId, description, auditOutcome, occurredAt, userName, userEmail }>` (top 20 by `occurred_at DESC`)
+- **Error handling:** Silent fallback to mock overlay data on any error
+
+#### GET /api/v1/dashboard/command-center
+
+- **UI trigger:** `useDashboardSnapshot` enriches anomaly count badge; `useDashboardCommandCenter()` exported for direct use
+- **Response:** `{ pendingApprovals, activeAlerts, pendingOnboarding, activeInstitutions, recentErrors1h }`
+- **Error handling:** Silent fallback to mock overlay data on any error
+
+---
+
+*End of Document — v3.2 (2026-03-28)*

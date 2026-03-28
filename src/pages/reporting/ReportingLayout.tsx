@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, useRef } from "react";
+import { createContext, useContext, useState, useCallback, useRef, useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import {
@@ -7,6 +7,7 @@ import {
   type ReportRow,
   type ReportStatus,
 } from "./reporting-store";
+import { useReports } from "@/hooks/api/useReports";
 
 type AddReportInput = Omit<ReportRow, "reportId" | "status">;
 
@@ -27,6 +28,17 @@ export function useReporting() {
 
 export function ReportingLayout() {
   const [reports, setReports] = useState<ReportRow[]>(initialReports);
+  const { data: apiReports } = useReports();
+
+  // Seed from API when data arrives (once only — mutations tracked locally)
+  useEffect(() => {
+    if (!apiReports) return;
+    const rows = Array.isArray(apiReports) ? apiReports : (apiReports as { content?: ReportRow[] }).content ?? [];
+    if (rows.length > 0) {
+      setReports(rows as ReportRow[]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [apiReports]);
   const counterRef = useRef(initialReports.length);
 
   const addReport = useCallback((report: AddReportInput): ReportRow => {

@@ -1,0 +1,2392 @@
+################################################################################
+# HYBRID CREDIT BUREAU (HCB) — ENTERPRISE SYSTEM DESIGN DICTIONARY
+# Version   : v3.0.0
+# Date      : 2026-03-28
+# Standard  : Strictly Normalized · API-First · Multi-Tenant · Zero-Duplication
+# Exclusions: AI Agents / Schema Mapper Agent / Identity Resolution Agent
+################################################################################
+
+system:
+  name: Hybrid Credit Bureau (HCB) Admin Platform
+  version: v3.0.0
+  architecture:
+    paradigm: api_first
+    normalization: 3NF_strict
+    deployment: multi_tenant
+    authentication: jwt_access_refresh
+    encryption: tls_in_transit_plus_aes256_at_rest
+  description: >
+    An enterprise-grade Hybrid Credit Bureau platform that consolidates
+    institution onboarding, credit data management, consortium governance,
+    monitoring, approval workflows, and reporting under a fully normalized,
+    single-source-of-truth data architecture. Every attribute lives in
+    exactly one owner table. Cross-module data access is performed exclusively
+    via foreign-key joins through the API layer.
+
+################################################################################
+# SECTION 1 — NORMALIZATION GOVERNANCE
+################################################################################
+
+normalization_governance:
+
+  version: "3NF"
+  effective_date: "2026-03-28"
+
+  hard_rules:
+    - id: NR-001
+      rule: no_duplicate_attributes
+      description: >
+        No attribute may be physically stored in more than one table.
+        Descriptive strings (names, labels) belong to the owning entity
+        table only. All other tables reference via foreign key.
+
+    - id: NR-002
+      rule: single_owner_per_entity
+      description: >
+        Every entity (institution, user, consumer, product, etc.) has
+        exactly one source-of-truth table. That table exclusively owns
+        the entity's descriptive attributes.
+
+    - id: NR-003
+      rule: foreign_keys_only_for_cross_table_references
+      description: >
+        Cross-module attribute access is performed via FK join at query
+        time. Copying descriptive fields between tables is forbidden.
+
+    - id: NR-004
+      rule: no_denormalized_shortcuts
+      description: >
+        Derived data (counts, averages, percentages, composite labels)
+        must be computed at read time via queries. Storing computed
+        fields is forbidden unless explicitly justified with a
+        no_denormalization_exception entry.
+
+    - id: NR-005
+      rule: status_fields_domain_scoped
+      description: >
+        Status fields must use domain-specific names and enums
+        (e.g., institution_lifecycle_status, batch_job_status) to prevent
+        cross-context enum collisions.
+
+    - id: NR-006
+      rule: soft_delete_mandatory
+      description: >
+        Hard deletes are forbidden. All mutable entities use
+        is_deleted (BOOLEAN DEFAULT FALSE) and deleted_at (TIMESTAMP NULL).
+
+    - id: NR-007
+      rule: timestamp_standard
+      description: >
+        All timestamps stored as ISO-8601 UTC (DATETIME/TIMESTAMP columns).
+        Business event timestamps use domain-specific column names
+        (e.g., submitted_at, reviewed_at, detected_at).
+
+    - id: NR-008
+      rule: api_join_assembly
+      description: >
+        API response payloads assemble data via SQL joins.
+        Response DTOs may contain denormalized view-friendly data
+        but no such data is persisted back to the database.
+
+  no_denormalization_exceptions: []
+
+################################################################################
+# SECTION 2 — DUPLICATE ATTRIBUTES ANALYSIS
+################################################################################
+
+duplicate_attributes_analysis:
+
+  - attribute_name: institution_name / institutionName / tradingName
+    found_in:
+      - src/data/institutions.json → institutions[].name + tradingName (OWNER)
+      - src/data/consortiums.json → membersByConsortiumId[].institutionName (COPY)
+      - src/data/consortiums.json → contributionByConsortiumId[].memberName (COPY)
+      - src/data/monitoring.json → batchJobs[] (resolved via institution_id only)
+      - src/data/user-management.json → users[].institution (COPY)
+    issue: Name string duplicated in consortium membership rows and user records.
+    resolution: >
+      Remove institutionName from consortium_members and users. Store only
+      institution_id as FK. Resolve display name via JOIN to institutions table.
+    source_of_truth_table: institutions
+
+  - attribute_name: status (generic overloaded field)
+    found_in:
+      - src/data/institutions.json → institutions[].status (lifecycle)
+      - src/data/consortiums.json → consortiums[].status (consortium lifecycle)
+      - src/data/user-management.json → users[].status (user account lifecycle)
+      - src/data/monitoring.json → batchJobs[].status (batch execution)
+      - src/data/monitoring.json → apiSubmissionRequests[].status (API call)
+      - src/data/approval-queue.json → approvalQueueItems[].status (approval workflow)
+      - src/data/alert-engine.json → alertRules[].status (rule toggle)
+      - src/data/alert-engine.json → activeAlerts[].status (alert incident)
+    issue: >
+      Same key name "status" used with incompatible enum sets across 8+ domains,
+      causing type-safety violations and filter confusion.
+    resolution: >
+      Rename per domain: institution_lifecycle_status, consortium_status,
+      user_account_status, batch_job_status, api_request_status,
+      approval_workflow_status, alert_rule_status, alert_incident_status.
+      Each uses its own CHECK constraint enum.
+    source_of_truth_table: per_domain_owner_table
+
+  - attribute_name: role (overloaded cross-context)
+    found_in:
+      - src/data/user-management.json → users[].role (bureau-level role)
+      - src/data/consortiums.json → membersByConsortiumId[].role (consortium member role)
+      - src/data/institution-tabs.json → users[].role (institution-scoped role)
+      - src/types/agents.ts → role: "user" | "agent" | "system" (chat turn role)
+    issue: >
+      Same field name "role" carries four distinct vocabularies with
+      no FK to a canonical role registry.
+    resolution: >
+      Bureau user roles owned by roles table (FK: user_role_assignments.role_id).
+      Consortium member roles owned by consortium_members.member_role (local enum).
+      Chat turn type renamed to message_author_type.
+    source_of_truth_table: roles (for bureau/institution roles)
+
+  - attribute_name: email / contactEmail
+    found_in:
+      - src/data/user-management.json → users[].email (OWNER: users table)
+      - src/data/institutions.json → institutions[].contactEmail (institution contact)
+      - src/data/institution-tabs.json → tab users[].email
+      - src/contexts/AuthContext.tsx → user.email
+    issue: >
+      Two overlapping user models (bureau users and institution-scoped users)
+      store email separately. contactEmail on institution is institution-owned.
+    resolution: >
+      users.email is the sole email for bureau/system users (unique, NOT NULL).
+      institutions.contact_email is the institution's operational contact address
+      (separate concept, owned by institutions). Institution-scoped users
+      reference users table via FK.
+    source_of_truth_table: users (for user email); institutions (for contact_email)
+
+  - attribute_name: name (person full name variants)
+    found_in:
+      - src/data/user-management.json → users[].name
+      - src/data/user-management.json → activityLog[].userName (COPY)
+      - src/data/institution-tabs.json → firstName, lastName
+      - src/types/agents.ts → fullName
+    issue: >
+      Inconsistent decomposition (display_name vs firstName+lastName vs fullName)
+      and copies of names stored in activity logs.
+    resolution: >
+      users.display_name is the single display string. Optional given_name
+      and family_name stored once in users. Activity/audit logs store user_id
+      (FK) only — display name resolved at query time.
+    source_of_truth_table: users
+
+  - attribute_name: severity (cross-domain taxonomy collision)
+    found_in:
+      - src/data/alert-engine.json → alertRules[].severity (Critical/Warning/Info)
+      - src/data/alert-engine.json → slaBreachHistory[].severity
+      - src/data/data-governance.json → driftAlerts severity
+      - src/data/monitoring.json → topRejectionReasonsData (implicit severity)
+    issue: >
+      Mixed scales (error/warning/critical vs Low/Medium/High vs Critical/Warning/Info).
+    resolution: >
+      Standardize to canonical severity_level enum: INFO, WARNING, CRITICAL.
+      Owned by each entity's domain table using CHECK constraint.
+    source_of_truth_table: per_domain_owner_table (shared enum definition)
+
+  - attribute_name: confidence (inconsistent scale)
+    found_in:
+      - src/data/data-governance.json → canonicalMappings[].confidence (0–100 integer)
+      - src/data/schema-mapper.json → clusterRows[].confidence (0.0–1.0 decimal)
+    issue: Scale inconsistency (0–100 vs 0.0–1.0) for same semantic concept.
+    resolution: >
+      Standardize to DECIMAL(5,4) 0.0000–1.0000 in mapping_pairs.confidence_score.
+      Display layer formats as percentage.
+    source_of_truth_table: mapping_pairs
+
+  - attribute_name: product / productName / product_id
+    found_in:
+      - src/data/data-products.json → products[].id + name (OWNER)
+      - src/data/monitoring.json → enquiryByProductData[].product (text copy)
+      - src/data/institution-extensions.json → subscriptions[].productName (COPY)
+    issue: Free-text product names embedded in enquiry and subscription rows.
+    resolution: >
+      Store only product_id (FK) in enquiries and product_subscriptions.
+      Resolve product name via JOIN to products table.
+    source_of_truth_table: products
+
+  - attribute_name: version (multiple semantic versions)
+    found_in:
+      - src/data/schema-mapper.json → masterSchemaVersion
+      - src/data/schema-mapper.json → mappingVersion
+      - src/data/data-governance.json → ruleSetVersion
+    issue: >
+      Three distinct version concepts using the generic "version" key.
+    resolution: >
+      Separate entities: mapping_versions.version_tag,
+      canonical_schema_versions.version_tag, validation_rule_sets.version_tag.
+    source_of_truth_table: per_entity_version_table
+
+  - attribute_name: consortiumId / consortiumName
+    found_in:
+      - src/data/consortiums.json → consortiums[].id + name (OWNER)
+      - src/data/institution-extensions.json → memberships[].consortiumId + consortiumName (COPY)
+    issue: Consortium name duplicated in membership rows.
+    resolution: >
+      consortium_members stores only consortium_id (FK).
+      Name resolved via JOIN to consortiums table.
+    source_of_truth_table: consortiums
+
+  - attribute_name: timestamp (mixed formats and semantics)
+    found_in:
+      - src/data/monitoring.json → apiSubmissionRequests[].timestamp "2026-02-25 09:55:00"
+      - src/data/user-management.json → users[].createdAt "2024-01-15" (date only)
+      - src/data/approval-queue.json → submittedAt, reviewedAt (ISO-8601 Z)
+      - src/data/institutions.json → lastUpdated "2026-02-18" (date only)
+    issue: >
+      Mixed ISO-8601, date-only strings, and local datetime formats.
+      Some fields use generic "timestamp" while others have semantic names.
+    resolution: >
+      All timestamps stored as DATETIME (ISO-8601 UTC, SQLite) or TIMESTAMPTZ
+      (PostgreSQL). Semantic names enforced per event type:
+      created_at, updated_at, submitted_at, reviewed_at, detected_at,
+      resolved_at, occurred_at.
+    source_of_truth_table: per_domain_owner_table
+
+  - attribute_name: api_key (raw key string in operational tables)
+    found_in:
+      - src/data/monitoring.json → apiSubmissionRequests[].api_key (raw masked string)
+      - src/data/institution-detail.json → apiKeys[].id
+      - src/data/user-management.json → users[].apiKeys[].id
+    issue: >
+      API key strings referenced as join keys across monitoring logs.
+      Raw key material must never appear in log rows.
+    resolution: >
+      api_keys table owns key metadata. Log rows store api_key_id (FK, integer/UUID).
+      Raw key value is write-once, hashed for storage, never re-exposed in logs.
+    source_of_truth_table: api_keys
+
+################################################################################
+# SECTION 3 — DATABASE SCHEMA
+################################################################################
+
+database:
+
+  engine_primary: SQLite_3
+  engine_production: PostgreSQL_15
+  migration_note: >
+    SQLite used for development. Schema uses ANSI-compatible DDL.
+    Avoid SQLite-specific extensions that block PostgreSQL migration.
+    Use DATETIME (stored as TEXT ISO-8601) in SQLite; TIMESTAMPTZ in PostgreSQL.
+    Boolean stored as INTEGER (0/1) in SQLite; BOOLEAN in PostgreSQL.
+
+  normalization_rules:
+    - no_duplicate_attributes
+    - all_entities_have_single_owner_table
+    - all_relationships_use_foreign_keys
+    - no_denormalized_fields_without_justification
+    - soft_delete_on_all_mutable_entities
+    - timestamp_utc_iso8601_standard
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # GROUP: CORE
+  # ─────────────────────────────────────────────────────────────────────────────
+  tables:
+
+    - name: institutions
+      group: CORE
+      description: >
+        Master registry for all financial institutions participating in
+        the HCB platform. Single source of truth for all institution
+        identity, regulatory, and operational attributes.
+      owns_attributes:
+        - id
+        - name
+        - trading_name
+        - institution_type
+        - institution_lifecycle_status
+        - registration_number
+        - jurisdiction
+        - license_type
+        - license_number
+        - contact_email
+        - contact_phone
+        - onboarded_at
+        - is_data_submitter
+        - is_subscriber
+        - billing_model
+        - credit_balance
+        - data_quality_score
+        - match_accuracy_score
+        - sla_health_percent
+        - apis_enabled_count
+        - created_at
+        - updated_at
+        - is_deleted
+        - deleted_at
+      columns:
+        - { name: id,                      type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: name,                    type: "VARCHAR(255) NOT NULL" }
+        - { name: trading_name,            type: "VARCHAR(100)" }
+        - { name: institution_type,        type: "VARCHAR(50) NOT NULL", check: "institution_type IN ('Commercial Bank','Credit Union','NBFI','Fintech','Savings Bank','MFI')" }
+        - { name: institution_lifecycle_status, type: "VARCHAR(20) NOT NULL DEFAULT 'draft'", check: "institution_lifecycle_status IN ('draft','pending','active','suspended','deactivated')" }
+        - { name: registration_number,     type: "VARCHAR(100) UNIQUE NOT NULL" }
+        - { name: jurisdiction,            type: "VARCHAR(100) NOT NULL" }
+        - { name: license_type,            type: "VARCHAR(100)" }
+        - { name: license_number,          type: "VARCHAR(100)" }
+        - { name: contact_email,           type: "VARCHAR(255)" }
+        - { name: contact_phone,           type: "VARCHAR(50)" }
+        - { name: onboarded_at,            type: "DATETIME" }
+        - { name: is_data_submitter,       type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: is_subscriber,           type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: billing_model,           type: "VARCHAR(20)", check: "billing_model IN ('prepaid','postpaid','hybrid')" }
+        - { name: credit_balance,          type: "DECIMAL(15,2)" }
+        - { name: data_quality_score,      type: "DECIMAL(5,2)" }
+        - { name: match_accuracy_score,    type: "DECIMAL(5,2)" }
+        - { name: sla_health_percent,      type: "DECIMAL(5,2)" }
+        - { name: apis_enabled_count,      type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: created_at,              type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: updated_at,              type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: is_deleted,              type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: deleted_at,              type: "DATETIME" }
+      references: []
+      indexes:
+        - { name: idx_institutions_status,       columns: [institution_lifecycle_status] }
+        - { name: idx_institutions_jurisdiction, columns: [jurisdiction] }
+        - { name: idx_institutions_type,         columns: [institution_type] }
+      constraints:
+        - UNIQUE(registration_number)
+
+    - name: users
+      group: CORE
+      description: >
+        Master registry for all bureau-level and institution-scoped
+        human users and system integration accounts. Single source of
+        truth for identity, credentials, and contact information.
+        Passwords stored as bcrypt hash only — never plain text.
+      owns_attributes:
+        - id
+        - email
+        - password_hash
+        - display_name
+        - given_name
+        - family_name
+        - user_account_status
+        - mfa_enabled
+        - institution_id
+        - created_at
+        - last_login_at
+        - is_deleted
+        - deleted_at
+      columns:
+        - { name: id,                    type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: email,                 type: "VARCHAR(255) UNIQUE NOT NULL" }
+        - { name: password_hash,         type: "VARCHAR(255) NOT NULL" }
+        - { name: display_name,          type: "VARCHAR(150) NOT NULL" }
+        - { name: given_name,            type: "VARCHAR(100)" }
+        - { name: family_name,           type: "VARCHAR(100)" }
+        - { name: user_account_status,   type: "VARCHAR(20) NOT NULL DEFAULT 'invited'", check: "user_account_status IN ('invited','active','suspended','deactivated')" }
+        - { name: mfa_enabled,           type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: institution_id,        type: "INTEGER", fk: "institutions(id)" }
+        - { name: created_at,            type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: last_login_at,         type: "DATETIME" }
+        - { name: is_deleted,            type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: deleted_at,            type: "DATETIME" }
+      references:
+        - { column: institution_id, references_table: institutions, references_column: id, on_delete: SET_NULL }
+      indexes:
+        - { name: idx_users_email,          columns: [email] }
+        - { name: idx_users_institution_id, columns: [institution_id] }
+        - { name: idx_users_status,         columns: [user_account_status] }
+
+    - name: roles
+      group: CORE
+      description: >
+        Platform role definitions. Single source of truth for role names
+        and descriptions. Users assigned roles via user_role_assignments.
+      owns_attributes:
+        - id
+        - role_name
+        - description
+        - created_at
+      columns:
+        - { name: id,          type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: role_name,   type: "VARCHAR(100) UNIQUE NOT NULL" }
+        - { name: description, type: "TEXT" }
+        - { name: created_at,  type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+      references: []
+      indexes:
+        - { name: idx_roles_name, columns: [role_name] }
+
+    - name: permissions
+      group: CORE
+      description: >
+        Granular permission definitions. Single source of truth.
+        Assigned to roles via role_permissions mapping table.
+      owns_attributes:
+        - id
+        - permission_key
+        - description
+      columns:
+        - { name: id,             type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: permission_key, type: "VARCHAR(100) UNIQUE NOT NULL" }
+        - { name: description,    type: "TEXT" }
+      references: []
+
+    - name: role_permissions
+      group: CORE
+      description: >
+        Many-to-many mapping between roles and permissions.
+        No descriptive attributes — FK pairs only.
+      owns_attributes:
+        - role_id
+        - permission_id
+        - granted_at
+      columns:
+        - { name: role_id,       type: "INTEGER NOT NULL", fk: "roles(id)" }
+        - { name: permission_id, type: "INTEGER NOT NULL", fk: "permissions(id)" }
+        - { name: granted_at,    type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+      references:
+        - { column: role_id,       references_table: roles,       references_column: id, on_delete: CASCADE }
+        - { column: permission_id, references_table: permissions, references_column: id, on_delete: CASCADE }
+      constraints:
+        - PRIMARY_KEY(role_id, permission_id)
+
+    - name: user_role_assignments
+      group: CORE
+      description: >
+        Assigns roles to users. Supports optional institution scope for
+        institution-scoped role grants.
+      owns_attributes:
+        - user_id
+        - role_id
+        - institution_id
+        - assigned_at
+        - assigned_by
+      columns:
+        - { name: user_id,        type: "INTEGER NOT NULL", fk: "users(id)" }
+        - { name: role_id,        type: "INTEGER NOT NULL", fk: "roles(id)" }
+        - { name: institution_id, type: "INTEGER",          fk: "institutions(id)" }
+        - { name: assigned_at,    type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: assigned_by,    type: "INTEGER",          fk: "users(id)" }
+      references:
+        - { column: user_id,        references_table: users,        references_column: id, on_delete: CASCADE }
+        - { column: role_id,        references_table: roles,        references_column: id, on_delete: RESTRICT }
+        - { column: institution_id, references_table: institutions, references_column: id, on_delete: CASCADE }
+        - { column: assigned_by,    references_table: users,        references_column: id, on_delete: SET_NULL }
+      constraints:
+        - PRIMARY_KEY(user_id, role_id, institution_id)
+      indexes:
+        - { name: idx_ura_user_id, columns: [user_id] }
+
+    - name: refresh_tokens
+      group: CORE
+      description: >
+        Persistent refresh token records for JWT token rotation.
+        Enables revocation without stateless-only risks.
+      owns_attributes:
+        - id
+        - user_id
+        - token_hash
+        - issued_at
+        - expires_at
+        - revoked_at
+        - is_revoked
+        - device_fingerprint
+        - ip_address
+      columns:
+        - { name: id,                 type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: user_id,            type: "INTEGER NOT NULL", fk: "users(id)" }
+        - { name: token_hash,         type: "VARCHAR(512) UNIQUE NOT NULL" }
+        - { name: issued_at,          type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: expires_at,         type: "DATETIME NOT NULL" }
+        - { name: revoked_at,         type: "DATETIME" }
+        - { name: is_revoked,         type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: device_fingerprint, type: "VARCHAR(255)" }
+        - { name: ip_address,         type: "VARCHAR(45)" }
+      references:
+        - { column: user_id, references_table: users, references_column: id, on_delete: CASCADE }
+      indexes:
+        - { name: idx_refresh_tokens_user_id,    columns: [user_id] }
+        - { name: idx_refresh_tokens_token_hash, columns: [token_hash] }
+
+    - name: api_keys
+      group: CORE
+      description: >
+        Machine API credentials tied to an institution or user.
+        Raw key exposed once at creation (write-only). key_hash used for
+        validation. Logs reference api_key_id — never the raw key.
+      owns_attributes:
+        - id
+        - institution_id
+        - user_id
+        - key_name
+        - key_prefix
+        - key_hash
+        - api_key_status
+        - created_at
+        - last_used_at
+        - revoked_at
+        - is_deleted
+        - deleted_at
+      columns:
+        - { name: id,             type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: institution_id, type: "INTEGER",          fk: "institutions(id)" }
+        - { name: user_id,        type: "INTEGER",          fk: "users(id)" }
+        - { name: key_name,       type: "VARCHAR(100) NOT NULL" }
+        - { name: key_prefix,     type: "VARCHAR(20) NOT NULL" }
+        - { name: key_hash,       type: "VARCHAR(512) UNIQUE NOT NULL" }
+        - { name: api_key_status, type: "VARCHAR(20) NOT NULL DEFAULT 'active'", check: "api_key_status IN ('active','revoked','expired')" }
+        - { name: created_at,     type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: last_used_at,   type: "DATETIME" }
+        - { name: revoked_at,     type: "DATETIME" }
+        - { name: is_deleted,     type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: deleted_at,     type: "DATETIME" }
+      references:
+        - { column: institution_id, references_table: institutions, references_column: id, on_delete: CASCADE }
+        - { column: user_id,        references_table: users,        references_column: id, on_delete: SET_NULL }
+      indexes:
+        - { name: idx_api_keys_institution_id, columns: [institution_id] }
+        - { name: idx_api_keys_key_hash,       columns: [key_hash] }
+
+    - name: compliance_documents
+      group: CORE
+      description: >
+        Compliance/regulatory documents associated with an institution.
+        Each row is one document type for one institution.
+      owns_attributes:
+        - id
+        - institution_id
+        - document_name
+        - document_status
+        - uploaded_at
+        - verified_at
+      columns:
+        - { name: id,              type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: institution_id,  type: "INTEGER NOT NULL", fk: "institutions(id)" }
+        - { name: document_name,   type: "VARCHAR(255) NOT NULL" }
+        - { name: document_status, type: "VARCHAR(20) NOT NULL DEFAULT 'pending'", check: "document_status IN ('pending','verified','rejected')" }
+        - { name: uploaded_at,     type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: verified_at,     type: "DATETIME" }
+      references:
+        - { column: institution_id, references_table: institutions, references_column: id, on_delete: CASCADE }
+      indexes:
+        - { name: idx_compliance_docs_institution_id, columns: [institution_id] }
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # GROUP: CREDIT
+  # ─────────────────────────────────────────────────────────────────────────────
+
+    - name: consumers
+      group: CREDIT
+      description: >
+        Master registry of credit subjects (individuals or entities)
+        whose credit data is managed by the bureau. PII fields are
+        encrypted at the application layer before storage.
+      owns_attributes:
+        - id
+        - national_id_type
+        - national_id_hash
+        - full_name_encrypted
+        - date_of_birth_encrypted
+        - phone_hash
+        - email_hash
+        - consumer_status
+        - created_at
+        - updated_at
+        - is_deleted
+        - deleted_at
+      columns:
+        - { name: id,                    type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: national_id_type,      type: "VARCHAR(30) NOT NULL", check: "national_id_type IN ('PAN','NIN','PASSPORT','KRA_PIN','OTHER')" }
+        - { name: national_id_hash,      type: "VARCHAR(512) UNIQUE NOT NULL" }
+        - { name: full_name_encrypted,   type: "TEXT NOT NULL" }
+        - { name: date_of_birth_encrypted, type: "TEXT" }
+        - { name: phone_hash,            type: "VARCHAR(512)" }
+        - { name: email_hash,            type: "VARCHAR(512)" }
+        - { name: consumer_status,       type: "VARCHAR(20) NOT NULL DEFAULT 'active'", check: "consumer_status IN ('active','flagged','frozen','deceased')" }
+        - { name: created_at,            type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: updated_at,            type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: is_deleted,            type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: deleted_at,            type: "DATETIME" }
+      references: []
+      indexes:
+        - { name: idx_consumers_national_id_hash, columns: [national_id_hash] }
+        - { name: idx_consumers_phone_hash,       columns: [phone_hash] }
+
+    - name: credit_profiles
+      group: CREDIT
+      description: >
+        Aggregated credit standing per consumer, computed from tradelines.
+        Refreshed by batch recalculation. Not derived from UI; always
+        sourced from batch compute output.
+      owns_attributes:
+        - id
+        - consumer_id
+        - credit_score
+        - total_exposure
+        - active_accounts
+        - delinquent_accounts
+        - worst_dpd_days
+        - profile_computed_at
+        - created_at
+        - updated_at
+      columns:
+        - { name: id,                  type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: consumer_id,         type: "INTEGER UNIQUE NOT NULL", fk: "consumers(id)" }
+        - { name: credit_score,        type: "INTEGER" }
+        - { name: total_exposure,      type: "DECIMAL(20,2)" }
+        - { name: active_accounts,     type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: delinquent_accounts, type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: worst_dpd_days,      type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: profile_computed_at, type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: created_at,          type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: updated_at,          type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+      references:
+        - { column: consumer_id, references_table: consumers, references_column: id, on_delete: CASCADE }
+      indexes:
+        - { name: idx_credit_profiles_consumer_id, columns: [consumer_id] }
+
+    - name: tradelines
+      group: CREDIT
+      description: >
+        Individual credit account records submitted by institutions.
+        Each row represents one account/facility for one consumer
+        from one institution. Append-only; updates create new version rows.
+      owns_attributes:
+        - id
+        - consumer_id
+        - institution_id
+        - account_number_hash
+        - product_type
+        - facility_type
+        - sanctioned_amount
+        - outstanding_amount
+        - dpd_days
+        - account_open_date
+        - account_close_date
+        - tradeline_status
+        - repayment_frequency
+        - submitted_at
+        - reporting_period
+        - batch_job_id
+        - is_deleted
+        - deleted_at
+      columns:
+        - { name: id,                   type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: consumer_id,          type: "INTEGER NOT NULL", fk: "consumers(id)" }
+        - { name: institution_id,       type: "INTEGER NOT NULL", fk: "institutions(id)" }
+        - { name: account_number_hash,  type: "VARCHAR(512) NOT NULL" }
+        - { name: product_type,         type: "VARCHAR(100)" }
+        - { name: facility_type,        type: "VARCHAR(50)", check: "facility_type IN ('TERM_LOAN','OD','CC','LEASE','GUARANTEE','OTHER')" }
+        - { name: sanctioned_amount,    type: "DECIMAL(20,2)" }
+        - { name: outstanding_amount,   type: "DECIMAL(20,2)" }
+        - { name: dpd_days,             type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: account_open_date,    type: "DATE" }
+        - { name: account_close_date,   type: "DATE" }
+        - { name: tradeline_status,     type: "VARCHAR(20) NOT NULL DEFAULT 'active'", check: "tradeline_status IN ('active','closed','written_off','settled','npa')" }
+        - { name: repayment_frequency,  type: "VARCHAR(20)", check: "repayment_frequency IN ('MONTHLY','QUARTERLY','BULLET','OTHER')" }
+        - { name: submitted_at,         type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: reporting_period,     type: "VARCHAR(7)" }
+        - { name: batch_job_id,         type: "INTEGER", fk: "batch_jobs(id)" }
+        - { name: is_deleted,           type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: deleted_at,           type: "DATETIME" }
+      references:
+        - { column: consumer_id,    references_table: consumers,    references_column: id, on_delete: RESTRICT }
+        - { column: institution_id, references_table: institutions, references_column: id, on_delete: RESTRICT }
+        - { column: batch_job_id,   references_table: batch_jobs,   references_column: id, on_delete: SET_NULL }
+      indexes:
+        - { name: idx_tradelines_consumer_id,    columns: [consumer_id] }
+        - { name: idx_tradelines_institution_id, columns: [institution_id] }
+        - { name: idx_tradelines_submitted_at,   columns: [submitted_at] }
+        - { name: idx_tradelines_reporting_period, columns: [reporting_period] }
+
+    - name: enquiries
+      group: CREDIT
+      description: >
+        Credit bureau inquiry log. Each row records one inquiry event.
+        Linked to consumer and requesting institution/api_key.
+      owns_attributes:
+        - id
+        - consumer_id
+        - api_key_id
+        - requesting_institution_id
+        - product_id
+        - enquiry_type
+        - enquiry_purpose
+        - enquiry_status
+        - response_time_ms
+        - consent_reference
+        - enquiry_result_code
+        - enquired_at
+      columns:
+        - { name: id,                        type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: consumer_id,               type: "INTEGER NOT NULL", fk: "consumers(id)" }
+        - { name: api_key_id,                type: "INTEGER NOT NULL", fk: "api_keys(id)" }
+        - { name: requesting_institution_id, type: "INTEGER NOT NULL", fk: "institutions(id)" }
+        - { name: product_id,                type: "INTEGER", fk: "products(id)" }
+        - { name: enquiry_type,              type: "VARCHAR(20) NOT NULL", check: "enquiry_type IN ('HARD','SOFT')" }
+        - { name: enquiry_purpose,           type: "VARCHAR(100)" }
+        - { name: enquiry_status,            type: "VARCHAR(20) NOT NULL DEFAULT 'success'", check: "enquiry_status IN ('success','failed','rate_limited','consent_missing','subject_not_found')" }
+        - { name: response_time_ms,          type: "INTEGER" }
+        - { name: consent_reference,         type: "VARCHAR(255)" }
+        - { name: enquiry_result_code,       type: "VARCHAR(50)" }
+        - { name: enquired_at,               type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+      references:
+        - { column: consumer_id,               references_table: consumers,    references_column: id, on_delete: RESTRICT }
+        - { column: api_key_id,                references_table: api_keys,     references_column: id, on_delete: RESTRICT }
+        - { column: requesting_institution_id, references_table: institutions, references_column: id, on_delete: RESTRICT }
+        - { column: product_id,                references_table: products,     references_column: id, on_delete: SET_NULL }
+      indexes:
+        - { name: idx_enquiries_consumer_id,    columns: [consumer_id] }
+        - { name: idx_enquiries_institution_id, columns: [requesting_institution_id] }
+        - { name: idx_enquiries_enquired_at,    columns: [enquired_at] }
+        - { name: idx_enquiries_type,           columns: [enquiry_type] }
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # GROUP: CATALOG (Products & Consortiums)
+  # ─────────────────────────────────────────────────────────────────────────────
+
+    - name: products
+      group: CATALOG
+      description: >
+        Data product catalog. Each product is a named bundle of data
+        packets available for subscriber enquiry. Single source of truth
+        for product identity, pricing model, and coverage metadata.
+      owns_attributes:
+        - id
+        - product_code
+        - product_name
+        - description
+        - enquiry_impact
+        - coverage_scope
+        - data_mode
+        - pricing_model
+        - product_status
+        - created_at
+        - updated_at
+        - is_deleted
+        - deleted_at
+      columns:
+        - { name: id,             type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: product_code,   type: "VARCHAR(50) UNIQUE NOT NULL" }
+        - { name: product_name,   type: "VARCHAR(255) NOT NULL" }
+        - { name: description,    type: "TEXT" }
+        - { name: enquiry_impact, type: "VARCHAR(20)", check: "enquiry_impact IN ('HARD','SOFT')" }
+        - { name: coverage_scope, type: "VARCHAR(30)", check: "coverage_scope IN ('SELF','CONSORTIUM','NETWORK','VERTICAL')" }
+        - { name: data_mode,      type: "VARCHAR(20)", check: "data_mode IN ('LIVE','SANDBOX','TEST')" }
+        - { name: pricing_model,  type: "VARCHAR(20)", check: "pricing_model IN ('PER_HIT','SUBSCRIPTION','HYBRID')" }
+        - { name: product_status, type: "VARCHAR(20) NOT NULL DEFAULT 'draft'", check: "product_status IN ('draft','pending_approval','active','deprecated')" }
+        - { name: created_at,     type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: updated_at,     type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: is_deleted,     type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: deleted_at,     type: "DATETIME" }
+      references: []
+
+    - name: product_subscriptions
+      group: CATALOG
+      description: >
+        Institution-to-product subscription assignments.
+        No descriptive attributes — FK pairs + status only.
+      owns_attributes:
+        - id
+        - institution_id
+        - product_id
+        - subscription_status
+        - subscribed_at
+        - expires_at
+      columns:
+        - { name: id,                  type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: institution_id,      type: "INTEGER NOT NULL", fk: "institutions(id)" }
+        - { name: product_id,          type: "INTEGER NOT NULL", fk: "products(id)" }
+        - { name: subscription_status, type: "VARCHAR(20) NOT NULL DEFAULT 'active'", check: "subscription_status IN ('active','suspended','expired')" }
+        - { name: subscribed_at,       type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: expires_at,          type: "DATETIME" }
+      references:
+        - { column: institution_id, references_table: institutions, references_column: id, on_delete: CASCADE }
+        - { column: product_id,     references_table: products,     references_column: id, on_delete: CASCADE }
+      constraints:
+        - UNIQUE(institution_id, product_id)
+
+    - name: consortiums
+      group: CATALOG
+      description: >
+        Consortium registry. Single source of truth for consortium
+        identity, governance model, data policy, and access type.
+      owns_attributes:
+        - id
+        - consortium_code
+        - consortium_name
+        - consortium_type
+        - consortium_status
+        - purpose
+        - governance_model
+        - share_loan_data
+        - share_repayment_history
+        - allow_aggregation
+        - data_visibility
+        - description
+        - created_at
+        - updated_at
+        - is_deleted
+        - deleted_at
+      columns:
+        - { name: id,                      type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: consortium_code,         type: "VARCHAR(50) UNIQUE NOT NULL" }
+        - { name: consortium_name,         type: "VARCHAR(255) NOT NULL" }
+        - { name: consortium_type,         type: "VARCHAR(20) NOT NULL", check: "consortium_type IN ('Closed','Open','Hybrid')" }
+        - { name: consortium_status,       type: "VARCHAR(20) NOT NULL DEFAULT 'pending'", check: "consortium_status IN ('pending','active','suspended','dissolved')" }
+        - { name: purpose,                 type: "VARCHAR(100)" }
+        - { name: governance_model,        type: "VARCHAR(30)", check: "governance_model IN ('Centralized','Federated','Hybrid Board')" }
+        - { name: share_loan_data,         type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: share_repayment_history, type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: allow_aggregation,       type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: data_visibility,         type: "VARCHAR(30)", check: "data_visibility IN ('full','masked_pii','derived')" }
+        - { name: description,             type: "TEXT" }
+        - { name: created_at,              type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: updated_at,              type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: is_deleted,              type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: deleted_at,              type: "DATETIME" }
+      references: []
+
+    - name: consortium_members
+      group: CATALOG
+      description: >
+        Institution membership in a consortium. No consortium_name
+        or institution_name — FK-only. Role is consortium-scoped.
+      owns_attributes:
+        - id
+        - consortium_id
+        - institution_id
+        - member_role
+        - consortium_member_status
+        - joined_at
+      columns:
+        - { name: id,                      type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: consortium_id,           type: "INTEGER NOT NULL", fk: "consortiums(id)" }
+        - { name: institution_id,          type: "INTEGER NOT NULL", fk: "institutions(id)" }
+        - { name: member_role,             type: "VARCHAR(30) NOT NULL", check: "member_role IN ('Contributor','Consumer','Observer')" }
+        - { name: consortium_member_status, type: "VARCHAR(20) NOT NULL DEFAULT 'pending'", check: "consortium_member_status IN ('pending','active','suspended','exited')" }
+        - { name: joined_at,               type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+      references:
+        - { column: consortium_id,  references_table: consortiums,  references_column: id, on_delete: CASCADE }
+        - { column: institution_id, references_table: institutions, references_column: id, on_delete: CASCADE }
+      constraints:
+        - UNIQUE(consortium_id, institution_id)
+      indexes:
+        - { name: idx_consortium_members_institution_id, columns: [institution_id] }
+        - { name: idx_consortium_members_consortium_id,  columns: [consortium_id] }
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # GROUP: MONITORING
+  # ─────────────────────────────────────────────────────────────────────────────
+
+    - name: api_requests
+      group: MONITORING
+      description: >
+        System-generated log of every API call. Append-only.
+        References api_key_id (FK) — never stores raw key strings.
+        Critical for SLA monitoring, rate-limit enforcement, and billing.
+      owns_attributes:
+        - id
+        - api_key_id
+        - institution_id
+        - endpoint
+        - http_method
+        - api_request_status
+        - response_time_ms
+        - records_processed
+        - error_code
+        - client_ip_hash
+        - request_id
+        - occurred_at
+      columns:
+        - { name: id,                 type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: api_key_id,         type: "INTEGER", fk: "api_keys(id)" }
+        - { name: institution_id,     type: "INTEGER", fk: "institutions(id)" }
+        - { name: endpoint,           type: "VARCHAR(255) NOT NULL" }
+        - { name: http_method,        type: "VARCHAR(10) NOT NULL" }
+        - { name: api_request_status, type: "VARCHAR(20) NOT NULL", check: "api_request_status IN ('success','failed','partial','rate_limited','authentication_failed')" }
+        - { name: response_time_ms,   type: "INTEGER" }
+        - { name: records_processed,  type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: error_code,         type: "VARCHAR(100)" }
+        - { name: client_ip_hash,     type: "VARCHAR(128)" }
+        - { name: request_id,         type: "VARCHAR(100) UNIQUE" }
+        - { name: occurred_at,        type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+      references:
+        - { column: api_key_id,     references_table: api_keys,     references_column: id, on_delete: SET_NULL }
+        - { column: institution_id, references_table: institutions, references_column: id, on_delete: SET_NULL }
+      indexes:
+        - { name: idx_api_requests_institution_id, columns: [institution_id] }
+        - { name: idx_api_requests_occurred_at,    columns: [occurred_at] }
+        - { name: idx_api_requests_api_key_id,     columns: [api_key_id] }
+        - { name: idx_api_requests_status,         columns: [api_request_status] }
+
+    - name: batch_jobs
+      group: MONITORING
+      description: >
+        Batch file submission jobs. Master record for each batch
+        ingestion run. Linked to institution and uploading user.
+      owns_attributes:
+        - id
+        - institution_id
+        - uploaded_by_user_id
+        - file_name
+        - batch_job_status
+        - total_records
+        - success_count
+        - failed_count
+        - success_rate
+        - duration_seconds
+        - uploaded_at
+        - completed_at
+      columns:
+        - { name: id,                   type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: institution_id,       type: "INTEGER NOT NULL", fk: "institutions(id)" }
+        - { name: uploaded_by_user_id,  type: "INTEGER", fk: "users(id)" }
+        - { name: file_name,            type: "VARCHAR(255) NOT NULL" }
+        - { name: batch_job_status,     type: "VARCHAR(20) NOT NULL DEFAULT 'queued'", check: "batch_job_status IN ('queued','processing','completed','failed','partial')" }
+        - { name: total_records,        type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: success_count,        type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: failed_count,         type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: success_rate,         type: "DECIMAL(5,2)" }
+        - { name: duration_seconds,     type: "INTEGER" }
+        - { name: uploaded_at,          type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: completed_at,         type: "DATETIME" }
+      references:
+        - { column: institution_id,      references_table: institutions, references_column: id, on_delete: RESTRICT }
+        - { column: uploaded_by_user_id, references_table: users,        references_column: id, on_delete: SET_NULL }
+      indexes:
+        - { name: idx_batch_jobs_institution_id, columns: [institution_id] }
+        - { name: idx_batch_jobs_uploaded_at,    columns: [uploaded_at] }
+        - { name: idx_batch_jobs_status,         columns: [batch_job_status] }
+
+    - name: batch_records
+      group: MONITORING
+      description: >
+        Individual record-level outcomes within a batch job.
+        Enables fine-grained error drilling per batch.
+      owns_attributes:
+        - id
+        - batch_job_id
+        - row_number
+        - record_status
+        - error_code
+        - error_message
+        - consumer_id
+      columns:
+        - { name: id,            type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: batch_job_id,  type: "INTEGER NOT NULL", fk: "batch_jobs(id)" }
+        - { name: row_number,    type: "INTEGER NOT NULL" }
+        - { name: record_status, type: "VARCHAR(20) NOT NULL", check: "record_status IN ('success','failed','skipped')" }
+        - { name: error_code,    type: "VARCHAR(100)" }
+        - { name: error_message, type: "TEXT" }
+        - { name: consumer_id,   type: "INTEGER", fk: "consumers(id)" }
+      references:
+        - { column: batch_job_id, references_table: batch_jobs, references_column: id, on_delete: CASCADE }
+        - { column: consumer_id,  references_table: consumers,  references_column: id, on_delete: SET_NULL }
+      indexes:
+        - { name: idx_batch_records_batch_job_id, columns: [batch_job_id] }
+
+    - name: sla_configs
+      group: MONITORING
+      description: >
+        SLA threshold configuration per domain and metric.
+        Single source of truth for what constitutes an SLA breach.
+      owns_attributes:
+        - id
+        - sla_domain
+        - metric_name
+        - threshold_operator
+        - threshold_value
+        - threshold_unit
+        - severity_level
+        - time_window_description
+        - is_active
+        - created_at
+        - updated_at
+      columns:
+        - { name: id,                    type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: sla_domain,            type: "VARCHAR(100) NOT NULL" }
+        - { name: metric_name,           type: "VARCHAR(100) NOT NULL" }
+        - { name: threshold_operator,    type: "VARCHAR(5) NOT NULL", check: "threshold_operator IN ('>=','<=','>','<','=')" }
+        - { name: threshold_value,       type: "DECIMAL(15,4) NOT NULL" }
+        - { name: threshold_unit,        type: "VARCHAR(30)" }
+        - { name: severity_level,        type: "VARCHAR(10) NOT NULL", check: "severity_level IN ('INFO','WARNING','CRITICAL')" }
+        - { name: time_window_description, type: "VARCHAR(100)" }
+        - { name: is_active,             type: "INTEGER NOT NULL DEFAULT 1" }
+        - { name: created_at,            type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: updated_at,            type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+      references: []
+      constraints:
+        - UNIQUE(sla_domain, metric_name)
+
+    - name: sla_breaches
+      group: MONITORING
+      description: >
+        Recorded SLA breach events. Linked to sla_configs and optionally
+        to the institution that caused the breach.
+      owns_attributes:
+        - id
+        - sla_config_id
+        - institution_id
+        - breach_value_text
+        - breach_duration_seconds
+        - breach_incident_status
+        - detected_at
+        - resolved_at
+      columns:
+        - { name: id,                   type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: sla_config_id,        type: "INTEGER NOT NULL", fk: "sla_configs(id)" }
+        - { name: institution_id,       type: "INTEGER", fk: "institutions(id)" }
+        - { name: breach_value_text,    type: "VARCHAR(50)" }
+        - { name: breach_duration_seconds, type: "INTEGER" }
+        - { name: breach_incident_status, type: "VARCHAR(20) NOT NULL DEFAULT 'open'", check: "breach_incident_status IN ('open','acknowledged','resolved')" }
+        - { name: detected_at,          type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: resolved_at,          type: "DATETIME" }
+      references:
+        - { column: sla_config_id,  references_table: sla_configs,  references_column: id, on_delete: RESTRICT }
+        - { column: institution_id, references_table: institutions, references_column: id, on_delete: SET_NULL }
+      indexes:
+        - { name: idx_sla_breaches_detected_at,   columns: [detected_at] }
+        - { name: idx_sla_breaches_institution_id, columns: [institution_id] }
+
+    - name: alert_rules
+      group: MONITORING
+      description: >
+        Alert engine rule definitions. Each rule specifies monitoring
+        domain, condition expression, severity, and active state.
+      owns_attributes:
+        - id
+        - rule_name
+        - alert_domain
+        - condition_expression
+        - severity_level
+        - alert_rule_status
+        - last_triggered_at
+        - created_at
+        - updated_at
+        - is_deleted
+        - deleted_at
+      columns:
+        - { name: id,                  type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: rule_name,           type: "VARCHAR(255) NOT NULL" }
+        - { name: alert_domain,        type: "VARCHAR(100) NOT NULL" }
+        - { name: condition_expression, type: "TEXT NOT NULL" }
+        - { name: severity_level,      type: "VARCHAR(10) NOT NULL", check: "severity_level IN ('INFO','WARNING','CRITICAL')" }
+        - { name: alert_rule_status,   type: "VARCHAR(20) NOT NULL DEFAULT 'enabled'", check: "alert_rule_status IN ('enabled','disabled')" }
+        - { name: last_triggered_at,   type: "DATETIME" }
+        - { name: created_at,          type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: updated_at,          type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: is_deleted,          type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: deleted_at,          type: "DATETIME" }
+      references: []
+
+    - name: alert_incidents
+      group: MONITORING
+      description: >
+        Fired alert incidents. Each row is one trigger event of an alert_rule.
+      owns_attributes:
+        - id
+        - alert_rule_id
+        - institution_id
+        - metric_name
+        - current_value_text
+        - threshold_text
+        - alert_incident_status
+        - triggered_at
+        - acknowledged_at
+        - resolved_at
+      columns:
+        - { name: id,                   type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: alert_rule_id,        type: "INTEGER NOT NULL", fk: "alert_rules(id)" }
+        - { name: institution_id,       type: "INTEGER", fk: "institutions(id)" }
+        - { name: metric_name,          type: "VARCHAR(100)" }
+        - { name: current_value_text,   type: "VARCHAR(100)" }
+        - { name: threshold_text,       type: "VARCHAR(100)" }
+        - { name: alert_incident_status, type: "VARCHAR(20) NOT NULL DEFAULT 'active'", check: "alert_incident_status IN ('active','acknowledged','resolved')" }
+        - { name: triggered_at,         type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: acknowledged_at,      type: "DATETIME" }
+        - { name: resolved_at,          type: "DATETIME" }
+      references:
+        - { column: alert_rule_id,  references_table: alert_rules,  references_column: id, on_delete: CASCADE }
+        - { column: institution_id, references_table: institutions, references_column: id, on_delete: SET_NULL }
+      indexes:
+        - { name: idx_alert_incidents_triggered_at,   columns: [triggered_at] }
+        - { name: idx_alert_incidents_institution_id, columns: [institution_id] }
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # GROUP: SYSTEM
+  # ─────────────────────────────────────────────────────────────────────────────
+
+    - name: audit_logs
+      group: SYSTEM
+      description: >
+        Immutable business action audit trail. Append-only.
+        Records who did what to which entity and when.
+        user_id references users; entity context captured by
+        entity_type + entity_id string pair.
+      owns_attributes:
+        - id
+        - user_id
+        - action_type
+        - entity_type
+        - entity_id
+        - description
+        - ip_address_hash
+        - audit_outcome
+        - occurred_at
+      columns:
+        - { name: id,              type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: user_id,         type: "INTEGER", fk: "users(id)" }
+        - { name: action_type,     type: "VARCHAR(100) NOT NULL" }
+        - { name: entity_type,     type: "VARCHAR(100) NOT NULL" }
+        - { name: entity_id,       type: "VARCHAR(100) NOT NULL" }
+        - { name: description,     type: "TEXT" }
+        - { name: ip_address_hash, type: "VARCHAR(128)" }
+        - { name: audit_outcome,   type: "VARCHAR(20) NOT NULL DEFAULT 'success'", check: "audit_outcome IN ('success','failure','partial')" }
+        - { name: occurred_at,     type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+      references:
+        - { column: user_id, references_table: users, references_column: id, on_delete: SET_NULL }
+      indexes:
+        - { name: idx_audit_logs_user_id,     columns: [user_id] }
+        - { name: idx_audit_logs_occurred_at, columns: [occurred_at] }
+        - { name: idx_audit_logs_entity,      columns: [entity_type, entity_id] }
+        - { name: idx_audit_logs_action_type, columns: [action_type] }
+
+    - name: approval_queue
+      group: SYSTEM
+      description: >
+        Pending approval workflow items for institutions, schema mappings,
+        consortiums, and products. Single table for all approval types
+        using entity_type discriminator.
+      owns_attributes:
+        - id
+        - approval_item_type
+        - entity_ref_id
+        - entity_name_snapshot
+        - description
+        - submitted_by_user_id
+        - reviewed_by_user_id
+        - approval_workflow_status
+        - rejection_reason
+        - submitted_at
+        - reviewed_at
+      columns:
+        - { name: id,                     type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: approval_item_type,     type: "VARCHAR(50) NOT NULL", check: "approval_item_type IN ('institution','schema_mapping','consortium','product')" }
+        - { name: entity_ref_id,          type: "VARCHAR(100)" }
+        - { name: entity_name_snapshot,   type: "VARCHAR(255)" }
+        - { name: description,            type: "TEXT" }
+        - { name: submitted_by_user_id,   type: "INTEGER", fk: "users(id)" }
+        - { name: reviewed_by_user_id,    type: "INTEGER", fk: "users(id)" }
+        - { name: approval_workflow_status, type: "VARCHAR(30) NOT NULL DEFAULT 'pending'", check: "approval_workflow_status IN ('pending','approved','rejected','changes_requested')" }
+        - { name: rejection_reason,       type: "TEXT" }
+        - { name: submitted_at,           type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: reviewed_at,            type: "DATETIME" }
+      references:
+        - { column: submitted_by_user_id, references_table: users, references_column: id, on_delete: SET_NULL }
+        - { column: reviewed_by_user_id,  references_table: users, references_column: id, on_delete: SET_NULL }
+      indexes:
+        - { name: idx_approval_queue_status,       columns: [approval_workflow_status] }
+        - { name: idx_approval_queue_submitted_at, columns: [submitted_at] }
+        - { name: idx_approval_queue_type,         columns: [approval_item_type] }
+
+    - name: reports
+      group: SYSTEM
+      description: >
+        Report requests and delivery records. Each row is one report
+        request by one user.
+      owns_attributes:
+        - id
+        - report_type
+        - date_range_start
+        - date_range_end
+        - requested_by_user_id
+        - institution_id
+        - report_status
+        - output_format
+        - file_path_encrypted
+        - requested_at
+        - completed_at
+      columns:
+        - { name: id,                     type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: report_type,            type: "VARCHAR(100) NOT NULL" }
+        - { name: date_range_start,       type: "DATE" }
+        - { name: date_range_end,         type: "DATE" }
+        - { name: requested_by_user_id,   type: "INTEGER", fk: "users(id)" }
+        - { name: institution_id,         type: "INTEGER", fk: "institutions(id)" }
+        - { name: report_status,          type: "VARCHAR(20) NOT NULL DEFAULT 'queued'", check: "report_status IN ('queued','processing','completed','failed')" }
+        - { name: output_format,          type: "VARCHAR(10)", check: "output_format IN ('PDF','CSV','XLSX')" }
+        - { name: file_path_encrypted,    type: "TEXT" }
+        - { name: requested_at,           type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: completed_at,           type: "DATETIME" }
+      references:
+        - { column: requested_by_user_id, references_table: users,        references_column: id, on_delete: SET_NULL }
+        - { column: institution_id,       references_table: institutions, references_column: id, on_delete: SET_NULL }
+      indexes:
+        - { name: idx_reports_user_id,       columns: [requested_by_user_id] }
+        - { name: idx_reports_requested_at,  columns: [requested_at] }
+        - { name: idx_reports_status,        columns: [report_status] }
+
+  # ─────────────────────────────────────────────────────────────────────────────
+  # GROUP: GOVERNANCE
+  # ─────────────────────────────────────────────────────────────────────────────
+
+    - name: source_schemas
+      group: GOVERNANCE
+      description: >
+        Registry of incoming data source schemas (CBS systems, alternate
+        data providers). Single source of truth per source schema version.
+      owns_attributes:
+        - id
+        - source_name
+        - source_type
+        - schema_version
+        - institution_id
+        - schema_status
+        - created_at
+        - updated_at
+        - is_deleted
+        - deleted_at
+      columns:
+        - { name: id,              type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: source_name,     type: "VARCHAR(255) NOT NULL" }
+        - { name: source_type,     type: "VARCHAR(50)", check: "source_type IN ('CBS','ALT_DATA','BUREAU','CUSTOM')" }
+        - { name: schema_version,  type: "VARCHAR(20) NOT NULL" }
+        - { name: institution_id,  type: "INTEGER", fk: "institutions(id)" }
+        - { name: schema_status,   type: "VARCHAR(20) NOT NULL DEFAULT 'draft'", check: "schema_status IN ('draft','active','deprecated','archived')" }
+        - { name: created_at,      type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: updated_at,      type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: is_deleted,      type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: deleted_at,      type: "DATETIME" }
+      references:
+        - { column: institution_id, references_table: institutions, references_column: id, on_delete: SET_NULL }
+
+    - name: source_schema_fields
+      group: GOVERNANCE
+      description: >
+        Individual field definitions within a source schema version.
+      owns_attributes:
+        - id
+        - source_schema_id
+        - field_name
+        - field_data_type
+        - is_mandatory
+        - description
+      columns:
+        - { name: id,               type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: source_schema_id, type: "INTEGER NOT NULL", fk: "source_schemas(id)" }
+        - { name: field_name,       type: "VARCHAR(255) NOT NULL" }
+        - { name: field_data_type,  type: "VARCHAR(30) NOT NULL", check: "field_data_type IN ('string','integer','decimal','date','boolean','enum','object','array')" }
+        - { name: is_mandatory,     type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: description,      type: "TEXT" }
+      references:
+        - { column: source_schema_id, references_table: source_schemas, references_column: id, on_delete: CASCADE }
+      indexes:
+        - { name: idx_source_schema_fields_schema_id, columns: [source_schema_id] }
+
+    - name: canonical_fields
+      group: GOVERNANCE
+      description: >
+        HCB Master Schema canonical field definitions. The bureau's
+        single reference taxonomy for all data attributes.
+      owns_attributes:
+        - id
+        - field_code
+        - field_name
+        - canonical_data_type
+        - description
+        - pii_classification
+        - is_mandatory
+        - created_at
+        - updated_at
+      columns:
+        - { name: id,                  type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: field_code,          type: "VARCHAR(100) UNIQUE NOT NULL" }
+        - { name: field_name,          type: "VARCHAR(255) NOT NULL" }
+        - { name: canonical_data_type, type: "VARCHAR(30) NOT NULL" }
+        - { name: description,         type: "TEXT" }
+        - { name: pii_classification,  type: "VARCHAR(20) NOT NULL DEFAULT 'non_pii'", check: "pii_classification IN ('non_pii','pii','sensitive_pii')" }
+        - { name: is_mandatory,        type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: created_at,          type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: updated_at,          type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+      references: []
+
+    - name: mapping_pairs
+      group: GOVERNANCE
+      description: >
+        Field-level mapping between source schema fields and canonical
+        fields. Confidence score on 0.0–1.0 scale.
+      owns_attributes:
+        - id
+        - mapping_version_id
+        - source_field_id
+        - canonical_field_id
+        - confidence_score
+        - mapping_method
+        - is_approved
+        - mapped_at
+      columns:
+        - { name: id,                type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: mapping_version_id, type: "INTEGER NOT NULL", fk: "mapping_versions(id)" }
+        - { name: source_field_id,   type: "INTEGER NOT NULL", fk: "source_schema_fields(id)" }
+        - { name: canonical_field_id, type: "INTEGER NOT NULL", fk: "canonical_fields(id)" }
+        - { name: confidence_score,  type: "DECIMAL(5,4) NOT NULL" }
+        - { name: mapping_method,    type: "VARCHAR(20)", check: "mapping_method IN ('EXACT','FUZZY','INFERRED','MANUAL')" }
+        - { name: is_approved,       type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: mapped_at,         type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+      references:
+        - { column: mapping_version_id,  references_table: mapping_versions,    references_column: id, on_delete: CASCADE }
+        - { column: source_field_id,     references_table: source_schema_fields, references_column: id, on_delete: RESTRICT }
+        - { column: canonical_field_id,  references_table: canonical_fields,    references_column: id, on_delete: RESTRICT }
+      indexes:
+        - { name: idx_mapping_pairs_mapping_version_id, columns: [mapping_version_id] }
+
+    - name: mapping_versions
+      group: GOVERNANCE
+      description: >
+        Versioned mapping configuration for a source schema.
+        Tracks lifecycle from draft through approval.
+      owns_attributes:
+        - id
+        - source_schema_id
+        - version_tag
+        - mapping_version_status
+        - coverage_percent
+        - created_by_user_id
+        - approved_by_user_id
+        - created_at
+        - approved_at
+      columns:
+        - { name: id,                    type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: source_schema_id,      type: "INTEGER NOT NULL", fk: "source_schemas(id)" }
+        - { name: version_tag,           type: "VARCHAR(20) NOT NULL" }
+        - { name: mapping_version_status, type: "VARCHAR(20) NOT NULL DEFAULT 'draft'", check: "mapping_version_status IN ('draft','pending_review','approved','rejected','deprecated')" }
+        - { name: coverage_percent,      type: "DECIMAL(5,2)" }
+        - { name: created_by_user_id,    type: "INTEGER", fk: "users(id)" }
+        - { name: approved_by_user_id,   type: "INTEGER", fk: "users(id)" }
+        - { name: created_at,            type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: approved_at,           type: "DATETIME" }
+      references:
+        - { column: source_schema_id,   references_table: source_schemas, references_column: id, on_delete: CASCADE }
+        - { column: created_by_user_id,  references_table: users,         references_column: id, on_delete: SET_NULL }
+        - { column: approved_by_user_id, references_table: users,         references_column: id, on_delete: SET_NULL }
+      constraints:
+        - UNIQUE(source_schema_id, version_tag)
+
+    - name: validation_rules
+      group: GOVERNANCE
+      description: >
+        Data validation rule definitions applied during ingestion.
+      owns_attributes:
+        - id
+        - rule_name
+        - canonical_field_id
+        - validation_type
+        - rule_expression
+        - severity_level
+        - validation_rule_status
+        - created_at
+        - updated_at
+        - is_deleted
+        - deleted_at
+      columns:
+        - { name: id,                     type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: rule_name,              type: "VARCHAR(255) NOT NULL" }
+        - { name: canonical_field_id,     type: "INTEGER", fk: "canonical_fields(id)" }
+        - { name: validation_type,        type: "VARCHAR(30) NOT NULL", check: "validation_type IN ('FORMAT','RANGE','MANDATORY','CROSS_FIELD','DUPLICATE','ENUM')" }
+        - { name: rule_expression,        type: "TEXT NOT NULL" }
+        - { name: severity_level,         type: "VARCHAR(10) NOT NULL", check: "severity_level IN ('INFO','WARNING','CRITICAL')" }
+        - { name: validation_rule_status, type: "VARCHAR(20) NOT NULL DEFAULT 'active'", check: "validation_rule_status IN ('active','inactive','testing')" }
+        - { name: created_at,             type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: updated_at,             type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+        - { name: is_deleted,             type: "INTEGER NOT NULL DEFAULT 0" }
+        - { name: deleted_at,             type: "DATETIME" }
+      references:
+        - { column: canonical_field_id, references_table: canonical_fields, references_column: id, on_delete: SET_NULL }
+
+################################################################################
+# SECTION 4 — APIS (NORMALIZED JOIN-BASED CONTRACTS)
+################################################################################
+
+apis:
+
+  # ─── AUTH ───────────────────────────────────────────────────────────────────
+
+  - name: login
+    group: AUTH
+    endpoint: "POST /api/v1/auth/login"
+    method: POST
+    description: Authenticate user credentials and issue access + refresh tokens.
+    request_schema:
+      email: "string (required)"
+      password: "string (required, never logged)"
+    response_schema:
+      access_token: "JWT string (short-lived, 15 min)"
+      refresh_token: "opaque string (long-lived, 7 days)"
+      expires_in: "integer (seconds)"
+      user:
+        id: integer
+        email: string
+        display_name: string
+        roles: "string[]"
+        institution_id: "integer|null"
+    joins_required: ["users", "user_role_assignments", "roles"]
+    tables_used: [users, refresh_tokens, user_role_assignments, roles]
+    logs_generated:
+      - audit_logs: {action_type: "AUTH_LOGIN", entity_type: "user", outcome: "success|failure"}
+      - api_requests: {endpoint: "/api/v1/auth/login", status: "success|failed"}
+    security:
+      - rate_limit: "5 attempts per minute per IP"
+      - password_check: bcrypt_verify
+      - response: "never expose password_hash"
+
+  - name: refresh_token
+    group: AUTH
+    endpoint: "POST /api/v1/auth/refresh"
+    method: POST
+    description: Rotate refresh token and issue new access token.
+    request_schema:
+      refresh_token: "string (required)"
+    response_schema:
+      access_token: "JWT string"
+      refresh_token: "string (rotated)"
+      expires_in: integer
+    tables_used: [refresh_tokens, users]
+    logs_generated:
+      - audit_logs: {action_type: "AUTH_TOKEN_REFRESH"}
+
+  - name: logout
+    group: AUTH
+    endpoint: "POST /api/v1/auth/logout"
+    method: POST
+    description: Revoke refresh token, invalidate session.
+    request_schema:
+      refresh_token: "string (required)"
+    tables_used: [refresh_tokens]
+    logs_generated:
+      - audit_logs: {action_type: "AUTH_LOGOUT"}
+
+  # ─── INSTITUTIONS ────────────────────────────────────────────────────────────
+
+  - name: list_institutions
+    group: INSTITUTIONS
+    endpoint: "GET /api/v1/institutions"
+    method: GET
+    description: Paginated list of institutions. No names from other tables.
+    query_params: [status, institution_type, jurisdiction, page, limit, sort]
+    response_schema:
+      data:
+        - id: integer
+          name: string
+          trading_name: string
+          institution_type: string
+          institution_lifecycle_status: string
+          jurisdiction: string
+          is_data_submitter: boolean
+          is_subscriber: boolean
+          sla_health_percent: decimal
+          apis_enabled_count: integer
+          updated_at: datetime
+      pagination: {page: integer, limit: integer, total: integer}
+    joins_required: []
+    tables_used: [institutions]
+    logs_generated:
+      - api_requests: {endpoint: "/api/v1/institutions", method: GET}
+
+  - name: get_institution
+    group: INSTITUTIONS
+    endpoint: "GET /api/v1/institutions/:id"
+    method: GET
+    description: Full institution detail with compliance documents and subscription counts.
+    response_schema:
+      institution: "all institutions owns_attributes"
+      compliance_documents: "compliance_documents[] for institution"
+      active_subscriptions_count: "computed via JOIN products"
+      consortium_memberships_count: "computed via JOIN consortium_members"
+    joins_required: [compliance_documents, product_subscriptions, consortium_members]
+    tables_used: [institutions, compliance_documents, product_subscriptions, consortium_members]
+
+  - name: create_institution
+    group: INSTITUTIONS
+    endpoint: "POST /api/v1/institutions"
+    method: POST
+    description: Register new institution. Creates approval queue entry.
+    request_schema:
+      name: string
+      trading_name: string
+      institution_type: string
+      registration_number: string
+      jurisdiction: string
+      contact_email: string
+      contact_phone: string
+      billing_model: string
+    db_changes:
+      - INSERT institutions (status=draft)
+      - INSERT approval_queue (type=institution)
+    transaction: true
+    logs_generated:
+      - audit_logs: {action_type: "INSTITUTION_CREATED"}
+      - api_requests
+
+  - name: update_institution
+    group: INSTITUTIONS
+    endpoint: "PUT /api/v1/institutions/:id"
+    method: PUT
+    db_changes: [UPDATE institutions SET ... WHERE id=:id AND is_deleted=0]
+    transaction: true
+    logs_generated:
+      - audit_logs: {action_type: "INSTITUTION_UPDATED"}
+      - api_requests
+
+  - name: delete_institution
+    group: INSTITUTIONS
+    endpoint: "DELETE /api/v1/institutions/:id"
+    method: DELETE
+    description: Soft delete only.
+    db_changes: [UPDATE institutions SET is_deleted=1, deleted_at=NOW() WHERE id=:id]
+    logs_generated:
+      - audit_logs: {action_type: "INSTITUTION_DELETED"}
+
+  # ─── USERS ───────────────────────────────────────────────────────────────────
+
+  - name: list_users
+    group: USERS
+    endpoint: "GET /api/v1/users"
+    method: GET
+    query_params: [status, institution_id, role_id, page, limit]
+    response_schema:
+      data:
+        - id: integer
+          email: string
+          display_name: string
+          user_account_status: string
+          mfa_enabled: boolean
+          institution_id: "integer|null"
+          institution_name: "string (JOINed from institutions)"
+          roles: "string[] (JOINed from user_role_assignments → roles)"
+          last_login_at: datetime
+    joins_required: [institutions, user_role_assignments, roles]
+    tables_used: [users, institutions, user_role_assignments, roles]
+
+  - name: create_user
+    group: USERS
+    endpoint: "POST /api/v1/users"
+    method: POST
+    request_schema:
+      email: string
+      display_name: string
+      role_id: integer
+      institution_id: "integer|null"
+      password: "string (plaintext over TLS, hashed server-side)"
+    db_changes:
+      - INSERT users (password_hash=bcrypt)
+      - INSERT user_role_assignments
+    transaction: true
+    logs_generated:
+      - audit_logs: {action_type: "USER_CREATED"}
+
+  - name: update_user
+    group: USERS
+    endpoint: "PUT /api/v1/users/:id"
+    method: PUT
+    db_changes: [UPDATE users SET ... WHERE id=:id AND is_deleted=0]
+    logs_generated:
+      - audit_logs: {action_type: "USER_UPDATED"}
+
+  - name: delete_user
+    group: USERS
+    endpoint: "DELETE /api/v1/users/:id"
+    method: DELETE
+    db_changes: [UPDATE users SET is_deleted=1, deleted_at=NOW()]
+    logs_generated:
+      - audit_logs: {action_type: "USER_DELETED"}
+
+  # ─── MONITORING ──────────────────────────────────────────────────────────────
+
+  - name: list_api_requests
+    group: MONITORING
+    endpoint: "GET /api/v1/monitoring/api-requests"
+    method: GET
+    query_params: [institution_id, status, date_from, date_to, endpoint, page, limit]
+    joins_required: [institutions, api_keys]
+    tables_used: [api_requests, institutions, api_keys]
+    security:
+      - response: "never expose raw api_key value, only key_prefix and api_key_id"
+
+  - name: list_batch_jobs
+    group: MONITORING
+    endpoint: "GET /api/v1/monitoring/batch-jobs"
+    method: GET
+    joins_required: [institutions, users]
+    tables_used: [batch_jobs, institutions, users]
+
+  - name: list_enquiries
+    group: MONITORING
+    endpoint: "GET /api/v1/monitoring/enquiries"
+    method: GET
+    joins_required: [consumers, institutions, api_keys, products]
+    tables_used: [enquiries, institutions, api_keys, products]
+
+  # ─── SUBMISSION ──────────────────────────────────────────────────────────────
+
+  - name: submit_tradeline
+    group: SUBMISSION
+    endpoint: "POST /api/v1/submission/tradeline"
+    method: POST
+    description: Submit a single tradeline record. Validates against canonical schema.
+    request_schema:
+      api_key: "string (header: X-API-Key)"
+      consumer_national_id_type: string
+      consumer_national_id: string
+      account_number: string
+      facility_type: string
+      sanctioned_amount: decimal
+      outstanding_amount: decimal
+      dpd_days: integer
+      reporting_period: "YYYY-MM"
+    db_changes:
+      - UPSERT consumers (hash-based dedup)
+      - INSERT tradelines
+      - INSERT api_requests (monitoring log)
+    transaction: true
+    joins_required: []
+    tables_used: [consumers, tradelines, api_keys, api_requests]
+    logs_generated:
+      - api_requests: mandatory
+      - audit_logs: {action_type: "TRADELINE_SUBMITTED"}
+
+  - name: inquiry
+    group: INQUIRY
+    endpoint: "POST /api/v1/inquiry"
+    method: POST
+    description: Credit bureau inquiry. Assembles response via joins.
+    request_schema:
+      api_key: "string (header)"
+      consumer_national_id_type: string
+      consumer_national_id: string
+      product_id: integer
+      enquiry_purpose: string
+    response_schema:
+      consumer_ref: "consumer_id only (no PII in response unless decrypted for requester)"
+      credit_profile: "credit_profiles attributes"
+      tradelines: "tradelines[] (filtered by consent and product)"
+      enquiry_id: integer
+    joins_required: [consumers, credit_profiles, tradelines, products, product_subscriptions]
+    tables_used: [consumers, credit_profiles, tradelines, enquiries, api_keys, products, product_subscriptions, api_requests]
+    transaction: true
+    logs_generated:
+      - enquiries: INSERT
+      - api_requests: INSERT
+
+################################################################################
+# SECTION 5 — ACTION APIS
+################################################################################
+
+action_apis:
+
+  - entity: institutions
+    actions:
+      - name: suspend_institution
+        endpoint: "POST /api/v1/institutions/:id/suspend"
+        method: POST
+        description: Suspend an active institution.
+        request: { reason: string }
+        db_changes:
+          - UPDATE institutions SET institution_lifecycle_status='suspended', updated_at=NOW()
+        transaction: true
+        logs_generated:
+          - audit_logs: {action_type: "INSTITUTION_SUSPENDED"}
+          - api_requests
+        validation_rules:
+          - institution must currently have status = 'active'
+
+      - name: reactivate_institution
+        endpoint: "POST /api/v1/institutions/:id/reactivate"
+        method: POST
+        db_changes:
+          - UPDATE institutions SET institution_lifecycle_status='active', updated_at=NOW()
+        logs_generated:
+          - audit_logs: {action_type: "INSTITUTION_REACTIVATED"}
+        validation_rules:
+          - institution must have status = 'suspended'
+
+  - entity: users
+    actions:
+      - name: suspend_user
+        endpoint: "POST /api/v1/users/:id/suspend"
+        method: POST
+        request: { reason: string }
+        db_changes:
+          - UPDATE users SET user_account_status='suspended', updated_at=NOW()
+        logs_generated:
+          - audit_logs: {action_type: "USER_SUSPENDED"}
+
+      - name: activate_user
+        endpoint: "POST /api/v1/users/:id/activate"
+        method: POST
+        db_changes:
+          - UPDATE users SET user_account_status='active', updated_at=NOW()
+        logs_generated:
+          - audit_logs: {action_type: "USER_ACTIVATED"}
+
+      - name: assign_role
+        endpoint: "POST /api/v1/users/:id/assign-role"
+        method: POST
+        request: { role_id: integer, institution_id: "integer|null" }
+        db_changes:
+          - DELETE user_role_assignments WHERE user_id=:id AND institution_id=:institution_id
+          - INSERT user_role_assignments (user_id, role_id, institution_id)
+        transaction: true
+        logs_generated:
+          - audit_logs: {action_type: "USER_ROLE_ASSIGNED"}
+
+  - entity: api_keys
+    actions:
+      - name: regenerate_api_key
+        endpoint: "POST /api/v1/api-keys/:id/regenerate"
+        method: POST
+        db_changes:
+          - UPDATE api_keys SET api_key_status='revoked', revoked_at=NOW() WHERE id=:id
+          - INSERT api_keys (new key, institution_id carried forward)
+        transaction: true
+        logs_generated:
+          - audit_logs: {action_type: "API_KEY_REGENERATED"}
+
+      - name: revoke_api_key
+        endpoint: "POST /api/v1/api-keys/:id/revoke"
+        method: POST
+        db_changes:
+          - UPDATE api_keys SET api_key_status='revoked', revoked_at=NOW()
+        logs_generated:
+          - audit_logs: {action_type: "API_KEY_REVOKED"}
+
+  - entity: approval_queue
+    actions:
+      - name: approve
+        endpoint: "POST /api/v1/approvals/:id/approve"
+        method: POST
+        request: { comments: string }
+        db_changes:
+          - UPDATE approval_queue SET approval_workflow_status='approved', reviewed_by_user_id=:caller_id, reviewed_at=NOW()
+          - UPDATE target_entity SET status='active' (entity-specific, transactional)
+        transaction: true
+        logs_generated:
+          - audit_logs: {action_type: "APPROVAL_APPROVED"}
+
+      - name: reject
+        endpoint: "POST /api/v1/approvals/:id/reject"
+        method: POST
+        request: { rejection_reason: string }
+        db_changes:
+          - UPDATE approval_queue SET approval_workflow_status='rejected', rejection_reason=:reason, reviewed_at=NOW()
+        transaction: true
+        logs_generated:
+          - audit_logs: {action_type: "APPROVAL_REJECTED"}
+
+      - name: request_changes
+        endpoint: "POST /api/v1/approvals/:id/request-changes"
+        method: POST
+        request: { rejection_reason: string }
+        db_changes:
+          - UPDATE approval_queue SET approval_workflow_status='changes_requested', rejection_reason=:reason
+        logs_generated:
+          - audit_logs: {action_type: "APPROVAL_CHANGES_REQUESTED"}
+
+  - entity: alert_rules
+    actions:
+      - name: activate_alert_rule
+        endpoint: "POST /api/v1/alert-rules/:id/activate"
+        method: POST
+        db_changes:
+          - UPDATE alert_rules SET alert_rule_status='enabled', updated_at=NOW()
+        logs_generated:
+          - audit_logs: {action_type: "ALERT_RULE_ACTIVATED"}
+
+      - name: deactivate_alert_rule
+        endpoint: "POST /api/v1/alert-rules/:id/deactivate"
+        method: POST
+        db_changes:
+          - UPDATE alert_rules SET alert_rule_status='disabled', updated_at=NOW()
+        logs_generated:
+          - audit_logs: {action_type: "ALERT_RULE_DEACTIVATED"}
+
+  - entity: alert_incidents
+    actions:
+      - name: acknowledge_alert
+        endpoint: "POST /api/v1/alerts/:id/acknowledge"
+        method: POST
+        db_changes:
+          - UPDATE alert_incidents SET alert_incident_status='acknowledged', acknowledged_at=NOW()
+        logs_generated:
+          - audit_logs: {action_type: "ALERT_ACKNOWLEDGED"}
+
+      - name: resolve_alert
+        endpoint: "POST /api/v1/alerts/:id/resolve"
+        method: POST
+        db_changes:
+          - UPDATE alert_incidents SET alert_incident_status='resolved', resolved_at=NOW()
+        logs_generated:
+          - audit_logs: {action_type: "ALERT_RESOLVED"}
+
+  - entity: mapping_versions
+    actions:
+      - name: approve_mapping
+        endpoint: "POST /api/v1/governance/mappings/:id/approve"
+        method: POST
+        db_changes:
+          - UPDATE mapping_versions SET mapping_version_status='approved', approved_by_user_id=:caller, approved_at=NOW()
+          - UPDATE mapping_pairs SET is_approved=1 WHERE mapping_version_id=:id
+        transaction: true
+        logs_generated:
+          - audit_logs: {action_type: "MAPPING_APPROVED"}
+
+      - name: reject_mapping
+        endpoint: "POST /api/v1/governance/mappings/:id/reject"
+        method: POST
+        request: { reason: string }
+        db_changes:
+          - UPDATE mapping_versions SET mapping_version_status='rejected'
+        logs_generated:
+          - audit_logs: {action_type: "MAPPING_REJECTED"}
+
+  - entity: batch_jobs
+    actions:
+      - name: retry_batch
+        endpoint: "POST /api/v1/monitoring/batch-jobs/:id/retry"
+        method: POST
+        db_changes:
+          - INSERT batch_jobs (clone of failed job, status=queued)
+        transaction: true
+        logs_generated:
+          - audit_logs: {action_type: "BATCH_JOB_RETRIED"}
+
+      - name: cancel_batch
+        endpoint: "POST /api/v1/monitoring/batch-jobs/:id/cancel"
+        method: POST
+        db_changes:
+          - UPDATE batch_jobs SET batch_job_status='failed', completed_at=NOW()
+        logs_generated:
+          - audit_logs: {action_type: "BATCH_JOB_CANCELLED"}
+
+  - entity: sla_configs
+    actions:
+      - name: update_sla_config
+        endpoint: "PUT /api/v1/monitoring/sla-configs/:id"
+        method: PUT
+        request: { threshold_value: decimal, severity_level: string, is_active: boolean }
+        db_changes:
+          - UPDATE sla_configs SET ... updated_at=NOW()
+        logs_generated:
+          - audit_logs: {action_type: "SLA_CONFIG_UPDATED"}
+
+  - entity: reports
+    actions:
+      - name: cancel_report
+        endpoint: "POST /api/v1/reports/:id/cancel"
+        method: POST
+        db_changes:
+          - UPDATE reports SET report_status='failed', completed_at=NOW()
+        logs_generated:
+          - audit_logs: {action_type: "REPORT_CANCELLED"}
+
+      - name: retry_report
+        endpoint: "POST /api/v1/reports/:id/retry"
+        method: POST
+        db_changes:
+          - UPDATE reports SET report_status='queued', completed_at=NULL
+        logs_generated:
+          - audit_logs: {action_type: "REPORT_RETRIED"}
+
+################################################################################
+# SECTION 6 — UI ACTION → API → DB TRACEABILITY MATRIX
+################################################################################
+
+ui_action_api_db_traceability:
+
+  - module: InstitutionList
+    ui_action: Suspend institution (AlertDialog confirm)
+    current_state: toast-only, no DB
+    target_api: "POST /api/v1/institutions/:id/suspend"
+    db_tables: [institutions, audit_logs, api_requests]
+
+  - module: RegisterInstitution
+    ui_action: Submit institution registration
+    current_state: localStorage draft, no DB
+    target_api: "POST /api/v1/institutions"
+    db_tables: [institutions, approval_queue, audit_logs, api_requests]
+
+  - module: ApprovalQueuePage
+    ui_action: Approve item
+    current_state: local React state setItems
+    target_api: "POST /api/v1/approvals/:id/approve"
+    db_tables: [approval_queue, audit_logs, api_requests]
+
+  - module: ApprovalQueuePage
+    ui_action: Reject item
+    current_state: local React state
+    target_api: "POST /api/v1/approvals/:id/reject"
+    db_tables: [approval_queue, audit_logs]
+
+  - module: UsersListPage
+    ui_action: Invite user
+    current_state: toast "coming soon"
+    target_api: "POST /api/v1/users"
+    db_tables: [users, user_role_assignments, audit_logs]
+
+  - module: UsersListPage
+    ui_action: Suspend user
+    current_state: toast only
+    target_api: "POST /api/v1/users/:id/suspend"
+    db_tables: [users, audit_logs]
+
+  - module: RolesPermissionsPage
+    ui_action: Save role permissions matrix
+    current_state: local handleSave
+    target_api: "PUT /api/v1/roles/:id/permissions"
+    db_tables: [role_permissions, audit_logs]
+
+  - module: AlertRulesDashboard
+    ui_action: Toggle alert rule status
+    current_state: local toggleStatus
+    target_api: "POST /api/v1/alert-rules/:id/activate or deactivate"
+    db_tables: [alert_rules, audit_logs]
+
+  - module: AlertRulesDashboard
+    ui_action: Delete alert rule
+    current_state: local deleteRule
+    target_api: "DELETE /api/v1/alert-rules/:id (soft delete)"
+    db_tables: [alert_rules, audit_logs]
+
+  - module: SlaConfigurationPanel
+    ui_action: Save SLA threshold
+    current_state: local handleSave
+    target_api: "PUT /api/v1/monitoring/sla-configs/:id"
+    db_tables: [sla_configs, audit_logs]
+
+  - module: ReportListPage
+    ui_action: Cancel report
+    current_state: local removeReport
+    target_api: "POST /api/v1/reports/:id/cancel"
+    db_tables: [reports, audit_logs]
+
+  - module: ReportListPage
+    ui_action: Retry failed report
+    current_state: local setReportStatus
+    target_api: "POST /api/v1/reports/:id/retry"
+    db_tables: [reports, audit_logs]
+
+  - module: NewReportRequestPage
+    ui_action: Submit report request
+    current_state: local addReport to context
+    target_api: "POST /api/v1/reports"
+    db_tables: [reports, audit_logs]
+
+  - module: BillingTab
+    ui_action: Save billing model/rates
+    current_state: local savedState
+    target_api: "PUT /api/v1/institutions/:id/billing"
+    db_tables: [institutions, audit_logs]
+
+  - module: ConsortiumWizardPage
+    ui_action: Create consortium
+    current_state: addConsortium sessionStorage
+    target_api: "POST /api/v1/consortiums"
+    db_tables: [consortiums, approval_queue, audit_logs]
+
+  - module: BatchExecutionConsole
+    ui_action: Change batch priority
+    current_state: local state only
+    target_api: "POST /api/v1/monitoring/batch-jobs/:id/reprioritize"
+    db_tables: [batch_jobs, audit_logs]
+
+  - module: ProductListPage
+    ui_action: Create product
+    current_state: addProduct context
+    target_api: "POST /api/v1/products"
+    db_tables: [products, approval_queue, audit_logs]
+
+  - module: GovernanceActionsStep (schema wizard)
+    ui_action: Submit mapping for approval
+    current_state: local handleGovernanceSubmit
+    target_api: "POST /api/v1/governance/mappings/:id/submit"
+    db_tables: [mapping_versions, approval_queue, audit_logs]
+
+  - module: GovernanceActionsStep
+    ui_action: Approve mapping
+    current_state: local handleGovernanceSubmit
+    target_api: "POST /api/v1/governance/mappings/:id/approve"
+    db_tables: [mapping_versions, mapping_pairs, audit_logs]
+
+################################################################################
+# SECTION 7 — DATA FLOWS
+################################################################################
+
+data_flows:
+
+  submission_flow:
+    description: API or batch-based tradeline data ingestion
+    steps:
+      - step: 1_authenticate
+        action: Validate X-API-Key against api_keys.key_hash
+        tables: [api_keys]
+      - step: 2_validate_schema
+        action: Apply validation_rules to incoming fields
+        tables: [validation_rules, canonical_fields]
+      - step: 3_resolve_consumer
+        action: Hash national_id, lookup or create consumer
+        tables: [consumers]
+      - step: 4_insert_tradeline
+        action: INSERT into tradelines with FK to consumer + institution
+        tables: [tradelines]
+      - step: 5_log_api_request
+        action: INSERT api_requests (append-only, mandatory)
+        tables: [api_requests]
+      - step: 6_log_audit
+        action: INSERT audit_logs (action_type=TRADELINE_SUBMITTED)
+        tables: [audit_logs]
+    transaction_boundary: steps 3-5 wrapped in single DB transaction
+    rollback_on: any insert failure in steps 3-5
+
+  inquiry_flow:
+    description: Credit bureau inquiry — join-assembled response
+    steps:
+      - step: 1_authenticate
+        action: Validate API key and product subscription
+        tables: [api_keys, product_subscriptions]
+      - step: 2_verify_consent
+        action: Check enquiries consent reference
+        tables: [consumers, enquiries]
+      - step: 3_fetch_profile
+        action: JOIN consumers + credit_profiles
+        tables: [consumers, credit_profiles]
+      - step: 4_fetch_tradelines
+        action: JOIN tradelines filtered by product data scope
+        tables: [tradelines, products]
+      - step: 5_record_enquiry
+        action: INSERT enquiries (hard/soft pull)
+        tables: [enquiries]
+      - step: 6_log
+        action: INSERT api_requests + audit_logs
+        tables: [api_requests, audit_logs]
+
+  approval_flow:
+    description: Review workflow for institutions, products, consortiums, mappings
+    steps:
+      - step: 1_submit
+        action: Entity created with draft status; INSERT approval_queue
+      - step: 2_review
+        action: Reviewer loads approval_queue; joins entity data for context
+      - step: 3_decision
+        action: APPROVE → entity status='active'; REJECT → rejection_reason recorded
+        transaction: true
+      - step: 4_audit
+        action: INSERT audit_logs with decision action_type
+
+  daily_refresh_flow:
+    description: Append-only daily operational data simulation/refresh
+    rules:
+      - append_only: true
+      - no_overwrite: all time-series data is immutable after insertion
+      - referential_integrity_check: validate all FKs before INSERT
+    entities_refreshed:
+      - api_requests (new daily log entries)
+      - enquiries (simulated daily enquiry volume)
+      - batch_jobs (new batch run records)
+      - sla_breaches (computed from fresh metrics)
+      - alert_incidents (fired from alert_rules evaluation)
+
+################################################################################
+# SECTION 8 — LOGGING
+################################################################################
+
+logging:
+
+  api_requests:
+    rule: Every API call (authenticated or not) must create one row in api_requests
+    enforcement: server-side interceptor / Spring filter chain
+    fields_captured:
+      - api_key_id (FK, not raw key)
+      - institution_id (FK)
+      - endpoint
+      - http_method
+      - api_request_status
+      - response_time_ms
+      - records_processed
+      - error_code
+      - client_ip_hash (SHA-256 of IP — never plain IP)
+      - request_id (UUID, idempotency)
+      - occurred_at
+    security:
+      - raw API key values are never written to this table
+      - IP addresses are hashed before storage
+
+  audit_logs:
+    rule: Every business action must create one immutable row in audit_logs
+    enforcement: service-layer mandatory call after every write operation
+    action_types:
+      - AUTH_LOGIN / AUTH_LOGOUT / AUTH_TOKEN_REFRESH
+      - INSTITUTION_CREATED / INSTITUTION_UPDATED / INSTITUTION_SUSPENDED / INSTITUTION_DELETED
+      - USER_CREATED / USER_UPDATED / USER_SUSPENDED / USER_ACTIVATED / USER_DELETED
+      - USER_ROLE_ASSIGNED
+      - API_KEY_REGENERATED / API_KEY_REVOKED
+      - APPROVAL_APPROVED / APPROVAL_REJECTED / APPROVAL_CHANGES_REQUESTED
+      - TRADELINE_SUBMITTED
+      - BATCH_JOB_CREATED / BATCH_JOB_RETRIED / BATCH_JOB_CANCELLED
+      - REPORT_CREATED / REPORT_CANCELLED / REPORT_RETRIED
+      - ALERT_RULE_ACTIVATED / ALERT_RULE_DEACTIVATED
+      - ALERT_ACKNOWLEDGED / ALERT_RESOLVED
+      - SLA_CONFIG_UPDATED
+      - MAPPING_APPROVED / MAPPING_REJECTED
+    fields_captured:
+      - user_id (FK)
+      - action_type
+      - entity_type
+      - entity_id
+      - description
+      - ip_address_hash
+      - audit_outcome
+      - occurred_at
+    security:
+      - audit_logs table is append-only (no UPDATE, no DELETE)
+      - ip_address_hash never stores raw IP
+
+################################################################################
+# SECTION 9 — DATA GENERATION & SEEDING
+################################################################################
+
+data_generation:
+
+  initial_load:
+    rules:
+      - no_duplicate_entity_creation: hash-based dedup for consumers
+      - all_references_must_be_valid_foreign_keys: true
+      - future_data_window_days: 30
+      - seed_execution_date: "2026-03-28"
+
+    master_data:
+      institutions:
+        count: 8
+        source: src/data/institutions.json (migrated + normalized)
+      users:
+        count: 12
+        source: src/data/user-management.json
+        test_users:
+          - { email: "admin@hcb.com",         role: "Super Admin",   password: "Admin@1234",       note: "Full platform access" }
+          - { email: "super@hcb.com",          role: "Super Admin",   password: "Super@1234",       note: "Secondary super admin" }
+          - { email: "bureau.admin@hcb.com",   role: "Bureau Admin",  password: "Bureau@1234",      note: "Institution + governance" }
+          - { email: "analyst@hcb.com",        role: "Analyst",       password: "Analyst@1234",     note: "Read + reports + agents" }
+          - { email: "viewer@hcb.com",         role: "Viewer",        password: "Viewer@1234",      note: "Dashboard read-only" }
+          - { email: "apiuser@hcb.com",        role: "API User",      password: "ApiUser@1234",     note: "Programmatic access" }
+          - { email: "inst.admin@fnb.co.ke",   role: "Bureau Admin",  password: "InstAdmin@1234",   institution: "First National Bank", note: "Institution-scoped admin" }
+          - { email: "compliance@fnb.co.ke",   role: "Analyst",       password: "Comply@1234",      institution: "First National Bank", note: "Institution compliance analyst" }
+          - { email: "ops@metrocu.co.ke",      role: "Analyst",       password: "OpsUser@1234",     institution: "Metro Credit Union",  note: "Ops team analyst" }
+          - { email: "suspended@hcb.com",      role: "Analyst",       password: "Suspended@1234",   status: "suspended",                note: "For testing suspended login" }
+      roles:
+        - Super Admin
+        - Bureau Admin
+        - Analyst
+        - Viewer
+        - API User
+      permissions:
+        - Manage Institutions
+        - View Dashboard
+        - Manage Data Governance
+        - View Monitoring
+        - Generate Reports
+        - Manage Users
+        - Access API
+        - View Audit Logs
+
+    credit_data:
+      consumers:
+        count: 10000
+        strategy: synthetic_generation with realistic East African name/ID patterns
+      tradelines:
+        count: 45000
+        strategy: "avg 4.5 tradelines per consumer, distributed across institutions"
+      enquiries:
+        count_per_day: 3842
+        window_days: 30
+        types: [HARD, SOFT]
+
+    monitoring_data:
+      api_requests:
+        count_per_day: 28492
+        window_days: 30
+        institutions: [1, 2, 4]
+      batch_jobs:
+        count_per_day: 5
+        window_days: 30
+      sla_configs:
+        count: 12
+        source: src/data/alert-engine.json slaConfigs (migrated)
+      alert_rules:
+        count: 7
+        source: src/data/alert-engine.json alertRules (migrated)
+
+  daily_refresh:
+    rules:
+      - append_only: true
+      - no_overwrite: true
+      - referential_integrity_enforced: true
+    daily_inserts:
+      - api_requests: ~28000 new rows
+      - enquiries: ~3800 new rows
+      - batch_jobs: ~5 new rows
+      - alert_incidents: computed from alert_rules evaluation
+      - sla_breaches: computed from threshold checks
+
+  future_data:
+    window_days: 30
+    start_date: "2026-03-29"
+    end_date: "2026-04-28"
+    entities:
+      - api_requests: pre-seeded with realistic volume distribution
+      - enquiries: pre-seeded with daily enquiry patterns
+      - batch_jobs: pre-seeded with 5/day completion patterns
+      - sla_breaches: 1-2 breach events per week pre-seeded
+
+################################################################################
+# SECTION 10 — RBAC
+################################################################################
+
+rbac:
+
+  enforcement_point: API Gateway / Spring Security filter chain
+  principle: deny_by_default
+
+  roles:
+    - name: Super Admin
+      scope: platform
+      note: Full access to all modules and system management
+    - name: Bureau Admin
+      scope: platform
+      note: Institution and governance management, monitoring, no user management
+    - name: Analyst
+      scope: institution_scoped
+      note: Read analytics, reports, monitoring; no mutations to institutions or users
+    - name: Viewer
+      scope: platform
+      note: Dashboard read-only; no sensitive data
+    - name: API User
+      scope: programmatic
+      note: Machine access for submission/inquiry APIs only
+
+  permissions:
+    - key: MANAGE_INSTITUTIONS
+      granted_to: [Super Admin, Bureau Admin]
+    - key: VIEW_DASHBOARD
+      granted_to: [Super Admin, Bureau Admin, Analyst, Viewer]
+    - key: MANAGE_DATA_GOVERNANCE
+      granted_to: [Super Admin, Bureau Admin]
+    - key: VIEW_MONITORING
+      granted_to: [Super Admin, Bureau Admin, Analyst]
+    - key: GENERATE_REPORTS
+      granted_to: [Super Admin, Bureau Admin, Analyst]
+    - key: MANAGE_USERS
+      granted_to: [Super Admin]
+    - key: ACCESS_API
+      granted_to: [Super Admin, API User]
+    - key: VIEW_AUDIT_LOGS
+      granted_to: [Super Admin, Bureau Admin, Analyst, API User]
+
+  hard_rules:
+    - permissions_not_stored_in_users_table: true
+    - role_check_only_via_user_role_assignments_join: true
+    - jwt_claims_include_role_list: true
+    - api_gateway_enforces_before_service_layer: true
+
+################################################################################
+# SECTION 11 — DERIVED METRICS
+################################################################################
+
+derived_metrics:
+
+  rule: Computed at query time only. Never stored in DB.
+  examples:
+    - metric: success_rate_percent
+      computation: "COUNT(status='success') * 100.0 / COUNT(*) FROM api_requests WHERE ..."
+    - metric: avg_p95_latency
+      computation: "percentile_cont(0.95) OVER (...) FROM api_requests"
+    - metric: batch_success_rate
+      computation: "success_count * 100.0 / total_records FROM batch_jobs"
+    - metric: data_quality_score
+      computation: "(1 - validation_failure_rate) * 100 aggregated per institution"
+    - metric: credit_score
+      computation: "computed by batch credit_profile recalculation job, stored in credit_profiles"
+
+################################################################################
+# SECTION 12 — SECURITY
+################################################################################
+
+security:
+
+  transport:
+    protocol: TLS_1.3_minimum
+    hsts: true
+    certificate_pinning: recommended_for_mobile
+
+  data_at_rest:
+    consumer_pii_fields:
+      - full_name_encrypted: AES-256-GCM via application-layer encryption
+      - date_of_birth_encrypted: AES-256-GCM
+      - national_id: SHA-256 hash stored (one-way for matching)
+      - phone_hash: HMAC-SHA256 with pepper
+      - email_hash: HMAC-SHA256 with pepper
+    api_key_raw: "write-once, SHA-256 hash stored, raw value never retrievable post-creation"
+    ip_addresses: "SHA-256 hashed before log storage"
+    passwords: "bcrypt cost factor 12 minimum"
+
+  secrets_management:
+    rule: No plaintext secrets in code, config files, or version control
+    strategy:
+      - Use environment variables for JWT secret, DB path, encryption keys
+      - Key rotation policy documented in configuration guide
+      - H2 console credentials managed via environment variables (not hardcoded)
+
+  api_security:
+    authentication: JWT Bearer token (access token, 15-minute expiry)
+    authorization: Role-based, deny-by-default
+    rate_limiting:
+      - global: 5000 req/min per API key
+      - auth_endpoints: 5 req/min per IP
+    input_validation:
+      - strict schema validation on all POST/PUT bodies
+      - SQL injection protection via parameterized queries only
+      - XSS protection via output encoding
+    error_responses:
+      - never expose stack traces, DB errors, or internal paths in API responses
+      - use generic error codes (e.g. ERR_AUTH_FAILED, ERR_VALIDATION) only
+    cors:
+      - allow_origins configured per environment (not wildcard in production)
+
+  least_privilege:
+    db_service_account: read/write to application tables only (no DDL, no DROP)
+    h2_console: development environment only (disabled in production profile)
+    backup_access: restricted to ops role, encrypted at rest
+
+  audit_compliance:
+    audit_logs_append_only: true
+    audit_log_retention_days: 2555
+    pii_not_in_logs: true
+    sensitive_request_fields_masked: [password, api_key, token, refresh_token]
+
+################################################################################
+# SECTION 13 — BATCH PROCESSING
+################################################################################
+
+batch_processing:
+
+  rules:
+    - validate_each_record_against_validation_rules
+    - map_to_correct_owner_tables_only
+    - avoid_duplicate_entity_creation_via_hash_dedup
+    - wrap_each_batch_in_db_transaction
+    - rollback_on_critical_failure
+    - append_only_no_overwrite
+
+  error_handling:
+    partial_success: allowed (record-level success/failure tracked in batch_records)
+    max_failure_threshold_percent: 10
+    on_threshold_exceeded: abort batch, mark as failed, alert triggered
+
+  audit:
+    every_batch_creates: batch_jobs row
+    every_record_outcome: batch_records row
+    every_batch_run_logged: audit_logs (action_type=BATCH_JOB_CREATED)

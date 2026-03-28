@@ -2,7 +2,8 @@ import { useState, useMemo } from "react";
 import { ChevronDown, ChevronUp, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses } from "@/lib/typography";
-import { slaBreachHistory, type SlaBreachRecord, type SeverityLevel } from "@/data/alert-engine-mock";
+import { slaBreachHistory as mockSlaBreachHistory, type SlaBreachRecord, type SeverityLevel } from "@/data/alert-engine-mock";
+import { useBreachHistory } from "@/hooks/api/useAlerts";
 import { institutions } from "@/data/institutions-mock";
 import type { MonitoringFilters } from "../MonitoringFilterBar";
 import { DatePicker } from "@/components/ui/date-picker";
@@ -30,6 +31,13 @@ const severityStyles: Record<SeverityLevel, string> = {
 };
 
 export function SlaBreachHistory({ filters }: { filters: MonitoringFilters }) {
+  const { data: apiBreachHistory } = useBreachHistory();
+  const slaBreachHistory: SlaBreachRecord[] = (() => {
+    if (!apiBreachHistory) return mockSlaBreachHistory;
+    const rows = Array.isArray(apiBreachHistory) ? apiBreachHistory : (apiBreachHistory as { content?: SlaBreachRecord[] }).content ?? [];
+    return rows.length > 0 ? rows as SlaBreachRecord[] : mockSlaBreachHistory;
+  })();
+
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [domainFilter, setDomainFilter] = useState<string>("All");

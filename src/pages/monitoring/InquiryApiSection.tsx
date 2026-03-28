@@ -47,7 +47,6 @@ import {
   enquiryResponseTimeTrendData,
   enquiryByProductData,
   enquirySuccessVsFailedData,
-  enquiryLogEntries,
   subscriberIdByApiKey,
   type EnquiryLogEntry,
   type EnquiryStatus,
@@ -55,6 +54,9 @@ import {
 import { institutions } from "@/data/institutions-mock";
 import type { MonitoringFilters, TimeRangeValue } from "./MonitoringFilterBar";
 import { EnquiryDetailDrawer } from "./EnquiryDetailDrawer";
+import { useEnquiries } from "@/hooks/api/useMonitoring";
+import type { EnquiryRecord } from "@/services/monitoring.service";
+import { SkeletonTable } from "@/components/ui/skeleton-table";
 
 const ENQUIRY_TIME_OPTIONS: { value: TimeRangeValue; label: string }[] = [
   { value: "5m", label: "Last 5 mins" },
@@ -72,6 +74,21 @@ function getSubscriberName(apiKey: string): string {
   return inst ? (inst.tradingName ?? inst.name) : "—";
 }
 
+/** Map an API EnquiryRecord → the EnquiryLogEntry shape the detail drawer expects. */
+function toMockEnquiry(r: EnquiryRecord): EnquiryLogEntry {
+  return {
+    enquiry_id: r.enquiryId,
+    api_key: "",
+    product: r.enquiryType ?? "Credit Report",
+    product_id: "",
+    status: r.status as EnquiryStatus,
+    response_time_ms: r.responseTimeMs,
+    consumer_id: r.consumerId ?? "—",
+    alternate_data_used: 0,
+    timestamp: r.timestamp,
+  };
+}
+
 function isWithinTimeRange(ts: string, timeRange: TimeRangeValue): boolean {
   const ms = new Date(ts.replace(" ", "T")).getTime();
   const now = Date.now();
@@ -81,15 +98,6 @@ function isWithinTimeRange(ts: string, timeRange: TimeRangeValue): boolean {
     : timeRange === "6h" ? 6 * 60 * 60 * 1000
     : 24 * 60 * 60 * 1000;
   return now - ms <= windowMs;
-}
-
-function isWithinDateRange(ts: string, from: string, to: string): boolean {
-  if (!from?.trim() || !to?.trim()) return true;
-  const t = new Date(ts.replace(" ", "T")).getTime();
-  const start = new Date(`${from.trim()}T00:00:00`).getTime();
-  const end = new Date(`${to.trim()}T23:59:59.999`).getTime();
-  if (Number.isNaN(start) || Number.isNaN(end)) return true;
-  return t >= start && t <= end;
 }
 
 const statusStyles: Record<EnquiryStatus, string> = {
@@ -140,7 +148,7 @@ export function InquiryApiSection({
   onFiltersChange?: (f: MonitoringFilters) => void;
 }) {
   const [page, setPage] = useState(1);
-  const [sortKey, setSortKey] = useState<keyof EnquiryLogEntry | "">("");
+  const [sortKey, setSortKey] = useState<keyof EnquiryRecord | "">("");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [selectedEnquiry, setSelectedEnquiry] = useState<EnquiryLogEntry | null>(null);
   const [enquiryIdSearch, setEnquiryIdSearch] = useState("");
@@ -156,12 +164,27 @@ export function InquiryApiSection({
   const set = (partial: Partial<MonitoringFilters>) =>
     onFiltersChange?.({ ...filters, ...partial });
 
-  const filtered = enquiryLogEntries.filter((e) => {
-    if (filters.status !== "all" && e.status !== filters.status) return false;
-    if (filters.subscriberId !== "all" && subscriberIdByApiKey[e.api_key] !== filters.subscriberId) return false;
-    if (enquiryIdSearch.trim() && !e.enquiry_id.toLowerCase().includes(enquiryIdSearch.trim().toLowerCase())) return false;
+  // Build server-side filter params; page is 0-indexed on the API
+  const apiParams = useMemo(
+    () => ({
+      status: filters.status !== "all" ? filters.status : undefined,
+      institutionId: filters.subscriberId !== "all" ? filters.subscriberId : undefined,
+      dateFrom: filters.dateFrom?.trim() || undefined,
+      dateTo: filters.dateTo?.trim() || undefined,
+      page: page - 1,
+      size: PAGE_SIZE,
+    }),
+    [filters.status, filters.subscriberId, filters.dateFrom, filters.dateTo, page]
+  );
+
+  const { data: enquiriesData, isLoading: tableLoading } = useEnquiries(apiParams);
+
+  const tableRows = enquiriesData?.content ?? [];
+
+  // Client-side refinement: enquiryId search and timeRange
+  const clientFiltered = tableRows.filter((e) => {
     if (!isWithinTimeRange(e.timestamp, filters.timeRange)) return false;
-    if (!isWithinDateRange(e.timestamp, filters.dateFrom, filters.dateTo)) return false;
+    if (enquiryIdSearch.trim() && !e.enquiryId.toLowerCase().includes(enquiryIdSearch.trim().toLowerCase())) return false;
     return true;
   });
 
@@ -176,23 +199,29 @@ export function InquiryApiSection({
     }
     return parts.length ? parts.join(" · ") : undefined;
   }, [filters.subscriberId, filters.dateFrom, filters.dateTo]);
-  const sorted = [...filtered].sort((a, b) => {
-    if (!sortKey) return 0;
-    const va = a[sortKey];
-    const vb = b[sortKey];
-    if (typeof va === "number" && typeof vb === "number") return sortDir === "asc" ? va - vb : vb - va;
-    if (typeof va === "string" && typeof vb === "string") return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
-    return 0;
-  });
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
-  const paginated = sorted.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const toggleSort = (key: keyof EnquiryLogEntry) => {
+  const sorted = useMemo(() => {
+    if (!sortKey) return clientFiltered;
+    return [...clientFiltered].sort((a, b) => {
+      const va = a[sortKey as keyof EnquiryRecord];
+      const vb = b[sortKey as keyof EnquiryRecord];
+      if (typeof va === "number" && typeof vb === "number") return sortDir === "asc" ? va - vb : vb - va;
+      if (typeof va === "string" && typeof vb === "string") return sortDir === "asc" ? va.localeCompare(vb) : vb.localeCompare(va);
+      return 0;
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientFiltered, sortKey, sortDir]);
+
+  const totalPages = enquiriesData?.totalPages ?? 1;
+  const totalElements = enquiriesData?.totalElements ?? 0;
+
+  const toggleSort = (key: keyof EnquiryRecord) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     else setSortKey(key);
     setPage(1);
   };
 
+  // KPIs still sourced from mock since no enquiry-specific KPI endpoint exists yet
   const kpis = [
     { label: "Total Enquiries Today", value: enquiryKpis.totalEnquiriesToday.toLocaleString(), icon: Activity },
     { label: "Success Rate %", value: `${enquiryKpis.successRatePercent}%`, icon: CheckCircle2 },
@@ -319,13 +348,7 @@ export function InquiryApiSection({
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-caption text-muted-foreground">Time</Label>
-                  <Select
-                    value={filters.timeRange}
-                    onValueChange={(v) => {
-                      set({ timeRange: v as TimeRangeValue });
-                      setPage(1);
-                    }}
-                  >
+                  <Select value={filters.timeRange} onValueChange={(v) => { set({ timeRange: v as TimeRangeValue }); setPage(1); }}>
                     <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Time" /></SelectTrigger>
                     <SelectContent>
                       {ENQUIRY_TIME_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>)}
@@ -366,13 +389,7 @@ export function InquiryApiSection({
             </div>
             <div className="space-y-1.5 min-w-0">
               <Label className="text-caption text-muted-foreground">Time</Label>
-              <Select
-                value={filters.timeRange}
-                onValueChange={(v) => {
-                  set({ timeRange: v as TimeRangeValue });
-                  setPage(1);
-                }}
-              >
+              <Select value={filters.timeRange} onValueChange={(v) => { set({ timeRange: v as TimeRangeValue }); setPage(1); }}>
                 <SelectTrigger className="h-8 w-[140px] text-caption"><SelectValue placeholder="Time" /></SelectTrigger>
                 <SelectContent>
                   {ENQUIRY_TIME_OPTIONS.map((o) => <SelectItem key={o.value} value={o.value} className="text-caption">{o.label}</SelectItem>)}
@@ -381,58 +398,73 @@ export function InquiryApiSection({
             </div>
           </div>
         </div>
-        <div className="min-w-0 overflow-x-auto">
-          <table className="w-full min-w-max">
-            <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
-              <tr className="border-b border-border">
-                <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("enquiry_id")}>Enquiry ID</th>
-                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Institution</th>
-                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Data sources</th>
-                <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("status")}>Status</th>
-                <th className={cn("text-right px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("response_time_ms")}>Response Time</th>
-                <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("timestamp")}>Timestamp</th>
-                <th className={cn("text-right px-5 py-3", tableHeaderClasses)}>Action</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {paginated.map((e) => (
-                <tr key={e.enquiry_id} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-5 py-4 text-caption font-medium text-foreground">{e.enquiry_id}</td>
-                  <td className="px-5 py-4 text-caption text-muted-foreground">{getSubscriberName(e.api_key)}</td>
-                  <td className="px-5 py-4 text-body text-foreground">{e.product}</td>
-                  <td className="px-5 py-4">
-                    <span className={cn("px-2.5 py-1 rounded-full", badgeTextClasses, statusStyles[e.status])}>
-                      {e.status}
-                    </span>
-                  </td>
-                  <td className="px-5 py-4 text-caption text-right tabular-nums">{e.response_time_ms} ms</td>
-                  <td className="px-5 py-4 text-caption text-muted-foreground whitespace-nowrap">{e.timestamp}</td>
-                  <td className="px-5 py-4 text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedEnquiry(e)}
-                    >
-                      View
-                    </Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="flex items-center justify-between px-5 py-3 border-t border-border">
-          <span className="text-caption text-muted-foreground">
-            {sorted.length > 0
-              ? `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, sorted.length)} of ${sorted.length} enquiries`
-              : "0 enquiries"}
-          </span>
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
-            <span className="text-caption text-muted-foreground px-2">{page} / {totalPages}</span>
-            <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
-          </div>
-        </div>
+
+        {tableLoading ? (
+          <SkeletonTable rows={PAGE_SIZE} cols={7} showHeader={false} />
+        ) : (
+          <>
+            <div className="min-w-0 overflow-x-auto">
+              <table className="w-full min-w-max">
+                <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur">
+                  <tr className="border-b border-border">
+                    <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("enquiryId")}>Enquiry ID</th>
+                    <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Institution</th>
+                    <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Data sources</th>
+                    <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("status")}>Status</th>
+                    <th className={cn("text-right px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("responseTimeMs")}>Response Time</th>
+                    <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("timestamp")}>Timestamp</th>
+                    <th className={cn("text-right px-5 py-3", tableHeaderClasses)}>Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  {sorted.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="px-5 py-10 text-center text-caption text-muted-foreground">
+                        No enquiries found
+                      </td>
+                    </tr>
+                  ) : sorted.map((e) => (
+                    <tr key={e.enquiryId} className="hover:bg-muted/30 transition-colors">
+                      <td className="px-5 py-4 text-caption font-medium text-foreground">{e.enquiryId}</td>
+                      <td className="px-5 py-4 text-caption text-muted-foreground">
+                        {e.institution || getSubscriberName("")}
+                      </td>
+                      <td className="px-5 py-4 text-body text-foreground">{e.enquiryType}</td>
+                      <td className="px-5 py-4">
+                        <span className={cn("px-2.5 py-1 rounded-full", badgeTextClasses, statusStyles[e.status as EnquiryStatus] ?? "bg-muted text-muted-foreground")}>
+                          {e.status}
+                        </span>
+                      </td>
+                      <td className="px-5 py-4 text-caption text-right tabular-nums">{e.responseTimeMs} ms</td>
+                      <td className="px-5 py-4 text-caption text-muted-foreground whitespace-nowrap">{e.timestamp}</td>
+                      <td className="px-5 py-4 text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setSelectedEnquiry(toMockEnquiry(e))}
+                        >
+                          View
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="flex items-center justify-between px-5 py-3 border-t border-border">
+              <span className="text-caption text-muted-foreground">
+                {totalElements > 0
+                  ? `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, totalElements)} of ${totalElements} enquiries`
+                  : "0 enquiries"}
+              </span>
+              <div className="flex items-center gap-1">
+                <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>
+                <span className="text-caption text-muted-foreground px-2">{page} / {Math.max(1, totalPages)}</span>
+                <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => setPage(page + 1)}>Next</Button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
 
       <EnquiryDetailDrawer

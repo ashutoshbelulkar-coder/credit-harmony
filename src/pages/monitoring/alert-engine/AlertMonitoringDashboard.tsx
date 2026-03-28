@@ -42,16 +42,31 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
-  activeAlerts,
-  alertsTriggeredOverTime,
-  alertsByDomain,
-  severityDistribution,
-  mttrTrendData,
+  alertsTriggeredOverTime as mockTriggeredOverTime,
+  alertsByDomain as mockAlertsByDomain,
+  severityDistribution as mockSeverityDist,
+  mttrTrendData as mockMttrTrend,
   type ActiveAlert,
   type AlertStatus,
 } from "@/data/alert-engine-mock";
-import { institutions } from "@/data/institutions-mock";
 import { ArrowUpCircle, CheckCircle2, MoreHorizontal, Search } from "lucide-react";
+import { useAlertIncidents, useResolveIncident, useAcknowledgeIncident, useAlertCharts } from "@/hooks/api/useAlerts";
+import { useInstitutions } from "@/hooks/api/useInstitutions";
+import type { AlertIncidentResponse } from "@/services/alerts.service";
+
+/** Map API AlertIncidentResponse → mock ActiveAlert shape (UI uses snake_case fields) */
+function toActiveAlert(r: AlertIncidentResponse): ActiveAlert {
+  return {
+    alert_id: r.alertId,
+    domain: r.domain,
+    metric: r.metric,
+    current_value: r.currentValue,
+    threshold: r.threshold,
+    severity: r.severity as ActiveAlert["severity"],
+    triggered_at: r.triggeredAt,
+    status: r.status as AlertStatus,
+  };
+}
 
 const cardClass =
   "bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]";
@@ -80,15 +95,31 @@ const TABLE_ROW_CLASS = "h-12 max-h-12";
 const TABLE_HEADER_CLASS = cn("px-5 py-3", tableHeaderClasses);
 
 export function AlertMonitoringDashboard() {
-  const [alerts, setAlerts] = useState<ActiveAlert[]>(activeAlerts);
+  const { data: apiIncidents } = useAlertIncidents();
+  const { data: apiCharts } = useAlertCharts();
+  const { data: institutionsPage } = useInstitutions({ size: 10 });
+  const { mutate: resolveIncident, isPending: resolving } = useResolveIncident();
+  const { mutate: acknowledgeIncident } = useAcknowledgeIncident();
+
   const [institution, setInstitution] = useState("all");
   const [search, setSearch] = useState("");
 
-  const updateStatus = (alertId: string, status: AlertStatus) => {
-    setAlerts((prev) => prev.map((a) => (a.alert_id === alertId ? { ...a, status } : a)));
-  };
+  const alerts: ActiveAlert[] = (() => {
+    if (!apiIncidents) return [];
+    const rows = Array.isArray(apiIncidents)
+      ? apiIncidents
+      : (apiIncidents as { content?: AlertIncidentResponse[] }).content ?? [];
+    return rows.map(toActiveAlert);
+  })();
+
+  // Chart data — use API data when available, fall back to static mock
+  const alertsTriggeredOverTime = apiCharts?.triggeredOverTime ?? mockTriggeredOverTime;
+  const alertsByDomain = apiCharts?.byDomain ?? mockAlertsByDomain;
+  const severityDistribution = apiCharts?.severityDistribution ?? mockSeverityDist;
+  const mttrTrendData = apiCharts?.mttrTrend ?? mockMttrTrend;
 
   const filteredAlerts = alerts.filter((a) => {
+    // Text search across ID, domain, metric, current value
     if (search) {
       const q = search.toLowerCase();
       if (!a.alert_id.toLowerCase().includes(q) &&
@@ -96,12 +127,21 @@ export function AlertMonitoringDashboard() {
           !a.metric.toLowerCase().includes(q) &&
           !a.current_value.toLowerCase().includes(q)) return false;
     }
+    // Institution filter — applied when a specific institution is selected
+    // Alert records carry an optional institution_id field; filter is skipped when "all"
+    if (institution !== "all") {
+      const alertInstitution = (a as typeof a & { institution_id?: string }).institution_id;
+      if (alertInstitution && alertInstitution !== institution) return false;
+    }
     return true;
   });
 
   const institutionOptions = [
     { value: "all", label: "All Institutions" },
-    ...institutions.slice(0, 5).map((i) => ({ value: i.id, label: i.tradingName ?? i.name })),
+    ...(institutionsPage?.content ?? []).slice(0, 8).map((i) => ({
+      value: String(i.id),
+      label: i.tradingName ?? i.name,
+    })),
   ];
 
   return (
@@ -181,7 +221,8 @@ export function AlertMonitoringDashboard() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 text-success hover:text-success hover:bg-success/10"
-                              onClick={() => updateStatus(a.alert_id, "Resolved")}
+                              disabled={resolving}
+                              onClick={() => resolveIncident(a.alert_id)}
                             >
                               <CheckCircle2 className="w-4 h-4" />
                             </Button>
@@ -190,11 +231,16 @@ export function AlertMonitoringDashboard() {
                         </Tooltip>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-foreground">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                              onClick={() => acknowledgeIncident(a.alert_id)}
+                            >
                               <ArrowUpCircle className="w-4 h-4" />
                             </Button>
                           </TooltipTrigger>
-                          <TooltipContent side="left">Escalate</TooltipContent>
+                          <TooltipContent side="left">Acknowledge</TooltipContent>
                         </Tooltip>
                       </div>
                       <div className="lg:hidden">
@@ -205,10 +251,12 @@ export function AlertMonitoringDashboard() {
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => updateStatus(a.alert_id, "Resolved")}>
+                            <DropdownMenuItem onClick={() => resolveIncident(a.alert_id)}>
                               Resolve
                             </DropdownMenuItem>
-                            <DropdownMenuItem>Escalate</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => acknowledgeIncident(a.alert_id)}>
+                              Acknowledge
+                            </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>

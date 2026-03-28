@@ -25,32 +25,28 @@ import {
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import tabsData from "@/data/institution-tabs.json";
+import { useUsers, useInviteUser, useSuspendUser } from "@/hooks/api/useUsers";
+import type { UserResponse } from "@/services/users.service";
 
 const roles = tabsData.users.roles as readonly string[];
 type UserRole = (typeof tabsData.users.roles)[number];
-
-interface InstitutionUser {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: UserRole;
-  status: "active" | "inactive" | "invited";
-  lastLogin: string;
-  mfaEnabled: boolean;
-}
-
-const mockUsers = tabsData.users.mockUsers as InstitutionUser[];
 
 const statusStyles: Record<string, string> = {
   active: "bg-success/15 text-success",
   inactive: "bg-muted text-muted-foreground",
   invited: "bg-info/15 text-info",
+  Active: "bg-success/15 text-success",
+  Inactive: "bg-muted text-muted-foreground",
+  Suspended: "bg-destructive/15 text-destructive",
 };
 
-export default function UsersTab() {
+export default function UsersTab({ institutionId }: { institutionId?: string | number }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [users] = useState(mockUsers);
+  const { data: usersPage, isLoading } = useUsers(institutionId ? { institutionId } : undefined);
+  const { mutate: inviteUser, isPending: inviting } = useInviteUser();
+  const { mutate: suspendUser } = useSuspendUser();
+
+  const users: UserResponse[] = usersPage?.content ?? [];
   const [newUser, setNewUser] = useState({
     firstName: "",
     lastName: "",
@@ -75,9 +71,20 @@ export default function UsersTab() {
 
   const handleAdd = () => {
     if (!validate()) return;
-    setDrawerOpen(false);
-    setNewUser({ firstName: "", lastName: "", email: "", phone: "", role: "", mfaEnabled: false });
-    setErrors({});
+    inviteUser(
+      {
+        email: newUser.email,
+        role: newUser.role,
+        institutionId: institutionId ? Number(institutionId) : undefined,
+      },
+      {
+        onSuccess: () => {
+          setDrawerOpen(false);
+          setNewUser({ firstName: "", lastName: "", email: "", phone: "", role: "", mfaEnabled: false });
+          setErrors({});
+        },
+      }
+    );
   };
 
   return (
@@ -111,22 +118,28 @@ export default function UsersTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {users.map((u) => (
+              {isLoading ? (
+                <tr><td colSpan={6} className="px-5 py-8 text-center text-sm text-muted-foreground">Loading users…</td></tr>
+              ) : users.length === 0 ? (
+                <tr><td colSpan={6} className="px-5 py-8 text-center text-sm text-muted-foreground">No users found.</td></tr>
+              ) : users.map((u) => (
                 <tr key={u.id} className="hover:bg-muted/30 transition-colors">
                   <td className="px-5 py-4">
                     <div className="flex items-center gap-2">
-                      <span className="text-body font-medium text-foreground">{u.firstName} {u.lastName}</span>
+                      <span className="text-body font-medium text-foreground">{u.displayName}</span>
                       {u.mfaEnabled && <Shield className="w-3 h-3 text-primary" />}
                     </div>
                   </td>
                   <td className="px-5 py-4 text-body text-muted-foreground">{u.email}</td>
-                  <td className="px-5 py-4 text-body text-foreground">{u.role}</td>
+                  <td className="px-5 py-4 text-body text-foreground">{u.roles?.[0] ?? "—"}</td>
                   <td className="px-5 py-4">
-                    <span className={cn("px-2.5 py-1 rounded-full capitalize", badgeTextClasses, statusStyles[u.status])}>
-                      {u.status}
+                    <span className={cn("px-2.5 py-1 rounded-full capitalize", badgeTextClasses, statusStyles[u.userAccountStatus] ?? "bg-muted text-muted-foreground")}>
+                      {u.userAccountStatus}
                     </span>
                   </td>
-                  <td className="px-5 py-4 text-body text-muted-foreground">{u.lastLogin}</td>
+                  <td className="px-5 py-4 text-body text-muted-foreground">
+                    {u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : "Never"}
+                  </td>
                   <td className="px-5 py-4">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -137,7 +150,12 @@ export default function UsersTab() {
                       <DropdownMenuContent align="end" className="w-36">
                         <DropdownMenuItem>Edit</DropdownMenuItem>
                         <DropdownMenuItem>Reset Password</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive focus:text-destructive">Deactivate</DropdownMenuItem>
+                        <DropdownMenuItem
+                          className="text-destructive focus:text-destructive"
+                          onClick={() => suspendUser(u.id)}
+                        >
+                          Suspend
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </td>
@@ -227,9 +245,10 @@ export default function UsersTab() {
               </button>
               <button
                 onClick={handleAdd}
-                className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+                disabled={inviting}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
-                Add User
+                {inviting ? "Adding…" : "Add User"}
               </button>
             </div>
           </div>

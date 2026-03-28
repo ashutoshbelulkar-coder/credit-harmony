@@ -13,9 +13,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useReporting } from "./ReportingLayout";
-import { getReportTypesForFilter, type ReportRow, type ReportStatus } from "./reporting-store";
+import { getReportTypesForFilter, type ReportStatus } from "./reporting-store";
 import { ChevronDown, ChevronUp, Download, Filter, Loader2, Plus, RotateCcw, X } from "lucide-react";
+import { useReports, useCancelReport, useRetryReport } from "@/hooks/api/useReports";
+import type { ReportResponse } from "@/services/reports.service";
 
 const statusStyles: Record<ReportStatus, string> = {
   Queued: "bg-muted text-muted-foreground",
@@ -48,41 +49,35 @@ const defaultFilters: FilterState = {
   status: "all",
 };
 
-function parseReportDateRange(dateRange: string): { from: string; to: string } | null {
-  const parts = dateRange.split(" – ");
-  if (parts.length < 2 || !parts[0]?.trim() || !parts[1]?.trim()) return null;
-  try {
-    const from = new Date(parts[0].trim()).toISOString().slice(0, 10);
-    const to = new Date(parts[1].trim()).toISOString().slice(0, 10);
-    return { from, to };
-  } catch {
-    return null;
-  }
-}
 
-function applyFilters(rows: ReportRow[], applied: FilterState): ReportRow[] {
+function applyFilters(rows: ReportResponse[], applied: FilterState): ReportResponse[] {
   return rows.filter((r) => {
-    if (applied.reportId && !r.reportId.toLowerCase().includes(applied.reportId.toLowerCase()))
+    if (applied.reportId && !r.id.toLowerCase().includes(applied.reportId.toLowerCase()))
       return false;
-    if (applied.reportType !== "all" && r.reportType !== applied.reportType) return false;
+    if (applied.reportType !== "all" && r.type !== applied.reportType) return false;
     if (applied.status !== "all" && r.status !== applied.status) return false;
-    if (applied.dateFrom && r.dateRange) {
-      const range = parseReportDateRange(r.dateRange);
-      if (range && range.to < applied.dateFrom) return false;
-    }
-    if (applied.dateTo && r.dateRange) {
-      const range = parseReportDateRange(r.dateRange);
-      if (range && range.from > applied.dateTo) return false;
-    }
+    if (applied.dateFrom && r.dateTo < applied.dateFrom) return false;
+    if (applied.dateTo && r.dateFrom > applied.dateTo) return false;
     return true;
   });
 }
 
 export function ReportListPage() {
-  const { reports, removeReport, setReportStatus } = useReporting();
   const [filterInputs, setFilterInputs] = useState<FilterState>(defaultFilters);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(defaultFilters);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const { data: reportsPage, isLoading } = useReports({
+    status: appliedFilters.status !== "all" ? appliedFilters.status : undefined,
+    type: appliedFilters.reportType !== "all" ? appliedFilters.reportType : undefined,
+    dateFrom: appliedFilters.dateFrom || undefined,
+    dateTo: appliedFilters.dateTo || undefined,
+    size: 100,
+  });
+  const { mutate: cancelReport, isPending: cancelling } = useCancelReport();
+  const { mutate: retryReport, isPending: retrying } = useRetryReport();
+
+  const allReports: ReportResponse[] = reportsPage?.content ?? [];
 
   const activeFilterCount = [
     appliedFilters.dateFrom !== "",
@@ -93,8 +88,8 @@ export function ReportListPage() {
   ].filter(Boolean).length;
 
   const filtered = useMemo(
-    () => applyFilters(reports, appliedFilters),
-    [reports, appliedFilters],
+    () => applyFilters(allReports, appliedFilters),
+    [allReports, appliedFilters],
   );
 
   const handleSearch = () => setAppliedFilters({ ...filterInputs });
@@ -103,16 +98,8 @@ export function ReportListPage() {
     setAppliedFilters(defaultFilters);
   };
 
-  const handleCancel = (reportId: string) => {
-    removeReport(reportId);
-  };
-
-  const handleRetry = (reportId: string) => {
-    setReportStatus(reportId, "Queued");
-  };
-
   const handleDownload = (_reportId: string) => {
-    // Stub: could trigger file download or toast
+    // Stub: file download would use fileUrl from ReportResponse
   };
 
   return (
@@ -226,33 +213,69 @@ export function ReportListPage() {
                 <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>REPORT ID</th>
                 <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>REPORT TYPE</th>
                 <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>DATE RANGE</th>
-                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>CREATED BY</th>
+                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>REQUESTED BY</th>
                 <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>STATUS</th>
-                <th className={cn("text-right px-5 py-3", tableHeaderClasses)}>ACTION</th>
+                <th className={cn("text-right px-5 py-3", tableHeaderClasses)}>ACTIONS</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {filtered.map((r) => (
-                <tr key={r.reportId} className="hover:bg-muted/30 transition-colors">
-                  <td className="px-5 py-4 text-caption font-medium text-foreground">{r.reportId}</td>
-                  <td className="px-5 py-4 text-body text-foreground">{r.reportType}</td>
-                  <td className="px-5 py-4 text-body text-muted-foreground">{r.dateRange}</td>
-                  <td className="px-5 py-4 text-body text-muted-foreground">{r.createdBy}</td>
+              {isLoading ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-8 text-center text-sm text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin inline mr-2" />Loading reports…
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-5 py-8 text-center text-sm text-muted-foreground">No reports found.</td>
+                </tr>
+              ) : filtered.map((r) => (
+                <tr key={r.id} className="hover:bg-muted/30 transition-colors">
+                  <td className="px-5 py-4 text-caption font-medium text-foreground">{r.id}</td>
+                  <td className="px-5 py-4 text-body text-foreground">{r.type}</td>
+                  <td className="px-5 py-4 text-body text-muted-foreground">
+                    {r.dateFrom && r.dateTo ? `${r.dateFrom} – ${r.dateTo}` : "—"}
+                  </td>
+                  <td className="px-5 py-4 text-body text-muted-foreground">{r.requestedBy}</td>
                   <td className="px-5 py-4">
-                    <span className={cn("px-2.5 py-1 rounded-full", badgeTextClasses, statusStyles[r.status])}>
+                    <span className={cn("px-2.5 py-1 rounded-full", badgeTextClasses, statusStyles[r.status as ReportStatus] ?? "bg-muted text-muted-foreground")}>
                       {r.status}
                     </span>
                   </td>
                   <td className="px-5 py-4 text-right">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 h-8"
-                      disabled={r.status !== "Completed"}
-                      onClick={() => r.status === "Completed" && handleDownload(r.reportId)}
-                    >
-                      <Download className="w-3.5 h-3.5" /> Download
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      {(r.status === "Queued" || r.status === "Processing") && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 h-8"
+                          disabled={cancelling}
+                          onClick={() => cancelReport(r.id)}
+                        >
+                          <X className="w-3.5 h-3.5" /> Cancel
+                        </Button>
+                      )}
+                      {r.status === "Failed" && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 h-8"
+                          disabled={retrying}
+                          onClick={() => retryReport(r.id)}
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" /> Retry
+                        </Button>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5 h-8"
+                        disabled={r.status !== "Completed"}
+                        onClick={() => r.status === "Completed" && handleDownload(r.id)}
+                      >
+                        <Download className="w-3.5 h-3.5" /> Download
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}

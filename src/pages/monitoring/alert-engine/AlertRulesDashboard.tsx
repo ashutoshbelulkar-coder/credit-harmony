@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import { Button } from "@/components/ui/button";
@@ -17,8 +17,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { alertRules, type AlertRule, type AlertRuleDomain, type SeverityLevel } from "@/data/alert-engine-mock";
+import { type AlertRuleDomain, type SeverityLevel } from "@/data/alert-engine-mock";
 import { Plus, Pencil, Power, PowerOff, Trash2 } from "lucide-react";
+import { useAlertRules, useCreateAlertRule, useToggleAlertRule, useDeleteAlertRule } from "@/hooks/api/useAlerts";
+import type { AlertRuleResponse } from "@/services/alerts.service";
+
+type AlertRule = AlertRuleResponse;
 
 
 const DOMAINS: AlertRuleDomain[] = ["Submission API", "Batch", "Inquiry API", "Schema Drift", "Rate Limit Abuse"];
@@ -217,42 +221,47 @@ function CreateAlertRuleSheet({
 }
 
 export function AlertRulesDashboard() {
-  const [rules, setRules] = useState<AlertRule[]>(alertRules);
+  const { data: apiRules } = useAlertRules();
+  const { mutate: createRule, isPending: creating } = useCreateAlertRule();
+  const { mutate: toggleRule, isPending: toggling } = useToggleAlertRule();
+  const { mutate: removeRule, isPending: deleting } = useDeleteAlertRule();
+
+  const [rules, setRules] = useState<AlertRule[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [page, setPage] = useState(1);
+
+  // Sync API data into local display state
+  useEffect(() => {
+    if (!apiRules) return;
+    const rows = Array.isArray(apiRules)
+      ? apiRules
+      : (apiRules as { content?: AlertRule[] }).content ?? [];
+    setRules(rows as AlertRule[]);
+  }, [apiRules]);
 
   const totalPages = Math.max(1, Math.ceil(rules.length / PAGE_SIZE));
   const paginated = rules.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
   const handleCreated = (rule: Partial<AlertRule>) => {
-    setRules((prev) => [
-      ...prev,
-      {
-        id: `rule-${Date.now()}`,
-        name: rule.name ?? "New Rule",
-        domain: rule.domain ?? "Submission API",
-        condition: rule.condition ?? "",
-        severity: rule.severity ?? "Warning",
-        status: "Enabled",
-        lastTriggered: rule.lastTriggered ?? null,
-      },
-    ]);
+    createRule({
+      name: rule.name ?? "New Rule",
+      domain: rule.domain ?? "Submission API",
+      condition: rule.condition ?? "",
+      severity: rule.severity ?? "Warning",
+      status: "Enabled",
+    });
+    setCreateOpen(false);
     setPage(1);
   };
 
   const toggleStatus = (id: string) => {
-    setRules((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, status: r.status === "Enabled" ? "Disabled" : "Enabled" } : r))
-    );
+    const rule = rules.find((r) => r.id === id);
+    if (!rule) return;
+    toggleRule({ id, enable: rule.status !== "Enabled" });
   };
 
   const deleteRule = (id: string) => {
-    setRules((prev) => {
-      const next = prev.filter((r) => r.id !== id);
-      const newTotalPages = Math.max(1, Math.ceil(next.length / PAGE_SIZE));
-      setPage((p) => Math.min(p, newTotalPages));
-      return next;
-    });
+    removeRule(id);
   };
 
   return (
@@ -260,9 +269,9 @@ export function AlertRulesDashboard() {
       <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 pt-6 pb-4 border-b border-border">
           <h3 className="text-body font-semibold text-foreground">Alert Rules</h3>
-          <Button size="sm" className="gap-1.5 h-8 text-body text-primary-foreground shrink-0" onClick={() => setCreateOpen(true)}>
+          <Button size="sm" className="gap-1.5 h-8 text-body text-primary-foreground shrink-0" onClick={() => setCreateOpen(true)} disabled={creating}>
             <Plus className="w-3.5 h-3.5" />
-            Create Rule
+            {creating ? "Creating…" : "Create Rule"}
           </Button>
         </div>
         <div className="min-w-0 overflow-x-auto">
@@ -298,10 +307,10 @@ export function AlertRulesDashboard() {
                   <td className="px-5 py-4 text-right">
                     <div className="flex items-center justify-end gap-1">
                       <Button variant="ghost" size="icon" className="h-8 w-8" title="Edit"><Pencil className="w-3.5 h-3.5" /></Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title={r.status === "Enabled" ? "Disable" : "Enable"} onClick={() => toggleStatus(r.id)}>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title={r.status === "Enabled" ? "Disable" : "Enable"} onClick={() => toggleStatus(r.id)} disabled={toggling}>
                         {r.status === "Enabled" ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Delete" onClick={() => deleteRule(r.id)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Delete" onClick={() => deleteRule(r.id)} disabled={deleting}><Trash2 className="w-3.5 h-3.5" /></Button>
                     </div>
                   </td>
                 </tr>

@@ -13,11 +13,14 @@ import {
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { toast } from "sonner";
-import { mockUsers, type ManagedUser, type UserRole, type UserStatus } from "@/data/user-management-mock";
+import { type UserRole, type UserStatus } from "@/data/user-management-mock";
 import { InviteUserModal } from "@/components/user-management/InviteUserModal";
 import { UserDetailDrawer } from "@/components/user-management/UserDetailDrawer";
 import { exportToCsv } from "@/lib/csv-export";
+import { SkeletonTable } from "@/components/ui/skeleton-table";
+import { ApiErrorCard } from "@/components/ui/api-error-card";
+import { useUsers, useSuspendUser, useActivateUser } from "@/hooks/api/useUsers";
+import type { UserResponse } from "@/services/users.service";
 
 const statusColor: Record<string, string> = {
   Active: "bg-success/20 text-success",
@@ -45,9 +48,15 @@ export function UsersListPage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [page, setPage] = useState(0);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [selectedUser, setSelectedUser] = useState<ManagedUser | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const { data: usersData, isLoading, isError, error, refetch } = useUsers();
+  const suspendUser = useSuspendUser();
+  const activateUser = useActivateUser();
+
+  const allUsers: UserResponse[] = usersData?.content ?? usersData ?? [];
 
   const activeFilterCount = [
     search.trim().length > 0,
@@ -56,18 +65,19 @@ export function UsersListPage() {
   ].filter(Boolean).length;
 
   const filtered = useMemo(() => {
-    return mockUsers.filter((u) => {
-      const matchSearch = !search || u.name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
-      const matchRole = roleFilter === "All" || u.role === roleFilter;
-      const matchStatus = statusFilter === "All" || u.status === statusFilter;
+    return allUsers.filter((u) => {
+      const name = u.displayName ?? "";
+      const matchSearch = !search || name.toLowerCase().includes(search.toLowerCase()) || u.email.toLowerCase().includes(search.toLowerCase());
+      const matchRole = roleFilter === "All" || (u.roles ?? []).includes(roleFilter);
+      const matchStatus = statusFilter === "All" || u.userAccountStatus === statusFilter;
       return matchSearch && matchRole && matchStatus;
     });
-  }, [search, roleFilter, statusFilter]);
+  }, [allUsers, search, roleFilter, statusFilter]);
 
   const paged = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
-  const openDrawer = (user: ManagedUser) => {
+  const openDrawer = (user: UserResponse) => {
     setSelectedUser(user);
     setDrawerOpen(true);
   };
@@ -87,11 +97,11 @@ export function UsersListPage() {
             size="sm"
             onClick={() =>
               exportToCsv("users", filtered, [
-                { key: "name", label: "Name" },
+                { key: "displayName", label: "Name" },
                 { key: "email", label: "Email" },
-                { key: "role", label: "Role" },
-                { key: "status", label: "Status" },
-                { key: "lastActive", label: "Last Active" },
+                { key: "roles", label: "Role" },
+                { key: "userAccountStatus", label: "Status" },
+                { key: "lastLoginAt", label: "Last Active" },
               ])
             }
           >
@@ -176,6 +186,9 @@ export function UsersListPage() {
 
       {/* Table */}
       <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)] mt-4">
+        {isLoading && <SkeletonTable rows={8} cols={6} />}
+        {isError && <ApiErrorCard error={error} onRetry={() => refetch()} className="m-4" />}
+        {!isLoading && !isError && (
         <div className="min-w-0 overflow-x-auto">
           <Table>
             <TableHeader>
@@ -192,7 +205,9 @@ export function UsersListPage() {
               {paged.length === 0 ? (
                 <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-10">No users found</TableCell></TableRow>
               ) : paged.map((u) => {
-                const initials = u.name.split(" ").map((n) => n[0]).join("").slice(0, 2);
+                const name = u.displayName ?? u.email;
+                const initials = name.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase();
+                const primaryRole = (u.roles ?? [])[0] ?? "";
                 return (
                   <TableRow key={u.id} className="cursor-pointer hover:bg-muted/40" onClick={() => openDrawer(u)}>
                     <TableCell>
@@ -201,14 +216,14 @@ export function UsersListPage() {
                           <AvatarFallback className="bg-primary/10 text-primary text-xs font-medium">{initials}</AvatarFallback>
                         </Avatar>
                         <div>
-                          <p className="text-sm font-medium text-foreground leading-tight">{u.name}</p>
+                          <p className="text-sm font-medium text-foreground leading-tight">{name}</p>
                           <p className="text-xs text-muted-foreground">{u.email}</p>
                         </div>
                       </div>
                     </TableCell>
-                    <TableCell><Badge className={`border-0 text-[10px] ${roleColor[u.role]}`}>{u.role}</Badge></TableCell>
-                    <TableCell><Badge className={`border-0 text-[10px] ${statusColor[u.status]}`}>{u.status}</Badge></TableCell>
-                    <TableCell className="text-sm text-muted-foreground">{u.lastActive}</TableCell>
+                    <TableCell><Badge className={`border-0 text-[10px] ${roleColor[primaryRole] ?? ""}`}>{primaryRole}</Badge></TableCell>
+                    <TableCell><Badge className={`border-0 text-[10px] ${statusColor[u.userAccountStatus] ?? ""}`}>{u.userAccountStatus}</Badge></TableCell>
+                    <TableCell className="text-sm text-muted-foreground">{u.lastLoginAt ?? "—"}</TableCell>
                     <TableCell>
                       <Badge variant={u.mfaEnabled ? "default" : "outline"} className="text-[10px]">
                         {u.mfaEnabled ? "On" : "Off"}
@@ -225,13 +240,19 @@ export function UsersListPage() {
                           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDrawer(u); }}>
                             <Eye className="w-3.5 h-3.5 mr-2" /> View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); toast.info("Edit role — coming soon"); }}>
+                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }}>
                             <Shield className="w-3.5 h-3.5 mr-2" /> Edit Role
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); toast.warning(`${u.name} suspended`); }}>
-                            <ShieldOff className="w-3.5 h-3.5 mr-2" /> Suspend
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); toast.error(`${u.name} deactivated`); }}>
+                          {u.userAccountStatus === "Active" ? (
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); suspendUser.mutate(u.id); }}>
+                              <ShieldOff className="w-3.5 h-3.5 mr-2" /> Suspend
+                            </DropdownMenuItem>
+                          ) : (
+                            <DropdownMenuItem onClick={(e) => { e.stopPropagation(); activateUser.mutate(u.id); }}>
+                              <Shield className="w-3.5 h-3.5 mr-2" /> Activate
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem className="text-destructive" onClick={(e) => { e.stopPropagation(); }}>
                             <XCircle className="w-3.5 h-3.5 mr-2" /> Deactivate
                           </DropdownMenuItem>
                         </DropdownMenuContent>
@@ -243,6 +264,7 @@ export function UsersListPage() {
             </TableBody>
           </Table>
         </div>
+        )}
         <div className="flex items-center justify-between px-5 py-3 border-t border-border">
           <span className="text-caption text-muted-foreground">
             {filtered.length > 0
@@ -258,7 +280,7 @@ export function UsersListPage() {
       </div>
 
       <InviteUserModal open={inviteOpen} onOpenChange={setInviteOpen} />
-      <UserDetailDrawer user={selectedUser} open={drawerOpen} onOpenChange={setDrawerOpen} />
+      <UserDetailDrawer user={selectedUser as never} open={drawerOpen} onOpenChange={setDrawerOpen} />
     </>
   );
 }

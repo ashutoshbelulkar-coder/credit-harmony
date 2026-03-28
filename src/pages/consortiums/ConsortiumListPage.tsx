@@ -22,10 +22,16 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useCatalogMock } from "@/contexts/CatalogMockContext";
+import { SkeletonTable } from "@/components/ui/skeleton-table";
+import { ApiErrorCard } from "@/components/ui/api-error-card";
+import { useConsortiums } from "@/hooks/api/useConsortiums";
 
 export default function ConsortiumListPage() {
   const navigate = useNavigate();
-  const { consortiums } = useCatalogMock();
+  const { consortiums: contextConsortiums } = useCatalogMock();
+  const { data: apiData, isLoading, isError, error, refetch } = useConsortiums();
+  // Prefer API data when available, fall back to context (local mock mutations)
+  const consortiums = (apiData as unknown as typeof contextConsortiums) ?? contextConsortiums;
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
@@ -106,6 +112,9 @@ export default function ConsortiumListPage() {
             </SelectContent>
           </Select>
         </div>
+
+        {isLoading && <SkeletonTable rows={5} cols={5} />}
+        {isError && <ApiErrorCard error={error} onRetry={() => refetch()} />}
 
         <div className="md:hidden space-y-3">
           {filtered.length === 0 ? (

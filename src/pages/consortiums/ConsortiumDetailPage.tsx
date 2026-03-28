@@ -12,34 +12,43 @@ import {
   consortiumListLabel,
   consortiumListLabelStyles,
   consortiumTypeBadgeClass,
+  consortiumContributionSummaryById as mockContributionSummary,
 } from "@/data/consortiums-mock";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
+import { useConsortium, useConsortiumMembers } from "@/hooks/api/useConsortiums";
+import type { ConsortiumMember } from "@/services/consortiums.service";
 
 const DETAIL_TABS = ["Overview", "Members", "Data Contribution"] as const;
 
 export default function ConsortiumDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const {
-    consortiums,
-    membersByConsortiumId,
-    contributionSummaryByConsortiumId,
-  } = useCatalogMock();
   const [activeTab, setActiveTab] =
     useState<(typeof DETAIL_TABS)[number]>("Overview");
 
-  const consortium = useMemo(
-    () => consortiums.find((c) => c.id === id),
-    [consortiums, id]
-  );
-  const members = useMemo(
-    () => (id ? membersByConsortiumId[id] ?? [] : []),
-    [id, membersByConsortiumId]
-  );
+  const { data: consortium, isLoading } = useConsortium(id ?? "");
+  const { data: membersData } = useConsortiumMembers(id ?? "");
+
+  const members: ConsortiumMember[] = useMemo(() => {
+    if (!membersData) return [];
+    return Array.isArray(membersData)
+      ? (membersData as ConsortiumMember[])
+      : ((membersData as { content?: ConsortiumMember[] }).content ?? []);
+  }, [membersData]);
+
   const contributionSummary = useMemo(
-    () => (id ? contributionSummaryByConsortiumId[id] : undefined),
-    [id, contributionSummaryByConsortiumId]
+    () => (id ? mockContributionSummary[id] : undefined),
+    [id]
   );
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center py-20">
+          <p className="text-caption text-muted-foreground">Loading consortium…</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!consortium) {
     return (
@@ -188,19 +197,8 @@ export default function ConsortiumDetailPage() {
                 <CardTitle>Data policy</CardTitle>
               </CardHeader>
               <CardContent className="text-[10px] text-muted-foreground space-y-1">
-                <p>Share loan data: {consortium.dataPolicy.shareLoanData ? "Yes" : "No"}</p>
-                <p>
-                  Share repayment history:{" "}
-                  {consortium.dataPolicy.shareRepaymentHistory ? "Yes" : "No"}
-                </p>
-                <p>Allow aggregation: {consortium.dataPolicy.allowAggregation ? "Yes" : "No"}</p>
-                <p>
-                  Visibility:{" "}
-                  {consortium.dataPolicy.dataVisibility === "masked_pii"
-                    ? "Masked PII"
-                    : consortium.dataPolicy.dataVisibility === "derived"
-                    ? "Derived"
-                    : "Full details"}
+                <p className="text-caption text-muted-foreground">
+                  Data policy configuration is managed separately by consortium administrators.
                 </p>
               </CardContent>
             </Card>
@@ -210,27 +208,20 @@ export default function ConsortiumDetailPage() {
         {activeTab === "Members" && (
           <div className="space-y-3">
             <div className="md:hidden space-y-3">
-              {members.map((m) => (
-                <Card key={`${m.institutionId}-${m.institutionName}`}>
-                  <CardContent className="pt-4 space-y-1">
-                    <p className="text-[10px] font-medium text-foreground">{m.institutionName}</p>
-                    <p className="text-caption text-muted-foreground">
-                      Role: {m.role} · Joined {m.joinedDate}
-                    </p>
-                    <span
-                      className={cn(
-                        "inline-flex mt-1 px-2 py-0.5 rounded-full capitalize",
-                        badgeTextClasses,
-                        m.status === "active"
-                          ? "bg-success/15 text-success"
-                          : "bg-warning/15 text-warning"
-                      )}
-                    >
-                      {m.status}
-                    </span>
-                  </CardContent>
-                </Card>
-              ))}
+              {members.length === 0 ? (
+                <p className="text-caption text-muted-foreground py-6 text-center">No members found.</p>
+              ) : (
+                members.map((m) => (
+                  <Card key={m.id ?? `${m.institutionId}-${m.institutionName}`}>
+                    <CardContent className="pt-4 space-y-1">
+                      <p className="text-[10px] font-medium text-foreground">{m.institutionName}</p>
+                      <p className="text-caption text-muted-foreground">
+                        Role: {m.role} · Joined {m.joinedAt ? m.joinedAt.split("T")[0] : "—"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
             <div className="hidden md:block bg-card rounded-xl border border-border overflow-hidden">
               <div className="min-w-0 overflow-x-auto">
@@ -244,39 +235,31 @@ export default function ConsortiumDetailPage() {
                         Role
                       </th>
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
-                        Status
-                      </th>
-                      <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
                         Joined
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {members.map((m) => (
-                      <tr
-                        key={`${m.institutionId}-${m.institutionName}`}
-                        className="border-b border-border last:border-0"
-                      >
-                        <td className="px-4 py-3 text-[10px]">{m.institutionName}</td>
-                        <td className="px-4 py-3 text-[10px] text-muted-foreground">{m.role}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={cn(
-                              "px-2 py-0.5 rounded-full capitalize",
-                              badgeTextClasses,
-                              m.status === "active"
-                                ? "bg-success/15 text-success"
-                                : "bg-warning/15 text-warning"
-                            )}
-                          >
-                            {m.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-[10px] text-muted-foreground tabular-nums">
-                          {m.joinedDate}
+                    {members.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="px-4 py-8 text-center text-caption text-muted-foreground">
+                          No members found for this consortium.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      members.map((m) => (
+                        <tr
+                          key={m.id ?? `${m.institutionId}-${m.institutionName}`}
+                          className="border-b border-border last:border-0"
+                        >
+                          <td className="px-4 py-3 text-[10px]">{m.institutionName}</td>
+                          <td className="px-4 py-3 text-[10px] text-muted-foreground">{m.role}</td>
+                          <td className="px-4 py-3 text-[10px] text-muted-foreground tabular-nums">
+                            {m.joinedAt ? m.joinedAt.split("T")[0] : "—"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

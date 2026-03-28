@@ -1,0 +1,61 @@
+################################################################################
+# HCB Platform Backend — Test Configuration
+# Uses H2 in-memory to avoid SQLite file dependencies during testing
+################################################################################
+
+spring:
+  profiles:
+    active: test
+
+  datasource:
+    url: jdbc:h2:mem:testdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=false
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  sql:
+    init:
+      mode: never
+
+  h2:
+    console:
+      enabled: false
+
+management:
+  health:
+    db:
+      enabled: false
+  endpoint:
+    health:
+      show-details: never
+
+hcb:
+  jwt:
+    secret: hcb-test-secret-key-256-bits-long-for-unit-tests-only-2026!!
+    access-token-expiry-seconds: 900
+    refresh-token-expiry-seconds: 604800
+
+  security:
+    cors-allowed-origins: http://localhost:8080
+
+  encryption:
+    pii-key: hcb-test-pii-key-32-chars!!!!!!!
+    hmac-pepper: hcb-test-hmac-pepper-secret-here
+
+server:
+  port: 0
+
+logging:
+  level:
+    com.hcb: WARN
+    org.springframework.security: WARN
+    org.hibernate: WARN

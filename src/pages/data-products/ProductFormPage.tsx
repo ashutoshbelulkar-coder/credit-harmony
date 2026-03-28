@@ -24,7 +24,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
+import { useProduct, useCreateProduct, useUpdateProduct } from "@/hooks/api/useProducts";
 import {
   buildProductPreviewJson,
   productCatalogPacketOptions,
@@ -87,13 +87,10 @@ const packetGroups = groupPacketsByCategory();
 export default function ProductFormPage() {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
-  const { products, addProduct, updateProduct } = useCatalogMock();
   const isEdit = Boolean(id);
-
-  const existing = useMemo(
-    () => (isEdit ? products.find((p) => p.id === id) : undefined),
-    [isEdit, id, products]
-  );
+  const { data: existing } = useProduct(isEdit ? id : undefined);
+  const { mutate: createProduct, isPending: creating } = useCreateProduct();
+  const { mutate: updateProduct, isPending: updating } = useUpdateProduct();
 
   // ── Basic Info ─────────────────────────────────────────────
   const [name, setName] = useState("");
@@ -111,10 +108,11 @@ export default function ProductFormPage() {
   useEffect(() => {
     if (existing) {
       setName(existing.name);
-      setDescription(existing.description);
-      setOrderedPacketIds([...existing.packetIds]);
-      setPacketConfigs(existing.packetConfigs ? [...existing.packetConfigs] : []);
-      setEnquiryConfig(normalizeEnquiryConfig(existing.enquiryConfig));
+      setDescription(existing.description ?? "");
+      // packetIds and enquiryConfig are product-catalog concerns not returned by REST API
+      setOrderedPacketIds([]);
+      setPacketConfigs([]);
+      setEnquiryConfig(DEFAULT_ENQUIRY_CONFIG);
     } else if (!isEdit) {
       setName("");
       setDescription("");
@@ -182,36 +180,27 @@ export default function ProductFormPage() {
       toast.error("Product name is required");
       return;
     }
-    if (orderedPacketIds.length === 0) {
-      toast.error("Select at least one data packet");
-      return;
-    }
     if (isEdit && id) {
-      updateProduct(id, {
-        name: name.trim(),
-        description: description.trim(),
-        status: existing?.status ?? "approval_pending",
-        pricingModel: "per_hit" as const,
-        price: 0,
-        packetIds: orderedPacketIds,
-        packetConfigs,
-        enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
-      });
-      toast.success("Product updated");
-      navigate(`/data-products/products/${id}`);
+      updateProduct(
+        {
+          id,
+          data: {
+            name: name.trim(),
+            description: description.trim(),
+            status: existing?.status ?? "approval_pending",
+          },
+        },
+        { onSuccess: () => navigate(`/data-products/products/${id}`) }
+      );
     } else {
-      const row = addProduct({
-        name: name.trim(),
-        description: description.trim(),
-        status: "approval_pending",
-        pricingModel: "per_hit" as const,
-        price: 0,
-        packetIds: orderedPacketIds,
-        packetConfigs,
-        enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
-      });
-      toast.success("Product submitted for approval");
-      navigate(`/data-products/products/${row.id}`);
+      createProduct(
+        {
+          name: name.trim(),
+          description: description.trim(),
+          status: "approval_pending",
+        },
+        { onSuccess: (row) => navigate(`/data-products/products/${row.id}`) }
+      );
     }
   };
 
@@ -255,8 +244,8 @@ export default function ProductFormPage() {
           >
             Cancel
           </Button>
-          <Button type="button" size="sm" onClick={handleSave}>
-            Save product
+          <Button type="button" size="sm" onClick={handleSave} disabled={creating || updating}>
+            {creating || updating ? "Saving…" : "Save product"}
           </Button>
         </div>
       </div>

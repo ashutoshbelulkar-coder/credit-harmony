@@ -1,10 +1,18 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Plus, PowerOff, Power } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
-import { getProductSubscriptions, type ProductSubscriptionRow } from "@/data/institution-extensions-mock";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
-import { productPricingLabel } from "@/data/data-products-mock";
+import { useProductSubscriptions } from "@/hooks/api/useInstitutions";
+import { useProducts } from "@/hooks/api/useProducts";
+import type { ProductSubscriptionRow as ApiSubscriptionRow } from "@/services/institutions.service";
+
+type ProductSubscriptionRow = {
+  productId: string;
+  productName: string;
+  plan: string;
+  usage: string;
+  status: "active" | "trial" | "suspended";
+};
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -40,11 +48,24 @@ const statusClass: Record<string, string> = {
 };
 
 export default function ProductSubscriptionsTab({ institutionId }: Props) {
-  const { products: catalogProducts } = useCatalogMock();
+  const { data: apiSubscriptions } = useProductSubscriptions(institutionId);
+  const { data: productsPage } = useProducts({ size: 100 });
+  const catalogProducts = productsPage?.content ?? [];
 
-  const [rows, setRows] = useState<ProductSubscriptionRow[]>(() =>
-    getProductSubscriptions(institutionId)
-  );
+  const [rows, setRows] = useState<ProductSubscriptionRow[]>([]);
+
+  useEffect(() => {
+    if (!apiSubscriptions) return;
+    setRows(
+      (apiSubscriptions as ApiSubscriptionRow[]).map((s) => ({
+        productId: String(s.productId),
+        productName: s.productName,
+        plan: "Standard",
+        usage: "—",
+        status: (s.subscriptionStatus as ProductSubscriptionRow["status"]) ?? "active",
+      }))
+    );
+  }, [apiSubscriptions]);
 
   // ── Add dialog ──────────────────────────────────────────────
   const [addOpen, setAddOpen] = useState(false);
@@ -52,7 +73,7 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
 
   // All catalog products not already subscribed (any lifecycle status)
   const availableProducts = useMemo(
-    () => catalogProducts.filter((p) => !rows.some((r) => r.productId === p.id)),
+    () => catalogProducts.filter((p) => !rows.some((r) => r.productId === String(p.id))),
     [catalogProducts, rows]
   );
 
@@ -63,12 +84,12 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
 
   const handleAdd = () => {
     if (selectedProductIds.length === 0) return;
-    const selectedProducts = catalogProducts.filter((p) => selectedProductIds.includes(p.id));
+    const selectedProducts = catalogProducts.filter((p) => selectedProductIds.includes(String(p.id)));
     if (selectedProducts.length === 0) return;
     setRows((prev) => [
       ...prev,
       ...selectedProducts.map((product) => ({
-        productId: product.id,
+        productId: String(product.id),
         productName: product.name,
         plan: "Starter",
         usage: "0 enquiries / mo",
@@ -83,12 +104,12 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
     setAddOpen(false);
   };
 
-  const toggleSelectedProduct = (productId: string, checked: boolean | "indeterminate") => {
+  const toggleSelectedProduct = (pId: string, checked: boolean | "indeterminate") => {
     setSelectedProductIds((prev) => {
       if (checked === true) {
-        return prev.includes(productId) ? prev : [...prev, productId];
+        return prev.includes(pId) ? prev : [...prev, pId];
       }
-      return prev.filter((id) => id !== productId);
+      return prev.filter((id) => id !== pId);
     });
   };
 
@@ -292,8 +313,8 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
                         className="flex items-start gap-2 rounded-md border border-border/70 px-2.5 py-2 hover:bg-muted/40 cursor-pointer"
                       >
                         <Checkbox
-                          checked={selectedProductIds.includes(p.id)}
-                          onCheckedChange={(v) => toggleSelectedProduct(p.id, v)}
+                          checked={selectedProductIds.includes(String(p.id))}
+                          onCheckedChange={(v) => toggleSelectedProduct(String(p.id), v)}
                           className="mt-0.5"
                         />
                         <div className="flex flex-col min-w-0">
@@ -304,7 +325,7 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
                             )}
                           </span>
                           <span className="text-[10px] text-muted-foreground truncate">
-                            {p.id} · {productPricingLabel[p.pricingModel]} · {p.packetIds.length} packets
+                            {p.id} · {p.type}
                           </span>
                         </div>
                       </label>

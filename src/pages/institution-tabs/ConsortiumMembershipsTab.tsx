@@ -1,14 +1,22 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import {
-  getConsortiumMemberships,
   CONSORTIUM_ROLE_OPTIONS,
-  type ConsortiumMembershipRow,
   type ConsortiumMembershipRole,
 } from "@/data/institution-extensions-mock";
-import { consortiums } from "@/data/consortiums-mock";
+import { useConsortiumMemberships } from "@/hooks/api/useInstitutions";
+import { useConsortiums } from "@/hooks/api/useConsortiums";
+import type { ConsortiumMembershipRow as ApiMembershipRow } from "@/services/institutions.service";
+
+type ConsortiumMembershipRow = {
+  consortiumId: string;
+  consortiumName: string;
+  role: string;
+  status: string;
+  joinedDate: string;
+};
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -50,9 +58,25 @@ const statusClass: Record<string, string> = {
 };
 
 export default function ConsortiumMembershipsTab({ institutionId }: Props) {
-  const [rows, setRows] = useState<ConsortiumMembershipRow[]>(() =>
-    getConsortiumMemberships(institutionId)
-  );
+  const { data: apiMemberships } = useConsortiumMemberships(institutionId);
+  const { data: consortiumsPage } = useConsortiums({ size: 100 });
+  const allConsortiums = consortiumsPage?.content ?? [];
+
+  const [rows, setRows] = useState<ConsortiumMembershipRow[]>([]);
+
+  // Sync API data into local display state
+  useEffect(() => {
+    if (!apiMemberships) return;
+    setRows(
+      (apiMemberships as ApiMembershipRow[]).map((m) => ({
+        consortiumId: String(m.consortiumId),
+        consortiumName: m.consortiumName,
+        role: m.memberRole,
+        status: m.consortiumMemberStatus,
+        joinedDate: m.joinedAt ? m.joinedAt.split("T")[0] : "",
+      }))
+    );
+  }, [apiMemberships]);
 
   // ── Add dialog ──────────────────────────────────────────────
   const [addOpen, setAddOpen] = useState(false);
@@ -62,14 +86,14 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
   // Available consortiums = active ones not already joined
   const availableConsortiums = useMemo(
     () =>
-      consortiums.filter(
-        (c) => c.status === "active" && !rows.some((r) => r.consortiumId === c.id)
+      allConsortiums.filter(
+        (c) => c.status === "active" && !rows.some((r) => r.consortiumId === String(c.id))
       ),
-    [rows]
+    [allConsortiums, rows]
   );
 
   const handleAddOpen = () => {
-    setSelectedConsortiumId(availableConsortiums[0]?.id ?? "");
+    setSelectedConsortiumId(availableConsortiums[0] ? String(availableConsortiums[0].id) : "");
     setSelectedRoles(["Consumer"]);
     setAddOpen(true);
   };
@@ -83,14 +107,14 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
   };
 
   const handleAdd = () => {
-    const consortium = consortiums.find((c) => c.id === selectedConsortiumId);
+    const consortium = allConsortiums.find((c) => String(c.id) === selectedConsortiumId);
     if (!consortium || selectedRoles.length === 0) return;
     const today = new Date().toISOString().split("T")[0];
     const roleStr = [...selectedRoles].sort().join(", ");
     setRows((prev) => [
       ...prev,
       {
-        consortiumId: consortium.id,
+        consortiumId: String(consortium.id),
         consortiumName: consortium.name,
         role: roleStr,
         status: "pending",
@@ -273,7 +297,7 @@ export default function ConsortiumMembershipsTab({ institutionId }: Props) {
                   </SelectTrigger>
                   <SelectContent>
                     {availableConsortiums.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>
+                      <SelectItem key={c.id} value={String(c.id)}>
                         {c.name}
                       </SelectItem>
                     ))}

@@ -46,8 +46,8 @@ import {
   XCircle,
 } from "lucide-react";
 import {
-  batchJobs,
-  batchKpis,
+  batchJobs as mockBatchJobs,
+  batchKpis as mockBatchKpis,
   batchVolumeTrendData,
   processingDurationTrendData,
   topBatchErrorCategoriesData,
@@ -58,6 +58,7 @@ import {
   type BatchDetail,
 } from "@/data/monitoring-mock";
 import { institutions } from "@/data/institutions-mock";
+import { useBatchJobs, useBatchKpis } from "@/hooks/api/useBatchJobs";
 import { InstitutionFilterSelect } from "@/components/shared/InstitutionFilterSelect";
 import { ProcessingTimeline } from "./ProcessingTimeline";
 import { BatchExecutionConsole } from "./BatchExecutionConsole";
@@ -170,6 +171,11 @@ function exportFailuresCSV(failures: BatchDetail["record_failures"]) {
 }
 
 export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFilters }) {
+  const { data: apiBatchJobs } = useBatchJobs();
+  const { data: apiBatchKpis } = useBatchKpis();
+  const batchJobs: BatchJob[] = (apiBatchJobs as unknown as BatchJob[]) ?? mockBatchJobs;
+  const batchKpis = (apiBatchKpis as unknown as typeof mockBatchKpis) ?? mockBatchKpis;
+
   const [searchParams] = useSearchParams();
   const [page, setPage] = useState(1);
   const [selectedBatchId, setSelectedBatchId] = useState<string | null>(null);

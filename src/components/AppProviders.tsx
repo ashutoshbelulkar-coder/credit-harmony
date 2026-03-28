@@ -2,37 +2,40 @@ import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { CatalogMockProvider } from "@/contexts/CatalogMockContext";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-
-const queryClient = new QueryClient();
+import { queryClient } from "@/lib/query-client";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>
-        <ThemeProvider
-          defaultTheme="system"
-          enableSystem
-          storageKey="hcb-theme"
-          attribute="class"
-        >
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <BrowserRouter>
+      <ThemeProvider
+        defaultTheme="system"
+        enableSystem
+        storageKey="hcb-theme"
+        attribute="class"
+      >
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          {/*
+            BrowserRouter must be an ancestor of AuthProvider because
+            AuthProvider now calls useNavigate() for session-expired redirects.
+          */}
+          <BrowserRouter>
+            <AuthProvider>
               <CatalogMockProvider>
                 <ErrorBoundary>
                   {children}
                 </ErrorBoundary>
               </CatalogMockProvider>
-            </BrowserRouter>
-          </TooltipProvider>
-        </ThemeProvider>
-      </AuthProvider>
+            </AuthProvider>
+          </BrowserRouter>
+        </TooltipProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

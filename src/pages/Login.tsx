@@ -1,6 +1,9 @@
 import { useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
+import { ApiError } from "@/lib/api-client";
+import { Loader2, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +20,7 @@ import {
   KeyRound,
   Users,
 } from "lucide-react";
+
 import { toast } from "sonner";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -29,18 +33,22 @@ const trustIndicators = [
 
 export default function Login() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
   const prefersReduced = useReducedMotion();
+
+  const sessionExpired = searchParams.get("expired") === "true";
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
-  const [errors, setErrors] = useState<{ email?: string; password?: string }>(
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<{ email?: string; password?: string; server?: string }>(
     {}
   );
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const next: { email?: string; password?: string } = {};
     if (!email.trim()) next.email = "Email is required";
@@ -49,8 +57,27 @@ export default function Login() {
     if (!password) next.password = "Password is required";
     setErrors(next);
     if (Object.keys(next).length > 0) return;
-    login(email, password, rememberMe);
-    navigate("/", { replace: true });
+
+    setIsSubmitting(true);
+    setErrors({});
+    try {
+      await login(email, password, rememberMe);
+      navigate("/", { replace: true });
+    } catch (err) {
+      if (err instanceof ApiError) {
+        if (err.isUnauthorized) {
+          setErrors({ server: "Invalid email or password. Please try again." });
+        } else if (err.isForbidden) {
+          setErrors({ server: "Your account has been suspended. Please contact your administrator." });
+        } else {
+          setErrors({ server: err.message || "An unexpected error occurred. Please try again." });
+        }
+      } else {
+        setErrors({ server: "Unable to connect to the server. Please check your connection." });
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const fadeUp = prefersReduced
@@ -106,6 +133,24 @@ export default function Login() {
                 Login
               </h1>
             </motion.div>
+
+            {/* Session expired banner */}
+            {sessionExpired && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-[12px]">
+                  Your session has expired. Please sign in again.
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* Server error */}
+            {errors.server && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription className="text-[12px]">{errors.server}</AlertDescription>
+              </Alert>
+            )}
 
             {/* Form */}
             <form onSubmit={handleSubmit} className="space-y-5 lg:space-y-6">
@@ -235,9 +280,17 @@ export default function Login() {
               <motion.div {...stagger} {...staggerDelay(4)}>
                 <Button
                   type="submit"
-                  className="h-11 w-full rounded-[10px] bg-primary text-[13px] font-medium text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-crif-orange/60 focus-visible:ring-offset-2"
+                  disabled={isSubmitting}
+                  className="h-11 w-full rounded-[10px] bg-primary text-[13px] font-medium text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-crif-orange/60 focus-visible:ring-offset-2 disabled:opacity-70"
                 >
-                  Sign In
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Signing in…
+                    </>
+                  ) : (
+                    "Sign In"
+                  )}
                 </Button>
               </motion.div>
 

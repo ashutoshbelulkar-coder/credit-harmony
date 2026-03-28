@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import { toast } from "sonner";
+import { useInviteUser } from "@/hooks/api/useUsers";
 import { type UserRole } from "@/data/user-management-mock";
 
 const roles: UserRole[] = ["Super Admin", "Bureau Admin", "Analyst", "Viewer", "API User"];
@@ -22,15 +22,22 @@ export function InviteUserModal({ open, onOpenChange }: Props) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<string>("");
   const [sendEmail, setSendEmail] = useState(true);
+  const { mutate: inviteUser, isPending } = useInviteUser();
 
   const handleSubmit = () => {
     if (!name || !email || !role) {
-      toast.error("Please fill all required fields");
+      // toast.error is handled by the hook on error; show local validation errors
       return;
     }
-    toast.success(`Invitation sent to ${email}`);
-    onOpenChange(false);
-    setName(""); setEmail(""); setRole("");
+    inviteUser(
+      { email, role, sendWelcomeEmail: sendEmail, displayName: name } as Parameters<typeof inviteUser>[0],
+      {
+        onSuccess: () => {
+          onOpenChange(false);
+          setName(""); setEmail(""); setRole("");
+        },
+      }
+    );
   };
 
   return (
@@ -65,7 +72,7 @@ export function InviteUserModal({ open, onOpenChange }: Props) {
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSubmit}>Send Invite</Button>
+          <Button onClick={handleSubmit} disabled={isPending}>{isPending ? "Sending…" : "Send Invite"}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

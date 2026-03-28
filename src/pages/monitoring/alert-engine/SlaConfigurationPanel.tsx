@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  slaConfigs,
+  slaConfigs as mockSlaConfigs,
   aiAgents,
   defaultEmailBodyHtml,
   type SlaConfig,
@@ -28,6 +28,7 @@ import {
   type SeverityLevel,
   type TimeWindow,
 } from "@/data/alert-engine-mock";
+import { useSlaConfigs, useUpdateSlaConfig } from "@/hooks/api/useAlerts";
 
 const cardClass =
   "bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]";
@@ -265,7 +266,7 @@ function EditSlaDrawer({
   );
 }
 
-function SlaCard({ config }: { config: SlaConfig }) {
+function SlaCard({ config, onSaveMetric }: { config: SlaConfig; onSaveMetric: (configId: string, payload: { threshold: string; operator: string; timeWindow: TimeWindow; severity: SeverityLevel }) => void }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingMetric, setEditingMetric] = useState<SlaMetricRow | null>(null);
 
@@ -328,18 +329,37 @@ function SlaCard({ config }: { config: SlaConfig }) {
         onOpenChange={setDrawerOpen}
         metricRow={editingMetric}
         slaName={config.name}
-        onSave={() => setDrawerOpen(false)}
+        onSave={(payload) => {
+          onSaveMetric(config.id, payload);
+          setDrawerOpen(false);
+        }}
       />
     </>
   );
 }
 
 export function SlaConfigurationPanel() {
+  const { data: apiConfigs } = useSlaConfigs();
+  const { mutate: updateConfig } = useUpdateSlaConfig();
+
+  const slaConfigs: SlaConfig[] = (() => {
+    if (!apiConfigs) return mockSlaConfigs;
+    const rows = Array.isArray(apiConfigs) ? apiConfigs : (apiConfigs as { content?: SlaConfig[] }).content ?? [];
+    return rows.length > 0 ? (rows as SlaConfig[]) : mockSlaConfigs;
+  })();
+
+  const handleSaveMetric = (
+    configId: string,
+    payload: { threshold: string; operator: string; timeWindow: TimeWindow; severity: SeverityLevel }
+  ) => {
+    updateConfig({ id: configId, data: { metrics: [{ metric: "", threshold: payload.threshold, current: "", status: "" }] } });
+  };
+
   return (
     <section>
       <div className="grid grid-cols-1 gap-6">
         {slaConfigs.map((config) => (
-          <SlaCard key={config.id} config={config} />
+          <SlaCard key={config.id} config={config} onSaveMetric={handleSaveMetric} />
         ))}
       </div>
     </section>

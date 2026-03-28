@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.hcb.platform.HcbPlatformApplicationTest
+-------------------------------------------------------------------------------
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 12.57 s -- in com.hcb.platform.HcbPlatformApplicationTest
