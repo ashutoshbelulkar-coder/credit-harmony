@@ -3,7 +3,7 @@ import {
   permissionSections,
   permissionActions,
   type PermissionAction,
-} from "@/lib/nav-config";
+} from "../lib/nav-config";
 
 export type UserRole = "Super Admin" | "Bureau Admin" | "Analyst" | "Viewer" | "API User";
 export type UserStatus = "Active" | "Invited" | "Suspended" | "Deactivated";
@@ -113,6 +113,52 @@ function mergePartialMatrix(partial: SectionPermissionMatrix): SectionPermission
     base[sid] = { ...base[sid], ...actions };
   }
   return base;
+}
+
+/** True when `p` looks like the section×action matrix (nav section ids as keys), not legacy flat permission flags. */
+export function isLikelySectionPermissionMatrix(p: unknown): boolean {
+  if (!p || typeof p !== "object") return false;
+  const o = p as Record<string, unknown>;
+  return permissionSections.some((s) => Object.prototype.hasOwnProperty.call(o, s.id));
+}
+
+/** Default section matrix for built-in role names (used when API stored only legacy flat `permissions`). */
+export function sectionMatrixForRoleName(roleName: string): SectionPermissionMatrix {
+  return builtInRoleSectionMatrices[roleName] ?? createEmptySectionMatrix();
+}
+
+/**
+ * Merge API `permissions` onto defaults for `roleName`.
+ * - Omits / null / legacy flat payloads → built-in matrix (or empty for unknown names).
+ * - Sparse matrices (section keys with empty objects) keep defaults for cells the API did not set.
+ * - Explicit booleans from the API always win.
+ */
+export function mergeRolePermissionsFromApi(roleName: string, apiPermissions: unknown): SectionPermissionMatrix {
+  const base = sectionMatrixForRoleName(roleName);
+  if (!apiPermissions || typeof apiPermissions !== "object" || Array.isArray(apiPermissions)) {
+    return JSON.parse(JSON.stringify(base)) as SectionPermissionMatrix;
+  }
+  if (!isLikelySectionPermissionMatrix(apiPermissions)) {
+    return JSON.parse(JSON.stringify(base)) as SectionPermissionMatrix;
+  }
+  const a = apiPermissions as SectionPermissionMatrix;
+  const out = createEmptySectionMatrix();
+  for (const s of permissionSections) {
+    for (const act of permissionActions) {
+      const section = a[s.id];
+      const fromBase = !!base[s.id]?.[act];
+      if (
+        section &&
+        typeof section === "object" &&
+        Object.prototype.hasOwnProperty.call(section, act)
+      ) {
+        out[s.id] = { ...out[s.id], [act]: !!(section as Record<string, boolean>)[act] };
+      } else {
+        out[s.id] = { ...out[s.id], [act]: fromBase };
+      }
+    }
+  }
+  return out;
 }
 
 export function normalizeRoleDefinition(raw: {

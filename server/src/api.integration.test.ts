@@ -19,6 +19,13 @@ describe.sequential("HCB Fastify API (integration)", () => {
     await app.close();
   });
 
+  it("GET /api/v1/health returns ok without auth", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/v1/health" });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { status?: string };
+    expect(body.status).toBe("ok");
+  });
+
   it("POST /api/v1/auth/login succeeds for seeded admin", async () => {
     const res = await app.inject({
       method: "POST",
@@ -73,6 +80,106 @@ describe.sequential("HCB Fastify API (integration)", () => {
     expect(body.content.length).toBeGreaterThan(0);
   });
 
+  it("POST /api/v1/institutions appears in list and approvals (institution flow)", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/institutions",
+      headers: authHeaders(accessToken),
+      payload: {
+        name: "Vitest New Member Bank",
+        tradingName: "VNMB",
+        institutionType: "Commercial Bank",
+        institutionLifecycleStatus: "pending",
+        registrationNumber: "VT-REG-001",
+        jurisdiction: "Kenya",
+        licenseNumber: "LIC-VT-1",
+        contactEmail: "ops@vnm.test",
+        isDataSubmitter: true,
+        isSubscriber: false,
+      },
+    });
+    expect(createRes.statusCode).toBe(200);
+    const created = createRes.json() as { id: number; institutionLifecycleStatus: string };
+    expect(created.id).toBeGreaterThan(0);
+    expect(created.institutionLifecycleStatus).toBe("pending");
+
+    const listRes = await app.inject({
+      method: "GET",
+      url: "/api/v1/institutions?page=0&size=200",
+      headers: authHeaders(accessToken),
+    });
+    expect(listRes.statusCode).toBe(200);
+    const listBody = listRes.json() as { content: { id: number; name: string }[] };
+    const row = listBody.content.find((x) => x.id === created.id);
+    expect(row).toBeTruthy();
+    expect(row?.name).toBe("Vitest New Member Bank");
+
+    const apprRes = await app.inject({
+      method: "GET",
+      url: "/api/v1/approvals?type=institution&page=0&size=100",
+      headers: authHeaders(accessToken),
+    });
+    expect(apprRes.statusCode).toBe(200);
+    const apprBody = apprRes.json() as { content: { metadata: { institutionId?: string } }[] };
+    const ap = apprBody.content.find((x) => x.metadata?.institutionId === String(created.id));
+    expect(ap).toBeTruthy();
+  });
+
+  it("GET /api/v1/monitoring/enquiries?institutionId=1 returns product fields for usage breakdown", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/monitoring/enquiries?institutionId=1&page=0&size=100",
+      headers: authHeaders(accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      content: { productId?: string; productName?: string; alternateDataUsed?: number }[];
+    };
+    const withProduct = body.content.filter((x) => x.productId);
+    expect(withProduct.length).toBeGreaterThan(0);
+    expect(withProduct[0].productId).toMatch(/^PRD_/);
+    expect(typeof withProduct[0].alternateDataUsed).toBe("number");
+  });
+
+  it("GET /api/v1/monitoring/enquiries returns many seeded rows and status=Failed filters", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const all = await app.inject({
+      method: "GET",
+      url: "/api/v1/monitoring/enquiries?page=0&size=500",
+      headers: authHeaders(accessToken),
+    });
+    expect(all.statusCode).toBe(200);
+    const bodyAll = all.json() as { totalElements: number };
+    expect(bodyAll.totalElements).toBeGreaterThan(100);
+    const failedOnly = await app.inject({
+      method: "GET",
+      url: "/api/v1/monitoring/enquiries?status=Failed&page=0&size=500",
+      headers: authHeaders(accessToken),
+    });
+    expect(failedOnly.statusCode).toBe(200);
+    const fb = failedOnly.json() as { content: { status: string }[]; totalElements: number };
+    expect(fb.totalElements).toBeGreaterThan(0);
+    expect(fb.content.every((r) => r.status === "Failed")).toBe(true);
+  });
+
+  it("GET /api/v1/institutions/:id/monitoring/enquiries matches monitoring/enquiries?institutionId", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const r1 = await app.inject({
+      method: "GET",
+      url: "/api/v1/monitoring/enquiries?institutionId=1&page=0&size=100",
+      headers: authHeaders(accessToken),
+    });
+    const r2 = await app.inject({
+      method: "GET",
+      url: "/api/v1/institutions/1/monitoring/enquiries?page=0&size=100",
+      headers: authHeaders(accessToken),
+    });
+    expect(r2.statusCode).toBe(200);
+    expect(r1.json()).toEqual(r2.json());
+  });
+
   it("GET /api/v1/dashboard/metrics returns KPI shape", async () => {
     const { accessToken } = await loginAsAdmin(app);
     const res = await app.inject({
@@ -121,6 +228,42 @@ describe.sequential("HCB Fastify API (integration)", () => {
     expect(body.content.some((u) => u.email.includes("@"))).toBe(true);
   });
 
+  it("POST /api/v1/users/invitations persists Invited user with displayName", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const h = { ...authHeaders(accessToken), "content-type": "application/json" };
+    const email = `invite-${Date.now()}@hcb.com`;
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/users/invitations",
+      headers: h,
+      payload: { email, role: "Viewer", displayName: "Invited Colleague" },
+    });
+    expect(res.statusCode).toBe(200);
+    const created = res.json() as { id: number; displayName: string; userAccountStatus: string; email: string };
+    expect(created.displayName).toBe("Invited Colleague");
+    expect(created.userAccountStatus).toBe("Invited");
+    expect(created.email).toBe(email);
+    const list = await app.inject({
+      method: "GET",
+      url: "/api/v1/users?page=0&size=500",
+      headers: authHeaders(accessToken),
+    });
+    const users = (list.json() as { content: { id: number }[] }).content;
+    expect(users.some((u) => u.id === created.id)).toBe(true);
+  });
+
+  it("POST /api/v1/users/invitations returns 409 for duplicate email", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const h = { ...authHeaders(accessToken), "content-type": "application/json" };
+    const dup = await app.inject({
+      method: "POST",
+      url: "/api/v1/users/invitations",
+      headers: h,
+      payload: { email: "admin@hcb.com", role: "Viewer", displayName: "Dup" },
+    });
+    expect(dup.statusCode).toBe(409);
+  });
+
   it("PATCH /api/v1/users/:id updates displayName", async () => {
     const { accessToken } = await loginAsAdmin(app);
     const res = await app.inject({
@@ -134,6 +277,26 @@ describe.sequential("HCB Fastify API (integration)", () => {
     expect(body.displayName).toContain("Viewer");
   });
 
+  it("GET /api/v1/audit-logs returns seeded rows and filters by actionType", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const all = await app.inject({
+      method: "GET",
+      url: "/api/v1/audit-logs?page=0&size=200",
+      headers: authHeaders(accessToken),
+    });
+    expect(all.statusCode).toBe(200);
+    const body = all.json() as { totalElements: number; content: { actionType: string; ipAddressHash?: string }[] };
+    expect(body.totalElements).toBeGreaterThan(8);
+    const loginOnly = await app.inject({
+      method: "GET",
+      url: "/api/v1/audit-logs?actionType=LOGIN&page=0&size=100",
+      headers: authHeaders(accessToken),
+    });
+    const loginBody = loginOnly.json() as { content: { actionType: string }[] };
+    expect(loginBody.content.length).toBeGreaterThan(0);
+    expect(loginBody.content.every((r) => r.actionType === "LOGIN")).toBe(true);
+  });
+
   it("GET /api/v1/audit-logs filters by entityType and entityId", async () => {
     const { accessToken } = await loginAsAdmin(app);
     const res = await app.inject({
@@ -142,11 +305,51 @@ describe.sequential("HCB Fastify API (integration)", () => {
       headers: authHeaders(accessToken),
     });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as { content: unknown[] };
+    const body = res.json() as { content: unknown[]; totalElements: number };
     expect(Array.isArray(body.content)).toBe(true);
+    expect(body.totalElements).toBeGreaterThan(0);
   });
 
-  it("POST /api/v1/alert-rules creates rule; PATCH updates; DELETE removes", async () => {
+  it("GET /api/v1/audit-logs filters GOVERNANCE and date range", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/audit-logs?entityType=GOVERNANCE&from=2026-03-01&to=2026-03-31&page=0&size=50",
+      headers: authHeaders(accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { content: { entityType: string }[]; totalElements: number };
+    expect(body.totalElements).toBeGreaterThan(0);
+    expect(body.content.every((r) => r.entityType === "GOVERNANCE")).toBe(true);
+  });
+
+  it("PATCH /api/v1/institutions/:id appends INSTITUTION_UPDATE audit row", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const h = { ...authHeaders(accessToken), "content-type": "application/json" };
+    const before = await app.inject({
+      method: "GET",
+      url: "/api/v1/audit-logs?actionType=INSTITUTION_UPDATE&page=0&size=500",
+      headers: authHeaders(accessToken),
+    });
+    const n0 = (before.json() as { totalElements: number }).totalElements;
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/institutions/1",
+      headers: h,
+      payload: { tradingName: `audit-${Date.now()}` },
+    });
+    expect(patch.statusCode).toBe(200);
+    const after = await app.inject({
+      method: "GET",
+      url: "/api/v1/audit-logs?actionType=INSTITUTION_UPDATE&page=0&size=5",
+      headers: authHeaders(accessToken),
+    });
+    const body = after.json() as { totalElements: number; content: { actionType: string }[] };
+    expect(body.totalElements).toBeGreaterThan(n0);
+    expect(body.content[0]?.actionType).toBe("INSTITUTION_UPDATE");
+  });
+
+  it("POST /api/v1/alert-rules creates pending rule + approval; approve enables; PATCH/DELETE work", async () => {
     const { accessToken } = await loginAsAdmin(app);
     const h = { ...authHeaders(accessToken), "content-type": "application/json" };
     const create = await app.inject({
@@ -162,7 +365,32 @@ describe.sequential("HCB Fastify API (integration)", () => {
       },
     });
     expect(create.statusCode).toBe(200);
-    const { id } = create.json() as { id: string };
+    const created = create.json() as { id: string; status: string };
+    expect(created.status).toBe("Pending approval");
+    const { id } = created;
+    const appr = await app.inject({
+      method: "GET",
+      url: "/api/v1/approvals?type=alert_rule&page=0&size=50",
+      headers: authHeaders(accessToken),
+    });
+    expect(appr.statusCode).toBe(200);
+    const apprBody = appr.json() as { content: { id: string; metadata: { alertRuleId?: string } }[] };
+    const ap = apprBody.content.find((x) => x.metadata?.alertRuleId === id);
+    expect(ap).toBeTruthy();
+    const approveRes = await app.inject({
+      method: "POST",
+      url: `/api/v1/approvals/${ap!.id}/approve`,
+      headers: authHeaders(accessToken),
+    });
+    expect(approveRes.statusCode).toBe(204);
+    const listAfter = await app.inject({
+      method: "GET",
+      url: "/api/v1/alert-rules",
+      headers: authHeaders(accessToken),
+    });
+    const rules = listAfter.json() as { id: string; status: string }[];
+    const row = rules.find((r) => r.id === id);
+    expect(row?.status).toBe("Enabled");
     const patch = await app.inject({
       method: "PATCH",
       url: `/api/v1/alert-rules/${id}`,
@@ -177,6 +405,17 @@ describe.sequential("HCB Fastify API (integration)", () => {
       headers: authHeaders(accessToken),
     });
     expect(del.statusCode).toBe(204);
+  });
+
+  it("POST /api/v1/alert-rules rejects empty name", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/alert-rules",
+      headers: { ...authHeaders(accessToken), "content-type": "application/json" },
+      payload: { name: "   ", domain: "Batch", condition: "x" },
+    });
+    expect(res.statusCode).toBe(400);
   });
 
   it("POST /api/v1/reports creates queued report row", async () => {
@@ -203,6 +442,48 @@ describe.sequential("HCB Fastify API (integration)", () => {
     expect(res.statusCode).toBe(200);
     const body = res.json() as { content: { id: string; name: string }[] };
     expect(body.content.length).toBeGreaterThan(0);
+  });
+
+  it("POST /api/v1/products with approval_pending persists product and enqueues approval", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/products",
+      headers: authHeaders(accessToken),
+      payload: {
+        name: "Integration Test Product",
+        description: "Created by api.integration.test",
+        status: "approval_pending",
+        packetIds: ["PKT_BCF"],
+        packetConfigs: [],
+        enquiryConfig: { scope: "SELF", impactType: "LOW", mode: "LIVE" },
+      },
+    });
+    expect(createRes.statusCode).toBe(200);
+    const created = createRes.json() as { id: string };
+    expect(created.id).toMatch(/^PRD_/);
+
+    const apprRes = await app.inject({
+      method: "GET",
+      url: "/api/v1/approvals?type=product&page=0&size=100",
+      headers: authHeaders(accessToken),
+    });
+    expect(apprRes.statusCode).toBe(200);
+    const page = apprRes.json() as {
+      content: { type: string; metadata: { productId?: string } }[];
+    };
+    const hit = page.content.find((x) => x.metadata?.productId === created.id);
+    expect(hit).toBeTruthy();
+    expect(hit?.type).toBe("product");
+
+    const detail = await app.inject({
+      method: "GET",
+      url: `/api/v1/products/${created.id}`,
+      headers: authHeaders(accessToken),
+    });
+    expect(detail.statusCode).toBe(200);
+    const prod = detail.json() as { packetIds: string[] };
+    expect(prod.packetIds).toEqual(["PKT_BCF"]);
   });
 
   it("POST /api/v1/batch-jobs/:id/retry sets status to Queued", async () => {
@@ -252,6 +533,42 @@ describe.sequential("HCB Fastify API (integration)", () => {
     expect(rows[0].institutionName).toBeTruthy();
   });
 
+  it("POST /api/v1/consortiums with approval_pending enqueues approval and members", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/consortiums",
+      headers: authHeaders(accessToken),
+      payload: {
+        name: "Integration Test Consortium",
+        type: "Closed",
+        purpose: "Risk sharing",
+        governanceModel: "Majority vote",
+        description: "Vitest create",
+        status: "approval_pending",
+        members: [{ institutionId: 1, role: "Contributor" }],
+      },
+    });
+    expect(createRes.statusCode).toBe(200);
+    const created = createRes.json() as { id: string; status: string; membersCount: number };
+    expect(created.id).toMatch(/^CONS_/);
+    expect(created.status).toBe("approval_pending");
+    expect(created.membersCount).toBeGreaterThanOrEqual(1);
+
+    const apprRes = await app.inject({
+      method: "GET",
+      url: "/api/v1/approvals?type=consortium&page=0&size=100",
+      headers: authHeaders(accessToken),
+    });
+    expect(apprRes.statusCode).toBe(200);
+    const page = apprRes.json() as {
+      content: { type: string; metadata: { consortiumId?: string } }[];
+    };
+    const hit = page.content.find((x) => x.metadata?.consortiumId === created.id);
+    expect(hit).toBeTruthy();
+    expect(hit?.type).toBe("consortium");
+  });
+
   it("GET /api/v1/institutions/:id/consortium-memberships returns rows", async () => {
     const { accessToken } = await loginAsAdmin(app);
     const res = await app.inject({
@@ -285,8 +602,87 @@ describe.sequential("HCB Fastify API (integration)", () => {
       headers: authHeaders(accessToken),
     });
     expect(res.statusCode).toBe(200);
-    const body = res.json() as { roleName: string }[];
+    const body = res.json() as { roleName: string; permissions: Record<string, Record<string, boolean>> }[];
     expect(Array.isArray(body)).toBe(true);
     expect(body.length).toBeGreaterThan(0);
+    const superAdmin = body.find((r) => r.roleName === "Super Admin");
+    expect(superAdmin).toBeDefined();
+    expect(superAdmin?.permissions?.dashboard?.View).toBe(true);
+  });
+
+  it("POST /api/v1/roles persists section permission matrix", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const permissions = { dashboard: { View: true, Create: false, Edit: false, Delete: false, Export: false } };
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/roles",
+      headers: { ...authHeaders(accessToken), "content-type": "application/json" },
+      payload: { roleName: "Integration Test Role", description: "tmp", permissions },
+    });
+    expect(res.statusCode).toBe(200);
+    const row = res.json() as { id: string; roleName: string; permissions: Record<string, unknown> };
+    expect(row.roleName).toBe("Integration Test Role");
+    expect(row.permissions.dashboard).toBeDefined();
+
+    const list = await app.inject({
+      method: "GET",
+      url: "/api/v1/roles",
+      headers: authHeaders(accessToken),
+    });
+    const roles = list.json() as { id: string; roleName: string }[];
+    expect(roles.some((r) => r.roleName === "Integration Test Role")).toBe(true);
+  });
+
+  it("POST /api/v1/roles returns 409 for duplicate roleName", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const headers = { ...authHeaders(accessToken), "content-type": "application/json" };
+    const payload = { roleName: "Dup Role X", permissions: {} };
+    const first = await app.inject({ method: "POST", url: "/api/v1/roles", headers, payload });
+    expect(first.statusCode).toBe(200);
+    const second = await app.inject({ method: "POST", url: "/api/v1/roles", headers, payload });
+    expect(second.statusCode).toBe(409);
+  });
+
+  it("PATCH /api/v1/roles/:id updates role", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/v1/roles",
+      headers: { ...authHeaders(accessToken), "content-type": "application/json" },
+      payload: { roleName: "Patch Me Role", permissions: {} },
+    });
+    const { id } = created.json() as { id: string };
+    const patch = await app.inject({
+      method: "PATCH",
+      url: `/api/v1/roles/${id}`,
+      headers: { ...authHeaders(accessToken), "content-type": "application/json" },
+      payload: { roleName: "Patch Me Role Renamed", description: "d2" },
+    });
+    expect(patch.statusCode).toBe(200);
+    expect((patch.json() as { roleName: string }).roleName).toBe("Patch Me Role Renamed");
+  });
+
+  it("DELETE /api/v1/roles/:id removes role", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/v1/roles",
+      headers: { ...authHeaders(accessToken), "content-type": "application/json" },
+      payload: { roleName: "Delete Me Role", permissions: {} },
+    });
+    const { id } = created.json() as { id: string };
+    const del = await app.inject({
+      method: "DELETE",
+      url: `/api/v1/roles/${id}`,
+      headers: authHeaders(accessToken),
+    });
+    expect(del.statusCode).toBe(204);
+    const list = await app.inject({
+      method: "GET",
+      url: "/api/v1/roles",
+      headers: authHeaders(accessToken),
+    });
+    const roles = list.json() as { id: string }[];
+    expect(roles.some((r) => r.id === id)).toBe(false);
   });
 });

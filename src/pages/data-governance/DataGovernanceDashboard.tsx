@@ -38,7 +38,9 @@ import {
   mappingAccuracyTrend90,
   validationFailureBySource,
   matchConfidenceDistribution,
-  dataQualityScoreTrend,
+  dataQualityScoreTrend30,
+  dataQualityScoreTrend60,
+  dataQualityScoreTrend90,
   rejectionReasonsBreakdown,
 } from "@/data/data-governance-mock";
 
@@ -98,6 +100,12 @@ export function DataGovernanceDashboard() {
       : range === "60"
         ? mappingAccuracyTrend60
         : mappingAccuracyTrend90;
+  const qualityData =
+    range === "30"
+      ? dataQualityScoreTrend30
+      : range === "60"
+        ? dataQualityScoreTrend60
+        : dataQualityScoreTrend90;
 
   return (
     <div className="space-y-8 animate-fade-in">
@@ -109,7 +117,7 @@ export function DataGovernanceDashboard() {
           </p>
         </div>
         <div className="flex shrink-0 flex-col gap-1 sm:items-end">
-          <span className="text-caption font-medium text-muted-foreground">Mapping trend period</span>
+          <span className="text-caption font-medium text-muted-foreground">Trend period</span>
           <div className="flex gap-1.5">
             {(["30", "60", "90"] as const).map((d) => (
               <button
@@ -147,11 +155,15 @@ export function DataGovernanceDashboard() {
           <div className="h-full rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-6">
             <div>
               <h2 className="text-h4 font-semibold text-foreground">Mapping Accuracy Trend</h2>
-              <p className="mt-1 text-caption text-muted-foreground">Accuracy over selected period (use selector at top)</p>
+              <p className="mt-1 text-caption text-muted-foreground">Accuracy over selected period (use trend period above)</p>
             </div>
             <div className="mt-4 h-[260px]">
               <ChartContainer config={mappingAccuracyConfig} className="h-full w-full">
-                <LineChart data={mappingData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                <LineChart
+                  key={range}
+                  data={mappingData}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={8} fontSize={10} />
                   <YAxis
@@ -245,10 +257,14 @@ export function DataGovernanceDashboard() {
         >
           <div className="h-full rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-6">
             <h2 className="text-h4 font-semibold text-foreground">Data Quality Score Trend</h2>
-            <p className="mt-1 text-caption text-muted-foreground">Quality score over time</p>
+            <p className="mt-1 text-caption text-muted-foreground">Quality score over the same period as mapping accuracy (selector at top)</p>
             <div className="mt-4 h-[260px]">
               <ChartContainer config={dataQualityConfig} className="h-full w-full">
-                <LineChart data={dataQualityScoreTrend} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
+                <LineChart
+                  key={`quality-${range}`}
+                  data={qualityData}
+                  margin={{ top: 8, right: 8, left: 0, bottom: 8 }}
+                >
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="period" tickLine={false} axisLine={false} tickMargin={8} fontSize={10} />
                   <YAxis

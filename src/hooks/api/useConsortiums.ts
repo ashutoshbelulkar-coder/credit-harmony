@@ -45,6 +45,7 @@ export function useCreateConsortium() {
       qc.invalidateQueries({ queryKey: QK.consortiums.all() });
       qc.invalidateQueries({ queryKey: QK.consortiums.detail(row.id) });
       qc.invalidateQueries({ queryKey: QK.consortiums.members(row.id) });
+      qc.invalidateQueries({ queryKey: QK.approvals.all() });
       toast.success("Consortium created");
     },
     onError: (e: ApiError) => toast.error(e.message),
@@ -59,6 +60,7 @@ export function useUpdateConsortium() {
       qc.invalidateQueries({ queryKey: QK.consortiums.all() });
       qc.invalidateQueries({ queryKey: QK.consortiums.detail(id) });
       qc.invalidateQueries({ queryKey: QK.consortiums.members(id) });
+      qc.invalidateQueries({ queryKey: QK.approvals.all() });
       toast.success("Consortium updated");
     },
     onError: (e: ApiError) => toast.error(e.message),

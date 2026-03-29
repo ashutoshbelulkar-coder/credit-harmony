@@ -1,0 +1,496 @@
+# Hand-maintained snapshot of the in-repo Fastify API (server/src/index.ts).
+# Version drift: compare with code and docs/technical/API-UI-Parity-Matrix.md before relying on codegen.
+openapi: 3.0.3
+info:
+  title: HCB Admin Portal — Fastify dev API
+  version: "1.0.0"
+  description: |
+    Development surrogate; in-memory state seeded from src/data/*.json.
+    Not all response schemas are fully specified here.
+servers:
+  - url: http://127.0.0.1:8091/api
+    description: Default local (npm run server)
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ErrorBody:
+      type: object
+      properties:
+        error: { type: string }
+        message: { type: string }
+    PagedInstitutions:
+      type: object
+      properties:
+        content: { type: array, items: { type: object } }
+        totalElements: { type: integer }
+        totalPages: { type: integer }
+        page: { type: integer }
+        size: { type: integer }
+    MonitoringKpis:
+      type: object
+      properties:
+        totalCallsToday: { type: number }
+        successRatePercent: { type: number }
+        p95LatencyMs: { type: number }
+        avgProcessingTimeMs: { type: number }
+        rejectionRatePercent: { type: number }
+        activeApiKeys: { type: integer }
+    MonitoringEnquiry:
+      type: object
+      description: Normalised enquiry row (seed from monitoring.json enquiryLogEntries).
+      properties:
+        enquiryId: { type: string }
+        institution: { type: string }
+        status: { type: string }
+        responseTimeMs: { type: number }
+        enquiryType: { type: string }
+        timestamp: { type: string }
+        consumerId: { type: string }
+        productId: { type: string }
+        productName: { type: string }
+        alternateDataUsed: { type: integer, default: 0 }
+    PagedMonitoringEnquiries:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonitoringEnquiry"
+        totalElements: { type: integer }
+        totalPages: { type: integer }
+        page: { type: integer }
+        size: { type: integer }
+    ProductCatalogLifecycleStatus:
+      type: string
+      description: |
+        Catalogue product lifecycle for Fastify dev API. Create defaults to approval_pending when omitted.
+        Reject or request-changes on the linked approval sets draft.
+      enum:
+        - approval_pending
+        - pending
+        - active
+        - draft
+    ConsortiumLifecycleStatus:
+      type: string
+      description: |
+        Consortium row status. Omitting status on POST defaults to approval_pending (enqueues approval).
+        POST with status active skips the queue.
+      enum:
+        - approval_pending
+        - pending
+        - active
+        - inactive
+paths:
+  /v1/health:
+    get:
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string }
+  /v1/auth/login:
+    post:
+      summary: Login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: Tokens + user
+        "401":
+          description: Invalid credentials
+  /v1/auth/refresh:
+    post:
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token: { type: string }
+      responses:
+        "200":
+          description: New tokens
+  /v1/auth/logout:
+    post:
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Logged out
+  /v1/institutions:
+    get:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: size
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paged institution list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PagedInstitutions"
+    post:
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Created institution
+  /v1/institutions/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Institution
+    patch:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated
+    delete:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Soft-deleted
+  /v1/monitoring/kpis:
+    get:
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Monitoring KPI snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoringKpis"
+  /v1/monitoring/enquiries:
+    get:
+      summary: Paged enquiry log (optional filters)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: institutionId
+          schema: { type: string }
+          description: Filter by institution id (matches row institution_id; legacy name match fallback)
+        - in: query
+          name: status
+          schema: { type: string }
+          description: Exact match on row status (e.g. Success, Failed)
+        - in: query
+          name: dateFrom
+          schema: { type: string }
+          description: Inclusive lower bound yyyy-MM-dd (timestamp column)
+        - in: query
+          name: dateTo
+          schema: { type: string }
+          description: Inclusive upper bound yyyy-MM-dd (timestamp column)
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: size
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paged enquiry log rows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PagedMonitoringEnquiries"
+  /v1/institutions/{id}/monitoring/enquiries:
+    get:
+      summary: Same as GET /v1/monitoring/enquiries with institutionId from path
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: size
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paged enquiry log rows for institution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PagedMonitoringEnquiries"
+  /v1/users:
+    get:
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Paged users (same shape as institutions list)
+  /v1/users/{id}/deactivate:
+    post:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deactivated
+  /v1/approvals:
+    get:
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Paged approvals
+  /v1/reports:
+    get:
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Paged reports
+    post:
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Report row created
+  /v1/products:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Paged product catalogue
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: size
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paged products
+    post:
+      security:
+        - bearerAuth: []
+      summary: Create catalogue product
+      description: |
+        Requires non-empty `name`. Optional body fields include `description`, `status`, `price`, `pricingModel`,
+        `packetIds`, `packetConfigs`, `enquiryConfig`.
+        If `status` is `approval_pending` (or `pending`), the server also prepends an approvals item with
+        `type: product` and `metadata.productId` pointing at the new id, and records `PRODUCT_CREATE` in the audit log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                description: { type: string }
+                status:
+                  $ref: "#/components/schemas/ProductCatalogLifecycleStatus"
+                packetIds:
+                  type: array
+                  items: { type: string }
+                packetConfigs: { type: array, items: { type: object } }
+                enquiryConfig: { type: object }
+      responses:
+        "200":
+          description: Created product (summary fields + id)
+        "400":
+          description: Validation (e.g. missing name)
+  /v1/products/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Product detail
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Product including packetIds/packetConfigs/enquiryConfig when stored
+    patch:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated product
+    delete:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+  /v1/consortiums:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Paged consortium list
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: size
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paged consortiums
+    post:
+      security:
+        - bearerAuth: []
+      summary: Create consortium
+      description: |
+        Requires `name`. Default `status` is `approval_pending` when omitted, which prepends an approvals row
+        with `type: consortium` and `metadata.consortiumId`. Send `status: active` to skip the queue.
+        Optional `members` (institutionId + role) and `dataPolicy` are persisted; members populate `state.consortiumMembers`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                type: { type: string }
+                purpose: { type: string }
+                governanceModel: { type: string }
+                description: { type: string }
+                status:
+                  $ref: "#/components/schemas/ConsortiumLifecycleStatus"
+                dataPolicy: { type: object }
+                members:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      institutionId: { type: integer }
+                      role: { type: string }
+      responses:
+        "200":
+          description: Created consortium row
+        "400":
+          description: Validation (e.g. missing name)
+  /v1/consortiums/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Consortium detail
+    patch:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated consortium
+    delete:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+  /v1/consortiums/{id}/members:
+    get:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Member rows for consortium

@@ -47,11 +47,13 @@ import {
   enquiryResponseTimeTrendData,
   enquiryByProductData,
   enquirySuccessVsFailedData,
-  subscriberIdByApiKey,
   type EnquiryLogEntry,
   type EnquiryStatus,
 } from "@/data/monitoring-mock";
-import { institutions } from "@/data/institutions-mock";
+import { InstitutionFilterSelect } from "@/components/shared/InstitutionFilterSelect";
+import { useAuth } from "@/contexts/AuthContext";
+import { useInstitutions } from "@/hooks/api/useInstitutions";
+import { isWithinRelativeWindow, WINDOW_MS } from "@/lib/calc/dateFilter";
 import type { MonitoringFilters, TimeRangeValue } from "./MonitoringFilterBar";
 import { EnquiryDetailDrawer } from "./EnquiryDetailDrawer";
 import { useEnquiries } from "@/hooks/api/useMonitoring";
@@ -65,39 +67,23 @@ const ENQUIRY_TIME_OPTIONS: { value: TimeRangeValue; label: string }[] = [
   { value: "24h", label: "Last 24 hrs" },
 ];
 
-const subscribers = institutions.filter((i) => i.isSubscriber);
-
-function getSubscriberName(apiKey: string): string {
-  const id = subscriberIdByApiKey[apiKey];
-  if (!id) return "—";
-  const inst = institutions.find((i) => i.id === id);
-  return inst ? (inst.tradingName ?? inst.name) : "—";
-}
-
 /** Map an API EnquiryRecord → the EnquiryLogEntry shape the detail drawer expects. */
 function toMockEnquiry(r: EnquiryRecord): EnquiryLogEntry {
   return {
     enquiry_id: r.enquiryId,
     api_key: "",
-    product: r.enquiryType ?? "Credit Report",
-    product_id: "",
+    product: r.productName ?? r.enquiryType ?? "Credit Report",
+    product_id: r.productId ?? "",
     status: r.status as EnquiryStatus,
     response_time_ms: r.responseTimeMs,
     consumer_id: r.consumerId ?? "—",
-    alternate_data_used: 0,
+    alternate_data_used: r.alternateDataUsed ?? 0,
     timestamp: r.timestamp,
   };
 }
 
-function isWithinTimeRange(ts: string, timeRange: TimeRangeValue): boolean {
-  const ms = new Date(ts.replace(" ", "T")).getTime();
-  const now = Date.now();
-  const windowMs =
-    timeRange === "5m" ? 5 * 60 * 1000
-    : timeRange === "1h" ? 60 * 60 * 1000
-    : timeRange === "6h" ? 6 * 60 * 60 * 1000
-    : 24 * 60 * 60 * 1000;
-  return now - ms <= windowMs;
+function isWithinEnquiryTimeRange(ts: string, timeRange: TimeRangeValue): boolean {
+  return isWithinRelativeWindow(ts, WINDOW_MS[timeRange]);
 }
 
 const statusStyles: Record<EnquiryStatus, string> = {
@@ -153,6 +139,7 @@ export function InquiryApiSection({
   const [selectedEnquiry, setSelectedEnquiry] = useState<EnquiryLogEntry | null>(null);
   const [enquiryIdSearch, setEnquiryIdSearch] = useState("");
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const { user } = useAuth();
 
   const activeFilterCount = [
     enquiryIdSearch.trim().length > 0,
@@ -179,11 +166,16 @@ export function InquiryApiSection({
 
   const { data: enquiriesData, isLoading: tableLoading } = useEnquiries(apiParams);
 
+  const { data: institutionsPage } = useInstitutions(
+    { size: 300 },
+    { enabled: !!user, allowMockFallback: false }
+  );
+
   const tableRows = enquiriesData?.content ?? [];
 
   // Client-side refinement: enquiryId search and timeRange
   const clientFiltered = tableRows.filter((e) => {
-    if (!isWithinTimeRange(e.timestamp, filters.timeRange)) return false;
+    if (!isWithinEnquiryTimeRange(e.timestamp, filters.timeRange)) return false;
     if (enquiryIdSearch.trim() && !e.enquiryId.toLowerCase().includes(enquiryIdSearch.trim().toLowerCase())) return false;
     return true;
   });
@@ -191,14 +183,15 @@ export function InquiryApiSection({
   const filterContextSummary = useMemo(() => {
     const parts: string[] = [];
     if (filters.subscriberId !== "all") {
-      const inst = institutions.find((i) => i.id === filters.subscriberId);
+      const sid = String(filters.subscriberId).replace(/\D/g, "");
+      const inst = institutionsPage?.content.find((i) => String(i.id).replace(/\D/g, "") === sid);
       if (inst) parts.push(`Subscriber: ${inst.tradingName ?? inst.name}`);
     }
     if (filters.dateFrom?.trim() && filters.dateTo?.trim()) {
       parts.push(`Dates: ${filters.dateFrom} → ${filters.dateTo}`);
     }
     return parts.length ? parts.join(" · ") : undefined;
-  }, [filters.subscriberId, filters.dateFrom, filters.dateTo]);
+  }, [filters.subscriberId, filters.dateFrom, filters.dateTo, institutionsPage?.content]);
 
   const sorted = useMemo(() => {
     if (!sortKey) return clientFiltered;
@@ -336,16 +329,17 @@ export function InquiryApiSection({
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-caption text-muted-foreground">Institute</Label>
-                  <Select value={filters.subscriberId} onValueChange={(v) => { set({ subscriberId: v }); setPage(1); }}>
-                    <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Institute" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-caption">All subscribers</SelectItem>
-                      {subscribers.map((i) => <SelectItem key={i.id} value={i.id} className="text-caption">{i.tradingName ?? i.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <InstitutionFilterSelect
+                  mode="subscribers"
+                  value={filters.subscriberId}
+                  onValueChange={(v) => {
+                    set({ subscriberId: v });
+                    setPage(1);
+                  }}
+                  label="Institute"
+                  allLabel="All subscribers"
+                  triggerClassName="h-8 w-full text-caption"
+                />
                 <div className="space-y-1.5">
                   <Label className="text-caption text-muted-foreground">Time</Label>
                   <Select value={filters.timeRange} onValueChange={(v) => { set({ timeRange: v as TimeRangeValue }); setPage(1); }}>
@@ -377,16 +371,17 @@ export function InquiryApiSection({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5 min-w-0">
-              <Label className="text-caption text-muted-foreground">Institute</Label>
-              <Select value={filters.subscriberId} onValueChange={(v) => { set({ subscriberId: v }); setPage(1); }}>
-                <SelectTrigger className="h-8 min-w-[180px] max-w-[220px] text-caption"><SelectValue placeholder="Institute" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-caption">All subscribers</SelectItem>
-                  {subscribers.map((i) => <SelectItem key={i.id} value={i.id} className="text-caption">{i.tradingName ?? i.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+            <InstitutionFilterSelect
+              mode="subscribers"
+              value={filters.subscriberId}
+              onValueChange={(v) => {
+                set({ subscriberId: v });
+                setPage(1);
+              }}
+              label="Institute"
+              allLabel="All subscribers"
+              triggerClassName="h-8 min-w-[180px] max-w-[220px] text-caption"
+            />
             <div className="space-y-1.5 min-w-0">
               <Label className="text-caption text-muted-foreground">Time</Label>
               <Select value={filters.timeRange} onValueChange={(v) => { set({ timeRange: v as TimeRangeValue }); setPage(1); }}>
@@ -426,10 +421,10 @@ export function InquiryApiSection({
                   ) : sorted.map((e) => (
                     <tr key={e.enquiryId} className="hover:bg-muted/30 transition-colors">
                       <td className="px-5 py-4 text-caption font-medium text-foreground">{e.enquiryId}</td>
-                      <td className="px-5 py-4 text-caption text-muted-foreground">
-                        {e.institution || getSubscriberName("")}
+                      <td className="px-5 py-4 text-caption text-muted-foreground">{e.institution || "—"}</td>
+                      <td className="px-5 py-4 text-body text-foreground">
+                        {e.productName ?? e.enquiryType}
                       </td>
-                      <td className="px-5 py-4 text-body text-foreground">{e.enquiryType}</td>
                       <td className="px-5 py-4">
                         <span className={cn("px-2.5 py-1 rounded-full", badgeTextClasses, statusStyles[e.status as EnquiryStatus] ?? "bg-muted text-muted-foreground")}>
                           {e.status}
@@ -453,9 +448,13 @@ export function InquiryApiSection({
             </div>
             <div className="flex items-center justify-between px-5 py-3 border-t border-border">
               <span className="text-caption text-muted-foreground">
-                {totalElements > 0
-                  ? `Showing ${(page - 1) * PAGE_SIZE + 1}–${Math.min(page * PAGE_SIZE, totalElements)} of ${totalElements} enquiries`
-                  : "0 enquiries"}
+                {sorted.length === 0
+                  ? tableRows.length > 0
+                    ? "No enquiries match the current filters on this page."
+                    : totalElements === 0
+                      ? "0 enquiries"
+                      : "No enquiries on this page"
+                  : `Showing ${(page - 1) * PAGE_SIZE + 1}–${(page - 1) * PAGE_SIZE + sorted.length} of ${totalElements} enquiries`}
               </span>
               <div className="flex items-center gap-1">
                 <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage(page - 1)}>Previous</Button>

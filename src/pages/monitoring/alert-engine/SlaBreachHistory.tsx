@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { tableHeaderClasses } from "@/lib/typography";
 import { slaBreachHistory as mockSlaBreachHistory, type SlaBreachRecord, type SeverityLevel } from "@/data/alert-engine-mock";
 import { useBreachHistory } from "@/hooks/api/useAlerts";
-import { institutions } from "@/data/institutions-mock";
+import { InstitutionFilterSelect } from "@/components/shared/InstitutionFilterSelect";
 import type { MonitoringFilters } from "../MonitoringFilterBar";
 import { DatePicker } from "@/components/ui/date-picker";
 import {
@@ -21,8 +21,6 @@ const cardClass =
 
 const DOMAINS = ["Data Submission API", "Batch Processing", "Inquiry API", "All"];
 const SEVERITIES: (SeverityLevel | "All")[] = ["All", "Critical", "Warning", "Info"];
-
-const institutionsList = institutions;
 
 const severityStyles: Record<SeverityLevel, string> = {
   Critical: "bg-destructive/15 text-destructive",
@@ -57,13 +55,16 @@ export function SlaBreachHistory({ filters }: { filters: MonitoringFilters }) {
     return slaBreachHistory.filter((row) => {
       if (domainFilter !== "All" && row.slaType !== domainFilter) return false;
       if (severityFilter !== "All" && row.severity !== severityFilter) return false;
-      if (institutionFilter !== "all" && row.institution_id !== institutionFilter) return false;
+      if (institutionFilter !== "all") {
+        const norm = (v: string) => String(v).replace(/\D/g, "");
+        if (norm(row.institution_id) !== norm(institutionFilter)) return false;
+      }
       const rowDate = row.detectedAt.slice(0, 10);
       if (dateFrom && rowDate < dateFrom) return false;
       if (dateTo && rowDate > dateTo) return false;
       return true;
     });
-  }, [domainFilter, severityFilter, institutionFilter, dateFrom, dateTo]);
+  }, [slaBreachHistory, domainFilter, severityFilter, institutionFilter, dateFrom, dateTo]);
 
   return (
     <section>
@@ -115,16 +116,14 @@ export function SlaBreachHistory({ filters }: { filters: MonitoringFilters }) {
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-caption">Institution</Label>
-                  <Select value={institutionFilter} onValueChange={setInstitutionFilter}>
-                    <SelectTrigger className="h-8 w-full"><SelectValue placeholder="All institutions" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All institutions</SelectItem>
-                      {institutionsList.map((i) => <SelectItem key={i.id} value={i.id}>{i.tradingName ?? i.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <InstitutionFilterSelect
+                  mode="all"
+                  value={institutionFilter}
+                  onValueChange={setInstitutionFilter}
+                  label="Institution"
+                  allLabel="All institutions"
+                  triggerClassName="h-8 w-full"
+                />
               </div>
             )}
           </div>
@@ -155,16 +154,14 @@ export function SlaBreachHistory({ filters }: { filters: MonitoringFilters }) {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-caption">Institution</Label>
-              <Select value={institutionFilter} onValueChange={setInstitutionFilter}>
-                <SelectTrigger className="h-8 min-w-[180px] max-w-[220px]"><SelectValue placeholder="All institutions" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All institutions</SelectItem>
-                  {institutionsList.map((i) => <SelectItem key={i.id} value={i.id}>{i.tradingName ?? i.name}</SelectItem>)}
-                </SelectContent>
-              </Select>
-            </div>
+            <InstitutionFilterSelect
+              mode="all"
+              value={institutionFilter}
+              onValueChange={setInstitutionFilter}
+              label="Institution"
+              allLabel="All institutions"
+              triggerClassName="h-8 min-w-[180px] max-w-[220px]"
+            />
           </div>
         </div>
         <div className="min-w-0 overflow-x-auto">

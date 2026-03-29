@@ -7,7 +7,8 @@ import {
   type MonitoringFilters,
 } from "./MonitoringFilterBar";
 import { MonitoringAlertBanner } from "./MonitoringAlertBanner";
-import { apiSubmissionKpis } from "@/data/monitoring-mock";
+import { useMonitoringKpis } from "@/hooks/api/useMonitoring";
+import { ApiErrorCard } from "@/components/ui/api-error-card";
 
 export type MonitoringOutletContext = {
   filters: MonitoringFilters;
@@ -37,8 +38,11 @@ export function MonitoringLayout() {
   const title = monitoringTitles[pathSegment] ?? "Monitoring";
   const description = monitoringDescriptions[pathSegment] ?? "API usage, error rates, SLA health, and data quality metrics.";
 
-  const showSuccessRateAlert = apiSubmissionKpis.successRatePercent < 95;
-  const showLatencyAlert = apiSubmissionKpis.p95LatencyMs > 300;
+  const kpisQuery = useMonitoringKpis();
+  const kpis = kpisQuery.data;
+  const kpisReady = kpisQuery.isSuccess && !!kpis;
+  const showSuccessRateAlert = kpisReady && kpis.successRatePercent < 95;
+  const showLatencyAlert = kpisReady && kpis.p95LatencyMs > 300;
 
   const isAlertEngine = pathSegment === "alert-engine";
 
@@ -80,18 +84,26 @@ export function MonitoringLayout() {
             )}
           </div>
 
-          {showSuccessRateAlert && (
-            <MonitoringAlertBanner
-              type={apiSubmissionKpis.successRatePercent < 90 ? "critical" : "warning"}
-              title="Success rate below threshold"
-              description={`Current success rate is ${apiSubmissionKpis.successRatePercent}%. Target is ≥95%.`}
+          {kpisQuery.isError && (
+            <ApiErrorCard
+              error={kpisQuery.error}
+              onRetry={() => void kpisQuery.refetch()}
+              className="mb-2"
             />
           )}
-          {showLatencyAlert && (
+
+          {kpisReady && showSuccessRateAlert && (
+            <MonitoringAlertBanner
+              type={kpis.successRatePercent < 90 ? "critical" : "warning"}
+              title="Success rate below threshold"
+              description={`Current success rate is ${kpis.successRatePercent}%. Target is ≥95%.`}
+            />
+          )}
+          {kpisReady && showLatencyAlert && (
             <MonitoringAlertBanner
               type="warning"
               title="Latency spike detected"
-              description={`P95 latency is ${apiSubmissionKpis.p95LatencyMs} ms. Review recent traffic.`}
+              description={`P95 latency is ${kpis.p95LatencyMs} ms. Review recent traffic.`}
             />
           )}
 

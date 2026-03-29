@@ -25,6 +25,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { useProduct, useCreateProduct, useUpdateProduct } from "@/hooks/api/useProducts";
+import type { ProductResponse } from "@/services/products.service";
 import {
   buildProductPreviewJson,
   productCatalogPacketOptions,
@@ -109,10 +110,19 @@ export default function ProductFormPage() {
     if (existing) {
       setName(existing.name);
       setDescription(existing.description ?? "");
-      // packetIds and enquiryConfig are product-catalog concerns not returned by REST API
-      setOrderedPacketIds([]);
-      setPacketConfigs([]);
-      setEnquiryConfig(DEFAULT_ENQUIRY_CONFIG);
+      const ext = existing as ProductResponse;
+      const ids = Array.isArray(ext.packetIds) ? ext.packetIds : [];
+      setOrderedPacketIds(ids);
+      setPacketConfigs(
+        Array.isArray(ext.packetConfigs)
+          ? (ext.packetConfigs as PacketConfig[])
+          : []
+      );
+      setEnquiryConfig(
+        ext.enquiryConfig && typeof ext.enquiryConfig === "object"
+          ? normalizeEnquiryConfig(ext.enquiryConfig as Partial<EnquiryConfig>)
+          : DEFAULT_ENQUIRY_CONFIG
+      );
     } else if (!isEdit) {
       setName("");
       setDescription("");
@@ -188,6 +198,9 @@ export default function ProductFormPage() {
             name: name.trim(),
             description: description.trim(),
             status: existing?.status ?? "approval_pending",
+            packetIds: orderedPacketIds,
+            packetConfigs,
+            enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
           },
         },
         { onSuccess: () => navigate(`/data-products/products/${id}`) }
@@ -198,6 +211,9 @@ export default function ProductFormPage() {
           name: name.trim(),
           description: description.trim(),
           status: "approval_pending",
+          packetIds: orderedPacketIds,
+          packetConfigs,
+          enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
         },
         { onSuccess: (row) => navigate(`/data-products/products/${row.id}`) }
       );

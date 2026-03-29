@@ -37,6 +37,8 @@ function mapMonitoringStatusToPipeline(s: MonitoringBatchStatus): BatchPipelineR
       return "queued";
     case "Suspended":
       return "processing";
+    case "Cancelled":
+      return "queued";
     default:
       return "processing";
   }
@@ -63,6 +65,7 @@ function relativeUploaded(uploaded: string): string {
 
 function computeProgress(job: BatchJob): number {
   if (job.status === "Completed") return 100;
+  if (job.status === "Cancelled") return 0;
   if (job.status === "Queued") return 0;
   if (job.total_records <= 0) return 0;
   if (job.status === "Failed") {
@@ -78,13 +81,14 @@ function computeQuality(job: BatchJob): number | null {
 
 function priorityForJob(job: BatchJob): BatchPipelineRow["priority"] {
   if (job.status === "Failed") return "critical";
-  if (job.status === "Queued") return "low";
+  if (job.status === "Queued" || job.status === "Cancelled") return "low";
   return "normal";
 }
 
 export function batchJobsToPipelineRows(jobs: BatchJob[]): BatchPipelineRow[] {
   const sorted = [...jobs].sort((a, b) => {
-    const active = (s: MonitoringBatchStatus) => (s === "Queued" || s === "Processing" ? 0 : s === "Failed" ? 2 : 1);
+    const active = (s: MonitoringBatchStatus) =>
+      s === "Queued" || s === "Processing" ? 0 : s === "Failed" ? 2 : s === "Cancelled" ? 1 : 1;
     const ra = active(a.status);
     const rb = active(b.status);
     if (ra !== rb) return ra - rb;

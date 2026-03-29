@@ -195,15 +195,19 @@ const RegisterInstitution = () => {
           uploadFailed = true;
         }
       }
+      await queryClient.invalidateQueries({ queryKey: QK.institutions.all() });
+      await queryClient.invalidateQueries({ queryKey: QK.approvals.all() });
       await queryClient.invalidateQueries({ queryKey: QK.institutions.detail(String(inst.id)) });
       if (uploadFailed) {
         toast.error(
           "Institution was created, but one or more document uploads failed. Retry uploads from the member record when available."
         );
       } else {
-        toast.success("Institution submitted for Super Admin approval. Track status in the Approval Queue.");
+        toast.success(
+          "Member registered with status Pending — visible in the list below. Complete approval in Approval Queue (Institutions tab)."
+        );
       }
-      navigate("/approval-queue");
+      navigate("/institutions");
     } catch {
       // createInstitution mutation surfaces errors via onError toast
     }

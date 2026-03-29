@@ -129,7 +129,7 @@ npm run test
 
 | File | What it validates |
 |------|-------------------|
-| `server/src/api.integration.test.ts` | Login, refresh, authz on institutions, dashboard metrics, approvals, users PATCH, audit query, alert-rule lifecycle, reports POST, products list, batch retry/cancel, consortium members, institution memberships/subscriptions, roles |
+| `server/src/api.integration.test.ts` | Login, refresh, authz on institutions, **POST institutions** → list + `GET /approvals?type=institution`, dashboard metrics, approvals, users PATCH, **audit-logs** (seeded list, filters, **PATCH institution asserts `INSTITUTION_UPDATE` audit growth**), alert-rule lifecycle, reports POST, products list, **POST products** → `type=product`, **POST consortiums** → `type=consortium`, batch retry/cancel, consortium members, institution memberships/subscriptions, **roles GET/POST/PATCH/DELETE** |
 | `server/src/test-helpers.ts` | Shared `loginAsAdmin` / `authHeaders` for integration tests |
 | `src/test/lib/api-client.test.ts` | HTTP helper behaviour (errors, refresh) |
 | `src/test/calc/*.test.ts` | KPI/date/batch calculations |
@@ -142,6 +142,17 @@ npm run test
 ```bash
 npm run test:watch
 ```
+
+### End-to-end (Playwright)
+
+One browser test drives login + navigation with **`VITE_USE_MOCK_FALLBACK=false`** against a spawned Fastify (8091) and Vite (4173). First time only:
+
+```bash
+npx playwright install
+npm run test:e2e
+```
+
+See `playwright.config.ts` and `e2e/critical-flows.spec.ts`.
 
 ### Coverage (optional)
 
@@ -193,6 +204,11 @@ On bash, replace `^` with `\` for line continuation.
 | Test strategy + Spring-target tables (aspirational) | `docs/technical/Testing-Plan.md` |
 | Post-prototype backend plan | `docs/technical/Production-Backend-Roadmap.md` |
 | ADRs | `docs/technical/Technical-Decision-Log.md` |
+| Global API errors (target envelope + codes) | `docs/technical/Global-API-Error-Dictionary.md` |
+| Idempotency / retries / async jobs | `docs/technical/Idempotency-And-Retries.md` |
+| Multi-tenant SaaS (target) | `docs/technical/Multi-Tenant-Target-Architecture.md` |
+| AI agents / prompts / HITL (target) | `docs/technical/AI-Governance-Framework.md` |
+| OpenAPI snapshot (validate with `npm run openapi:validate`) | `docs/technical/openapi-hcb-fastify-snapshot.yaml` |
 | Repo scripts and stack summary | `README.md` |
 
 **Important:** `Testing-Plan.md` mixes **target** Spring/JUnit scenarios with **implemented** Vitest/Fastify coverage. Always read the section titled **“Implemented tests in this repository”** for ground truth on what CI actually runs today.
@@ -212,6 +228,7 @@ When demoing to stakeholders, say explicitly: **“This is a working UI prototyp
 ## 12. Release checklist (minimal)
 
 - [ ] `npm run test` — all green
+- [ ] `npm run openapi:validate` — OpenAPI snapshot parses (CI runs this)
 - [ ] `npm run build` — SPA builds
 - [ ] Spot-check login + one mutating flow (e.g. alert rule edit) against running API
 - [ ] Confirm `VITE_SHOW_DEMO_AUTH_UI` / copy matches the environment (prod vs demo)

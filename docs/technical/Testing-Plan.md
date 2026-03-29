@@ -518,11 +518,13 @@ npm run test
 
 #### Phase C — Roles Page
 
-**`RolesPermissionsPage.tsx`** — wired to `useRoles`:
-- `useEffect` seeds local `roles` state from API when `apiRoles` resolves
-- Falls back to `initialRoles` (mock) when API unavailable
-- All CRUD mutations remain local-only (toast feedback); `useCreateRole`, `useUpdateRole`, `useDeleteRole` ready for wiring
-- Permission matrix and create/edit/delete dialogs unchanged
+**`RolesPermissionsPage.tsx`** — wired to `useRoles` + mutations:
+- `useEffect` seeds local `roles` from `GET /api/v1/roles` when `apiRoles` resolves (matrix from API or `sectionMatrixForRoleName` for legacy shapes)
+- **Create / edit / delete** call `POST` / `PATCH` / `DELETE` via `useCreateRole`, `useUpdateRole`, `useDeleteRole` (persisted in Fastify in-memory state)
+- `mergeRolePermissionsFromApi` + normalized `fetchRoles` rows: built-in role matrices display even when the backend omits or only partially sends `permissions` (e.g. Spring `Role` DTO)
+
+**`ActivityLogPage.tsx`** — `useAuditLogs(..., { allowMockFallback: false })`: rows only from **`GET /api/v1/audit-logs`** (seeded in Fastify + `pushAudit` on auth, **approval queue**, **institution** and sub-resource mutations, users, roles, batch, alert-rule create, product/consortium create). **Regression:** `api.integration.test.ts` includes **PATCH `/api/v1/institutions/:id`** → **`INSTITUTION_UPDATE`** audit count increases.
+- Mock fallback catalog uses ids `local-*`; those rows edit/delete locally only; create still POSTs
 
 ### Summary: Phase 11 Verdict (Remaining Page Wiring)
 
@@ -533,7 +535,7 @@ npm run test
 | `ActivityLogPage` | `useAuditLogs` | Mock via service layer | Server pagination, client search |
 | `GovernanceAuditLogs` | `useAuditLogs` (entityType=GOVERNANCE) | Mock via service layer | Date + action filters |
 | `AuditTrailTab` | `useAuditLogs` (entityId=institutionId) | Mock via service layer | Institution-scoped |
-| `RolesPermissionsPage` | `useRoles` (seed only) | `roleDefinitions` mock | Mutations remain local |
+| `RolesPermissionsPage` | `useRoles` + create/update/delete mutations | `roleDefinitions` via `fetchRoles` fallback | CRUD persisted on dev API |
 
 **Backend test suite:** ✅ 8/8 PASS (fixed missing `spring-boot-starter-actuator` dependency in `pom.xml`)
 

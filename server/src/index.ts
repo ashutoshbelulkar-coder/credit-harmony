@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { createInitialState, pushAudit } from "./state.js";
 import type { JwtUser } from "./types.js";
+import { isWithinDateRange } from "../../src/lib/calc/dateFilter.ts";
 
 const JWT_SECRET = process.env.JWT_SECRET ?? "hcb-dev-secret-change-in-production";
 const PORT = Number(process.env.PORT ?? 8091);
@@ -82,14 +83,20 @@ function normaliseApiRequest(m: any) {
 }
 
 function normaliseEnquiry(m: any) {
+  const altRaw = m.alternate_data_used ?? m.alternateDataUsed ?? 0;
+  const altNum = Number(altRaw);
+  const pid = m.product_id ?? m.productId;
   return {
-    enquiryId: m.id ?? m.enquiry_id,
+    enquiryId: String(m.id ?? m.enquiry_id ?? ""),
     institution: m.institution ?? "",
     status: m.status ?? "Success",
     responseTimeMs: m.response_time_ms ?? 0,
     enquiryType: m.enquiry_type ?? "Standard",
     timestamp: m.timestamp ?? "",
     consumerId: m.consumer_id,
+    productId: pid != null && String(pid).length > 0 ? String(pid) : undefined,
+    productName: m.product ?? m.product_name ?? m.productName,
+    alternateDataUsed: Number.isFinite(altNum) ? Math.max(0, Math.floor(altNum)) : 0,
   };
 }
 
@@ -206,6 +213,34 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
   await app.register(cors, { origin: true });
   await app.register(multipart, { limits: { fileSize: 10 * 1024 * 1024 } });
 
+  /** Liveness for load balancers and E2E / CI (no auth). */
+  app.get("/api/v1/health", async () => ({ status: "ok", service: "hcb-fastify-dev" }));
+
+  function filterEnquiriesByInstitutionId(raw: any[], institutionIdParam: string) {
+    const idNorm = String(institutionIdParam).replace(/\D/g, "");
+    const inst = state.institutions.find((i) => String(i.id).replace(/\D/g, "") === idNorm);
+    return raw.filter((e: any) => {
+      const eid = e.institution_id;
+      if (eid != null && String(eid).replace(/\D/g, "") === idNorm) return true;
+      if (inst && e.institution === inst.name) return true;
+      return false;
+    });
+  }
+
+  function monitoringEnquiriesPaged(q: Record<string, string | undefined>) {
+    let raw = [...state.enquiries];
+    if (q.status) raw = raw.filter((e: { status?: string }) => String(e.status ?? "") === String(q.status));
+    const dateFrom = q.dateFrom?.trim() ?? "";
+    const dateTo = q.dateTo?.trim() ?? "";
+    if (dateFrom || dateTo) {
+      raw = raw.filter((e: { timestamp?: string }) =>
+        isWithinDateRange(String(e.timestamp ?? ""), dateFrom, dateTo)
+      );
+    }
+    if (q.institutionId) raw = filterEnquiriesByInstitutionId(raw, q.institutionId);
+    return pageSlice(raw.map(normaliseEnquiry), Number(q.page), Number(q.size));
+  }
+
   function consortiumMembersForApi(consortiumId: string) {
     return state.consortiumMembers
       .filter((m) => m.consortiumId === consortiumId)
@@ -275,13 +310,38 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     if (!body?.email || !body?.password) return err(reply, 400, "ERR_VALIDATION", "Email and password required");
     const u = state.users.find((x) => x.email.toLowerCase() === body.email!.toLowerCase());
     if (!u || !bcrypt.compareSync(body.password!, u.passwordHash)) {
+      pushAudit(state, {
+        userEmail: body.email!,
+        actionType: "LOGIN",
+        entityType: "AUTH",
+        entityId: "login",
+        description: "Failed login — invalid credentials",
+        auditOutcome: "FAILURE",
+      });
       return err(reply, 401, "ERR_AUTH_FAILED", "Invalid email or password");
     }
-    if (u.userAccountStatus !== "Active") return err(reply, 403, "ERR_ACCOUNT_SUSPENDED", "Account not active");
+    if (u.userAccountStatus !== "Active") {
+      pushAudit(state, {
+        userEmail: u.email,
+        actionType: "LOGIN",
+        entityType: "AUTH",
+        entityId: String(u.id),
+        description: "Failed login — account not active",
+        auditOutcome: "FAILURE",
+      });
+      return err(reply, 403, "ERR_ACCOUNT_SUSPENDED", "Account not active");
+    }
     const user = toPublicUser(u);
     const accessToken = signAccess({ id: user.id, email: user.email, roles: user.roles });
     const refreshToken = randomUUID();
     state.refreshTokens.set(refreshToken, { userId: u.id, expiresAt: Date.now() + 7 * 24 * 3600 * 1000 });
+    pushAudit(state, {
+      userEmail: u.email,
+      actionType: "LOGIN",
+      entityType: "AUTH",
+      entityId: String(u.id),
+      description: "Successful login",
+    });
     return {
       accessToken,
       refreshToken,
@@ -312,6 +372,13 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
   app.post("/api/v1/auth/logout", { preHandler: authPreHandler }, async (req, reply) => {
     const body = req.body as { refresh_token?: string };
     if (body?.refresh_token) state.refreshTokens.delete(body.refresh_token);
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "LOGOUT",
+      entityType: "AUTH",
+      entityId: String(req.user!.id),
+      description: "User logged out",
+    });
     return reply.code(204).send();
   });
 
@@ -448,6 +515,13 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     const inst = state.institutions.find((i) => i.id === id && !i.isDeleted);
     if (!inst) return err(reply, 404, "ERR_NOT_FOUND", "Not found");
     Object.assign(inst, req.body, { updatedAt: new Date().toISOString().slice(0, 10) });
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "INSTITUTION_UPDATE",
+      entityType: "INSTITUTION",
+      entityId: String(id),
+      description: `Updated institution ${inst.name}`,
+    });
     return inst;
   });
 
@@ -465,6 +539,13 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     const inst = state.institutions.find((i) => i.id === id && !i.isDeleted);
     if (!inst) return err(reply, 404, "ERR_NOT_FOUND", "Not found");
     inst.institutionLifecycleStatus = "active";
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "INSTITUTION_REACTIVATE",
+      entityType: "INSTITUTION",
+      entityId: String(id),
+      description: `Reactivated institution ${inst.name}`,
+    });
     return reply.code(204).send();
   });
 
@@ -472,7 +553,15 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     const id = Number((req.params as { id: string }).id);
     const inst = state.institutions.find((i) => i.id === id && !i.isDeleted);
     if (!inst) return err(reply, 404, "ERR_NOT_FOUND", "Not found");
+    const name = inst.name;
     inst.isDeleted = true;
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "INSTITUTION_DELETE",
+      entityType: "INSTITUTION",
+      entityId: String(id),
+      description: `Soft-deleted institution ${name}`,
+    });
     return reply.code(204).send();
   });
 
@@ -525,6 +614,13 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     };
     state.institutionConsortiumMemberships.push(row);
     inst.updatedAt = new Date().toISOString().slice(0, 10);
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "INSTITUTION_CONSORTIUM_JOIN",
+      entityType: "INSTITUTION",
+      entityId: String(institutionId),
+      description: `Added consortium membership ${consortiumId} (${c.name})`,
+    });
     return {
       membershipId: row.membershipId,
       consortiumId: row.consortiumId,
@@ -547,6 +643,13 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     state.institutionConsortiumMemberships.splice(idx, 1);
     const inst = state.institutions.find((i: { id: number }) => i.id === institutionId);
     if (inst) inst.updatedAt = new Date().toISOString().slice(0, 10);
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "INSTITUTION_CONSORTIUM_LEAVE",
+      entityType: "INSTITUTION",
+      entityId: String(institutionId),
+      description: `Removed consortium membership ${membershipId}`,
+    });
     return reply.code(204).send();
   });
 
@@ -584,6 +687,15 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       created.push(row);
     }
     inst.updatedAt = new Date().toISOString().slice(0, 10);
+    if (created.length > 0) {
+      pushAudit(state, {
+        userEmail: req.user!.email,
+        actionType: "INSTITUTION_PRODUCT_SUBSCRIBE",
+        entityType: "INSTITUTION",
+        entityId: String(institutionId),
+        description: `Subscribed to product(s): ${created.map((r) => r.productId).join(", ")}`,
+      });
+    }
     return created.map((s) => toProductSubscriptionRow(institutionId, s)).filter(Boolean);
   });
 
@@ -605,6 +717,13 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     inst.updatedAt = new Date().toISOString().slice(0, 10);
     const row = toProductSubscriptionRow(institutionId, s);
     if (!row) return err(reply, 500, "ERR_INTERNAL", "Product missing for subscription");
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "INSTITUTION_PRODUCT_SUBSCRIPTION_UPDATE",
+      entityType: "INSTITUTION",
+      entityId: String(institutionId),
+      description: `Subscription ${subscriptionId} status → ${st}`,
+    });
     return row;
   });
 
@@ -643,6 +762,13 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       Object.assign(inst.memberRateOverrides as Record<string, number>, body.memberRateOverrides);
     }
     inst.updatedAt = new Date().toISOString().slice(0, 10);
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "INSTITUTION_BILLING_UPDATE",
+      entityType: "INSTITUTION",
+      entityId: String(id),
+      description: "Updated billing settings",
+    });
     return {
       billingModel: inst.billingModel ?? "postpaid",
       creditBalance: inst.creditBalance ?? 0,
@@ -696,6 +822,13 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       };
     }
     inst.updatedAt = new Date().toISOString().slice(0, 10);
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "INSTITUTION_API_ACCESS_UPDATE",
+      entityType: "INSTITUTION",
+      entityId: String(id),
+      description: "Updated API access (data submission / enquiry)",
+    });
     return getInstitutionApiAccessPayload(inst);
   });
 
@@ -772,6 +905,13 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
         });
     }
     inst.updatedAt = new Date().toISOString().slice(0, 10);
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "INSTITUTION_CONSENT_UPDATE",
+      entityType: "INSTITUTION",
+      entityId: String(id),
+      description: "Updated consent configuration",
+    });
     return getInstitutionConsentPayload(inst);
   });
 
@@ -784,6 +924,13 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     activeBatches: 1,
     totalRecords: 45000,
   }));
+
+  /** Same payload as GET /api/v1/monitoring/enquiries?institutionId= — scoped by path. */
+  app.get("/api/v1/institutions/:id/monitoring/enquiries", { preHandler: authPreHandler }, async (req) => {
+    const id = (req.params as { id: string }).id;
+    const q = req.query as Record<string, string | undefined>;
+    return monitoringEnquiriesPaged({ ...q, institutionId: id });
+  });
 
   // ─── API keys ─────────────────────────────────────────────────────────────
   app.get("/api/v1/api-keys", { preHandler: authPreHandler }, async (req) => {
@@ -877,6 +1024,28 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       const inst = state.institutions.find((i) => String(i.id) === instId);
       if (inst) inst.institutionLifecycleStatus = "active";
     }
+    const productId = a.metadata?.productId;
+    if (a.type === "product" && productId) {
+      const p = state.products.find((x: any) => String(x.id) === String(productId));
+      if (p) p.status = "active";
+    }
+    const consortiumIdApprove = a.metadata?.consortiumId;
+    if (a.type === "consortium" && consortiumIdApprove) {
+      const cons = state.consortiums.find((x: any) => String(x.id) === String(consortiumIdApprove));
+      if (cons) cons.status = "active";
+    }
+    const alertRuleIdApprove = a.metadata?.alertRuleId;
+    if (a.type === "alert_rule" && alertRuleIdApprove) {
+      const ar = state.alertRules.find((x: any) => String(x.id) === String(alertRuleIdApprove));
+      if (ar) ar.status = "Enabled";
+    }
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "APPROVAL_APPROVE",
+      entityType: "APPROVAL",
+      entityId: id,
+      description: `Approved ${a.type} — ${a.name ?? id}`,
+    });
     return reply.code(204).send();
   });
 
@@ -888,6 +1057,28 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     a.reviewedBy = req.user!.email;
     a.reviewedAt = new Date().toISOString();
     a.rejectionReason = (req.body as { reason?: string })?.reason;
+    const productId = a.metadata?.productId;
+    if (a.type === "product" && productId) {
+      const p = state.products.find((x: any) => String(x.id) === String(productId));
+      if (p) p.status = "draft";
+    }
+    const consortiumIdReject = a.metadata?.consortiumId;
+    if (a.type === "consortium" && consortiumIdReject) {
+      const cons = state.consortiums.find((x: any) => String(x.id) === String(consortiumIdReject));
+      if (cons) cons.status = "pending";
+    }
+    const alertRuleIdReject = a.metadata?.alertRuleId;
+    if (a.type === "alert_rule" && alertRuleIdReject) {
+      const ar = state.alertRules.find((x: any) => String(x.id) === String(alertRuleIdReject));
+      if (ar) ar.status = "Disabled";
+    }
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "APPROVAL_REJECT",
+      entityType: "APPROVAL",
+      entityId: id,
+      description: `Rejected ${a.type} — ${a.name ?? id}`,
+    });
     return reply.code(204).send();
   });
 
@@ -898,6 +1089,28 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     a.status = "changes_requested";
     a.reviewedBy = req.user!.email;
     a.reviewedAt = new Date().toISOString();
+    const productId = a.metadata?.productId;
+    if (a.type === "product" && productId) {
+      const p = state.products.find((x: any) => String(x.id) === String(productId));
+      if (p) p.status = "draft";
+    }
+    const consortiumIdChanges = a.metadata?.consortiumId;
+    if (a.type === "consortium" && consortiumIdChanges) {
+      const cons = state.consortiums.find((x: any) => String(x.id) === String(consortiumIdChanges));
+      if (cons) cons.status = "pending";
+    }
+    const alertRuleIdChanges = a.metadata?.alertRuleId;
+    if (a.type === "alert_rule" && alertRuleIdChanges) {
+      const ar = state.alertRules.find((x: any) => String(x.id) === String(alertRuleIdChanges));
+      if (ar) ar.status = "Disabled";
+    }
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "APPROVAL_REQUEST_CHANGES",
+      entityType: "APPROVAL",
+      entityId: id,
+      description: `Requested changes on ${a.type} — ${a.name ?? id}`,
+    });
     return reply.code(204).send();
   });
 
@@ -922,16 +1135,29 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     return pageSlice(list, Number(q.page), Number(q.size));
   });
 
-  app.post("/api/v1/users/invitations", { preHandler: authPreHandler }, async (req) => {
-    const b = req.body as { email?: string; role?: string; institutionId?: number };
+  app.post("/api/v1/users/invitations", { preHandler: authPreHandler }, async (req, reply) => {
+    const b = req.body as {
+      email?: string;
+      role?: string;
+      institutionId?: number;
+      displayName?: string;
+      givenName?: string;
+      familyName?: string;
+    };
+    const email = String(b.email ?? "").trim().toLowerCase();
+    if (!email) return err(reply, 400, "ERR_VALIDATION", "email is required");
+    if (state.users.some((u: { email: string }) => u.email.toLowerCase() === email)) {
+      return err(reply, 409, "ERR_DUPLICATE", "A user with this email already exists");
+    }
+    const displayName = String(b.displayName ?? "").trim() || email.split("@")[0];
     const id = state.userNextId++;
     const row = {
       id,
-      email: b.email!,
+      email,
       passwordHash: bcrypt.hashSync(randomUUID(), 10),
-      displayName: b.email!.split("@")[0],
-      givenName: "",
-      familyName: "",
+      displayName,
+      givenName: String(b.givenName ?? "").trim(),
+      familyName: String(b.familyName ?? "").trim(),
       userAccountStatus: "Invited",
       mfaEnabled: false,
       institutionId: b.institutionId,
@@ -941,10 +1167,19 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       lastLoginAt: undefined,
     };
     state.users.push(row);
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "USER_INVITE",
+      entityType: "USER",
+      entityId: String(id),
+      description: `Invited ${email} (${displayName}) as ${row.roles[0]}`,
+    });
     return {
       id: row.id,
       email: row.email,
       displayName: row.displayName,
+      givenName: row.givenName,
+      familyName: row.familyName,
       userAccountStatus: row.userAccountStatus,
       mfaEnabled: row.mfaEnabled,
       institutionId: row.institutionId,
@@ -1048,11 +1283,28 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
   // ─── Roles ─────────────────────────────────────────────────────────────────
   app.get("/api/v1/roles", { preHandler: authPreHandler }, async () => state.roles);
 
-  app.post("/api/v1/roles", { preHandler: authPreHandler }, async (req) => {
-    const b = req.body as { roleName: string; description?: string; permissions?: object };
+  app.post("/api/v1/roles", { preHandler: authPreHandler }, async (req, reply) => {
+    const b = req.body as { roleName?: string; description?: string; permissions?: object };
+    const name = typeof b.roleName === "string" ? b.roleName.trim() : "";
+    if (!name) return err(reply, 400, "ERR_VALIDATION", "roleName is required");
+    const dup = state.roles.some((x) => String(x.roleName).toLowerCase() === name.toLowerCase());
+    if (dup) return err(reply, 409, "ERR_DUPLICATE", "A role with this name already exists");
     const id = String(state.roleNextId++);
-    const row = { id, roleName: b.roleName, description: b.description, permissions: b.permissions ?? {}, createdAt: new Date().toISOString() };
+    const row = {
+      id,
+      roleName: name,
+      description: b.description,
+      permissions: (b.permissions && typeof b.permissions === "object" ? b.permissions : {}) as Record<string, unknown>,
+      createdAt: new Date().toISOString(),
+    };
     state.roles.push(row);
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "ROLE_CREATE",
+      entityType: "ROLE",
+      entityId: id,
+      description: `Created role ${name}`,
+    });
     return row;
   });
 
@@ -1060,7 +1312,27 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     const id = (req.params as { id: string }).id;
     const r = state.roles.find((x) => x.id === id);
     if (!r) return err(reply, 404, "ERR_NOT_FOUND", "Not found");
-    Object.assign(r, req.body);
+    const b = req.body as { roleName?: string; description?: string; permissions?: object };
+    if (typeof b.roleName === "string") {
+      const nextName = b.roleName.trim();
+      if (!nextName) return err(reply, 400, "ERR_VALIDATION", "roleName cannot be empty");
+      const dup = state.roles.some(
+        (x) => x.id !== id && String(x.roleName).toLowerCase() === nextName.toLowerCase(),
+      );
+      if (dup) return err(reply, 409, "ERR_DUPLICATE", "A role with this name already exists");
+      r.roleName = nextName;
+    }
+    if (typeof b.description === "string") r.description = b.description;
+    if (b.permissions !== undefined && b.permissions !== null && typeof b.permissions === "object") {
+      r.permissions = b.permissions as Record<string, unknown>;
+    }
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "ROLE_UPDATE",
+      entityType: "ROLE",
+      entityId: id,
+      description: `Updated role ${r.roleName}`,
+    });
     return r;
   });
 
@@ -1068,7 +1340,15 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     const id = (req.params as { id: string }).id;
     const i = state.roles.findIndex((x) => x.id === id);
     if (i === -1) return err(reply, 404, "ERR_NOT_FOUND", "Not found");
+    const removed = state.roles[i];
     state.roles.splice(i, 1);
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "ROLE_DELETE",
+      entityType: "ROLE",
+      entityId: id,
+      description: `Deleted role ${removed?.roleName ?? id}`,
+    });
     return reply.code(204).send();
   });
 
@@ -1084,9 +1364,20 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       description: a.description,
       auditOutcome: a.auditOutcome ?? "SUCCESS",
       occurredAt: a.occurredAt,
+      ipAddressHash: a.ipAddressHash ?? a.ipAddress,
     }));
     if (q.entityType) list = list.filter((a) => a.entityType === q.entityType);
     if (q.entityId) list = list.filter((a) => a.entityId === q.entityId);
+    if (q.userId) list = list.filter((a) => a.entityType === "USER" && String(a.entityId) === String(q.userId));
+    if (q.actionType) list = list.filter((a) => a.actionType === q.actionType);
+    if (q.from) {
+      const fromMs = new Date(q.from).getTime();
+      if (!Number.isNaN(fromMs)) list = list.filter((a) => new Date(a.occurredAt).getTime() >= fromMs);
+    }
+    if (q.to) {
+      const toMs = new Date(q.to).getTime();
+      if (!Number.isNaN(toMs)) list = list.filter((a) => new Date(a.occurredAt).getTime() <= toMs);
+    }
     return pageSlice(list, Number(q.page), Number(q.size));
   });
 
@@ -1109,14 +1400,7 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
   app.get("/api/v1/monitoring/kpis", { preHandler: authPreHandler }, async () => state.monitoringKpis);
 
   app.get("/api/v1/monitoring/enquiries", { preHandler: authPreHandler }, async (req) => {
-    const q = req.query as Record<string, string | undefined>;
-    let raw = [...state.enquiries];
-    if (q.institutionId) {
-      const inst = state.institutions.find((i) => String(i.id) === q.institutionId);
-      if (inst) raw = raw.filter((e) => e.institution === inst.name);
-    }
-    const norm = raw.map(normaliseEnquiry);
-    return pageSlice(norm, Number(q.page), Number(q.size));
+    return monitoringEnquiriesPaged(req.query as Record<string, string | undefined>);
   });
 
   app.get("/api/v1/monitoring/charts", { preHandler: authPreHandler }, async () => state.monitoringCharts);
@@ -1184,16 +1468,52 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       domain: r.domain,
       condition: r.condition,
       severity: r.severity,
-      status: r.status === "Disabled" ? "Disabled" : "Enabled",
+      status:
+        r.status === "Disabled"
+          ? "Disabled"
+          : r.status === "Pending approval"
+            ? "Pending approval"
+            : "Enabled",
       lastTriggered: r.lastTriggered,
     }))
   );
 
-  app.post("/api/v1/alert-rules", { preHandler: authPreHandler }, async (req) => {
+  app.post("/api/v1/alert-rules", { preHandler: authPreHandler }, async (req, reply) => {
     const b = req.body as Record<string, unknown>;
+    const name = String(b.name ?? "").trim();
+    if (!name) return err(reply, 400, "ERR_VALIDATION", "name is required");
     const id = `rule-${randomUUID().slice(0, 8)}`;
-    const row = { id, ...b, status: b.status ?? "Enabled" };
+    const domain = String(b.domain ?? "Submission API").trim() || "Submission API";
+    const condition = String(b.condition ?? "");
+    const severity = String(b.severity ?? "Warning");
+    const row: Record<string, unknown> = {
+      id,
+      name,
+      domain,
+      condition,
+      severity,
+      status: "Pending approval",
+      lastTriggered: b.lastTriggered ?? null,
+    };
     state.alertRules.push(row);
+    const now = new Date().toISOString();
+    state.approvals.unshift({
+      id: `ap-ar-${id}-${randomUUID().slice(0, 8)}`,
+      type: "alert_rule",
+      name,
+      description: condition ? `${domain} · ${condition}` : `New alert rule — ${domain}`,
+      submittedBy: req.user!.email,
+      submittedAt: now,
+      status: "pending",
+      metadata: { alertRuleId: id },
+    });
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "ALERT_RULE_CREATE",
+      entityType: "ALERT_RULE",
+      entityId: id,
+      description: `Alert rule submitted for approval: ${name}`,
+    });
     return row;
   });
 
@@ -1216,6 +1536,9 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
   app.post("/api/v1/alert-rules/:id/activate", { preHandler: authPreHandler }, async (req, reply) => {
     const r = state.alertRules.find((x: any) => x.id === (req.params as { id: string }).id);
     if (!r) return err(reply, 404, "ERR_NOT_FOUND", "Not found");
+    if (r.status === "Pending approval") {
+      return err(reply, 400, "ERR_INVALID_STATE", "Rule must be approved in the queue before it can be enabled");
+    }
     r.status = "Enabled";
     return reply.code(204).send();
   });
@@ -1434,18 +1757,50 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     return consortiumMembersForApi(id);
   });
 
-  app.post("/api/v1/consortiums", { preHandler: authPreHandler }, async (req) => {
+  app.post("/api/v1/consortiums", { preHandler: authPreHandler }, async (req, reply) => {
     const b = req.body as Record<string, unknown> & {
       members?: { institutionId: string | number; role?: string }[];
     };
+    const name = String(b.name ?? "").trim();
+    if (!name) return err(reply, 400, "ERR_VALIDATION", "name is required");
     const id = `CONS_${String(state.consortiumNextId++).padStart(3, "0")}`;
-    const { members: _m, ...rest } = b;
-    const row = { id, ...rest, membersCount: 0, status: (b.status as string) ?? "active" };
+    const { members, ...rest } = b;
+    const status =
+      b.status != null && String(b.status).length > 0 ? String(b.status) : "approval_pending";
+    const row: Record<string, unknown> = { id, ...rest, membersCount: 0, status };
     state.consortiums.push(row);
-    replaceConsortiumMembers(id, b.members);
+    replaceConsortiumMembers(id, members);
     const c = state.consortiums.find((x: any) => x.id === id);
     if (c) c.membersCount = state.consortiumMembers.filter((m) => m.consortiumId === id).length;
-    return row;
+
+    const needsApproval = status === "approval_pending" || status === "pending";
+    if (needsApproval) {
+      const now = new Date().toISOString();
+      const mc = (c?.membersCount as number) ?? 0;
+      const typeLabel = rest.type != null ? String(rest.type) : "Consortium";
+      state.approvals.unshift({
+        id: `ap-cons-${id}-${randomUUID().slice(0, 8)}`,
+        type: "consortium",
+        name,
+        description:
+          (rest.description != null && String(rest.description).trim()) ||
+          `New consortium — ${typeLabel} · ${mc} member(s)`,
+        submittedBy: req.user!.email,
+        submittedAt: now,
+        status: "pending",
+        metadata: { consortiumId: id },
+      });
+    }
+
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "CONSORTIUM_CREATE",
+      entityType: "CONSORTIUM",
+      entityId: id,
+      description: `Created consortium ${name}`,
+    });
+
+    return c ?? row;
   });
 
   app.patch("/api/v1/consortiums/:id", { preHandler: authPreHandler }, async (req, reply) => {
@@ -1504,15 +1859,74 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       price: p.price,
       currency: "KES",
       lastUpdated: p.lastUpdated,
+      packetIds: p.packetIds,
+      packetConfigs: p.packetConfigs,
+      enquiryConfig: p.enquiryConfig,
+      pricingModel: p.pricingModel,
     };
   });
 
-  app.post("/api/v1/products", { preHandler: authPreHandler }, async (req) => {
+  app.post("/api/v1/products", { preHandler: authPreHandler }, async (req, reply) => {
     const b = req.body as Record<string, unknown>;
+    const name = String(b.name ?? "").trim();
+    if (!name) return err(reply, 400, "ERR_VALIDATION", "name is required");
     const id = `PRD_${String(state.productNextId++).padStart(3, "0")}`;
-    const row = { id, ...b, status: b.status ?? "draft", lastUpdated: new Date().toISOString() };
+    const rawStatus = String(b.status ?? "draft");
+    const status = rawStatus || "draft";
+    const now = new Date().toISOString();
+    const packetIds = Array.isArray(b.packetIds) ? b.packetIds.map((x) => String(x)) : [];
+    const row: Record<string, unknown> = {
+      id,
+      name,
+      description: b.description != null ? String(b.description) : "",
+      status,
+      lastUpdated: now,
+      price: typeof b.price === "number" ? b.price : undefined,
+      pricingModel: b.pricingModel != null ? String(b.pricingModel) : undefined,
+      category: b.category != null ? String(b.category) : undefined,
+      packetIds,
+      packetConfigs: Array.isArray(b.packetConfigs) ? b.packetConfigs : [],
+      enquiryConfig: b.enquiryConfig != null && typeof b.enquiryConfig === "object" ? b.enquiryConfig : undefined,
+    };
     state.products.push(row);
-    return row;
+
+    const needsApproval = status === "approval_pending" || status === "pending";
+    if (needsApproval) {
+      const packetSummary =
+        packetIds.length > 0 ? `${packetIds.length} packet(s)` : "catalogue submission";
+      const apId = `ap-prd-${id}-${randomUUID().slice(0, 8)}`;
+      state.approvals.unshift({
+        id: apId,
+        type: "product",
+        name,
+        description:
+          String(row.description ?? "").trim() ||
+          `New data product — ${packetSummary}`,
+        submittedBy: req.user!.email,
+        submittedAt: now,
+        status: "pending",
+        metadata: { productId: id },
+      });
+    }
+
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "PRODUCT_CREATE",
+      entityType: "PRODUCT",
+      entityId: id,
+      description: `Created product ${name}`,
+    });
+
+    return {
+      id: row.id,
+      name: row.name,
+      type: (row.category as string) ?? "product",
+      status: row.status,
+      description: row.description,
+      price: row.price,
+      currency: "KES",
+      lastUpdated: row.lastUpdated,
+    };
   });
 
   app.patch("/api/v1/products/:id", { preHandler: authPreHandler }, async (req, reply) => {

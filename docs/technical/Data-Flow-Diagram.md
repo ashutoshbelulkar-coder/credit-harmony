@@ -126,6 +126,8 @@ flowchart TD
 
 ## Data Flow 3: Approval Workflow
 
+**Fastify dev API (in-memory):** **Register member** (`POST /api/v1/institutions`) prepends `type: institution` with `metadata.institutionId` and keeps the row in `GET /api/v1/institutions` (typically **pending** until **approve** → **active**). New **data products** use `POST /api/v1/products` with `approval_pending` → `type: product` / `metadata.productId`. New **consortia** use `POST /api/v1/consortiums` with `approval_pending` → `type: consortium` / `metadata.consortiumId`.
+
 ```mermaid
 flowchart TD
     SUBMIT([Bureau Operator submits entity])
@@ -304,7 +306,7 @@ sequenceDiagram
     API-->>Client: 200 { id, status: "approved" }
     Client-->>Svc: ApprovalResponse
     Svc-->>Hook: resolved
-    Hook->>Cache: invalidate QK.approvals.all()
+    Hook->>Cache: invalidate QK.approvals.all() + QK.products.all() + QK.consortiums.all()
     Cache-->>Page: refetch triggered
     Page-->>Admin: Updated KPI counts + row status
     Hook->>Admin: toast.success("Item approved")

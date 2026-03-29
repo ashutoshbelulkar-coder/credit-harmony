@@ -22,12 +22,23 @@ import {
   createEmptySectionMatrix,
   countEnabledSectionPermissions,
   sectionPermissionSlotCount,
+  mergeRolePermissionsFromApi,
   type RoleDefinition,
   type SectionPermissionMatrix,
 } from "@/data/user-management-mock";
 import { permissionSections, permissionActions, type PermissionAction } from "@/lib/nav-config";
-import { useRoles } from "@/hooks/api/useRoles";
+import { useRoles, useCreateRole, useUpdateRole, useDeleteRole } from "@/hooks/api/useRoles";
 import type { RoleResponse } from "@/services/roles.service";
+
+type LocalRole = RoleDefinition & { id?: string };
+
+const userCountByRoleName = new Map(
+  initialRoles.map((r) => [String(r.role).toLowerCase(), r.userCount]),
+);
+
+function isOfflineCatalogRow(id?: string) {
+  return !id || id.startsWith("local-");
+}
 
 interface RoleFormState {
   role: string;
@@ -41,20 +52,26 @@ const emptyForm: RoleFormState = {
   sectionPermissions: createEmptySectionMatrix(),
 };
 
-function apiRoleToDefinition(r: RoleResponse): RoleDefinition {
+function apiRoleToDefinition(r: RoleResponse): LocalRole {
+  const roleLabel = String(r.roleName ?? "").trim();
+  const matrix = mergeRolePermissionsFromApi(roleLabel, r.permissions);
   return {
-    role: r.roleName,
+    id: r.id,
+    role: roleLabel,
     description: r.description ?? "",
-    userCount: 0,
+    userCount: userCountByRoleName.get(roleLabel.toLowerCase()) ?? 0,
     color: "hsl(220, 9%, 46%)",
     permissions: {},
-    sectionPermissions: (r.permissions as SectionPermissionMatrix) ?? createEmptySectionMatrix(),
+    sectionPermissions: matrix,
   };
 }
 
 export function RolesPermissionsPage() {
   const { data: apiRoles } = useRoles();
-  const [roles, setRoles] = useState<RoleDefinition[]>([...initialRoles]);
+  const createMut = useCreateRole();
+  const updateMut = useUpdateRole();
+  const deleteMut = useDeleteRole();
+  const [roles, setRoles] = useState<LocalRole[]>([...initialRoles]);
 
   // Seed from API data when available; fall back to static mock if API unreachable
   useEffect(() => {
@@ -115,48 +132,62 @@ export function RolesPermissionsPage() {
       return;
     }
 
+    const payload = {
+      roleName: form.role.trim(),
+      description: form.description.trim(),
+      permissions: form.sectionPermissions as Record<string, Record<string, boolean>>,
+    };
+
     if (editingIndex !== null) {
-      setRoles((prev) =>
-        prev.map((r, i) =>
-          i === editingIndex
-            ? {
-                ...r,
-                role: form.role.trim(),
-                description: form.description,
-                sectionPermissions: JSON.parse(JSON.stringify(form.sectionPermissions)) as SectionPermissionMatrix,
-              }
-            : r
-        )
-      );
-      toast.success(`Role "${form.role}" updated`);
-    } else {
-      const duplicate = roles.some((r) => r.role.toLowerCase() === form.role.trim().toLowerCase());
-      if (duplicate) {
-        toast.error("A role with this name already exists");
+      const target = roles[editingIndex];
+      if (isOfflineCatalogRow(target.id)) {
+        setRoles((prev) =>
+          prev.map((r, i) =>
+            i === editingIndex
+              ? {
+                  ...r,
+                  role: payload.roleName,
+                  description: payload.description,
+                  sectionPermissions: JSON.parse(JSON.stringify(form.sectionPermissions)) as SectionPermissionMatrix,
+                }
+              : r
+          )
+        );
+        toast.success(`Role "${payload.roleName}" updated`);
+        setDialogOpen(false);
         return;
       }
-      setRoles((prev) => [
-        ...prev,
-        {
-          role: form.role.trim(),
-          description: form.description.trim(),
-          userCount: 0,
-          color: "hsl(220, 9%, 46%)",
-          permissions: {},
-          sectionPermissions: JSON.parse(JSON.stringify(form.sectionPermissions)) as SectionPermissionMatrix,
-        },
-      ]);
-      toast.success(`Role "${form.role}" created`);
+      updateMut.mutate(
+        { id: target.id, data: payload },
+        { onSuccess: () => setDialogOpen(false) }
+      );
+      return;
     }
-    setDialogOpen(false);
+
+    const duplicate = roles.some((r) => r.role.toLowerCase() === payload.roleName.toLowerCase());
+    if (duplicate) {
+      toast.error("A role with this name already exists");
+      return;
+    }
+
+    createMut.mutate(payload, { onSuccess: () => setDialogOpen(false) });
   };
 
   const handleDelete = (index: number) => {
-    const name = roles[index].role;
-    setRoles((prev) => prev.filter((_, i) => i !== index));
-    setDeleteConfirmIndex(null);
-    toast.success(`Role "${name}" deleted`);
+    const row = roles[index];
+    const name = row.role;
+    if (isOfflineCatalogRow(row.id)) {
+      setRoles((prev) => prev.filter((_, i) => i !== index));
+      setDeleteConfirmIndex(null);
+      toast.success(`Role "${name}" deleted`);
+      return;
+    }
+    deleteMut.mutate(row.id, {
+      onSuccess: () => setDeleteConfirmIndex(null),
+    });
   };
+
+  const savePending = createMut.isPending || updateMut.isPending;
 
   const enabledCount = countEnabledSectionPermissions(form.sectionPermissions);
 
@@ -176,7 +207,7 @@ export function RolesPermissionsPage() {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mt-5">
         {roles.map((r, i) => (
-          <Card key={`${r.role}-${i}`} className="border group relative">
+          <Card key={r.id ?? `${r.role}-${i}`} className="border group relative">
             <CardHeader className="pb-2">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold">{r.role}</CardTitle>
@@ -213,7 +244,9 @@ export function RolesPermissionsPage() {
       <Card className="mt-6">
         <CardHeader>
           <CardTitle className="text-base">Permission matrix</CardTitle>
-          <CardDescription>Enabled actions per navigation section and role</CardDescription>
+          <CardDescription className="text-caption text-muted-foreground mt-1">
+            Enabled actions per navigation section and role
+          </CardDescription>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>
@@ -326,7 +359,9 @@ export function RolesPermissionsPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSave}>{editingIndex !== null ? "Save changes" : "Create role"}</Button>
+            <Button disabled={savePending} onClick={handleSave}>
+              {editingIndex !== null ? "Save changes" : "Create role"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -344,7 +379,11 @@ export function RolesPermissionsPage() {
             <Button variant="outline" onClick={() => setDeleteConfirmIndex(null)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={() => deleteConfirmIndex !== null && handleDelete(deleteConfirmIndex)}>
+            <Button
+              variant="destructive"
+              disabled={deleteMut.isPending}
+              onClick={() => deleteConfirmIndex !== null && handleDelete(deleteConfirmIndex)}
+            >
               Delete
             </Button>
           </DialogFooter>

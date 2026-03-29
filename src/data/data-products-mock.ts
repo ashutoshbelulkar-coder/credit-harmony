@@ -10,6 +10,8 @@ export type ProductLifecycleStatus = "draft" | "active" | "approval_pending";
 export function productStatusFromApi(apiStatus: string): ProductLifecycleStatus {
   if (apiStatus === "active") return "active";
   if (apiStatus === "draft") return "draft";
+  // Server treats `pending` like approval_pending for queue eligibility
+  if (apiStatus === "pending" || apiStatus === "approval_pending") return "approval_pending";
   return "approval_pending";
 }
 export type ProductPricingModel = "per_hit" | "subscription";

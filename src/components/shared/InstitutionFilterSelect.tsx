@@ -31,7 +31,11 @@ export function InstitutionFilterSelect({
   id?: string;
 }) {
   const { user } = useAuth();
-  const { data: page } = useInstitutions({ size: 300 }, { enabled: !!user });
+  /** Filter dropdowns must reflect live members from the API — no institutions-mock fallback. */
+  const { data: page, isPending, isError } = useInstitutions(
+    { size: 300 },
+    { enabled: !!user, allowMockFallback: false }
+  );
   const institutions = page?.content ?? [];
 
   const list = useMemo(() => {
@@ -47,9 +51,18 @@ export function InstitutionFilterSelect({
           {label}
         </Label>
       ) : null}
-      <Select value={value} onValueChange={onValueChange}>
-        <SelectTrigger id={id} className={cn("h-8 text-caption", triggerClassName)}>
-          <SelectValue placeholder={allLabel} />
+      <Select value={value} onValueChange={onValueChange} disabled={isPending}>
+        <SelectTrigger
+          id={id}
+          className={cn("h-8 text-caption", triggerClassName)}
+          aria-busy={isPending}
+          aria-invalid={isError}
+        >
+          <SelectValue
+            placeholder={
+              isPending ? "Loading institutions…" : isError ? "Could not load institutions" : allLabel
+            }
+          />
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="all" className="text-caption">

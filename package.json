@@ -11,8 +11,12 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "dev:e2e": "cross-env VITE_USE_MOCK_FALLBACK=false vite --port 4173 --strictPort",
     "server": "tsx watch server/src/index.ts",
-    "server:start": "tsx server/src/index.ts"
+    "server:start": "tsx server/src/index.ts",
+    "openapi:validate": "swagger-cli validate docs/technical/openapi-hcb-fastify-snapshot.yaml"
   },
   "dependencies": {
     "@fastify/multipart": "^9.4.0",
@@ -68,8 +72,10 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
+    "@apidevtools/swagger-cli": "^4.0.4",
     "@eslint/js": "^9.32.0",
     "@fastify/cors": "^11.2.0",
+    "@playwright/test": "^1.51.0",
     "@tailwindcss/typography": "^0.5.16",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.0.0",
@@ -81,6 +87,7 @@
     "@vitejs/plugin-react-swc": "^3.11.0",
     "autoprefixer": "^10.4.21",
     "bcryptjs": "^3.0.3",
+    "cross-env": "^7.0.3",
     "eslint": "^9.32.0",
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
@@ -46,9 +46,19 @@ interface Props {
   user: UserResponse | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Open the role editor dialog as soon as the drawer opens (e.g. Users table ⋮ → Edit role). */
+  autoOpenRoleEditor?: boolean;
+  /** Called once after auto-opening the role editor so the parent can clear its flag. */
+  onConsumeAutoOpenRoleEditor?: () => void;
 }
 
-export function UserDetailDrawer({ user, open, onOpenChange }: Props) {
+export function UserDetailDrawer({
+  user,
+  open,
+  onOpenChange,
+  autoOpenRoleEditor = false,
+  onConsumeAutoOpenRoleEditor,
+}: Props) {
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState("");
 
@@ -60,14 +70,25 @@ export function UserDetailDrawer({ user, open, onOpenChange }: Props) {
   const { data: auditPage, isLoading: auditLoading } = useQuery({
     queryKey: ["audit-logs", "USER", user?.id],
     queryFn: () =>
-      fetchAuditLogs({
-        entityType: "USER",
-        entityId: String(user!.id),
-        page: 0,
-        size: 8,
-      }),
+      fetchAuditLogs(
+        {
+          entityType: "USER",
+          entityId: String(user!.id),
+          page: 0,
+          size: 8,
+        },
+        { allowMockFallback: false },
+      ),
     enabled: open && !!user,
   });
+
+  useEffect(() => {
+    if (!open || !user || !autoOpenRoleEditor) return;
+    const pr = (user.roles ?? [])[0] ?? "";
+    setSelectedRole(ROLE_OPTIONS.includes(pr as (typeof ROLE_OPTIONS)[number]) ? pr : ROLE_OPTIONS[0]);
+    setRoleDialogOpen(true);
+    onConsumeAutoOpenRoleEditor?.();
+  }, [open, user, autoOpenRoleEditor, onConsumeAutoOpenRoleEditor]);
 
   if (!user) return null;
 
@@ -78,7 +99,8 @@ export function UserDetailDrawer({ user, open, onOpenChange }: Props) {
   const activity = auditPage?.content ?? [];
 
   const openRoleEditor = () => {
-    setSelectedRole(ROLE_OPTIONS.includes(primaryRole as (typeof ROLE_OPTIONS)[number]) ? primaryRole : ROLE_OPTIONS[0]);
+    const pr = (user.roles ?? [])[0] ?? "";
+    setSelectedRole(ROLE_OPTIONS.includes(pr as (typeof ROLE_OPTIONS)[number]) ? pr : ROLE_OPTIONS[0]);
     setRoleDialogOpen(true);
   };
 

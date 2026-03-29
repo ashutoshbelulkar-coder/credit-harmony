@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { ChevronDown, ChevronUp, Download, Eye, Filter, MoreHorizontal, Search, Shield, ShieldOff, UserPlus, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,8 @@ export function UsersListPage() {
   const [inviteOpen, setInviteOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [autoOpenRoleEditor, setAutoOpenRoleEditor] = useState(false);
+  const clearAutoOpenRoleEditor = useCallback(() => setAutoOpenRoleEditor(false), []);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   const { data: usersData, isLoading, isError, error, refetch } = useUsers();
@@ -79,7 +81,14 @@ export function UsersListPage() {
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
   const openDrawer = (user: UserResponse) => {
+    setAutoOpenRoleEditor(false);
     setSelectedUser(user);
+    setDrawerOpen(true);
+  };
+
+  const openDrawerWithRoleEdit = (user: UserResponse) => {
+    setSelectedUser(user);
+    setAutoOpenRoleEditor(true);
     setDrawerOpen(true);
   };
 
@@ -241,18 +250,24 @@ export function UsersListPage() {
                           <DropdownMenuItem onClick={(e) => { e.stopPropagation(); openDrawer(u); }}>
                             <Eye className="w-3.5 h-3.5 mr-2" /> View Details
                           </DropdownMenuItem>
-                          <DropdownMenuItem onClick={(e) => { e.stopPropagation(); }}>
+                          <DropdownMenuItem
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openDrawerWithRoleEdit(u);
+                            }}
+                          >
                             <Shield className="w-3.5 h-3.5 mr-2" /> Edit Role
                           </DropdownMenuItem>
                           {u.userAccountStatus === "Active" ? (
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); suspendUser.mutate(u.id); }}>
                               <ShieldOff className="w-3.5 h-3.5 mr-2" /> Suspend
                             </DropdownMenuItem>
-                          ) : (
+                          ) : u.userAccountStatus !== "Deactivated" ? (
                             <DropdownMenuItem onClick={(e) => { e.stopPropagation(); activateUser.mutate(u.id); }}>
                               <Shield className="w-3.5 h-3.5 mr-2" /> Activate
                             </DropdownMenuItem>
-                          )}
+                          ) : null}
+                          {u.userAccountStatus !== "Deactivated" && (
                           <DropdownMenuItem
                             className="text-destructive"
                             onClick={(e) => {
@@ -262,6 +277,7 @@ export function UsersListPage() {
                           >
                             <XCircle className="w-3.5 h-3.5 mr-2" /> Deactivate
                           </DropdownMenuItem>
+                          )}
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -287,7 +303,16 @@ export function UsersListPage() {
       </div>
 
       <InviteUserModal open={inviteOpen} onOpenChange={setInviteOpen} />
-      <UserDetailDrawer user={selectedUser} open={drawerOpen} onOpenChange={setDrawerOpen} />
+      <UserDetailDrawer
+        user={selectedUser}
+        open={drawerOpen}
+        onOpenChange={(v) => {
+          setDrawerOpen(v);
+          if (!v) setAutoOpenRoleEditor(false);
+        }}
+        autoOpenRoleEditor={autoOpenRoleEditor}
+        onConsumeAutoOpenRoleEditor={clearAutoOpenRoleEditor}
+      />
     </>
   );
 }

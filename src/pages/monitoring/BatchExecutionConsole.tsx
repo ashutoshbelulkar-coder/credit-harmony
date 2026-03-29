@@ -69,6 +69,7 @@ const statusStyles: Record<BatchStatus, string> = {
   Failed: "bg-destructive/15 text-destructive",
   Queued: "bg-muted text-muted-foreground",
   Suspended: "bg-warning/15 text-warning",
+  Cancelled: "bg-muted text-muted-foreground",
 };
 
 const statusDotColors: Record<BatchStatus, string> = {
@@ -77,6 +78,7 @@ const statusDotColors: Record<BatchStatus, string> = {
   Failed: "bg-destructive",
   Queued: "bg-muted-foreground",
   Suspended: "bg-warning",
+  Cancelled: "bg-muted-foreground",
 };
 
 const phaseStatusStyles: Record<string, string> = {
@@ -85,6 +87,7 @@ const phaseStatusStyles: Record<string, string> = {
   Failed: "bg-destructive/15 text-destructive",
   Queued: "bg-muted text-muted-foreground",
   Suspended: "bg-warning/15 text-warning",
+  Cancelled: "bg-muted text-muted-foreground",
 };
 
 export interface BatchExecutionConsoleProps {

@@ -1,7 +1,13 @@
 import data from "./consortiums.json";
+import type { ConsortiumStatus, ConsortiumType } from "@/lib/consortium-ui";
 
-export type ConsortiumStatus = "active" | "pending" | "inactive";
-export type ConsortiumType = "Closed" | "Open" | "Hybrid";
+export type { ConsortiumStatus, ConsortiumType } from "@/lib/consortium-ui";
+export {
+  consortiumStatusStyles,
+  consortiumTypeBadgeClass,
+  consortiumListLabel,
+  consortiumListLabelStyles,
+} from "@/lib/consortium-ui";
 export type ConsortiumDataVisibility = "full" | "masked_pii" | "derived";
 
 export interface ConsortiumDataPolicy {
@@ -50,28 +56,6 @@ export const consortiums = data.consortiums as Consortium[];
 export const consortiumMembersByConsortiumId = data.membersByConsortiumId as Record<string, ConsortiumMember[]>;
 export const consortiumContributionById = data.contributionByConsortiumId as Record<string, ConsortiumDataContributionRow[]>;
 export const consortiumContributionSummaryById = data.contributionSummaryByConsortiumId as Record<string, ConsortiumDataSummary>;
-
-export const consortiumStatusStyles: Record<ConsortiumStatus, string> = {
-  active: "bg-success/15 text-success",
-  pending: "bg-warning/15 text-warning",
-  inactive: "bg-muted text-muted-foreground",
-};
-
-export const consortiumTypeBadgeClass: Record<ConsortiumType, string> = {
-  Closed: "bg-primary/15 text-primary",
-  Open: "bg-secondary/15 text-secondary-foreground",
-  Hybrid: "bg-muted text-muted-foreground",
-};
-
-export function consortiumListLabel(status: ConsortiumStatus): "Active" | "Draft" {
-  return status === "active" ? "Active" : "Draft";
-}
-
-export function consortiumListLabelStyles(label: "Active" | "Draft"): string {
-  return label === "Active"
-    ? "bg-success/15 text-success"
-    : "bg-warning/15 text-warning";
-}
 
 export function getConsortiumById(id: string): Consortium | undefined {
   return consortiums.find((c) => c.id === id);

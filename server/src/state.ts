@@ -2,6 +2,10 @@ import { readFileSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { dataPath } from "./paths.js";
+import { buildApiSubmissionRequests } from "../../src/lib/generateApiSubmissionRequests.ts";
+import { buildEnquiryStateRows } from "../../src/lib/generateEnquiryStateRows.ts";
+import { sectionMatrixForRoleName } from "../../src/data/user-management-mock.ts";
+import { buildAuditLogSeed } from "./auditSeed.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -198,9 +202,6 @@ export function createInitialState(): AppState {
   ];
   const userNextId = 4;
 
-  const auditLog: any[] = [];
-  const auditNextId = 1;
-
   const apiKeys: any[] = [];
   let apiKeyNextId = 1;
   for (const inst of institutions.slice(0, 3)) {
@@ -289,10 +290,15 @@ export function createInitialState(): AppState {
     id: String(i + 1),
     roleName: r.role,
     description: r.description,
-    permissions: r.permissions ?? {},
+    permissions: sectionMatrixForRoleName(String(r.role)) as Record<string, Record<string, boolean>>,
     createdAt: "2026-01-01T00:00:00.000Z",
   }));
   const roleNextId = roles.length + 1;
+
+  const { auditLog, auditNextId } = buildAuditLogSeed(
+    um,
+    users.map((u: { id: number; email: string }) => ({ id: u.id, email: u.email })),
+  );
 
   const alertData = readDataJson("alert-engine.json");
   const monitoringData = readDataJson("monitoring.json");
@@ -300,6 +306,14 @@ export function createInitialState(): AppState {
   const dgData = readDataJson("data-governance.json");
   const institutionDetailFile = readDataJson("institution-detail.json");
   const dataSubmitterIdByApiKey = (monitoringData.dataSubmitterIdByApiKey ?? {}) as Record<string, string>;
+  const subscriberIdByApiKey = (monitoringData.subscriberIdByApiKey ?? {}) as Record<string, string>;
+
+  const enquiryLogEntries = (monitoringData.enquiryLogEntries ?? []) as Record<string, unknown>[];
+  const enquiries = buildEnquiryStateRows({
+    seed: enquiryLogEntries,
+    institutions: institutions as { id: number; name: string; isSubscriber?: boolean }[],
+    subscriberIdByApiKey,
+  }) as any[];
 
   return {
     institutions,
@@ -340,27 +354,8 @@ export function createInitialState(): AppState {
       successVsFailureData: monitoringData.successVsFailureData ?? [],
       topRejectionReasonsData: monitoringData.topRejectionReasonsData ?? [],
     },
-    apiRequests: monitoringData.apiSubmissionRequests ?? [],
-    enquiries: [
-      {
-        id: "ENQ-1001",
-        institution: "First National Bank",
-        status: "Success",
-        response_time_ms: 120,
-        enquiry_type: "Standard",
-        timestamp: new Date().toISOString().replace("T", " ").slice(0, 19),
-        consumer_id: "C-9001",
-      },
-      {
-        id: "ENQ-1002",
-        institution: "Metro Credit Union",
-        status: "Success",
-        response_time_ms: 210,
-        enquiry_type: "Hard",
-        timestamp: new Date().toISOString().replace("T", " ").slice(0, 19),
-        consumer_id: "C-9002",
-      },
-    ],
+    apiRequests: buildApiSubmissionRequests((monitoringData.apiSubmissionRequests ?? []) as Record<string, unknown>[]),
+    enquiries,
     dashboardActivity: (dashboardData.recentActivity as any[]).map((a: any, i: number) => {
       const names = dashboardData.institutions as string[];
       const inst = names[a.institutionIndex ?? 0] ?? "System";

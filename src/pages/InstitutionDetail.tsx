@@ -308,18 +308,29 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
     return (memberBatches.reduce((s, b) => s + b.successRate, 0) / memberBatches.length).toFixed(1);
   }, [memberBatches]);
 
-  // Usage-by-product chart — only rendered when enquiries carry product info
+  // Usage-by-product: success-only enquiries; "standard" = core product only, "alternate" = add-on packets used
   const usageByProductChartData = useMemo(() => {
-    // EnquiryRecord does not expose product_id; build a placeholder when data arrives via future endpoint
     const counts = new Map<string, { standard: number; alternate: number }>();
     const nameById = new Map(catalogProducts.map((p) => [p.id, p.name]));
+    const successLike = (s: string) => s === "Success" || s === "success";
+    for (const e of memberEnquiries) {
+      if (!e.productId || !successLike(e.status)) continue;
+      const alt = e.alternateDataUsed ?? 0;
+      const cur = counts.get(e.productId) ?? { standard: 0, alternate: 0 };
+      if (alt > 0) cur.alternate += 1;
+      else cur.standard += 1;
+      counts.set(e.productId, cur);
+    }
     return [...counts.entries()].map(([productId, c]) => ({
       productId,
-      productName: nameById.get(productId) ?? productId,
+      productName:
+        nameById.get(productId) ??
+        memberEnquiries.find((x) => x.productId === productId)?.productName ??
+        productId,
       standard: c.standard,
       alternate: c.alternate,
     }));
-  }, [catalogProducts]);
+  }, [catalogProducts, memberEnquiries]);
 
   return (
     <div className="space-y-6">
@@ -632,13 +643,13 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
                   <div className="mb-4">
                     <h2 className="text-h4 font-semibold text-foreground">Usage by Data Products</h2>
                     <p className="mt-1 text-caption text-muted-foreground">
-                      Product usage breakdown (available when product-scoped enquiry data is returned by API).
+                      Successful enquiries only — core product vs add-on alternate data usage per catalogue id.
                     </p>
                   </div>
                   <div className="flex-1">
                     {usageByProductChartData.length === 0 ? (
                       <p className="text-caption text-muted-foreground flex min-h-[220px] items-center justify-center px-4 text-center">
-                        Product-level breakdown requires institution-scoped enquiry endpoint (Phase 7).
+                        No successful product-scoped enquiries in the current window for this member.
                       </p>
                     ) : (
                       <ChartContainer config={sourceConfig} className="h-[260px] w-full">

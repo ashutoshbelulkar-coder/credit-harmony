@@ -1,6 +1,25 @@
 # HCB Platform — System Architecture & Network Diagram
 
-**Version:** 3.0.0 | **Date:** 2026-03-28
+**Version:** 3.0.1 | **Date:** 2026-03-29
+
+---
+
+## Local development (SPA + default API)
+
+The React app (`npm run dev`, port **8080**) proxies `/api` to the **Fastify** dev server (`npm run server`, port **8091**) unless `VITE_API_PROXY_TARGET` points elsewhere. This path is the **contract owner** for the current service layer.
+
+```mermaid
+flowchart LR
+  subgraph dev [Local dev]
+    SPA[React SPA :8080]
+    ViteProxy[Vite proxy /api]
+    Fastify[Fastify server :8091]
+    RAM[(In-memory state + JSON seed)]
+  end
+  SPA --> ViteProxy --> Fastify --> RAM
+```
+
+Optional: run **Spring Boot** on **8090** with SQLite/PostgreSQL for the Java track; see `docs/technical/Canonical-Backend.md` before pointing the SPA at it.
 
 ---
 

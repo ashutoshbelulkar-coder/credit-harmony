@@ -196,6 +196,18 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 
 ### 3.1 Feature Overview
 
+### 3.1.1 Implementation status (this repository)
+
+| Layer | Role | Notes |
+|-------|------|--------|
+| **SPA default API** | `server/` Fastify on port **8091** | In-memory state; matches `src/services/*` and Vitest integration tests. Vite proxies `/api` here unless `VITE_API_PROXY_TARGET` overrides. |
+| **Alternate API** | `backend/` Spring Boot on port **8090** | SQLite (dev) / PostgreSQL (prod); RBAC; **contract drift** vs the SPA (verbs, pagination, some routes) — see `docs/technical/SPA-Service-Contract-Drift.md`. |
+| **Mock / JSON** | `src/data/*`, page-level imports | Governance, agents, and parts of data-products remain mock-first; core admin modules (institutions, monitoring, reporting, users, approvals, dashboard, consortiums, products) are API-backed when the Fastify server runs. |
+
+Canonical backend documentation: `docs/technical/Canonical-Backend.md`.  
+UI ↔ API parity (Fastify): `docs/technical/API-UI-Parity-Matrix.md`.  
+Page-level `@/data` import audit: `docs/technical/Page-Data-Imports-Audit.md`.
+
 #### Module 1: Authentication
 
 | Attribute | Detail |
@@ -546,8 +558,10 @@ Step 4: Policy (Step 3/4)
 Step 5: Review (Step 4/4)
   → System displays full summary of all entered data
   → User clicks "Create consortium"
-  → Toast: "Consortium created successfully"
-  → Navigate to /consortiums
+  → **Fastify dev API:** `POST /api/v1/consortiums` with `status: approval_pending`
+  → Consortium saved; **approval queue** gains a **Consortiums**-tab item (`type=consortium`)
+  → Toast: "Consortium created"
+  → Navigate to `/consortiums/:id` (detail)
 
 Edit Flow:
   → "Edit" button on consortium detail navigates to /consortiums/:id/edit
@@ -1022,6 +1036,8 @@ Step 5: Reviewed items remain in queue with updated status
 
 **Purpose:** 4-step guided creation/editing of consortiums.
 
+**API (Fastify dev, `VITE_USE_MOCK_FALLBACK=false`):** **Create** calls `POST /api/v1/consortiums` with members, `dataPolicy`, and `status: approval_pending`. **Edit** calls `PATCH /api/v1/consortiums/:id`. New consortia appear under **Approval Queue → Consortiums** until an approver sets them to **active**.
+
 | Step | Name | Key Fields | Validation |
 |------|------|-----------|------------|
 | 1 | Basic Info | Name, Type (select: Closed/Open), Purpose, Governance Model, Description | Name, Type, Purpose, Governance required |
@@ -1171,7 +1187,7 @@ Step 5: Reviewed items remain in queue with updated status
 | Control | Detail |
 |---------|--------|
 | **Date from / Date to** | ISO date strings; default **first day of current month** through **today** (`date-fns` + `yyyy-MM-dd`). Alerts must have `timestamp` within this inclusive range to appear. |
-| **Institution** | `InstitutionFilterSelect` limited to **data submitters**; drives slight KPI/trend adjustments via deterministic hash (mock). **All** clears institution-specific nudge. |
+| **Institution** | `InstitutionFilterSelect` (**submitters**): option list from **`GET /api/v1/institutions?size=300`**, client-filtered to `isDataSubmitter`. **All** = static top option. KPI/trend may still use mock-backed nudges when a specific submitter is selected. |
 | **Compare to** | Optional second submitter; when set, trend chart shows **primary** vs **comparison** series (`compareValue`). |
 | **Source type** | Options = distinct `sourceType` values from `schemaRegistryEntries` plus **All**. Drift list keeps alerts whose `source` matches a name under the chosen type (substring match against registry names). |
 
@@ -1643,7 +1659,7 @@ Example:
 
 | Filter | Type | Default | Options | Behaviour |
 |--------|------|---------|---------|-----------|
-| Institution | Select | "All" | Data submitters or subscribers (context-dependent) | Filters by institution linked to API key |
+| Institution | Select | "All" | **Populated from** `GET /api/v1/institutions?size=300` only (`useInstitutions` with **`allowMockFallback: false`** in `InstitutionFilterSelect` — no mock list on failure). **Data Submission API:** client keeps `isDataSubmitter`. **Inquiry API:** client keeps `isSubscriber`. First option label is static (“All data submission institutes” / “All subscribers”). |
 | Time Range | Select | "Last 24h" | Last 1h, Last 24h, Last 7d, Last 30d | Filters request log and refreshes charts |
 | Request ID | Text Input | Empty | Free text | Exact match on request/enquiry ID |
 
@@ -1696,7 +1712,7 @@ Example:
 | Filter | Type | Default | Options | Behaviour |
 |--------|------|---------|---------|-----------|
 | Date from / to | Date picker | Start of month → today | Custom | Filters **drift alert** rows by `timestamp` (inclusive day bounds) |
-| Institution | Select | All submitters | All + submitters | Adjusts KPI/trend mock; uses `InstitutionFilterSelect` |
+| Institution | Select | All submitters | **All** + submitters from **`GET /api/v1/institutions?size=300`** (`InstitutionFilterSelect`, **API-only** list — same `allowMockFallback: false` as Monitoring); KPI/trend may still use mock-backed adjustments when institution ≠ All |
 | Compare to | Select | None | None + submitters | Optional second series on trend chart |
 | Source type | Select | All | Distinct registry source types | Filters drift alerts by registry name ↔ type mapping |
 
@@ -2951,7 +2967,7 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | id | string | Yes | Primary key (e.g. "CST_001") |
 | name | string | Yes | Consortium display name |
 | type | enum (Closed, Open) | Yes | Membership model |
-| status | enum (Active, Inactive) | Yes | Operational status |
+| status | enum (`active`, `approval_pending`, `pending`) — API; UI may show “Draft” for non-`active` | Yes | **Fastify:** **create** defaults to **`approval_pending`** (or **`pending`** in body); **approve** → **`active`**; **reject** / **request changes** → **`pending`**. High-level “Inactive” in narratives means not live for data sharing. |
 | purpose | string | Yes | Business purpose of the consortium |
 | governanceModel | string | Yes | Governance structure (e.g. Federated, Centralized) |
 | description | string | No | Full description |
@@ -2992,7 +3008,7 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | enquiryConfig | object | No | **v2.2+** Scope, Latest/Trended, and related enquiry flags (`EnquiryConfig`) |
 | pricingModel | enum (perHit, subscription) | Yes | Revenue model |
 | price | number | Yes | Price in local currency units |
-| status | enum (active, draft) | Yes | Publication status |
+| status | enum (`approval_pending`, `active`, `draft`) | Yes | **Fastify dev API:** **Create** defaults to **`approval_pending`** and enqueues **`type: product`** on **`GET /api/v1/approvals`** until **approve** → **`active`**. **Reject** or **request changes** → **`draft`**. Optional body value **`pending`** is treated like **`approval_pending`** for queue eligibility. Mock catalogue may use **`draft`** for unpublished rows. |
 | lastUpdated | string (ISO 8601) | Yes | Last modification timestamp |
 
 #### DataPacket (NEW — v2.0)
@@ -3027,22 +3043,34 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | oldValue | string | Yes | Previous value |
 | newValue | string | Yes | New value |
 | timestamp | string (ISO 8601) | Yes | When action occurred |
-| ipAddress | string | Yes | Source IP address |
+| ipAddressHash | string | Yes | **Hashed** client IP for audit display (e.g. SHA-256 hex); raw IPs must not be stored in audit tables per §16.3 |
 
 ---
 
 ## 16. Security and Access Control
 
-### 16.1 Current Implementation (V1)
+### 16.1 Current implementation (this repository — as-built)
+
+**Authoritative engineering references:** [Developer Handbook](technical/Developer-Handbook.md) (run/test/env), [Canonical Backend](technical/Canonical-Backend.md) (Fastify vs Spring), [API ↔ UI parity matrix](technical/API-UI-Parity-Matrix.md), [SPA contract drift](technical/SPA-Service-Contract-Drift.md).
+
+#### 16.1.1 When the Fastify dev API is running (default local integration)
 
 | Aspect | Implementation |
 |--------|----------------|
-| Authentication | Simple email/password via React Context (no backend validation) |
-| Authorization | All-or-nothing: logged in = full access |
-| Session | In-memory React state (lost on refresh) |
-| Route Protection | `ProtectedRoute` component checks `user !== null` |
-| Password Storage | Not stored (mock — any password accepted) |
-| HTTPS | Enforced at hosting level |
+| Authentication | Email/password validated by **`POST /api/v1/auth/login`** on the in-repo **Fastify** server (`server/`, default port **8091**). Passwords are checked against seeded users (e.g. `admin@hcb.com` / `Admin@1234`); failed login is rejected with **401**. |
+| Tokens | **JWT access + refresh** returned on login; refresh via **`POST /api/v1/auth/refresh`**; logout via **`POST /api/v1/auth/logout`**. The SPA stores tokens per its client implementation (see `src/lib/api-client.ts`). |
+| Authorization (API) | Protected routes require a valid Bearer JWT (see OpenAPI / Fastify route hooks). The **dev API validates token presence/signature**; it does **not** fully enforce the PRD role matrix per route (see [Production Backend Roadmap](technical/Production-Backend-Roadmap.md)). |
+| Authorization (UI) | **`ProtectedRoute`** gates SPA routes when no authenticated user context. **UI permission matrix** (nav / Roles & Permissions page) can hide actions; **this is not a substitute for server-side RBAC** in production. |
+| Session continuity | Access token expiry and refresh behaviour are defined by the Fastify auth implementation; reloading the SPA may lose in-memory client state depending on build/env — see Developer Handbook. |
+| HTTPS | Local dev typically HTTP; **production** must terminate TLS at the edge (load balancer / gateway). |
+
+#### 16.1.2 Offline mode — mock auth and mock data only
+
+When **`VITE_USE_MOCK_FALLBACK=true`** (typical in `.env.development`) **and** the API is unreachable or errors, the SPA may fall back to **mock authentication** and **JSON fixtures** under `src/data/`. In that mode, behaviour is **demo-grade only**: do not use for security or compliance claims. For integration testing of real flows, run **`npm run server`** with **`VITE_USE_MOCK_FALLBACK=false`**.
+
+#### 16.1.3 Alternate backend — Spring Boot (`backend/`)
+
+Optional **Spring Boot** on port **8090** uses **different REST shapes and RBAC** than the SPA’s default Fastify contract. Pointing Vite at it requires **`VITE_API_PROXY_TARGET`** and client/server alignment — see [SPA-Service-Contract-Drift.md](technical/SPA-Service-Contract-Drift.md).
 
 ### 16.2 Target Implementation (V2)
 
@@ -3078,7 +3106,7 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 
 | Feature | Detail |
 |---------|--------|
-| API Key Format | `sk_live_***{last4}` (masked in UI) |
+| API Key Format | `hcb_live_****{last4}` / `hcb_test_****{last4}` (masked in UI); see §16.5 |
 | Key Rotation | Manual rotation via User Detail Drawer |
 | Key Revocation | Immediate invalidation |
 | Rate Limiting | Per-key rate limits (configurable per institution) |
@@ -3261,7 +3289,7 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | GOV-05 | Validation rules list | Navigate to "/data-governance/validation-rules" | Rules table renders with 3 rules | P0 |
 | GOV-06 | Match review clusters | Navigate to "/data-governance/match-review" | 3 match clusters render with confidence scores | P0 |
 | GOV-07 | Data quality alerts | Navigate to "/data-governance/data-quality-monitoring" | KPIs, trend chart, **Schema & mapping drift alerts** list **non-empty** with default March 2026 window; **≥8** mock alerts in `data-governance.json` | P0 |
-| GOV-08 | Audit logs | Navigate to "/data-governance/governance-audit-logs" | 5 audit log entries render | P0 |
+| GOV-08 | Audit logs | Navigate to "/data-governance/governance-audit-logs" | Table shows **GOVERNANCE** rows from `GET /api/v1/audit-logs?entityType=GOVERNANCE` (Fastify seeds **≥3** sample rows in `auditSeed.ts`) | P0 |
 | GOV-09 | Version diff viewer | Click "View Audit" on registry entry | Diff viewer renders | P1 |
 
 ### 18.5 Monitoring
@@ -3304,13 +3332,13 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | TC ID | Scenario | Steps | Expected Result | Priority |
 |-------|----------|-------|-----------------|----------|
 | USR-01 | Users list | Navigate to "/user-management/users" | 12 users render in table | P0 |
-| USR-02 | Invite user | Click "Invite User" → Fill all fields → Click Send | Toast: "Invitation sent to {email}", modal closes | P0 |
-| USR-03 | Invite validation | Submit with empty fields | Toast error: "Please fill all required fields" | P0 |
+| USR-02 | Invite user | Click "Invite User" → Fill all fields → Click Send | Toast: "Invitation sent", modal closes, list refreshes | P0 |
+| USR-03 | Invite validation | Submit with empty name, email, or role | Toast error: "Please enter full name, email, and role." | P0 |
 | USR-04 | Role filter | Select "Analyst" | 4 analysts shown | P1 |
 | USR-05 | Search users | Type "Sarah" | 1 user (Sarah Chen) shown | P1 |
 | USR-06 | User detail drawer | Click user row | Drawer opens with profile, MFA status, API keys | P1 |
 | USR-07 | Roles & permissions | Navigate to "/user-management/roles" | 5 roles with permission matrix | P0 |
-| USR-08 | Activity log | Navigate to "/user-management/activity" | 12 activity entries with IP addresses | P0 |
+| USR-08 | Activity log | Navigate to "/user-management/activity" | Table shows seeded + dynamic audit rows from GET /api/v1/audit-logs; IP column populated when the API returns it | P0 |
 
 ### 18.9 Approval Queue
 
@@ -3799,8 +3827,8 @@ No API call. Client-side navigation to the respective module route.
 |-------|-------|
 | **API** | `GET /api/v1/institutions` |
 | **Trigger** | Page mount, any filter change (status, role, search), or page number change |
-| **Query params** | `?status=Active&role=DataSubmitter&search=bank&page=0&size=20` |
-| **Success** | Table rows, total count, and page controls update. |
+| **Query params** | List view uses `page=0&size=200` (Fastify caps `size` at 200) so **all** members fit in one response for client-side search/sort/pagination; optional `status`, `role`, `search` when wired server-side. |
+| **Success** | Table rows include **pending** registrations (status filter **All Statuses**). After **Approval Queue → Approve** on an institution item, React Query refetches institutions so **Status** becomes **active**. |
 | **Error** | `ApiErrorCard` replaces the table with **Try again** button; filters remain interactive. |
 
 #### Action: **Register Member** (button top-right)
@@ -3833,17 +3861,19 @@ No API call. Navigates to `/institutions/:id`.
 
 | Field | Value |
 |-------|-------|
-| **API** | `POST /api/v1/institutions` |
+| **API** | `POST /api/v1/institutions` then, for each uploaded file, `POST /api/v1/institutions/:id/documents` (multipart) |
 | **Trigger** | User clicks **Submit Registration** on the Review & Submit step |
-| **Request body** | Full institution payload from all wizard steps (corporate details, compliance docs, role flags) |
-| **Success** | `toast.success("Institution submitted for approval")`. User navigated to `/institutions`. The new institution appears in Approval Queue. |
+| **Request body** | Corporate fields + `institutionLifecycleStatus: "pending"` + `isDataSubmitter` / `isSubscriber`; documents sent per upload call with `documentName` + `file` |
+| **Fastify dev API** | Creates institution, prepends **`institution`** row on `GET /api/v1/approvals` (`metadata.institutionId`), audit `INSTITUTION_CREATE`. |
+| **Client cache** | `invalidateQueries` **institutions** + **approvals** (+ detail) after create/uploads so the list and queue stay consistent. |
+| **Success** | Toast explains **Pending** appears on **Member Institutions** and approval lives under **Approval Queue (Institutions tab)**. Navigate to **`/institutions`** (not only the queue). |
 | **400 Validation error** | Inline errors on the relevant step fields. Wizard stays open. |
-| **409 Duplicate** | `toast.error("An institution with this registration number already exists.")` |
-| **500 / network** | `toast.error("Failed to submit. Please try again.")` — wizard data retained so user can retry |
+| **409 Duplicate** | `toast.error("An institution with this registration number already exists.")` *(when backend enforces uniqueness)* |
+| **500 / network** | `toast.error` from `ApiError` / mutation — wizard data retained where applicable so user can retry |
 
 #### Action: **Save Draft** (intermediate steps)
 
-No API call in current implementation. State held in component memory.
+No API call in current implementation. State held in component memory + `localStorage` key `hcb_draft_institution`.
 
 ---
 
@@ -3887,40 +3917,40 @@ No API call on button click. Opens inline edit form or navigates to edit route (
 
 | Field | Value |
 |-------|-------|
-| **API** | `GET /api/v1/approval-queue` |
+| **API** | `GET /api/v1/approvals` |
 | **Trigger** | Mount, tab switch (All / Institutions / Mappings / Consortiums / Products), status dropdown change |
-| **Query params** | `?category=institutions&status=Pending&page=0&size=20` |
-| **Success** | KPI cards (Pending, Approved This Month, Changes Requested, Total) and table populate. |
+| **Query params** | `?type=institution|schema_mapping|consortium|product|all&status=pending|approved|rejected|changes_requested|all&page=0&size=20` (maps to `fetchApprovals` / `ApprovalListParams`) |
+| **Success** | KPI cards (Pending, Approved This Month, Changes Requested, Total) and table populate. **Products tab** (`type=product`): new catalogue products from `POST /api/v1/products` with `approval_pending`. **Consortiums tab** (`type=consortium`): new consortia from `POST /api/v1/consortiums` with `approval_pending` (SPA default on create). |
 | **Error** | `ApiErrorCard` replaces the table and KPI section. |
 
 #### Action: **Approve** (row button → confirm dialog)
 
 | Field | Value |
 |-------|-------|
-| **API** | `POST /api/v1/approval-queue/:id/approve` |
+| **API** | `POST /api/v1/approvals/:id/approve` |
 | **Trigger** | User clicks **Approve** and confirms in the dialog |
 | **Request body** | `{ "comment": "Approved" }` (optional) |
-| **Success** | `toast.success("Item approved")` + queue re-fetched + KPI cards update |
+| **Success** | `toast.success("Item approved")` + queue re-fetched + KPI cards update. **Fastify dev API:** `type=institution` → `institutionLifecycleStatus` **`active`** (`metadata.institutionId`); `type=product` → product `active`; `type=consortium` → consortium `active`. **institutions**, **products**, and **consortiums** query caches invalidated. |
 | **Error** | `toast.error("Approval failed: [message]")` — item stays in Pending state |
 
 #### Action: **Reject** (row button → confirm dialog)
 
 | Field | Value |
 |-------|-------|
-| **API** | `POST /api/v1/approval-queue/:id/reject` |
+| **API** | `POST /api/v1/approvals/:id/reject` |
 | **Trigger** | User clicks **Reject** and confirms with optional rejection reason |
 | **Request body** | `{ "reason": "Incomplete documentation" }` |
-| **Success** | `toast.success("Item rejected")` + queue re-fetched |
+| **Success** | `toast.success("Item rejected")` + queue re-fetched. **Fastify dev API:** `type=product` → product **`draft`**; `type=consortium` → consortium **`pending`**. |
 | **Error** | `toast.error("Rejection failed: [message]")` |
 
 #### Action: **Request Changes** (row button → dialog)
 
 | Field | Value |
 |-------|-------|
-| **API** | `POST /api/v1/approval-queue/:id/request-changes` |
+| **API** | `POST /api/v1/approvals/:id/request-changes` |
 | **Trigger** | User clicks **Request Changes** and submits the reason |
-| **Request body** | `{ "message": "Please resubmit with updated compliance documents" }` |
-| **Success** | `toast.success("Change request sent")` + queue re-fetched |
+| **Request body** | `{ "comment": "Please resubmit with updated compliance documents" }` (service sends `comment`; align UI copy with payload field name) |
+| **Success** | `toast.success("Changes requested")` + queue re-fetched. **Fastify dev API:** `type=product` → product **`draft`**; `type=consortium` → consortium **`pending`**. |
 | **Error** | `toast.error("Failed to request changes: [message]")` |
 
 ---
@@ -3944,23 +3974,49 @@ No API call on button click. Opens inline edit form or navigates to edit route (
 | **Success** | `toast.success("User suspended")` + list re-fetched. Row shows "Suspended" badge. |
 | **Error** | `toast.error("Failed to suspend user: [message]")` — no state change |
 
-#### Action: **Activate User** (row action)
+#### Action: **Activate User** (row ⋮ — when not Active or Deactivated)
 
 | Field | Value |
 |-------|-------|
 | **API** | `POST /api/v1/users/:id/activate` |
+| **Visibility** | Shown for **Invited**, **Suspended**, etc.; **hidden** when status is **Deactivated**. |
 | **Success** | `toast.success("User activated")` + list re-fetched. Row shows "Active" badge. |
 | **Error** | `toast.error("Failed to activate user: [message]")` |
+
+#### Action: **Deactivate User** (row ⋮)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/users/:id/deactivate` |
+| **Visibility** | **Hidden** when user is already **Deactivated**. |
+| **Success** | `toast.success("User deactivated")` + list re-fetched. |
+| **Error** | `toast.error` on failure |
+
+#### Action: **View details** (row click or ⋮ → View Details)
+
+| Field | Value |
+|-------|-------|
+| **API** | Row data from `GET /api/v1/users`; drawer **Recent activity** uses `GET /api/v1/audit-logs?entityType=USER&entityId=:id`. |
+| **Success** | `UserDetailDrawer` opens. |
+
+#### Action: **Edit role** (row ⋮ → Edit Role)
+
+| Field | Value |
+|-------|-------|
+| **UI** | Opens `UserDetailDrawer` and immediately opens the **Edit role** dialog (same as **Edit role** in the drawer). |
+| **API** | `PATCH /api/v1/users/:id` with `{ "roles": ["Analyst"] }` (single role array). |
+| **Audit** | Fastify logs **`USER_UPDATE`**. |
+| **Success** | `toast.success("User updated")` + list re-fetched; dialog closes. |
 
 #### Action: **Invite User** (button top-right → dialog)
 
 | Field | Value |
 |-------|-------|
-| **API** | `POST /api/v1/users/invite` |
-| **Request body** | `{ "email": "new@example.com", "role": "Analyst" }` |
-| **Success** | `toast.success("Invitation sent to [email]")` + list re-fetched |
-| **400 Invalid email** | Inline validation error in the invite dialog |
-| **409 User exists** | `toast.error("A user with this email already exists.")` |
+| **API** | `POST /api/v1/users/invitations` |
+| **Request body** | `{ "email": "new@example.com", "role": "Analyst", "displayName": "Jane Doe" }` (`sendWelcomeEmail` stripped client-side; not used by dev API) |
+| **Success** | `toast.success("Invitation sent")` + list re-fetched; new row **`Invited`**. |
+| **400** | Missing email (server); empty name/email/role (client toast). |
+| **409 User exists** | Server `ERR_DUPLICATE`; client `toast.error` |
 | **Error** | `toast.error("Failed to send invite: [message]")` |
 
 #### Action: **Export CSV** (button)
@@ -3992,6 +4048,16 @@ No API call. Client-side CSV from the currently loaded `users` array.
 | **Trigger** | Any filter dropdown change; resets to page 1 |
 | **Success** | Table rows update to match server-filtered results. Pagination totals reflect filter. |
 | **Error** | `ApiErrorCard` inside the table card with **Try again** button. |
+
+#### Institution dropdown — **“All data submission institutes”** (label)
+
+| Field | Value |
+|-------|-------|
+| **Component** | `InstitutionFilterSelect` in `MonitoringFilterBar` (`mode="submitters"`) |
+| **Options source** | **Not static.** `GET /api/v1/institutions?page=0&size=300` via `useInstitutions({ size: 300 }, { allowMockFallback: false })`; the UI keeps only rows with `isDataSubmitter === true`. Each `SelectItem` uses `String(id)` and `tradingName ?? name`. |
+| **“All data submission institutes”** | Static **label** for `value="all"` (no institution id sent to monitoring APIs until a specific id is chosen). |
+| **Mock fallback** | **None** for this dropdown: `allowMockFallback: false` so the member list is never sourced from `institutions-mock.ts` (unlike other `fetchInstitutions` callers). On failure the query errors; trigger shows “Could not load institutions” and the list is empty aside from **All**. |
+| **Disabled when** | Loading (`isPending`) or no logged-in user (`enabled: !!user` on the query). |
 
 #### Action: **Date range filter (dateFrom / dateTo)**
 
@@ -4028,11 +4094,13 @@ No API call. Selected row data is passed as props to the drawer. All information
 
 | Hook | API | Purpose |
 |------|-----|---------|
-| `useEnquiries(params)` | `GET /api/v1/monitoring/enquiries` | Enquiry log table (server-paginated) |
+| `useEnquiries(params)` | `GET /api/v1/monitoring/enquiries` | Enquiry log table (server-paginated; dev seed = JSON `enquiryLogEntries` + synthetic recent/future rows from `buildEnquiryStateRows` in Fastify `state`) |
 | KPI cards | **Mock only** (`enquiryKpis` from `monitoring-mock`) | No enquiry KPI endpoint exists yet |
 | Charts | **Mock only** (`enquiryVolumeData` etc.) | No enquiry chart endpoint exists yet |
 
 **Table error**: `SkeletonTable` during loading; empty state if no rows returned.
+
+**Server query params** (enquiry log): `status` (exact), `dateFrom` / `dateTo` (`yyyy-MM-dd`, inclusive on `timestamp`), `institutionId`, `page`, `size`. **Client-only** on the current API page: `timeRange` uses `isWithinRelativeWindow` (same rule as Data Submission API — future timestamps count as in-window).
 
 #### Action: **Status / Institution filter change**
 
@@ -4040,6 +4108,12 @@ No API call. Selected row data is passed as props to the drawer. All information
 |-------|-------|
 | **Params sent to API** | `status=Failed&institutionId=inst_002` |
 | **Client-side only** | `timeRange`, `enquiryIdSearch` |
+
+#### Institution dropdown — **“All subscribers”** (Inquiry API)
+
+Same component and **same API-only contract** as G.8: `InstitutionFilterSelect` with `mode="subscribers"` uses **`GET /api/v1/institutions?page=0&size=300`** via `useInstitutions({ size: 300 }, { allowMockFallback: false })`, then keeps rows with **`isSubscriber === true`**. The **“All subscribers”** row is the static `value="all"` option. No `institutions-mock` fallback for options; on API failure the dropdown errors the same way as the submitter control.
+
+**Detailed Enquiry Log card** (filters inside the table card): the **Institute** control is **also** `InstitutionFilterSelect` (`mode="subscribers"`) — not `institutions-mock`. Toolbar + in-card filters share the same API-backed subscriber list (React Query dedupes `useInstitutions`).
 
 #### Action: **View** (row button → EnquiryDetailDrawer)
 
@@ -4075,15 +4149,18 @@ No API call. Console data comes from static `batch-console.json` mock. This is a
 | `useSlaConfigs` | `GET /api/v1/sla-configs` | SLA configuration cards (seeds local state) |
 | `useBreachHistory` | `GET /api/v1/sla-configs/breach-history` | SLA breach history table (seeds local state) |
 
+**SLA Breach History — Institution filter:** options from **`GET /api/v1/institutions?size=300`** via `InstitutionFilterSelect` (`mode="all"`, **`allowMockFallback: false`**), not `institutions-mock`. Filtering compares breach row `institution_id` to the selected member using digit-normalized ids.
+
 **Error**: Each section shows `ApiErrorCard` independently.
 
-#### Action: **Create / Edit Alert Rule** (dialog → Save)
+#### Action: **Create / Edit Alert Rule** (sheet → Create Rule / Save)
 
 | Field | Value |
 |-------|-------|
-| **Current behaviour** | Local state update only; `toast.success("Alert rule saved")`. No API mutation wired yet. |
-| **Planned API** | `POST /api/v1/alert-rules` / `PATCH /api/v1/alert-rules/:id` |
-| **Error (future)** | `toast.error("Failed to save alert rule: [message]")` |
+| **Create API** | `POST /api/v1/alert-rules` with `name` (required), `domain`, `condition`, `severity`. Server stores rule as **`Pending approval`** and enqueues **`type: alert_rule`** on **`GET /api/v1/approvals`** with `metadata.alertRuleId`. Audit `ALERT_RULE_CREATE`. |
+| **After approval** | `POST /api/v1/approvals/:id/approve` sets the rule’s **`status` to `Enabled`**. Reject or request-changes sets **`Disabled`**. |
+| **Enable toggle** | `POST /api/v1/alert-rules/:id/activate` / `deactivate` — **activate** is rejected (**400**) until the rule is approved. UI disables the power control while **`Pending approval`**. |
+| **Edit** | `PATCH /api/v1/alert-rules/:id` (works for pending or enabled rules). |
 
 #### Action: **Toggle Alert Rule** (enable/disable switch)
 
@@ -4145,9 +4222,11 @@ No API on button click. Navigates to `/consortiums/create`.
 
 | Field | Value |
 |-------|-------|
-| **Planned API** | `POST /api/v1/consortiums` |
-| **Current behaviour** | Local state update. `toast.success("Consortium created")`. |
-| **Error (future)** | `toast.error("Failed to create consortium: [message]")` |
+| **API** | `POST /api/v1/consortiums` |
+| **Request body** | `name`, `type`, `purpose`, `governanceModel`, optional `description`, `dataPolicy`, `members[]` (`institutionId`, `role`), `status: "approval_pending"` (sent by the wizard so the record stays out of **Active** until approved). |
+| **Fastify dev API success** | Consortium stored in memory; members applied; **`consortium`** approval row prepended (`metadata.consortiumId`); audit `CONSORTIUM_CREATE`. React Query invalidates **consortiums** and **approvals**. Toast: **"Consortium created"**. Navigate to `/consortiums/:id`. |
+| **Default without `status` in body** | Server defaults to **`approval_pending`** and still enqueues approval (API clients should pass `status: active` only if they intentionally skip governance). |
+| **Error** | `toast.error` from `ApiError` (e.g. empty `name` → **400**). |
 
 #### Action: **View Detail** (card / row click)
 
@@ -4173,9 +4252,12 @@ No API on button click. Navigates to `/data-products/products/create`.
 
 | Field | Value |
 |-------|-------|
-| **Planned API** | `POST /api/v1/products` |
-| **Current behaviour** | Local state + `CatalogMockContext` update. `toast.success("Product created")`. |
-| **Error (future)** | `toast.error("Failed to save product: [message]")` |
+| **API** | `POST /api/v1/products` |
+| **Request body** | `name`, `description`, `status: "approval_pending"`, plus optional catalogue fields `packetIds`, `packetConfigs`, `enquiryConfig` (from the form / preview). |
+| **Fastify dev API success** | Product appended to in-memory catalogue; **approval item** prepended with `type: product`, `metadata.productId`; audit `PRODUCT_CREATE`. React Query invalidates **products** and **approvals**. User navigates to `/data-products/products/:id`. |
+| **Edit (existing product)** | `PATCH /api/v1/products/:id` with the same optional catalogue fields when saved. |
+| **Error** | `toast.error` from `ApiError` message (e.g. validation: empty `name` → 400). |
+| **Mock fallback** | If `VITE_USE_MOCK_FALLBACK=true` and the API is unreachable, list reads may fall back to JSON mocks; **mutations still require a live API** unless a mock path is added to `products.service.ts`. |
 
 ---
 
@@ -4186,7 +4268,11 @@ No API on button click. Navigates to `/data-products/products/create`.
 | Field | Value |
 |-------|-------|
 | **API** | `GET /api/v1/audit-logs` |
-| **Query params** | `?actionType=LOGIN&page=0&size=10` |
+| **Data source** | **API only** — `fetchAuditLogs(..., { allowMockFallback: false })`; no `user-management-mock` activity fallback. |
+| **Dev seed** | Fastify `state.auditLog` is populated at startup from `user-management.json` `activityLog` (mapped to coarse `actionType` values), sample `GOVERNANCE` rows, and sample rows for seeded dev users (`server/src/auditSeed.ts`). |
+| **Dynamic audits** | `pushAudit` in `server/src/index.ts` (~33 call sites) on: **auth** (login success/fail, logout); **approval queue** (`APPROVAL_APPROVE`, `APPROVAL_REJECT`, `APPROVAL_REQUEST_CHANGES`); **institutions** (create, document upload, suspend, **PATCH**, **reactivate**, soft **DELETE**, consortium membership add/remove, product subscribe/update, billing, API access, consent); **users** (invite, suspend, activate, PATCH, deactivate); **roles** (`ROLE_CREATE` / `ROLE_UPDATE` / `ROLE_DELETE`); **batch** retry/cancel; **alert-rule** create; **product** and **consortium** create. **Still not audited** in dev API unless extended: e.g. `auth/refresh`, global **API keys**, alert-rule patch/delete/activate, alert-incidents, SLA patch, reports, product/consortium patch/delete. |
+| **Query params** | `actionType`, `page`, `size`; server also supports `entityType`, `entityId`, `userId`, `from`, `to` (ISO dates). |
+| **IP column** | API returns `ipAddressHash`; dev rows may expose plain IP via the same field when `ipAddress` was stored on the audit row. |
 | **Success** | Audit log rows render with user avatar, action badge, status badge. |
 | **Error** | `ApiErrorCard` with **Try again** replaces the table. |
 
@@ -4208,13 +4294,13 @@ Client-side filter applied on current page. Mapped from `auditOutcome === "SUCCE
 
 ---
 
-### G.16 Governance Audit Logs — `/data-governance/audit-logs`
+### G.16 Governance Audit Logs — `/data-governance/governance-audit-logs`
 
 #### Action: **Page load / date / action filter change**
 
 | Field | Value |
 |-------|-------|
-| **API** | `GET /api/v1/audit-logs?entityType=GOVERNANCE&actionType=RULE_CREATED&from=2026-03-01&to=2026-03-28&size=50` |
+| **API** | `GET /api/v1/audit-logs?entityType=GOVERNANCE&actionType=RULE_CREATED&from=2026-03-01&to=2026-03-28&size=50` (Fastify filters `from`/`to` on `occurredAt`) |
 | **Success** | Audit log rows populate. |
 | **Error** | `SkeletonTable` during load; empty state on empty result. |
 
@@ -4231,36 +4317,38 @@ No API call. Dialog displays fields from the already-loaded `AuditLogEntry` (id,
 | Field | Value |
 |-------|-------|
 | **API** | `GET /api/v1/roles` |
-| **Success** | `roles` local state seeded from API via `useEffect`. Role cards and permission matrix render. |
-| **Error / offline** | Falls back to `roleDefinitions` from `user-management-mock`. No error shown. |
+| **Success** | `roles` local state seeded from API via `useEffect`. **Fastify** returns a full `permissions` matrix for seeded roles. **Spring Boot** `Role` entity has no matrix field — the SPA merges `GET` rows with built-in defaults per `roleName` (`mergeRolePermissionsFromApi`). Cards show **user counts** from static mock map when names match `user-management.json`. |
+| **Error / offline** | `fetchRoles` mock fallback (`VITE_USE_MOCK_FALLBACK`): synthetic ids `local-*`, full matrix from `roleDefinitions`; create still targets the API (errors if unreachable). |
 
 #### Action: **Create Role** (dialog → Create role button)
 
 | Field | Value |
 |-------|-------|
-| **API** | `POST /api/v1/roles` (via `useCreateRole` mutation — currently local state only) |
-| **Request body** | `{ "roleName": "Compliance Officer", "description": "…", "permissions": { "institutions": { "view": true, "create": false, … }, … } }` |
-| **Success** | `toast.success("Role created")` + `roles` invalidated + roles list re-fetched |
-| **Duplicate** | `toast.error("A role with this name already exists.")` (client-side check) |
-| **Error** | `toast.error("Failed to create role: [message]")` — dialog remains open |
+| **API** | `POST /api/v1/roles` via `useCreateRole` |
+| **Request body** | `{ "roleName": "Compliance Officer", "description": "…", "permissions": { "dashboard": { "View": true, "Create": false, … }, … } }` — keys are **nav section ids** (`permissionSections`) and **action** labels (`View`, `Create`, `Edit`, `Delete`, `Export`). |
+| **Success** | `toast.success("Role created")` (mutation) + query invalidation + list re-fetched; dialog closes. |
+| **Duplicate** | Client-side name check; server **409** `ERR_DUPLICATE` if name collides. |
+| **Error** | `toast.error` from mutation — dialog remains open |
 
 #### Action: **Edit Role** (pencil icon → dialog → Save changes)
 
 | Field | Value |
 |-------|-------|
-| **API** | `PATCH /api/v1/roles/:id` (via `useUpdateRole` — currently local state only) |
-| **Request body** | Changed fields only |
+| **API** | `PATCH /api/v1/roles/:id` via `useUpdateRole` for persisted roles (`id` not `local-*`). |
+| **Request body** | `roleName`, `description`, `permissions` (full matrix on save). |
+| **Offline rows** | Rows from mock fallback (`local-*` id): updates stay **local state only** + success toast. |
 | **Success** | `toast.success("Role updated")` + list re-fetched |
-| **Error** | `toast.error("Failed to update role: [message]")` |
+| **Error** | `toast.error` (e.g. duplicate rename **409**) |
 
 #### Action: **Delete Role** (trash icon → confirm dialog → Delete)
 
 | Field | Value |
 |-------|-------|
-| **API** | `DELETE /api/v1/roles/:id` (via `useDeleteRole` — currently local state only) |
+| **API** | `DELETE /api/v1/roles/:id` via `useDeleteRole` for persisted roles. |
 | **Guard** | Delete button only shown when `role.userCount === 0` (checked client-side) |
+| **Offline rows** | `local-*`: removed from local state + toast only. |
 | **Success** | `toast.success("Role deleted")` + list re-fetched |
-| **Error** | `toast.error("Failed to delete role: [message]")` |
+| **Error** | `toast.error` |
 
 #### Action: **Enable all / Disable all** (permission matrix bulk toggle)
 
@@ -4383,7 +4471,7 @@ Added in Phase 6/7. All endpoints require `Bearer <access_token>` and any of the
 | Requirement | Implementation |
 |-------------|----------------|
 | CI / local verification | `npm run test` runs Vitest **client** (jsdom) and **server** (node) projects |
-| HTTP regression | `server/src/api.integration.test.ts` uses `buildServer()` + Fastify `inject` — **sequential** suite covering login, bad-password 401, **refresh rotation**, institutions 401/200, **dashboard metrics**, **approvals list + approve**, **users list + PATCH**, **audit-logs entity filter**, **alert-rule create/patch/delete**, **reports POST**, **products list**, **batch retry + cancel**, **consortium members**, **institution consortium-memberships + product-subscriptions**, **roles** |
+| HTTP regression | `server/src/api.integration.test.ts` uses `buildServer()` + Fastify `inject` — **sequential** suite covering login, bad-password 401, **refresh rotation**, institutions 401/200, **POST institution → list + approvals (`type=institution`)**, **dashboard metrics**, **approvals list + approve**, **users list + PATCH**, **audit-logs** (seeded list, `actionType` / `GOVERNANCE`+date filters, entity filter, **PATCH institution → `INSTITUTION_UPDATE` audit count**), **alert-rule create/patch/delete**, **reports POST**, **products list**, **POST products (`approval_pending`) → approvals (`type=product`)**, **POST consortiums (`approval_pending`) → approvals (`type=consortium`)**, **batch retry + cancel**, **consortium members**, **institution consortium-memberships + product-subscriptions**, **roles CRUD** |
 | Shared test helpers | `server/src/test-helpers.ts` — `loginAsAdmin`, `authHeaders` |
 | Client coverage | Pure calcs (`src/test/calc/*`), `api-client`, feature flags, `AuthContext`, `InstitutionList`, `ApprovalQueuePage` |
 | UI ↔ route traceability | `docs/technical/API-UI-Parity-Matrix.md` (+ route appendix) |

@@ -227,6 +227,7 @@ export default function ConsortiumWizardPage() {
           purpose,
           governanceModel,
           description: description.trim() || undefined,
+          status: "approval_pending",
           dataPolicy: policyPayload,
           members: memberPayload,
         },

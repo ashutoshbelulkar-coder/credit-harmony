@@ -28,7 +28,11 @@ export function useCreateProduct() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Partial<ProductResponse>) => createProduct(data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: QK.products.all() }); toast.success("Product created"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QK.products.all() });
+      qc.invalidateQueries({ queryKey: QK.approvals.all() });
+      toast.success("Product created");
+    },
     onError: (e: ApiError) => toast.error(e.message),
   });
 }
@@ -40,6 +44,7 @@ export function useUpdateProduct() {
     onSuccess: (_, { id }) => {
       qc.invalidateQueries({ queryKey: QK.products.all() });
       qc.invalidateQueries({ queryKey: QK.products.detail(id) });
+      qc.invalidateQueries({ queryKey: QK.approvals.all() });
       toast.success("Product updated");
     },
     onError: (e: ApiError) => toast.error(e.message),

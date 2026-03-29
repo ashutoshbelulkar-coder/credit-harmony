@@ -33,11 +33,20 @@ function isNetworkOrServerError(err: unknown): boolean {
   return err.isServerError;
 }
 
-export async function fetchAuditLogs(params?: AuditLogParams): Promise<PagedResponse<AuditLogEntry>> {
+export type FetchAuditLogsOptions = {
+  /** When false, never use `mockActivity` (User Management Activity Log uses API-only when this is false). Default true. */
+  allowMockFallback?: boolean;
+};
+
+export async function fetchAuditLogs(
+  params?: AuditLogParams,
+  options?: FetchAuditLogsOptions
+): Promise<PagedResponse<AuditLogEntry>> {
+  const allowMock = options?.allowMockFallback !== false;
   try {
     return await get<PagedResponse<AuditLogEntry>>(`${BASE}${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
+    if (allowMock && clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       // Fall back to user-management mock activity logs
       const { mockActivity } = await import("@/data/user-management-mock");
       const list = (mockActivity ?? []).map((a, i) => ({

@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { ClipboardCheck, Clock, CheckCircle2, XCircle, AlertTriangle, ThumbsUp, ThumbsDown, MessageSquare, Building2, ScrollText, Users, Package } from "lucide-react";
+import { ClipboardCheck, Clock, CheckCircle2, XCircle, AlertTriangle, ThumbsUp, ThumbsDown, MessageSquare, Building2, ScrollText, Users, Package, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -50,6 +50,7 @@ export function ApprovalQueuePage() {
     mappings: "schema_mapping",
     consortiums: "consortium",
     products: "product",
+    "alert-rules": "alert_rule",
   };
 
   const filtered = items.filter((item) => {
@@ -126,6 +127,7 @@ export function ApprovalQueuePage() {
               <TabsTrigger value="mappings">Schema Mappings</TabsTrigger>
               <TabsTrigger value="consortiums">Consortiums</TabsTrigger>
               <TabsTrigger value="products">Products</TabsTrigger>
+              <TabsTrigger value="alert-rules">Alert rules</TabsTrigger>
             </TabsList>
           </Tabs>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -175,8 +177,17 @@ export function ApprovalQueuePage() {
                           {item.type === "schema_mapping" && <ScrollText className="w-3.5 h-3.5 text-muted-foreground" />}
                           {item.type === "consortium" && <Users className="w-3.5 h-3.5 text-muted-foreground" />}
                           {item.type === "product" && <Package className="w-3.5 h-3.5 text-muted-foreground" />}
+                          {item.type === "alert_rule" && <Bell className="w-3.5 h-3.5 text-muted-foreground" />}
                           <span className="text-caption font-medium text-muted-foreground">
-                            {item.type === "institution" ? "Institution" : item.type === "schema_mapping" ? "Mapping" : item.type === "consortium" ? "Consortium" : "Product"}
+                            {item.type === "institution"
+                              ? "Institution"
+                              : item.type === "schema_mapping"
+                                ? "Mapping"
+                                : item.type === "consortium"
+                                  ? "Consortium"
+                                  : item.type === "alert_rule"
+                                    ? "Alert rule"
+                                    : "Product"}
                           </span>
                         </div>
                       </TableCell>
@@ -220,10 +231,15 @@ export function ApprovalQueuePage() {
                   {statusConfig[detailItem.status].label}
                 </Badge>
                 <Badge variant="outline" className="text-[10px]">
-                  {detailItem.type === "institution" ? "Institution"
-                    : detailItem.type === "schema_mapping" ? "Schema Mapping"
-                    : detailItem.type === "consortium" ? "Consortium"
-                    : "Product"}
+                  {detailItem.type === "institution"
+                    ? "Institution"
+                    : detailItem.type === "schema_mapping"
+                      ? "Schema Mapping"
+                      : detailItem.type === "consortium"
+                        ? "Consortium"
+                        : detailItem.type === "alert_rule"
+                          ? "Alert rule"
+                          : "Product"}
                 </Badge>
               </div>
 

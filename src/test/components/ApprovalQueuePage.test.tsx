@@ -84,11 +84,12 @@ describe("ApprovalQueuePage — KPI cards", () => {
 });
 
 describe("ApprovalQueuePage — filtering", () => {
-  it("renders the tab list with All / Institutions / Mappings / Consortiums / Products", async () => {
+  it("renders the tab list including All, Institutions, and Alert rules", async () => {
     renderPage();
     await waitFor(() => {
       expect(screen.getByRole("tab", { name: /all/i })).toBeInTheDocument();
       expect(screen.getByRole("tab", { name: /institution/i })).toBeInTheDocument();
+      expect(screen.getByRole("tab", { name: /alert rules/i })).toBeInTheDocument();
     });
   });
 

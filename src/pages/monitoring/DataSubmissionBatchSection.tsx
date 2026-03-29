@@ -59,6 +59,7 @@ import {
 } from "@/data/monitoring-mock";
 import { institutions } from "@/data/institutions-mock";
 import { useBatchJobs, useBatchKpis } from "@/hooks/api/useBatchJobs";
+import type { BatchJobResponse } from "@/services/batchJobs.service";
 import { InstitutionFilterSelect } from "@/components/shared/InstitutionFilterSelect";
 import { ProcessingTimeline } from "./ProcessingTimeline";
 import { BatchExecutionConsole } from "./BatchExecutionConsole";
@@ -75,6 +76,7 @@ const statusStyles: Record<BatchStatus, string> = {
   Failed: "bg-destructive/15 text-destructive",
   Queued: "bg-muted text-muted-foreground",
   Suspended: "bg-warning/15 text-warning",
+  Cancelled: "bg-muted text-muted-foreground line-through decoration-muted-foreground/50",
 };
 
 const PAGE_SIZE = 10;
@@ -106,6 +108,7 @@ function parseBatchStatusQuery(param: string | null): BatchStatus[] | null {
     completed: "Completed",
     failed: "Failed",
     suspended: "Suspended",
+    cancelled: "Cancelled",
   };
   const out = param
     .split(",")
@@ -157,6 +160,27 @@ const batchVolumeConfig = {
 const durationConfig = { avgSec: { label: "Avg (s)", color: "hsl(var(--primary))" } } satisfies ChartConfig;
 const errorCategoriesConfig = { count: { label: "Count", color: "hsl(var(--warning))" } } satisfies ChartConfig;
 
+/** `fetchBatchJobs` returns a paged object `{ content }`, not a raw array — map into mock `BatchJob` row shape. */
+function batchJobsFromQuery(data: unknown): BatchJob[] | null {
+  if (data == null) return null;
+  if (Array.isArray(data)) return data as BatchJob[];
+  const content = (data as { content?: unknown }).content;
+  if (!Array.isArray(content)) return null;
+  return (content as BatchJobResponse[]).map((r) => ({
+    batch_id: r.batchId,
+    file_name: r.fileName,
+    status: r.status as BatchStatus,
+    total_records: r.totalRecords,
+    success: r.successRecords,
+    failed: r.failedRecords,
+    success_rate: r.successRate,
+    duration_seconds: r.durationSeconds,
+    uploaded: r.uploadedAt,
+    uploaded_by: r.uploadedBy,
+    institution_id: r.institutionId ?? "",
+  }));
+}
+
 function exportFailuresCSV(failures: BatchDetail["record_failures"]) {
   const headers = ["Record ID", "Field", "Error Type", "Error Message", "Severity"];
   const rows = failures.map((f) => [f.record_id, f.field, f.error_type, f.error_message, f.severity]);
@@ -173,7 +197,10 @@ function exportFailuresCSV(failures: BatchDetail["record_failures"]) {
 export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFilters }) {
   const { data: apiBatchJobs } = useBatchJobs();
   const { data: apiBatchKpis } = useBatchKpis();
-  const batchJobs: BatchJob[] = (apiBatchJobs as unknown as BatchJob[]) ?? mockBatchJobs;
+  const batchJobs: BatchJob[] = useMemo(
+    () => batchJobsFromQuery(apiBatchJobs) ?? mockBatchJobs,
+    [apiBatchJobs]
+  );
   const batchKpis = (apiBatchKpis as unknown as typeof mockBatchKpis) ?? mockBatchKpis;
 
   const [searchParams] = useSearchParams();

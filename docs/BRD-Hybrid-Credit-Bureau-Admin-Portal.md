@@ -103,6 +103,8 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 | Automated credit scoring or decision engines | Not part of admin portal. |
 | Live bureau API calls from Enquiry Simulation | Simulation uses mock payloads only in V1. |
 
+**Clarification (as of 2026-Q1, this repository):** The SPA ships an **in-repo Fastify dev API** (`npm run server`, port **8091**) with **JWT auth** and **in-memory persistence** for integration demos and tests. That is **not** a production bureau platform; **production-grade** APIs, SSO, durable stores, and full backend parity remain a **separate delivery** per the rows above. See [Canonical-Backend.md](technical/Canonical-Backend.md).
+
 ### 3.3 Release v2.3 — Platform, Mock Data, and UX Detail (2026-03-28)
 
 This subsection records **implemented** behaviour and **fixture alignment** so business readers, auditors, and engineering share one definition of what the SPA demonstrates today.
@@ -125,7 +127,21 @@ This subsection records **implemented** behaviour and **fixture alignment** so b
 | **Packet catalogue linkage** | Each catalogue packet carries a **Schema Mapper `sourceType`** (and category group). The form **does not repeat** the same source-type label on every row; instead, for each **category** (e.g. Bureau, Banking, Consortium), the UI shows one line: **“Source types:”** followed by **distinct** human-readable labels, sorted. |
 | **Packet rows** | Each selectable packet shows **title** (`label`) and **description**; **Configure** opens a modal to select **Raw** (schema-aligned) and **Derived** fields where applicable. |
 | **Enquiry configuration** | Product-level **enquiry settings** include **data coverage scope** (e.g. SELF, NETWORK, CONSORTIUM, VERTICAL) and **Latest vs Trended** mode so the mock product preview JSON reflects subscriber-facing behaviour. |
-| **Persistence (mock)** | Saved products store `packetIds`, optional `packetConfigs`, and `enquiryConfig` in the in-memory catalogue context (no backend). |
+| **Persistence (Fastify dev API)** | With `npm run server` (port **8091**) and the SPA calling the API, **Save product** issues `POST /api/v1/products` / `PATCH /api/v1/products/:id` with `packetIds`, `packetConfigs`, and `enquiryConfig`. New products default to **`approval_pending`**, which **enqueues** a **`product`** row on `GET /api/v1/approvals` (`metadata.productId`). State is **in-memory** (restart clears). Spring Boot (`backend/`) remains a separate contract. |
+
+#### Consortium Management — Create / edit wizard (Fastify dev API)
+
+| Topic | Detail |
+|-------|--------|
+| **Persistence** | **Create consortium** uses `POST /api/v1/consortiums` with `members`, `dataPolicy`, and `status: approval_pending` (also the server default when `status` is omitted). The API stores the consortium, applies members, and **enqueues** a **`consortium`** approval (`metadata.consortiumId`). **Approve** sets consortium **`active`**; **reject** / **request changes** set **`pending`** (listed as “Draft” in the UI until activated). In-memory only unless using Spring with a separate implementation. |
+
+#### Member registration — Register member wizard (Fastify dev API)
+
+| Topic | Detail |
+|-------|--------|
+| **Persistence** | `POST /api/v1/institutions` creates the member with **`pending`** lifecycle status (when the wizard sends it), stores compliance docs via follow-up `POST …/documents`, and **enqueues** an **`institution`** approval item (`metadata.institutionId`). |
+| **List visibility** | The member list calls the API with a **large page size** (200) so the new **pending** row is not missing from the first page. After submit, the SPA returns to **`/institutions`** and refreshes **institutions** + **approvals** caches. |
+| **Approval** | **Approve** in the queue sets the member to **`active`** and invalidates the institution list so status badges update. |
 
 #### Member Management — Routes
 
@@ -379,7 +395,7 @@ This subsection records **implemented** behaviour and **fixture alignment** so b
 | Consortium | id, name, type (Closed/Open), status (Active/Inactive), purpose, governanceModel, description, membersCount, dataVolume, dataPolicy, createdAt | HCB Admin / Backend |
 | ConsortiumMember | consortiumId, institutionId, institutionName, role, status, joinedDate | HCB Admin / Backend |
 | ConsortiumContributionSummary | consortiumId, totalRecordsShared, lastUpdated, dataTypes[] | HCB Admin / Backend |
-| DataProduct | id, name, description, packetIds[], pricingModel (perHit/subscription), price, status (active/draft), lastUpdated | HCB Admin / Backend |
+| DataProduct | id, name, description, packetIds[], pricingModel (perHit/subscription), price, status (**approval_pending** \| active \| draft), lastUpdated | HCB Admin / Backend |
 | DataPacket | id, name, description, category (bureau/banking/consortium) | HCB Admin / Data Governance |
 | User (session) | email (and derived identity) | Auth / IdP |
 | Compliance Document | name, status (verified/pending), file reference | Institution onboarding |
@@ -395,9 +411,9 @@ This subsection records **implemented** behaviour and **fixture alignment** so b
 - **Participation:** At least one of isDataSubmitter or isSubscriber must be true for a registered institution.
 - **Billing model:** prepaid | postpaid | hybrid; creditBalance applicable for prepaid/hybrid.
 - **Consortium type:** Closed (invitation-only membership) | Open (any eligible institution may join).
-- **Consortium status:** Active (data sharing is live) | Inactive (paused or not yet started).
+- **Consortium status (API):** **approval_pending** (awaiting Approval Queue) \| **active** (approved, live) \| **pending** (rejected or changes requested — UI often “Draft”). Narrative “Inactive” = not **active** for sharing.
 - **Consortium member role:** Sponsor | Participant | Observer. A consortium must have at least one Sponsor.
-- **Data product status:** active (available to subscribers) | draft (not yet published).
+- **Data product status:** **approval_pending** (submitted, awaiting Approval Queue) \| **active** (approved, available to subscribers) \| **draft** (not published, or sent back from approval).
 - **Pricing model:** perHit (credit consumed per API call) | subscription (monthly fixed fee).
 - **Product packets:** A product must include at least one data packet. A packet belongs to one category: bureau, banking, or consortium.
 - **Audit events:** Immutable; timestamp, user, action, category, and details required.

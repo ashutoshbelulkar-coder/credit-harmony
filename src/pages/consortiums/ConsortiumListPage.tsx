@@ -14,7 +14,7 @@ import {
   consortiumTypeBadgeClass,
   type ConsortiumStatus,
   type ConsortiumType,
-} from "@/data/consortiums-mock";
+} from "@/lib/consortium-ui";
 import {
   Select,
   SelectContent,

@@ -81,8 +81,6 @@ function CreateAlertRuleSheet({
       domain: domain || "Submission API",
       condition,
       severity,
-      status: "Enabled",
-      lastTriggered: null,
     });
     reset();
     onOpenChange(false);
@@ -335,7 +333,6 @@ export function AlertRulesDashboard() {
       domain: rule.domain ?? "Submission API",
       condition: rule.condition ?? "",
       severity: rule.severity ?? "Warning",
-      status: "Enabled",
     });
     setCreateOpen(false);
     setPage(1);
@@ -386,7 +383,17 @@ export function AlertRulesDashboard() {
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    <span className={cn("px-2.5 py-1 rounded-full", badgeTextClasses, r.status === "Enabled" ? "bg-success/15 text-success" : "bg-muted text-muted-foreground")}>
+                    <span
+                      className={cn(
+                        "px-2.5 py-1 rounded-full",
+                        badgeTextClasses,
+                        r.status === "Enabled"
+                          ? "bg-success/15 text-success"
+                          : r.status === "Pending approval"
+                            ? "bg-warning/15 text-warning"
+                            : "bg-muted text-muted-foreground"
+                      )}
+                    >
                       {r.status}
                     </span>
                   </td>
@@ -402,7 +409,20 @@ export function AlertRulesDashboard() {
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" title={r.status === "Enabled" ? "Disable" : "Enable"} onClick={() => toggleStatus(r.id)} disabled={toggling}>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        title={
+                          r.status === "Pending approval"
+                            ? "Approve in queue before enabling"
+                            : r.status === "Enabled"
+                              ? "Disable"
+                              : "Enable"
+                        }
+                        onClick={() => toggleStatus(r.id)}
+                        disabled={toggling || r.status === "Pending approval"}
+                      >
                         {r.status === "Enabled" ? <PowerOff className="w-3.5 h-3.5" /> : <Power className="w-3.5 h-3.5" />}
                       </Button>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" title="Delete" onClick={() => deleteRule(r.id)} disabled={deleting}><Trash2 className="w-3.5 h-3.5" /></Button>

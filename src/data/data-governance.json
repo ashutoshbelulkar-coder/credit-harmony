@@ -41,12 +41,26 @@
     { "bucket": "75–90", "count": 48, "min": 75, "max": 90 },
     { "bucket": "90–100", "count": 26, "min": 90, "max": 100 }
   ],
-  "dataQualityScoreTrend": [
-    { "period": "D-14", "score": 93.2 },
-    { "period": "D-10", "score": 93.8 },
-    { "period": "D-7", "score": 94.1 },
-    { "period": "D-4", "score": 94.5 },
-    { "period": "Today", "score": 94.8 }
+  "dataQualityScoreTrend30": [
+    { "period": "D-29", "score": 92.6 },
+    { "period": "D-22", "score": 93.0 },
+    { "period": "D-15", "score": 93.5 },
+    { "period": "D-8", "score": 94.0 },
+    { "period": "D-1", "score": 94.8 }
+  ],
+  "dataQualityScoreTrend60": [
+    { "period": "D-58", "score": 90.8 },
+    { "period": "D-45", "score": 91.4 },
+    { "period": "D-30", "score": 92.2 },
+    { "period": "D-15", "score": 93.4 },
+    { "period": "D-1", "score": 94.8 }
+  ],
+  "dataQualityScoreTrend90": [
+    { "period": "D-90", "score": 89.2 },
+    { "period": "D-60", "score": 90.5 },
+    { "period": "D-45", "score": 91.2 },
+    { "period": "D-30", "score": 92.4 },
+    { "period": "D-1", "score": 94.8 }
   ],
   "rejectionReasonsBreakdown": [
     { "name": "Format / datatype violation", "value": 38 },

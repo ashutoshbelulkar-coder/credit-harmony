@@ -1,8 +1,12 @@
 # HCB — Hybrid Credit Bureau Admin Portal
 
-**Version 3.0.0** | Enterprise-Grade | Fully Normalized | API-First | JWT-Secured | SQLite (dev) / PostgreSQL (prod)
+**Version 3.0.0** | React 18 SPA + **Fastify dev API (default)** | JWT | Optional Spring Boot track
 
-A production-grade enterprise admin portal for managing a hybrid credit bureau ecosystem. Features a React 18 SPA frontend and a Spring Boot backend with a fully normalized 3NF SQLite database, JWT authentication, role-based access control, complete audit trail, and 30+ days of pre-seeded operational data.
+This repository is a **Hybrid Credit Bureau (HCB) admin portal**: a React 18 + TypeScript SPA (Vite) that talks to an **in-repo Fastify server** on **port 8091** by default — the **canonical contract** for local development (`npm run server` + `npm run dev`). That API uses **JWT auth** and **in-memory state** seeded from `src/data/*.json` (restart clears mutations).
+
+An optional **Spring Boot** application under `backend/` (port **8090**, SQLite dev / PostgreSQL prod) provides a **separate** normalized persistence and RBAC model; the SPA does **not** proxy to it unless you set `VITE_API_PROXY_TARGET` when starting Vite. Contracts differ — see `docs/technical/SPA-Service-Contract-Drift.md`.
+
+**First-time engineers:** read `docs/technical/Developer-Handbook.md` and `AGENTS.md`. **Product / compliance:** `docs/PRD-BRD-HCB-Admin-Portal.md`, `docs/BRD-Hybrid-Credit-Bureau-Admin-Portal.md`.
 
 ---
 
@@ -28,9 +32,9 @@ A production-grade enterprise admin portal for managing a hybrid credit bureau e
 
 ## Overview
 
-The HCB Admin Portal is the primary control plane for bureau operators, compliance officers, and analysts. It provides:
+The HCB Admin Portal is the primary control plane for bureau operators, compliance officers, and analysts. With **`npm run server`** + **`VITE_USE_MOCK_FALLBACK=false`**, core flows hit the **Fastify** JWT API; otherwise the SPA can fall back to static JSON mocks. It provides:
 
-- **Institution Management** — dual-role onboarding (Data Submitters + Subscribers), registration wizard, institution detail with 9 tabbed views
+- **Member Management** — dual-role onboarding (data submitters + subscribers), registration wizard, institution detail with tabbed views
 - **Data Governance** — AI-assisted schema mapper, validation rules, match review, data quality monitoring, governance audit logs
 - **Monitoring** — real-time API monitoring, batch job tracking, SLA configuration, alert engine with auto-remediation
 - **Consortium Management** — multi-institution data sharing agreements, member management, policy configuration
@@ -39,7 +43,18 @@ The HCB Admin Portal is the primary control plane for bureau operators, complian
 - **Reporting** — self-service report generation (10 report types, status tracking, export)
 - **User Management** — users list, roles & permissions (5 roles, 9 permission categories), activity log
 - **AI Agents** — 10 specialized credit analysis agents with chat workspace and bureau enquiry integration
-- **Approval Queue** — centralized governance approval workflow for institutions and schema mappings
+- **Approval Queue** — centralized governance approval workflow (institutions, schema mappings, consortiums, **data products** when using the in-repo Fastify dev API)
+
+### Canonical backend for the SPA (local development)
+
+| Role | Code | Default port | Persistence |
+|------|------|--------------|-------------|
+| **Default API for the React app** | `server/` (Fastify) | **8091** | In-memory, seeded from `src/data/*.json` |
+| Optional Java API | `backend/` (Spring Boot) | **8090** | SQLite (dev) / PostgreSQL (prod) |
+
+Vite proxies `/api` to `process.env.VITE_API_PROXY_TARGET` or **`http://127.0.0.1:8091`**. To point the SPA at Spring (experimental; contracts differ), set `VITE_API_PROXY_TARGET=http://127.0.0.1:8090` when starting Vite and read `docs/technical/SPA-Service-Contract-Drift.md`.
+
+Full write-up: **`docs/technical/Canonical-Backend.md`**.
 
 ---
 
@@ -70,8 +85,8 @@ The frontend uses a fully wired API integration layer with mock fallback for off
 ### Architecture
 
 ```
-Pages → React Query Hooks → Services → api-client.ts → Dev API (Fastify, port 8091) or future Spring host
-                                   ↓ (on error)
+Pages → React Query Hooks → Services → api-client.ts → **Fastify dev API (port 8091)** unless `VITE_API_PROXY_TARGET` overrides
+                                   ↓ (on error, dev + VITE_USE_MOCK_FALLBACK=true only)
                                 Mock data (src/data/*.json)
 ```
 
@@ -105,14 +120,14 @@ npm run server
 VITE_USE_MOCK_FALLBACK=false npm run dev
 ```
 
-Optional: a separate Spring Boot backend on port 8090 can replace the dev API when wired; align `VITE_API_PROXY_TARGET` in `vite.config.ts` with that host.
+Optional: Spring Boot on port 8090 — set environment variable **`VITE_API_PROXY_TARGET=http://127.0.0.1:8090`** before `npm run dev` (same shell / `.env.development`). Expect client changes for pagination and HTTP verbs until contracts align.
 
 ### Vite Proxy
 
-`vite.config.ts` proxies `/api` to `VITE_API_PROXY_TARGET` (default `http://127.0.0.1:8091` per `AGENTS.md`):
+[`vite.config.ts`](vite.config.ts) proxies `/api` to `process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8091"`:
 
 ```
-Frontend (8080)  →  /api/v1/...  →  Dev API (8091)
+Frontend (8080)  →  /api/v1/...  →  Fastify (8091) by default
 ```
 
 ### Wired Pages (v2.2)
@@ -606,7 +621,9 @@ backend/
 
 ## 11. Testing
 
-**This repository:** Run **`npm run test`** (Vitest — client + in-repo Fastify integration). Step-by-step setup, env vars, ports, and troubleshooting: **`docs/technical/Developer-Handbook.md`**. UI ↔ API mapping: **`docs/technical/API-UI-Parity-Matrix.md`**.
+**This repository:** Run **`npm run test`** (Vitest — client + in-repo Fastify integration) and **`npm run openapi:validate`** (validates `docs/technical/openapi-hcb-fastify-snapshot.yaml`; also run in CI). Step-by-step setup, env vars, ports, and troubleshooting: **`docs/technical/Developer-Handbook.md`**. UI ↔ API mapping: **`docs/technical/API-UI-Parity-Matrix.md`**.
+
+**End-to-end (Playwright):** Install browsers once with **`npx playwright install`**, then **`npm run test:e2e`**. This starts Fastify on 8091 and Vite on **4173** with `VITE_USE_MOCK_FALLBACK=false` and runs critical flows against the live dev API. OpenAPI snapshot (hand-maintained): **`docs/technical/openapi-hcb-fastify-snapshot.yaml`**.
 
 ### Run Backend Tests
 ```bash

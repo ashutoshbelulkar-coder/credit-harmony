@@ -4,9 +4,15 @@
 
 ### Product overview
 
-HCB (Hybrid Credit Bureau) Admin Portal — a React 18 SPA built with Vite, TypeScript, Tailwind CSS, and shadcn/ui. A **local development API** lives in `server/` (Fastify + in-memory state seeded from `src/data/*.json`). The Vite dev server proxies `/api` to that backend (default **http://127.0.0.1:8091** — override with `VITE_API_PROXY_TARGET` if needed).
+HCB (Hybrid Credit Bureau) Admin Portal — a React 18 SPA built with Vite, TypeScript, Tailwind CSS, and shadcn/ui.
+
+**Canonical SPA backend (local dev):** `server/` — **Fastify** + in-memory state seeded from `src/data/*.json`. The Vite dev server proxies `/api` to **http://127.0.0.1:8091** by default. Override the proxy target when starting Vite: `VITE_API_PROXY_TARGET=http://127.0.0.1:8090 npm run dev` (Unix) or set the env var in your shell on Windows.
+
+**Alternate backend:** `backend/` — **Spring Boot** on port **8090** with SQLite (dev) / PostgreSQL (prod). It is **not** the default proxy target; contracts differ (verbs, pagination, RBAC). See `docs/technical/Canonical-Backend.md` and `docs/technical/SPA-Service-Contract-Drift.md`.
 
 When the API is running, use real login: **`admin@hcb.com` / `Admin@1234`** (also `super-admin@hcb.com`, `viewer@hcb.com` with the same password). If `VITE_USE_MOCK_FALLBACK=true` and the API is unreachable, the SPA falls back to mock auth and mock data per service layer.
+
+**Data products:** With the Fastify dev API, **Create product** (`POST /api/v1/products` with `approval_pending`) persists the row and **enqueues** a `type: product` item on `GET /api/v1/approvals` (`metadata.productId`). **Consortiums:** **Create consortium** (`POST /api/v1/consortiums`, default or explicit `approval_pending`) enqueues `type: consortium` (`metadata.consortiumId`). **Register member** (`POST /api/v1/institutions`) enqueues `type: institution` (`metadata.institutionId`); the member list requests **size=200** so new pending rows are included. After submit, the app returns to **`/institutions`** and invalidates institutions + approvals. Use `VITE_USE_MOCK_FALLBACK=false` and `npm run server` so create/queue actions hit the real API.
 
 ### Key commands
 

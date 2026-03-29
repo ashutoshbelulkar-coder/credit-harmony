@@ -8,6 +8,7 @@ The Fastify app in `server/` is a **development surrogate**: in-memory state, se
 
 - Replace in-memory maps/arrays with a durable store (PostgreSQL recommended per existing BRD assumptions).
 - Migrations (Flyway/Liquibase or equivalent) and idempotent seed for non-prod environments.
+- Write-path **idempotency** for integrator POSTs (see [Idempotency-And-Retries.md](./Idempotency-And-Retries.md)).
 - Align institution consortium memberships, product subscriptions, and consortium member rows with normalized tables and FK constraints.
 
 ## Security and compliance

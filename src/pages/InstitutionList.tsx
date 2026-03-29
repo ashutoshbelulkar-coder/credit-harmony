@@ -41,6 +41,8 @@ type SortKey = "name" | "institutionType" | "institutionLifecycleStatus" | "apis
 type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 5;
+/** Match Fastify `pageSlice` max (200) so the list is not missing newly registered members beyond the first API page. */
+const INSTITUTIONS_FETCH_PAGE_SIZE = 200;
 
 const roleLabels: Record<string, string> = {
   dataSubmitter: "Data Submission Institutions",
@@ -56,7 +58,10 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
   const [page, setPage] = useState(1);
   const [suspendTarget, setSuspendTarget] = useState<{ id: number | string; name: string } | null>(null);
 
-  const { data: pagedData, isLoading, error, refetch } = useInstitutions();
+  const { data: pagedData, isLoading, error, refetch } = useInstitutions({
+    page: 0,
+    size: INSTITUTIONS_FETCH_PAGE_SIZE,
+  });
   const suspendMutation = useSuspendInstitution();
 
   const institutions = pagedData?.content ?? [];

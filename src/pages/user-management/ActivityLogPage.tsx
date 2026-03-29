@@ -17,9 +17,52 @@ import { ApiErrorCard } from "@/components/ui/api-error-card";
 const PAGE_SIZE = 10;
 
 const KNOWN_ACTIONS = [
-  "LOGIN", "LOGOUT", "CREATE", "UPDATE", "DELETE",
-  "APPROVE", "REJECT", "SUSPEND", "ACTIVATE", "EXPORT",
-  "UPLOAD", "DOWNLOAD", "VIEW", "UNKNOWN",
+  "LOGIN",
+  "LOGOUT",
+  "CREATE",
+  "UPDATE",
+  "DELETE",
+  "APPROVE",
+  "REJECT",
+  "SUSPEND",
+  "ACTIVATE",
+  "EXPORT",
+  "UPLOAD",
+  "DOWNLOAD",
+  "VIEW",
+  "UNKNOWN",
+  "USER_INVITE",
+  "USER_SUSPEND",
+  "USER_ACTIVATE",
+  "USER_UPDATE",
+  "USER_DEACTIVATE",
+  "INSTITUTION_CREATE",
+  "INSTITUTION_DOCUMENT_UPLOAD",
+  "INSTITUTION_SUSPEND",
+  "MAPPING_APPROVED",
+  "RULE_CREATED",
+  "CONFIG_CHANGED",
+  "ALERT_RULE_CREATE",
+  "BATCH_RETRY",
+  "BATCH_CANCEL",
+  "CONSORTIUM_CREATE",
+  "PRODUCT_CREATE",
+  "ROLE_CREATE",
+  "ROLE_UPDATE",
+  "ROLE_DELETE",
+  "APPROVAL_APPROVE",
+  "APPROVAL_REJECT",
+  "APPROVAL_REQUEST_CHANGES",
+  "INSTITUTION_UPDATE",
+  "INSTITUTION_REACTIVATE",
+  "INSTITUTION_DELETE",
+  "INSTITUTION_CONSORTIUM_JOIN",
+  "INSTITUTION_CONSORTIUM_LEAVE",
+  "INSTITUTION_PRODUCT_SUBSCRIBE",
+  "INSTITUTION_PRODUCT_SUBSCRIPTION_UPDATE",
+  "INSTITUTION_BILLING_UPDATE",
+  "INSTITUTION_API_ACCESS_UPDATE",
+  "INSTITUTION_CONSENT_UPDATE",
 ];
 
 export function ActivityLogPage() {
@@ -28,11 +71,14 @@ export function ActivityLogPage() {
   const [statusFilter, setStatusFilter] = useState("All");
   const [page, setPage] = useState(0);
 
-  const { data, isLoading, error, refetch } = useAuditLogs({
-    actionType: actionFilter !== "All" ? actionFilter : undefined,
-    page,
-    size: PAGE_SIZE,
-  });
+  const { data, isLoading, error, refetch } = useAuditLogs(
+    {
+      actionType: actionFilter !== "All" ? actionFilter : undefined,
+      page,
+      size: PAGE_SIZE,
+    },
+    { allowMockFallback: false },
+  );
 
   const totalElements = data?.totalElements ?? 0;
   const totalPages = data?.totalPages ?? 1;
@@ -73,7 +119,8 @@ export function ActivityLogPage() {
       <div>
         <h1 className="text-h2 font-semibold text-foreground">Activity Log</h1>
         <p className="text-caption text-muted-foreground mt-1">
-          Audit trail of user actions, logins, and system events.
+          Served from GET /api/v1/audit-logs only (no client mock list). Includes seeded history and entries written when
+          the dev API records audited actions (e.g. login, logout, user and institution changes).
         </p>
       </div>
 

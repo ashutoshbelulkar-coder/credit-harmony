@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
+import { toast } from "sonner";
 import { useInviteUser } from "@/hooks/api/useUsers";
 import { type UserRole } from "@/data/user-management-mock";
 
@@ -26,7 +27,7 @@ export function InviteUserModal({ open, onOpenChange }: Props) {
 
   const handleSubmit = () => {
     if (!name || !email || !role) {
-      // toast.error is handled by the hook on error; show local validation errors
+      toast.error("Please enter full name, email, and role.");
       return;
     }
     inviteUser(

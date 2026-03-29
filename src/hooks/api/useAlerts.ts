@@ -28,7 +28,11 @@ export function useCreateAlertRule() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (data: Partial<AlertRuleResponse>) => createAlertRule(data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: QK.alerts.rules() }); toast.success("Alert rule created"); },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: QK.alerts.rules() });
+      qc.invalidateQueries({ queryKey: QK.approvals.all() });
+      toast.success("Alert rule submitted for approval");
+    },
     onError: (e: ApiError) => toast.error(e.message),
   });
 }

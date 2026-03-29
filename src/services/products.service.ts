@@ -13,6 +13,11 @@ export interface ProductResponse {
   price?: number;
   currency?: string;
   lastUpdated?: string;
+  /** Present when product was created or updated via the catalogue API (Fastify dev API). */
+  packetIds?: string[];
+  packetConfigs?: unknown[];
+  enquiryConfig?: Record<string, unknown>;
+  pricingModel?: string;
 }
 
 export interface ProductListParams {

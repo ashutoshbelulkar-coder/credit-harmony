@@ -96,13 +96,17 @@ function normaliseMockInstitution(m: any): InstitutionResponse {
 
 // ─── API Calls ────────────────────────────────────────────────────────────────
 
+export type FetchInstitutionsOptions = { allowMockFallback?: boolean };
+
 export async function fetchInstitutions(
-  params?: InstitutionListParams
+  params?: InstitutionListParams,
+  options?: FetchInstitutionsOptions
 ): Promise<PagedResponse<InstitutionResponse>> {
+  const allowMockFallback = options?.allowMockFallback !== false;
   try {
     return await get<PagedResponse<InstitutionResponse>>(`${BASE}${buildQuery(params ?? {})}`);
   } catch (err) {
-    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
+    if (allowMockFallback && clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       let list = mockInstitutions.map(normaliseMockInstitution);
       if (params?.search) {
         const q = params.search.toLowerCase();

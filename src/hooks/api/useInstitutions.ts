@@ -37,11 +37,12 @@ import {
 
 export function useInstitutions(
   params?: InstitutionListParams,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; allowMockFallback?: boolean }
 ) {
+  const allowMockFallback = options?.allowMockFallback !== false;
   return useQuery({
-    queryKey: QK.institutions.list(params),
-    queryFn: () => fetchInstitutions(params),
+    queryKey: [...QK.institutions.list(params), allowMockFallback ? "mockOk" : "apiOnly"] as const,
+    queryFn: () => fetchInstitutions(params, { allowMockFallback }),
     enabled: options?.enabled ?? true,
   });
 }
@@ -60,6 +61,7 @@ export function useCreateInstitution() {
     mutationFn: (data: Partial<InstitutionResponse>) => createInstitution(data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.institutions.all() });
+      qc.invalidateQueries({ queryKey: QK.approvals.all() });
     },
     onError: (e: ApiError) => toast.error(e.message),
   });
