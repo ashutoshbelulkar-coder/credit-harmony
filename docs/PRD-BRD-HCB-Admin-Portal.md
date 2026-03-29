@@ -1,9 +1,9 @@
 # Hybrid Credit Bureau (HCB) Admin Portal
 ## Complete Product Requirement Document (PRD) & Business Requirement Document (BRD)
 
-**Document Version:** 2.3
-**Date:** 2026-03-28
-**Status:** Updated — Enterprise Edition; Production-Grade Requirements
+**Document Version:** 2.4
+**Date:** 2026-03-29
+**Status:** Updated — Enterprise Edition; Production-Grade Requirements (member registry, API metrics, overview analytics aligned to Fastify contract)
 **Classification:** Internal – Confidential
 
 > **Change Summary v2.0:** Added Module 10 (Consortium Management), Module 11 (Data Products), Module 12 (Enquiry Simulation), Institution Detail extensions (Consortium Memberships tab, Product Subscriptions tab). Updated routing table, project structure, exception scenarios (with sample data), data models, API specs, and QA test suites. Typography system documented: compact 10px/12px scale with explicit pixel values to prevent browser-default overrides.
@@ -36,6 +36,29 @@
 >
 > **E. Data models (Section 15)**  
 > - Added **DriftAlert** entity; extended **DataProduct** with optional `packetConfigs` and `enquiryConfig`; noted **ManagedUser** may omit institution in bureau-only mock.
+>
+> **Change Summary v2.4 (2026-03-29) — Member registry truth, API enablement, overview analytics, BRD parity**
+>
+> **F. Member row vs approval queue (governance semantics)**  
+> - **POST `/api/v1/institutions`** persists a **member registry row** immediately **and** enqueues **`type: institution`** on the approval queue (`metadata.institutionId`).  
+> - **POST `/api/v1/approvals/:id/reject`** updates the **approval** only for institutions — it **does not** soft-delete or remove the member. Removal requires **DELETE `/api/v1/institutions/:id`** or **API restart** (in-memory demo reset).  
+> - **PRD §5.2** registration journey updated; **§6.14** Approval Queue extended; **mermaid** diagrams in **§3.2.1** (new subsection under BRD mirror below) and BRD **§3.4**.
+>
+> **G. APIs enabled column & Overview KPI (`apisEnabledCount`)**  
+> - **Derived** on every institution list/detail response from **effective** `api-access` policy (server defaults merged with `PATCH …/api-access`).  
+> - **Slots:** +1 if `isDataSubmitter` (Data Submission API toggle), +1 if `isSubscriber` (Enquiry API toggle). UI shows **`enabledCount/slotCount`** (e.g. `2/2`). Replaces legacy fixed **“/3”** copy.  
+> - **React Query:** `PATCH api-access` invalidates institution **list** + **detail** + **api-access** queries.
+>
+> **H. Institution Overview — trend charts (`overview-charts`)**  
+> - **GET `/api/v1/institutions/:id/overview-charts`** returns **member-scoped** series for a **rolling 30-day** window: submission metrics filtered like Monitoring Data Submission (`api_key` → `dataSubmitterIdByApiKey`); enquiry metrics filtered like Monitoring enquiries.  
+> - **New members** with no key mapping / no traffic: **empty** arrays + **empty-state** messaging on pie charts.  
+> - **Spring Boot `backend/`:** route **not** implemented — SPA 404 unless using Fastify or a future parity layer (**SPA-Service-Contract-Drift.md**).
+>
+> **I. API & Access tab — card model**  
+> - **Implemented:** one **Data Submission API** card + one **Enquiry API** card (role-gated). **Legacy PRD/BRD** “Bulk + SFTP” as **separate** cards: **deferred**; tracked as superseded by **FR-API1A** in BRD **§6.14**.
+>
+> **J. API spec & data model (Sections 14–15)**  
+> - Institution examples use **`apisEnabledCount`** and note derivation; **§15.2** Institution table extended.
 
 ---
 
@@ -208,6 +231,88 @@ Canonical backend documentation: `docs/technical/Canonical-Backend.md`.
 UI ↔ API parity (Fastify): `docs/technical/API-UI-Parity-Matrix.md`.  
 Page-level `@/data` import audit: `docs/technical/Page-Data-Imports-Audit.md`.
 
+### 3.1.2 Member lifecycle, API metrics, and overview analytics (v2.4)
+
+This subsection is the **product-facing** companion to **BRD §3.4**. It is binding for **UX copy**, **QA expected results**, and **demo scripts** when the SPA uses the **Fastify** contract.
+
+**Elaboration — why operators may see “rejected” in the queue but the member still in the list**
+
+1. **Submit registration** calls **`POST /api/v1/institutions`**, which **always** inserts a **member row** (lifecycle from wizard, commonly `pending`) **and** prepends an **approval** item (`type: institution`, `metadata.institutionId`).
+2. **Reject** calls **`POST /api/v1/approvals/:id/reject`**. For institutions, the server **only** flips the approval to `rejected` and stores the reason. **No** code path deletes or hides the registry row.
+3. Therefore **“reject registration” ≠ “remove member.”** If policy requires hiding rejected applicants, the product backlog must add **reject → soft-delete**, **reject → `draft` hidden flag**, or operator **SOP: delete after reject**.
+
+**Elaboration — APIs enabled column (`apisEnabledCount`)**
+
+- The API **recomputes** `apisEnabledCount` when serializing each institution using **merged** API-access defaults + stored `PATCH` payload.
+- **Slots** = `(isDataSubmitter ? 1 : 0) + (isSubscriber ? 1 : 0)`. UI displays **`count/slots`**.
+- Changing toggles on **API & Access** triggers list invalidation so the **Member Institutions** table matches the tab without manual refresh.
+
+**Elaboration — Overview trend charts**
+
+- Data source: **`GET /api/v1/institutions/:id/overview-charts`**.
+- **Scope:** last **30 days**; **per member**; aligned with Monitoring filters (submitter key mapping + enquiry institution match).
+- **New members:** expect **empty** or zero series until real traffic and key mapping exist; pies use **empty-state** text instead of blank charts.
+
+**Diagrams**
+
+*Registration creates registry row + queue item*
+
+```mermaid
+flowchart TB
+  subgraph submit [Wizard POST institutions]
+    W[Wizard Submit]
+    W --> MEM[Member row in state.institutions]
+    W --> APV[Approval item type institution]
+  end
+```
+
+*Reject approval — registry untouched*
+
+```mermaid
+sequenceDiagram
+  participant Op as Approver
+  participant SPA as Admin SPA
+  participant API as Fastify API
+  participant ST as institutions store
+  Op->>SPA: Reject with mandatory reason
+  SPA->>API: POST approvals id reject
+  API->>API: Set approval rejected + audit
+  Note over ST: Member row still present
+```
+
+*`apisEnabledCount` derivation (conceptual)*
+
+```mermaid
+flowchart LR
+  A[Persisted apiAccess partial object] --> M[Merge server defaults]
+  M --> T[Evaluate toggles for each role slot]
+  T --> C[apisEnabledCount in JSON response]
+  C --> L[Member list column]
+  C --> D[Detail Overview KPI strip]
+```
+
+*Overview charts request path*
+
+```mermaid
+flowchart LR
+  subgraph spa [React SPA]
+    OV[OverviewTab useInstitutionOverviewCharts]
+  end
+  subgraph api [Fastify]
+    R[GET institutions id overview-charts]
+    F1[Filter apiRequests by submitter map]
+    F2[Filter enquiries by institution]
+  end
+  OV -->|JWT| R
+  R --> F1
+  R --> F2
+  F1 --> R
+  F2 --> R
+  R -->|submissionVolumeData etc| OV
+```
+
+**Spring Boot gap:** Member overview-charts **not** on `InstitutionController`; see `docs/technical/SPA-Service-Contract-Drift.md`.
+
 #### Module 1: Authentication
 
 | Attribute | Detail |
@@ -231,7 +336,7 @@ Page-level `@/data` import audit: `docs/technical/Page-Data-Imports-Audit.md`.
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Member / institution lifecycle |
-| **Description** | **Member Institutions** registry at **`/institutions`** (unified list; optional role filter props exist for legacy titles). **Member Management** sidebar group: **Member Institutions**, **Consortiums**. 3-step registration wizard (Corporate Details → Compliance Documents → Review). Institution detail with tabbed views including Consortium Memberships and Product Subscriptions. |
+| **Description** | **Member Institutions** registry at **`/institutions`** (unified list; legacy `/institutions/data-submitters` and `/institutions/subscribers` **redirect** here). **Member Management** sidebar group: **Member Institutions**, **Consortiums**. 3-step registration wizard (Corporate Details → Compliance Documents → Review) — on submit, **Fastify** **creates the member row immediately** and **enqueues** an **institution** approval (**reject does not delete** the row; see **§3.1.2** / BRD **§3.4**). **APIs enabled** column = **`apisEnabledCount/slots`** derived from **API & Access** toggles. **Overview** tab charts = **`GET …/overview-charts`** (member-scoped **30d**). Institution detail includes Consortium Memberships and Product Subscriptions tabs. |
 | **Business Value** | Standardized onboarding and a single place to manage members and consortium entry points |
 | **User Benefit** | Guided wizard; unified list and clear navigation labels |
 
@@ -429,13 +534,34 @@ Step 3: Compliance Documents (Step 2/3)
 Step 4: Review & Submit (Step 3/3)
   → System displays summary of all entered data
   → User reviews and clicks "Submit Registration"
-  → System creates institution with status "draft"
-  → Toast: "Institution registered successfully"
-  → Navigate to institution list
+  → When VITE_USE_MOCK_FALLBACK=false and Fastify API is up:
+      POST /api/v1/institutions
+        → Persists member row in in-memory registry (lifecycle from payload, typically "pending")
+        → Enqueues approval queue item (type: institution, metadata.institutionId)
+      → Toast: success per SPA copy
+      → Navigate to /institutions; React Query refetches institutions + approvals (large page size)
+  → Legacy / narrative "status draft only" is superseded for the dev API by the above (see §3.1.2).
 
 Decision Points:
   - If Subscriber selected → Billing configuration becomes mandatory (future)
-  - If Data Submitter selected → API access configuration auto-provisioned (future)
+  - If Data Submitter selected → Default API-access policy applies server-side until PATCH …/api-access
+```
+
+**Diagram — post-submit artefacts (Fastify)**
+
+```mermaid
+flowchart LR
+  subgraph client [SPA]
+    SUB[Submit Registration]
+  end
+  subgraph api [Fastify]
+    P[POST institutions]
+    MEM[(institutions)]
+    APQ[(approvals)]
+  end
+  SUB --> P
+  P --> MEM
+  P --> APQ
 ```
 
 ### 5.3 Data Governance Schema Mapping Workflow
@@ -744,7 +870,7 @@ Step 5: Reviewed items remain in queue with updated status
 | Register Button | Primary Button | Top right | "Register New Institution" | N/A | Navigates to `/institutions/register` |
 | Search Input | Text Input | Above table | Filter by institution name | User input | Real-time filtering of table rows |
 | Status Filter | Select Dropdown | Above table | Filter by status (All, Active, Pending, Suspended, Draft) | Static options | Filters table rows |
-| Institution Table | Data Table | Main content | Columns: Name, Type, Status, APIs Enabled, SLA Health, Last Updated, Actions | `institutions` array | Sortable columns; row click navigates to `/institutions/:id` |
+| Institution Table | Data Table | Main content | Columns: Name, Type, Status, **APIs Enabled** (`apisEnabledCount` / role **slots** — e.g. `2/2`), SLA Health, Last Updated, Actions | `GET /api/v1/institutions` | Sortable columns; row click navigates to `/institutions/:id`; **v2.4:** count **derived** from API & Access toggles, not static seed |
 | Actions Menu | Dropdown | Table row | View, Edit, Suspend options | N/A | View → navigate to detail; Edit → navigate to detail; Suspend → toast confirmation |
 
 ### 6.4 Institution Registration Wizard (`/institutions/register`)
@@ -786,9 +912,9 @@ Step 5: Reviewed items remain in queue with updated status
 
 | Tab | Route Segment | Key Elements |
 |-----|---------------|--------------|
-| Overview | Default | Institution info card, compliance docs, KPI summary |
+| Overview | Default | KPI strip (**APIs enabled** = `apisEnabledCount/slots` per **§3.1.2**); corporate details; compliance docs; **role-based charts** fed by **`GET /api/v1/institutions/:id/overview-charts`** (**30d**, member-scoped; **empty states** when no data); submission/enquiry sections gated by `isDataSubmitter` / `isSubscriber` |
 | Alternate Data | Tab 2 | Alternate data source configuration (bank statements, GST, telecom, utility) with toggles |
-| API & Access | Tab 3 | API key management, rate limits, environment selector (Sandbox/UAT/Production) |
+| API & Access | Tab 3 | **v2.4:** **Data Submission API** card (toggle, rate limit, IP whitelist) when submitter; **Enquiry API** card when subscriber; API keys table; environment selector (Sandbox/UAT/Production). *Legacy three-card submitter model (Bulk, SFTP) not in current build — BRD **FR-API1A**.* |
 | Consent Config | Tab 4 | Consent rules per product type with toggle switches and duration config |
 | Billing | Tab 5 | Billing model selector (Prepaid/Postpaid/Hybrid), credit balance display, top-up history table, consumption summary, search and export |
 | Monitoring | Tab 6 | Institution-specific API metrics and SLA health |
@@ -917,6 +1043,27 @@ Step 5: Reviewed items remain in queue with updated status
 ### 6.14 Approval Queue (`/approval-queue`)
 
 **Purpose:** Centralized governance approval for institution registrations and schema mappings.
+
+**v2.4 — Institution rejection semantics (must be reflected in operator training & release notes):**
+
+| Action | Effect on approval row | Effect on member registry row (Fastify) |
+|--------|------------------------|----------------------------------------|
+| **Approve** (`POST …/approvals/:id/approve`) | Status → approved | `institutionLifecycleStatus` → **active** |
+| **Reject** (`POST …/approvals/:id/reject`) | Status → rejected; reason stored | **No automatic change**; member remains listed until **DELETE …/institutions/:id** or process restart |
+| **Request changes** | Status → changes_requested | *No automatic registry delete* |
+
+```mermaid
+flowchart TB
+  subgraph actions [Approver actions]
+    A[Approve institution]
+    R[Reject institution]
+  end
+  subgraph outcomes [Outcomes]
+    A --> A1[Member active]
+    R --> R1[Queue item rejected]
+    R --> R2[Member still in registry]
+  end
+```
 
 | Element | Type | Description | Data Source |
 |---------|------|-------------|-------------|
@@ -2193,37 +2340,44 @@ Response (200):
 
 ### 14.3 Institutions
 
-#### GET /api/institutions?status=active&role=dataSubmitter
+> **v2.4 contract note (Fastify SPA default):** List/detail JSON uses **paged** shape `{ content, totalElements, totalPages, page, size }` and field names such as **`institutionType`**, **`institutionLifecycleStatus`**, **`apisEnabledCount`** (not legacy `apisEnabled` / `type` / `status` only). **`apisEnabledCount`** is **derived** on read from **effective API & Access** toggles + participation flags — see **§3.1.2**.
+
+#### GET /api/v1/institutions?page=0&size=200
 
 ```json
-Response (200):
+Response (200) — illustrative fields:
 {
-  "data": [
+  "content": [
     {
-      "id": "string",
-      "name": "string",
-      "tradingName": "string",
-      "type": "Commercial Bank | Credit Union | NBFI | Fintech | Savings Bank | MFI",
-      "status": "active | pending | suspended | draft",
-      "apisEnabled": 3,
-      "slaHealth": 99.9,
-      "lastUpdated": "2026-02-18",
+      "id": 1,
+      "name": "First National Bank",
+      "tradingName": "FNB",
+      "institutionType": "Commercial Bank",
+      "institutionLifecycleStatus": "active",
+      "apisEnabledCount": 2,
+      "slaHealthPercent": 99.9,
+      "updatedAt": "2026-02-18",
       "isDataSubmitter": true,
       "isSubscriber": true,
-      "billingModel": "prepaid | postpaid | hybrid",
+      "billingModel": "postpaid",
       "creditBalance": 50000
     }
   ],
-  "total": 8
+  "totalElements": 8,
+  "totalPages": 1,
+  "page": 0,
+  "size": 200
 }
 ```
 
-#### POST /api/institutions
+*UI displays **APIs enabled** as `apisEnabledCount` **/** `slotCount` where `slotCount` = (isDataSubmitter ? 1 : 0) + (isSubscriber ? 1 : 0).*
+
+#### POST /api/v1/institutions
 
 ```json
-Request:
+Request (representative):
 {
-  "legalName": "string",
+  "name": "string",
   "tradingName": "string",
   "registrationNumber": "string",
   "institutionType": "string",
@@ -2233,37 +2387,40 @@ Request:
   "contactPhone": "string",
   "isDataSubmitter": true,
   "isSubscriber": false,
-  "complianceDocs": ["file_id_1", "file_id_2"]
+  "institutionLifecycleStatus": "pending"
 }
 
-Response (201):
+Response (200) — Fastify returns full sanitized institution:
 {
-  "id": "string",
-  "status": "draft"
+  "id": 9,
+  "name": "string",
+  "institutionLifecycleStatus": "pending",
+  "apisEnabledCount": 1,
+  "...": "..."
 }
 ```
 
-#### GET /api/institutions/:id
+#### GET /api/v1/institutions/:id
 
 ```json
-Response (200):
+Response (200) — representative:
 {
-  "id": "1",
+  "id": 1,
   "name": "First National Bank",
   "tradingName": "FNB",
-  "type": "Commercial Bank",
-  "status": "active",
+  "institutionType": "Commercial Bank",
+  "institutionLifecycleStatus": "active",
   "registrationNumber": "BK-2024-00142",
   "jurisdiction": "Kenya",
   "licenseType": "Commercial Banking",
   "licenseNumber": "CBK-LIC-0042",
   "contactEmail": "compliance@fnb.co.ke",
   "contactPhone": "+254 700 123 456",
-  "onboardedDate": "Jan 15, 2026",
-  "dataQuality": 98,
-  "matchAccuracy": 96.4,
-  "apisEnabled": 3,
-  "slaHealth": 99.9,
+  "onboardedAt": "2026-01-15",
+  "dataQualityScore": 98,
+  "matchAccuracyScore": 96.4,
+  "apisEnabledCount": 2,
+  "slaHealthPercent": 99.9,
   "isDataSubmitter": true,
   "isSubscriber": true,
   "billingModel": "postpaid",
@@ -2274,6 +2431,23 @@ Response (200):
   ]
 }
 ```
+
+#### GET /api/v1/institutions/:id/overview-charts *(Fastify; Spring not implemented — v2.4)*
+
+```json
+Response (200):
+{
+  "submissionVolumeData": [{ "day": "Mar 1", "volume": 0 }],
+  "successVsRejectedData": [],
+  "rejectionReasonsData": [],
+  "processingTimeData": [],
+  "enquiryVolumeData": [],
+  "successVsFailedData": [],
+  "responseTimeData": []
+}
+```
+
+*Series are **member-scoped** and **last 30 days**; arrays may be **empty** for new members. Pie arrays empty → SPA shows empty-state copy.*
 
 ### 14.4 Monitoring
 
@@ -2845,14 +3019,15 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| id | string (UUID) | Yes | Primary key |
+| id | string or number | Yes | Primary key |
 | name | string | Yes | Legal entity name |
 | tradingName | string | No | DBA / short name |
-| type | string | Yes | Institution category |
-| status | enum (active, pending, suspended, draft) | Yes | Lifecycle status |
-| apisEnabled | number | Yes | Count of active API integrations |
-| slaHealth | number | Yes | SLA compliance percentage |
-| lastUpdated | string (date) | Yes | Last modification date |
+| institutionType | string | Yes | Institution category (API field name) |
+| institutionLifecycleStatus | enum (active, pending, suspended, draft, …) | Yes | Lifecycle status |
+| apisEnabledCount | number | Yes (in API responses) | **v2.4:** **Derived** on **GET** list/detail from **effective** API & Access toggles + `isDataSubmitter` / `isSubscriber` slots — not a manually edited column |
+| slaHealthPercent | number | No | SLA compliance percentage |
+| updatedAt | string (date) | Yes | Last modification date |
+| apiAccess | object | No | **Fastify:** persisted partial overrides for `dataSubmission` / `enquiry` (merged with server defaults on read) |
 | registrationNumber | string | No | Government registration ID |
 | jurisdiction | string | No | Operating country |
 | licenseType | string | No | License category |
@@ -3828,8 +4003,15 @@ No API call. Client-side navigation to the respective module route.
 | **API** | `GET /api/v1/institutions` |
 | **Trigger** | Page mount, any filter change (status, role, search), or page number change |
 | **Query params** | List view uses `page=0&size=200` (Fastify caps `size` at 200) so **all** members fit in one response for client-side search/sort/pagination; optional `status`, `role`, `search` when wired server-side. |
-| **Success** | Table rows include **pending** registrations (status filter **All Statuses**). After **Approval Queue → Approve** on an institution item, React Query refetches institutions so **Status** becomes **active**. |
+| **Success** | Table rows include **pending** registrations (status filter **All Statuses**). After **Approval Queue → Approve** on an institution item, React Query refetches institutions so **Status** becomes **active**. **v2.4:** **APIs enabled** column reflects **`apisEnabledCount` / slots** from API serialization (see **§3.1.2**). **Reject** on an institution approval **does not remove** the row from this table. |
 | **Error** | `ApiErrorCard` replaces the table with **Try again** button; filters remain interactive. |
+
+#### Action: **PATCH API & Access** (from institution detail, separate tab)
+
+| Field | Value |
+|-------|-------|
+| **API** | `PATCH /api/v1/institutions/:id/api-access` |
+| **Success** | Toast; invalidates **institutions** (all list queries), **detail**, and **api-access** — **APIs enabled** updates on list without hard refresh (**v2.4**). |
 
 #### Action: **Register Member** (button top-right)
 

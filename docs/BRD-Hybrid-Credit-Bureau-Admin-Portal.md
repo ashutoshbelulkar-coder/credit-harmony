@@ -3,9 +3,9 @@
 
 **Document Type:** Business Requirements Document (BRD)
 **Classification:** Internal – Board & Audit Ready
-**Version:** 2.3
-**Status:** Updated – v2.3 documents mock-data alignment for Data Quality drift alerts and detailed Data Products / governance UX (see §3.3)
-**Last Updated:** 2026-03-28
+**Version:** 2.4
+**Status:** Updated – v2.4 documents member-registry / approval-queue semantics, **APIs enabled** metrics, member-scoped overview analytics, and Fastify-vs-Spring contract boundaries (see §3.4)
+**Last Updated:** 2026-03-29
 **Author:** Enterprise Business Analysis
 **Stakeholder Approval:** [To be completed]
 
@@ -20,6 +20,7 @@
 | 2.1     | 2026-03-27 | Enterprise Business Analysis | Added enterprise use cases (multi-country, multi-bureau, alternate data monetization); upgraded performance targets to production-grade (99.9% uptime, 5M API calls/day); enhanced security requirements (RBAC, ABAC, PII, consent enforcement, JWT best practices, API key lifecycle); added missing feature modules roadmap (CBS Integration, Live Enquiry, Scheduled Reporting, Multi-Bureau Comparison, Consumer Portal); aligned mock data architecture to JSON-only layer. | —           |
 | 2.2     | 2026-03-27 | Product / Engineering | **Platform feature enhancements (admin UX):** Renamed **Institution Management** to **Member Management** in navigation and key screens; data products tied to **Schema Mapper source types** with raw vs derived packet configuration and **Latest/Trended** enquiry mode; governance dashboard prioritizes period selection and **validation by member institution**; removed override/auto-accept trend from mock scope; validation rules reference **source types** from the schema registry; data quality monitoring adds **filters and institution comparison**; monitoring adds **calendar date range** and **role-appropriate institution filters**; user admin **drops institution** from list/invite; **Roles & Permissions** modeled as **navigation section × CRUD/export** matrix; member **billing CSV** by month/year; member **reports** aligned to central reporting catalogue; shared **institution filter** component for monitoring/governance. | —           |
 | 2.3     | 2026-03-28 | Product / Engineering | **Documentation & data alignment:** **Data Quality Monitoring** — `driftAlerts` mock records in `data-governance.json` refreshed to **March 2026** ISO timestamps and **source names aligned to Schema Mapper registry** so default date range (start of current month → today) and **Source type** filter return non-empty results; drift alert schema documented (id, type, source, message, timestamp, severity). **Data Products (product form)** — packets grouped by **category**; each group shows **distinct Schema Mapper source types** once (sorted labels); packet rows emphasize **packet label + description** with per-packet **Configure** (Raw vs Derived field selection) and **Enquiry settings** (scope, **Latest vs Trended**). **Navigation** — sidebar copy finalized: **Member Management** with sub-items **Member Institutions** (`/institutions`) and **Consortiums**; legacy `/institutions/data-submitters` and `/institutions/subscribers` redirect to unified list. | —           |
+| 2.4     | 2026-03-29 | Product / Engineering | **Member registry & governance truth:** Documents **implemented** behaviour for **(1)** separation of **durable member rows** vs **approval queue items** — rejecting an institution approval **does not** remove the member from the registry (explicit DELETE or in-memory reset only). **(2)** **APIs enabled** column and overview KPIs: value is **derived** from **API & Access** toggles (Data Submission + Enquiry) and shown as **`enabledCount / slotCount`** (up to two slots for dual-role members), not a legacy fixed “/3” denominator. **(3)** **Overview tab** trend charts: fed by **`GET /api/v1/institutions/:id/overview-charts`** — **member-scoped**, **rolling 30 days**, aligned with Monitoring filters; **empty** series when no traffic / no API-key mapping. **(4)** **FR-API1** gap: current portal surfaces **one** consolidated Data Submission API card plus Enquiry (not three separate Bulk/SFTP cards). **(5)** **Spring Boot** alternate backend: `overview-charts` route **not** implemented — documented in technical drift matrix. BRD §3.4 adds diagrams; §6.14 adds formal FR-* v2.4 rows; §8.1/8.2 data rules extended. | —           |
 
 **Distribution List:** Product Owner, Engineering Lead, Compliance Officer, Risk Manager, QA Lead, Project Sponsor.
 
@@ -40,6 +41,8 @@ The system provides institution onboarding and configuration governance, API and
 Version 2.0 of this BRD documents the newly released capabilities as of 25 March 2026: **Data Products module** (product configurator + enquiry simulation), **Consortium Management** (list, detail, wizard), and **Institution Detail extensions** (Consortium Memberships tab, Product Subscriptions tab). These capabilities enable HCB to offer a structured product marketplace where institutions can subscribe to configured data products backed by packet-level data from the bureau and consortiums.
 
 **Version 2.3 (28 March 2026)** adds business-readable detail for **mock-data alignment** and **operator UX**: drift alerts in Data Quality Monitoring use **current-period** timestamps and **registry-aligned** source names so demos show real list content; the **Data Products** create/edit experience documents **distinct source types per category**, per-packet configuration, and **enquiry** settings; **Member Management** routes and sidebar labels are consolidated per §3.3.
+
+**Version 2.4 (29 March 2026)** aligns the BRD with **live Fastify dev API** behaviour for **member lifecycle**, **approval rejection**, **API enablement metrics**, and **overview analytics** so operators, auditors, and engineering do not assume behaviours that the code does not implement (e.g. auto-deletion on reject, static chart templates per member, or a fixed “three APIs” denominator). Full narrative, acceptance notes, and diagrams are in **§3.4**; formal requirement rows in **§6.14**.
 
 ---
 
@@ -81,7 +84,7 @@ Version 2.0 of this BRD documents the newly released capabilities as of 25 March
 | **Authentication**                      | Login (email/password); session handling; protected routes; logout. |
 | **Dashboard**                           | Executive KPIs (API volume, error rate, SLA health, data quality); API usage trend; success vs failure; mapping accuracy; match confidence; SLA latency; rejection/override; recent activity; top institutions. |
 | **Member Management** (formerly Institution Management) | List (all / Data Submitters / Subscribers); filters (status, search); registration wizard (corporate details, participation type, compliance documents, review); member detail with role-based tabs; overview and tabs enhanced per v2.2 (stats sections, billing CSV period, reports from reporting catalogue, monitoring date range). |
-| **Institution Detail – Common**         | Overview (corporate details, compliance docs, role-based KPIs and charts); API & Access (type-based APIs, keys, rate limits, IP whitelist); Consortium Memberships tab (NEW); Product Subscriptions tab (NEW); Monitoring; Reports; Audit Trail; Users. |
+| **Institution Detail – Common**         | Overview (corporate details, compliance docs, role-based KPIs; **trend charts** from **per-member** `overview-charts` API, **30d**); API & Access (**Data Submission** + **Enquiry** cards per role, keys, rate limits, IP whitelist — see **§3.4.5** / **§6.14**); Consortium Memberships tab (NEW); Product Subscriptions tab (NEW); Monitoring; Reports; Audit Trail; Users. |
 | **Institution Detail – Subscriber-only**| Alternate Data (source cards, enable, rate, consent, usage); Consent Configuration (policy, expiry, scope, capture mode, failure metrics); Billing (model, pricing table, usage charts, export reports). |
 | **Data Governance**                     | Dashboard; Schema Mapper / Auto-Mapping Review; Validation Rules; Match Review; Data Quality Monitoring; Governance Audit Logs. |
 | **Consortium Management (NEW)**         | Consortium list (search, filter, status badges); Consortium detail (Overview, Members, Data Contribution tabs); Consortium creation/edit wizard (Basic info, Members, Policy, Review steps). |
@@ -150,6 +153,119 @@ This subsection records **implemented** behaviour and **fixture alignment** so b
 | `/institutions` | Primary **Member Institutions** list (all participation types; title reflects unified registry). |
 | `/institutions/data-submitters`, `/institutions/subscribers` | **Redirect** to `/institutions` (unified list; role-specific URLs retained for bookmarks). |
 
+### 3.4 Release v2.4 — Member registry, approval semantics, API metrics, and overview analytics (2026-03-29)
+
+This subsection is the **authoritative business description** of behaviours implemented in the **in-repo Fastify dev API** (`server/src/index.ts`) and the **React SPA** when `VITE_USE_MOCK_FALLBACK=false` and the API is reachable. It supersedes informal assumptions that members “disappear” when an approver rejects a queue item, or that list KPIs are copied from static JSON per member.
+
+#### 3.4.1 Two parallel artefacts: member row vs approval item
+
+When an operator completes **Register New Institution**, the system performs **two** persistent actions (conceptually):
+
+1. **Member registry row** — A record is created in the **institutions** store immediately (lifecycle status typically **`pending`** unless the wizard sends another value). The row is visible on **Member Institutions** (`GET /api/v1/institutions` with a large page size so new rows are not clipped).
+2. **Approval queue item** — A **`type: institution`** item is enqueued (`metadata.institutionId` points at the new row). Approvers act on **this** item in **Approval Queue**.
+
+These artefacts have **independent lifecycles** after creation: updating the approval record does **not** imply the registry row was removed.
+
+```mermaid
+flowchart TB
+  subgraph registration [Registration submit]
+    W[Wizard Submit] --> POST[POST institutions]
+    POST --> ROW[Member row in registry]
+    POST --> APQ[Approval queue item type institution]
+  end
+  subgraph queue [Approval Queue actions]
+    APQ --> APP[Approve]
+    APQ --> REJ[Reject]
+    APP --> ACTIVE[Member lifecycle active]
+    REJ --> REJST[Approval status rejected]
+  end
+  ROW -.->|remains until DELETE or reset| ROW
+  REJST -.->|does not remove| ROW
+```
+
+#### 3.4.2 Rejecting an institution approval does **not** delete the member
+
+**Business rule (as implemented):** **`POST /api/v1/approvals/:id/reject`** marks the **approval** as rejected and records the reason. For **institution** approvals, the handler **does not** soft-delete the member, change `isDeleted`, or roll back the registry row.
+
+**Removal paths** (dev API today):
+
+| Path | Effect |
+|------|--------|
+| **`DELETE /api/v1/institutions/:id`** | Soft-delete (`isDeleted = true`); member hidden from list/detail. |
+| **API process restart** | In-memory state reloaded from seed JSON — **runtime-created** members are **gone** (demo reset). |
+
+```mermaid
+flowchart LR
+  Q[Approver clicks Reject] --> API[POST approvals id reject]
+  API --> A1[Approval row status rejected]
+  API --> A2[Audit APPROVAL_REJECT]
+  M[Member registry row] --> U[Unchanged unless separate DELETE]
+```
+
+**Operational implication:** If policy requires that a **rejected registration must not appear** in the member directory, product must either (a) implement **reject → soft-delete** (or **reject → hidden draft**) in the API, or (b) train operators to **DELETE** the member after rejection. The BRD now records the **as-is** contract to avoid false expectations.
+
+#### 3.4.3 “APIs enabled” metric — derived from API & Access, not static seed
+
+The **Member Institutions** table column **APIs enabled** and the **Overview** KPI strip must reflect **actual** toggle state on **API & Access** (Data Submission API and Enquiry API), not a stale integer from initial JSON seed or from POST defaults alone.
+
+**Slot model (current portal):**
+
+- **+1 slot** if `isDataSubmitter` — controls **Data Submission API** (`enabled` flag, rate limit, IP whitelist).
+- **+1 slot** if `isSubscriber` — controls **Enquiry API**.
+
+**Displayed value:** `apisEnabledCount / slotCount` (e.g. `2/2` when both roles and both toggles on). If the member has **neither** role (edge case), the UI shows **—** (no slots). This replaces a legacy **“/3”** presentation that implied three independent integrations without matching the current tab UI.
+
+```mermaid
+flowchart TB
+  subgraph sources [Authoritative inputs]
+    ROLES[isDataSubmitter isSubscriber]
+    ACC[PATCH api-access persisted fields]
+    DEF[Server defaults when apiAccess absent]
+  end
+  subgraph merge [Effective policy]
+    ROLES --> EFF[Merged api-access payload]
+    ACC --> EFF
+    DEF --> EFF
+  end
+  EFF --> COUNT[apisEnabledCount = sum enabled toggles for applicable slots]
+  COUNT --> LIST[GET institutions list response]
+  COUNT --> DET[GET institution detail response]
+```
+
+**Cache consistency:** After **PATCH …/api-access**, the SPA invalidates **institution detail**, **API access**, and the **institutions list** query so the table column updates without a full reload.
+
+#### 3.4.4 Overview tab — member-scoped analytics (30 days)
+
+**Overview** trend charts (submission volume, success vs rejected, rejection reasons, processing time; enquiry volume, success vs failed, response time) are loaded from **`GET /api/v1/institutions/:id/overview-charts`**.
+
+**Aggregation rules (Fastify):**
+
+- **Window:** rolling **30 calendar days** ending “now” (server clock).
+- **Submission series:** same **institution scoping** as Monitoring → Data Submission API (`api_key` → `dataSubmitterIdByApiKey` → member id). Members **without** mapped keys show **empty** volume / pie / bar / line series (and **empty-state** copy where charts would mis-render).
+- **Enquiry series:** same filtering as Monitoring enquiries (`institution_id` or institution **name** match).
+
+```mermaid
+sequenceDiagram
+  participant UI as OverviewTab SPA
+  participant API as Fastify GET overview-charts
+  participant ST as state.apiRequests
+  participant EN as state.enquiries
+  UI->>API: institution id Bearer token
+  API->>ST: filter by submitter mapping and window
+  API->>EN: filter by institution and window
+  API-->>UI: JSON chart series arrays
+```
+
+**Spring Boot note:** The alternate Java API **does not** expose this route today; the SPA would **404** that call if pointed at Spring without a BFF. See `docs/technical/SPA-Service-Contract-Drift.md`.
+
+#### 3.4.5 API & Access tab — scope vs legacy BRD §6.8 FR-API1
+
+**Legacy FR-API1** required **three** submitter cards: Submission, Bulk, SFTP. **Current product** consolidates submission integration into **one** “Data Submission API” card (toggle, rate limit, IP whitelist) plus **Enquiry API** for subscribers. Bulk and SFTP may remain **future** cards or be represented elsewhere (e.g. batch monitoring). **§6.14** records this as an explicit **superseding** requirement so QA and auditors trace the delta.
+
+#### 3.4.6 Member list route filter (FR-I4 clarification)
+
+The **canonical** list is **`/institutions`** (all members). Legacy routes **`/institutions/data-submitters`** and **`/institutions/subscribers`** **redirect** to the unified list; they **do not** guarantee a server-side-only subset in the current build. Role-specific **filtering** is a **Should** enhancement (client or query params), not a **Must** tied to URL alone.
+
 ---
 
 ## 4. Stakeholders
@@ -169,12 +285,12 @@ This subsection records **implemented** behaviour and **fixture alignment** so b
 
 ## 5. Current State vs. Future State
 
-### 5.1 Current State (As-Is) — Version 2.0
+### 5.1 Current State (As-Is) — Version 2.4 (repository prototype)
 
-- **Authentication:** Simple email-based login; no RBAC; session in memory.
-- **Member Management:** Unified list at `/institutions` (legacy role-specific routes redirect); multi-step registration; institution detail with dynamic tabs including Consortium Memberships and Product Subscriptions.
-- **Overview:** Role-based KPIs; corporate details; compliance documents; role-based charts.
-- **API & Access:** Type-based API cards; API keys table; rate limit edit modal.
+- **Authentication:** JWT login against **Fastify dev API** (port **8091**); RBAC claims in token; session via access + refresh rotation (see technical docs).
+- **Member Management:** Unified list at `/institutions` (legacy role-specific routes **redirect**); multi-step registration **persists** member row **immediately** and enqueues **institution** approval; **reject** approval does **not** delete the member (§3.4).
+- **Overview:** Role-based KPIs; corporate details; compliance documents; **trend charts** fed by **per-member** `overview-charts` API (**30d**, empty when no traffic) — not a shared static template per member.
+- **API & Access:** **One** Data Submission card + **one** Enquiry card (role-dependent); API keys table; rate limit edit; **APIs enabled** on list/overview **derived** from toggles (**count/slots**, §3.4).
 - **Alternate Data / Consent / Billing:** Subscriber-only tabs with config and edit/save patterns.
 - **Data Governance:** Full section with dashboard, schema mapper, validation rules, match review, data quality monitoring, governance audit logs.
 - **Consortium Management (NEW):** List of consortiums (Closed/Open types, Active/Inactive status); detail pages with Overview/Members/Data Contribution tabs; creation/edit wizard with 4 steps.
@@ -345,6 +461,19 @@ This subsection records **implemented** behaviour and **fixture alignment** so b
 | FR-ES9  | When "Include Consortium Data" is off, consortium packet payloads shall be stubbed with `{ omitted: true, reason: "consortium_flag_disabled" }` in the response. | Must | Consortium payload shows stub when toggle is off. |
 | FR-ES10 | The Enquiry Simulation page breadcrumb shall read: Dashboard → Data Products → Enquiry simulation. | Must | Breadcrumb matches specification. |
 
+### 6.14 Member registry, API metrics, and overview analytics (Release v2.4)
+
+These requirements **refine or supersede** earlier rows where the narrative conflicted with the implemented Fastify + SPA contract (see **§3.4** for diagrams and operational detail).
+
+| ID        | Requirement | Priority | Testable Acceptance Criteria |
+|-----------|-------------|----------|------------------------------|
+| FR-MR1    | The system shall treat **member registry rows** and **approval queue items** as **separate** persisted artefacts after registration: rejecting an **institution** approval shall **not** remove the member row unless a **separate delete** (or product-specific policy) is applied. | Must | After reject, `GET /api/v1/institutions` still returns the member until `DELETE …/institutions/:id` or in-memory reset. |
+| FR-MR2    | The **APIs enabled** figure shown on the member list and Overview KPI strip shall be **consistent** with **API & Access** toggles: count **enabled** integrations among **Data Submission** (if `isDataSubmitter`) and **Enquiry** (if `isSubscriber`); display as **`count/slots`** where `slots` = number of applicable role-based slots (0–2). | Must | Toggling API & Access updates the figure after save; list refetches without full page reload. |
+| FR-MR3    | **Overview** trend charts shall load from **`GET /api/v1/institutions/:id/overview-charts`** and reflect **only** that member’s traffic in the **last 30 days** (submission requests keyed via submitter mapping; enquiries keyed via institution id/name). | Must | New member with no mapped keys shows **empty** or zero series; seeded mapped member shows non-empty aggregates when seed data overlaps the window. |
+| FR-MR4    | When pie or donut charts have **no** qualifying data, the UI shall show a **plain-language empty state** instead of a broken chart. | Should | Copy explains “no submission/enquiry outcomes in the last 30 days” as applicable. |
+| FR-API1A | **Supersedes FR-API1 for current build:** **API & Access** shall present **one** **Data Submission API** card (toggle, rate limit, IP whitelist) for submitters and **one** **Enquiry API** card for subscribers (plus keys table and environment tabs). Separate **Bulk** and **SFTP** cards are **out of scope** for this release unless reintroduced by product. | Must | Submitter sees submission card; subscriber sees enquiry card; dual-role sees both. |
+| FR-I4A    | **Clarifies FR-I4:** The **canonical** member list is **`/institutions`** (unified). Legacy role URLs may **redirect** to the unified list; **URL alone** does not guarantee server-enforced role-only lists. | Should | Documented behaviour matches navigation and redirects. |
+
 ### 6.13 Global Navigation and UX
 
 | ID     | Requirement | Priority | Testable Acceptance Criteria |
@@ -391,7 +520,7 @@ This subsection records **implemented** behaviour and **fixture alignment** so b
 
 | Entity | Key Attributes | Owner / Source |
 |--------|----------------|----------------|
-| Institution | id, name, tradingName, type, status, apisEnabled, slaHealth, lastUpdated, registrationNumber, jurisdiction, licenseType, licenseNumber, contactEmail, contactPhone, onboardedDate, dataQuality, matchAccuracy, complianceDocs, isDataSubmitter, isSubscriber, billingModel, creditBalance | HCB Admin / Backend |
+| Institution | id, name, tradingName, type, status, **apisEnabledCount** (derived for API responses from **API & Access** + roles), slaHealth, lastUpdated, registrationNumber, jurisdiction, licenseType, licenseNumber, contactEmail, contactPhone, onboardedDate, dataQuality, matchAccuracy, complianceDocs, isDataSubmitter, isSubscriber, billingModel, creditBalance, optional persisted **apiAccess** object (Fastify) | HCB Admin / Backend |
 | Consortium | id, name, type (Closed/Open), status (Active/Inactive), purpose, governanceModel, description, membersCount, dataVolume, dataPolicy, createdAt | HCB Admin / Backend |
 | ConsortiumMember | consortiumId, institutionId, institutionName, role, status, joinedDate | HCB Admin / Backend |
 | ConsortiumContributionSummary | consortiumId, totalRecordsShared, lastUpdated, dataTypes[] | HCB Admin / Backend |
@@ -408,6 +537,8 @@ This subsection records **implemented** behaviour and **fixture alignment** so b
 
 - **Drift alerts (mock):** `timestamp` ISO 8601; must fall within operator-selected or default **date range** for the alert list to display the record; `source` should align with Schema Mapper **source names** for **source type** filtering.
 - **Institution status:** active | pending | suspended | draft.
+- **APIs enabled (v2.4):** List and detail responses expose **`apisEnabledCount`** computed from **effective** API & Access policy (defaults apply when nothing stored yet). **UI denominator** = count of role-based slots (submission and/or enquiry), not a fixed “out of 3” unless product reintroduces a third managed integration.
+- **Approval reject vs registry (v2.4):** Rejecting an **institution** approval does **not** remove the member row; operators use **DELETE** (soft-delete) or accept dev **in-memory reset** for demos.
 - **Participation:** At least one of isDataSubmitter or isSubscriber must be true for a registered institution.
 - **Billing model:** prepaid | postpaid | hybrid; creditBalance applicable for prepaid/hybrid.
 - **Consortium type:** Closed (invitation-only membership) | Open (any eligible institution may join).
