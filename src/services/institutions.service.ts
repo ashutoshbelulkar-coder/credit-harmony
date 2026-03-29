@@ -11,6 +11,23 @@ const BASE = "/v1/institutions";
 
 // ─── Response Types ──────────────────────────────────────────────────────────
 
+/** Compliance doc metadata on institution payloads (no binary; use GET .../documents/:id for content). */
+export interface InstitutionComplianceDoc {
+  id?: string;
+  name: string;
+  status: string;
+  fileName?: string;
+  mimeType?: string;
+  uploadedAt?: string;
+}
+
+export interface InstitutionDocumentPayload {
+  name: string;
+  fileName: string;
+  mimeType: string;
+  dataBase64: string;
+}
+
 export interface InstitutionResponse {
   id: number;
   name: string;
@@ -34,7 +51,7 @@ export interface InstitutionResponse {
   apisEnabledCount: number;
   createdAt: string;
   updatedAt: string;
-  complianceDocs?: { name: string; status: string }[];
+  complianceDocs?: InstitutionComplianceDoc[];
 }
 
 export interface InstitutionOverviewChartsPayload {
@@ -91,6 +108,7 @@ function normaliseMockInstitution(m: any): InstitutionResponse {
     apisEnabledCount: m.apisEnabled ?? 0,
     createdAt: m.lastUpdated ?? "",
     updatedAt: m.lastUpdated ?? "",
+    complianceDocs: m.complianceDocs,
   };
 }
 
@@ -139,11 +157,22 @@ export async function uploadInstitutionDocument(
   institutionId: string | number,
   documentName: string,
   file: File
-): Promise<{ complianceDocs: { name: string; status: string }[] }> {
+): Promise<{ complianceDocs: InstitutionComplianceDoc[] }> {
   const fd = new FormData();
   fd.append("documentName", documentName);
   fd.append("file", file);
-  return postMultipart<{ complianceDocs: { name: string; status: string }[] }>(`${BASE}/${institutionId}/documents`, fd);
+  return postMultipart<{ complianceDocs: InstitutionComplianceDoc[] }>(`${BASE}/${institutionId}/documents`, fd);
+}
+
+export async function fetchInstitutionDocument(
+  institutionId: string | number,
+  documentId: string,
+  signal?: AbortSignal
+): Promise<InstitutionDocumentPayload> {
+  return get<InstitutionDocumentPayload>(
+    `${BASE}/${institutionId}/documents/${encodeURIComponent(documentId)}`,
+    signal
+  );
 }
 
 export async function fetchInstitutionById(id: string | number): Promise<InstitutionResponse> {

@@ -13,6 +13,7 @@ import {
   MoreHorizontal,
   Download,
 } from "lucide-react";
+import { institutionManagedApiSlotCount } from "@/lib/institutionManagedApiSlots";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import { statusStyles } from "@/data/institutions-mock";
@@ -236,7 +237,9 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                         />
                       </td>
                     </tr>
-                  ) : paginated.map((inst: InstitutionResponse) => (
+                  ) : paginated.map((inst: InstitutionResponse) => {
+                    const apiSlots = institutionManagedApiSlotCount(inst);
+                    return (
                     <tr
                       key={inst.id}
                       onClick={() => navigate(`/institutions/${inst.id}`)}
@@ -254,7 +257,9 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                         </span>
                       </td>
                       <td className="px-5 py-4 text-right">
-                        <span className="text-body text-foreground">{inst.apisEnabledCount}/3</span>
+                        <span className="text-body text-foreground">
+                          {apiSlots > 0 ? `${inst.apisEnabledCount}/${apiSlots}` : "—"}
+                        </span>
                       </td>
                       <td className="px-5 py-4 text-right">
                         {(inst.slaHealthPercent ?? 0) > 0 ? (
@@ -307,7 +312,7 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                         </DropdownMenu>
                       </td>
                     </tr>
-                  ))}
+                  ); })}
                 </tbody>
               </table>
             </div>

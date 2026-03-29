@@ -189,7 +189,7 @@ src/data/
 ├── monitoring.json            # API KPIs, batch jobs, enquiry metrics
 ├── schema-mapper.json         # Schema registry, parsed fields, AI mapping data
 ├── dashboard.json             # Dashboard KPIs, activity feed, pipeline agents, throughput config
-├── institution-detail.json    # Institution detail page charts and KPI values
+├── institution-detail.json    # Reference/demo JSON (not loaded by Fastify); member Overview **trend** series come from `GET /api/v1/institutions/:id/overview-charts` (per-member aggregates over monitoring seed data, 30d window)
 ├── institution-tabs.json      # Monitoring/Billing/Consent/Users tab data
 ├── app-notifications.json     # App header notification items
 ├── simulation-defaults.json   # Enquiry simulation form defaults + agent chat history

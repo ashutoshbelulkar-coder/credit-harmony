@@ -265,6 +265,7 @@ export function usePatchInstitutionApiAccess(id: string | number | undefined) {
         const sid = String(id);
         qc.invalidateQueries({ queryKey: QK.institutions.apiAccess(sid) });
         qc.invalidateQueries({ queryKey: QK.institutions.detail(sid) });
+        qc.invalidateQueries({ queryKey: QK.institutions.all() });
       }
       toast.success("API access settings saved");
     },

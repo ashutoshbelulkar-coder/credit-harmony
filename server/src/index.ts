@@ -6,6 +6,14 @@ import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
 import { pathToFileURL } from "node:url";
 import { createInitialState, pushAudit } from "./state.js";
+import {
+  buildDashboardCharts,
+  buildDashboardMetrics,
+  buildMemberQualityForRange,
+  recentApiErrors1h,
+  resolveDashboardWindow,
+} from "./dashboardAggregation.js";
+import { buildInstitutionOverviewCharts } from "./institutionOverviewCharts.js";
 import type { JwtUser } from "./types.js";
 import { isWithinDateRange } from "../../src/lib/calc/dateFilter.ts";
 
@@ -20,6 +28,34 @@ declare module "fastify" {
 
 function err(reply: any, code: number, error: string, message: string) {
   return reply.code(code).send({ error, message });
+}
+
+/** Defaults merged with GET/PATCH institution api-access (must match routes below). */
+function defaultInstitutionApiAccess() {
+  return {
+    dataSubmission: { enabled: true, rateLimitPerMin: 200, ipWhitelist: [] as string[] },
+    enquiry: { enabled: true, rateLimitPerMin: 100, ipWhitelist: [] as string[], concurrentLimit: 50 },
+  };
+}
+
+function getInstitutionApiAccessPayload(inst: Record<string, unknown>) {
+  const d = defaultInstitutionApiAccess();
+  const s = inst.apiAccess && typeof inst.apiAccess === "object" ? (inst.apiAccess as Record<string, unknown>) : {};
+  const ds = s.dataSubmission && typeof s.dataSubmission === "object" ? (s.dataSubmission as object) : {};
+  const en = s.enquiry && typeof s.enquiry === "object" ? (s.enquiry as object) : {};
+  return {
+    dataSubmission: { ...d.dataSubmission, ...ds },
+    enquiry: { ...d.enquiry, ...en },
+  };
+}
+
+/** Counts enabled Data Submission + Enquiry API toggles applicable to this member (max 2 today). */
+function effectiveApisEnabledCount(inst: Record<string, unknown>): number {
+  const p = getInstitutionApiAccessPayload(inst);
+  let n = 0;
+  if (inst.isDataSubmitter && p.dataSubmission.enabled) n += 1;
+  if (inst.isSubscriber && p.enquiry.enabled) n += 1;
+  return n;
 }
 
 function signAccess(user: JwtUser) {
@@ -66,6 +102,34 @@ function pageSlice<T>(arr: T[], page = 0, size = 20) {
     totalPages: Math.max(1, Math.ceil(arr.length / s)),
     page: p,
     size: s,
+  };
+}
+
+/** In-memory compliance doc; `dataBase64` must not appear on public institution payloads. */
+type ComplianceDocStored = {
+  id?: string;
+  name: string;
+  status: string;
+  fileName?: string;
+  mimeType?: string;
+  uploadedAt?: string;
+  dataBase64?: string;
+};
+
+function sanitizeComplianceDocs(docs: unknown): ComplianceDocStored[] {
+  if (!Array.isArray(docs)) return [];
+  return docs.map((d: ComplianceDocStored) => {
+    const { dataBase64: _b, ...rest } = d;
+    return { ...rest };
+  });
+}
+
+function sanitizeInstitutionForResponse(inst: Record<string, unknown>) {
+  const { complianceDocs, ...rest } = inst;
+  return {
+    ...rest,
+    apisEnabledCount: effectiveApisEnabledCount(inst),
+    complianceDocs: sanitizeComplianceDocs(complianceDocs),
   };
 }
 
@@ -122,7 +186,11 @@ function institutionNameById(state: ReturnType<typeof createInitialState>, id: s
   return inst?.name ?? `Member ${sid}`;
 }
 
-function buildDashboardCommandCenter(state: ReturnType<typeof createInitialState>) {
+function buildDashboardCommandCenter(
+  state: ReturnType<typeof createInitialState>,
+  q?: Record<string, string | undefined>
+) {
+  const { startMs, endMs } = resolveDashboardWindow(q ?? {});
   const seed = state.dashboardSeed ?? {};
   const institutions = (seed.institutions ?? []) as string[];
 
@@ -183,20 +251,14 @@ function buildDashboardCommandCenter(state: ReturnType<typeof createInitialState
     };
   });
 
-  const memberQuality = (state.institutions ?? []).slice(0, 8).map((inst: any) => ({
-    member: String(inst.name ?? ""),
-    period: "30d",
-    qualityScore: Number(inst.dataQualityScore ?? inst.matchAccuracyScore ?? 92),
-    recordCount: 8000 + Number(inst.id ?? 0) * 400,
-    anomalyFlag: Number(inst.slaHealthPercent ?? 100) < 97,
-  }));
+  const memberQuality = buildMemberQualityForRange(state, startMs, endMs);
 
   return {
     pendingApprovals: state.approvals.filter((a: any) => a.status === "pending").length,
     activeAlerts: state.alertIncidents.filter((a: any) => a.status === "Active").length,
     pendingOnboarding: state.institutions.filter((i: any) => i.institutionLifecycleStatus === "pending").length,
     activeInstitutions: state.institutions.filter((i: any) => i.institutionLifecycleStatus === "active").length,
-    recentErrors1h: 3,
+    recentErrors1h: recentApiErrors1h(state),
     agents,
     batches,
     anomalies,
@@ -393,30 +455,25 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     if (q.status && q.status !== "all") list = list.filter((i) => i.institutionLifecycleStatus === q.status);
     if (q.role === "dataSubmitter") list = list.filter((i) => i.isDataSubmitter);
     if (q.role === "subscriber") list = list.filter((i) => i.isSubscriber);
-    return pageSlice(list, Number(q.page), Number(q.size));
+    const paged = pageSlice(list, Number(q.page), Number(q.size));
+    return {
+      ...paged,
+      content: paged.content.map((i) => sanitizeInstitutionForResponse(i as Record<string, unknown>)),
+    };
   });
 
   app.get("/api/v1/institutions/:id", { preHandler: authPreHandler }, async (req, reply) => {
     const id = Number((req.params as { id: string }).id);
     const inst = state.institutions.find((i) => i.id === id && !i.isDeleted);
     if (!inst) return err(reply, 404, "ERR_NOT_FOUND", "Institution not found");
-    return inst;
+    return sanitizeInstitutionForResponse(inst as Record<string, unknown>);
   });
 
   app.get("/api/v1/institutions/:id/overview-charts", { preHandler: authPreHandler }, async (req, reply) => {
     const id = Number((req.params as { id: string }).id);
     const inst = state.institutions.find((i) => i.id === id && !i.isDeleted);
     if (!inst) return err(reply, 404, "ERR_NOT_FOUND", "Institution not found");
-    const raw = state.institutionOverviewCharts;
-    return {
-      submissionVolumeData: raw.submissionVolumeData ?? [],
-      successVsRejectedData: raw.successVsRejectedData ?? [],
-      rejectionReasonsData: raw.rejectionReasonsData ?? [],
-      processingTimeData: raw.processingTimeData ?? [],
-      enquiryVolumeData: raw.enquiryVolumeData ?? [],
-      successVsFailedData: raw.successVsFailedData ?? [],
-      responseTimeData: raw.responseTimeData ?? [],
-    };
+    return buildInstitutionOverviewCharts(state, id);
   });
 
   app.post("/api/v1/institutions/:id/documents", { preHandler: authPreHandler }, async (req, reply) => {
@@ -426,19 +483,37 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
 
     let documentName = "Document";
     let sawFile = false;
+    let fileBuffer: Buffer | null = null;
+    let mimeType = "application/octet-stream";
+    let uploadFileName = "upload.bin";
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     for await (const part of (req as any).parts()) {
       if (part.type === "file") {
-        await part.toBuffer();
+        fileBuffer = await part.toBuffer();
+        mimeType = String(part.mimetype ?? mimeType);
+        uploadFileName = String(part.filename ?? uploadFileName);
         sawFile = true;
       } else if (part.fieldname === "documentName") {
         documentName = String(part.value ?? "Document");
       }
     }
-    if (!sawFile) return err(reply, 400, "ERR_VALIDATION", "File is required");
+    if (!sawFile || !fileBuffer) return err(reply, 400, "ERR_VALIDATION", "File is required");
 
     if (!inst.complianceDocs) inst.complianceDocs = [];
-    inst.complianceDocs.push({ name: documentName, status: "pending" });
+    const docs = inst.complianceDocs as ComplianceDocStored[];
+    const uploadedAt = new Date().toISOString();
+    const entry: ComplianceDocStored = {
+      id: randomUUID(),
+      name: documentName,
+      status: "pending",
+      fileName: uploadFileName,
+      mimeType,
+      uploadedAt,
+      dataBase64: fileBuffer.toString("base64"),
+    };
+    const existingIdx = docs.findIndex((d) => d.name === documentName);
+    if (existingIdx >= 0) docs[existingIdx] = entry;
+    else docs.push(entry);
     inst.updatedAt = new Date().toISOString().slice(0, 10);
     pushAudit(state, {
       userEmail: req.user!.email,
@@ -447,8 +522,29 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       entityId: String(id),
       description: `Uploaded compliance document: ${documentName}`,
     });
-    return { complianceDocs: inst.complianceDocs };
+    return { complianceDocs: sanitizeComplianceDocs(inst.complianceDocs) };
   });
+
+  app.get(
+    "/api/v1/institutions/:id/documents/:documentId",
+    { preHandler: authPreHandler },
+    async (req, reply) => {
+      const id = Number((req.params as { id: string }).id);
+      const documentId = String((req.params as { documentId: string }).documentId);
+      const inst = state.institutions.find((i) => i.id === id && !i.isDeleted);
+      if (!inst) return err(reply, 404, "ERR_NOT_FOUND", "Institution not found");
+      const docs = (inst.complianceDocs ?? []) as ComplianceDocStored[];
+      const doc = docs.find((d) => d.id === documentId);
+      if (!doc) return err(reply, 404, "ERR_NOT_FOUND", "Document not found");
+      if (!doc.dataBase64) return err(reply, 404, "ERR_NOT_FOUND", "Document has no stored content");
+      return {
+        name: doc.name,
+        fileName: doc.fileName ?? "document",
+        mimeType: doc.mimeType ?? "application/octet-stream",
+        dataBase64: doc.dataBase64,
+      };
+    }
+  );
 
   app.post("/api/v1/institutions", { preHandler: authPreHandler }, async (req) => {
     const b = req.body as Record<string, unknown>;
@@ -477,7 +573,7 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       apisEnabledCount: 0,
       createdAt: now,
       updatedAt: now,
-      complianceDocs: [] as { name: string; status: string }[],
+      complianceDocs: [] as ComplianceDocStored[],
       isDeleted: false,
       consentConfig: {
         policy: "explicit",
@@ -507,14 +603,16 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       entityId: String(id),
       description: `Created institution ${row.name}`,
     });
-    return row;
+    return sanitizeInstitutionForResponse(row as Record<string, unknown>);
   });
 
   app.patch("/api/v1/institutions/:id", { preHandler: authPreHandler }, async (req, reply) => {
     const id = Number((req.params as { id: string }).id);
     const inst = state.institutions.find((i) => i.id === id && !i.isDeleted);
     if (!inst) return err(reply, 404, "ERR_NOT_FOUND", "Not found");
-    Object.assign(inst, req.body, { updatedAt: new Date().toISOString().slice(0, 10) });
+    const body = { ...(req.body as Record<string, unknown>) };
+    delete body.complianceDocs;
+    Object.assign(inst, body, { updatedAt: new Date().toISOString().slice(0, 10) });
     pushAudit(state, {
       userEmail: req.user!.email,
       actionType: "INSTITUTION_UPDATE",
@@ -522,7 +620,7 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       entityId: String(id),
       description: `Updated institution ${inst.name}`,
     });
-    return inst;
+    return sanitizeInstitutionForResponse(inst as Record<string, unknown>);
   });
 
   app.post("/api/v1/institutions/:id/suspend", { preHandler: authPreHandler }, async (req, reply) => {
@@ -777,29 +875,11 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     };
   });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const defaultInstitutionApiAccess = () => ({
-    dataSubmission: { enabled: true, rateLimitPerMin: 200, ipWhitelist: [] as string[] },
-    enquiry: { enabled: true, rateLimitPerMin: 100, ipWhitelist: [] as string[], concurrentLimit: 50 },
-  });
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  function getInstitutionApiAccessPayload(inst: any) {
-    const d = defaultInstitutionApiAccess();
-    const s = inst.apiAccess && typeof inst.apiAccess === "object" ? inst.apiAccess : {};
-    const ds = s.dataSubmission && typeof s.dataSubmission === "object" ? s.dataSubmission : {};
-    const en = s.enquiry && typeof s.enquiry === "object" ? s.enquiry : {};
-    return {
-      dataSubmission: { ...d.dataSubmission, ...ds },
-      enquiry: { ...d.enquiry, ...en },
-    };
-  }
-
   app.get("/api/v1/institutions/:id/api-access", { preHandler: authPreHandler }, async (req, reply) => {
     const id = Number((req.params as { id: string }).id);
     const inst = state.institutions.find((i: { id: number; isDeleted?: boolean }) => i.id === id && !i.isDeleted);
     if (!inst) return err(reply, 404, "ERR_NOT_FOUND", "Institution not found");
-    return getInstitutionApiAccessPayload(inst);
+    return getInstitutionApiAccessPayload(inst as Record<string, unknown>);
   });
 
   app.patch("/api/v1/institutions/:id/api-access", { preHandler: authPreHandler }, async (req, reply) => {
@@ -807,7 +887,7 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     const inst = state.institutions.find((i: { id: number; isDeleted?: boolean }) => i.id === id && !i.isDeleted);
     if (!inst) return err(reply, 404, "ERR_NOT_FOUND", "Institution not found");
     const body = (req.body ?? {}) as Record<string, unknown>;
-    const current = getInstitutionApiAccessPayload(inst);
+    const current = getInstitutionApiAccessPayload(inst as Record<string, unknown>);
     if (!inst.apiAccess || typeof inst.apiAccess !== "object") inst.apiAccess = {};
     if (body.dataSubmission && typeof body.dataSubmission === "object") {
       inst.apiAccess.dataSubmission = {
@@ -829,7 +909,7 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       entityId: String(id),
       description: "Updated API access (data submission / enquiry)",
     });
-    return getInstitutionApiAccessPayload(inst);
+    return getInstitutionApiAccessPayload(inst as Record<string, unknown>);
   });
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1664,53 +1744,21 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
   });
 
   // ─── Dashboard ────────────────────────────────────────────────────────────
-  app.get("/api/v1/dashboard/metrics", { preHandler: authPreHandler }, async () => {
-    const extra = state.dashboardChartsExtra as Record<string, unknown>;
-    const trend = (extra.apiUsageTrend as { volume?: number }[]) ?? [];
-    const summed = trend.reduce((s, p) => s + Number(p.volume ?? 0), 0);
-    const mk = state.monitoringKpis as { successRatePercent?: number; rejectionRatePercent?: number } | undefined;
-    const errorRate = mk?.rejectionRatePercent ?? 1.2;
-    const slaHealth = mk?.successRatePercent ?? 99.2;
-    return {
-      apiVolume24h: summed > 0 ? summed : 284920,
-      apiVolumeChange: "+2.3%",
-      errorRate,
-      errorRateChange: "-0.1%",
-      slaHealth,
-      slaHealthChange: "+0.2%",
-      dataQualityScore: 97.4,
-      dataQualityChange: "+0.3%",
-    };
+  app.get("/api/v1/dashboard/metrics", { preHandler: authPreHandler }, async (req) => {
+    const q = req.query as Record<string, string | undefined>;
+    return buildDashboardMetrics(state, q);
   });
 
-  app.get("/api/v1/dashboard/charts", { preHandler: authPreHandler }, async () => {
-    const extra = state.dashboardChartsExtra as Record<string, unknown>;
-    const errPct = Number((state.monitoringKpis as { rejectionRatePercent?: number })?.rejectionRatePercent ?? 1.2);
-    const rawTrend = (extra.apiUsageTrend as { day?: string; volume?: number; errors?: number }[]) ?? [];
-    const apiUsageTrend = rawTrend.map((p) => ({
-      day: String(p.day ?? ""),
-      volume: Number(p.volume ?? 0),
-      errors: typeof p.errors === "number" ? p.errors : errPct,
-    }));
-    return {
-      successFailure: { success: 98.2, failure: 1.8 },
-      apiUsageTrend,
-      mappingAccuracy: (extra.mappingAccuracy as unknown[]) ?? [],
-      matchConfidence: (extra.matchConfidence as unknown[]) ?? [],
-      slaLatency: (extra.slaLatency as unknown[]) ?? [],
-      rejectionOverride: (extra.rejectionOverride as unknown[]) ?? [],
-      topInstitutions: (state.institutions.slice(0, 5) as any[]).map((i) => ({
-        name: i.name,
-        enquiryCount: 1000 + i.id * 100,
-        quality: i.dataQualityScore ?? 90,
-        sla: (i.slaHealthPercent ?? 99) / 100,
-      })),
-    };
+  app.get("/api/v1/dashboard/charts", { preHandler: authPreHandler }, async (req) => {
+    const q = req.query as Record<string, string | undefined>;
+    return buildDashboardCharts(state, q);
   });
 
   app.get("/api/v1/dashboard/activity", { preHandler: authPreHandler }, async () => state.dashboardActivity);
 
-  app.get("/api/v1/dashboard/command-center", { preHandler: authPreHandler }, async () => buildDashboardCommandCenter(state));
+  app.get("/api/v1/dashboard/command-center", { preHandler: authPreHandler }, async (req) =>
+    buildDashboardCommandCenter(state, req.query as Record<string, string | undefined>)
+  );
 
   // ─── Consortiums ─────────────────────────────────────────────────────────
   app.get("/api/v1/consortiums", { preHandler: authPreHandler }, async (req) => {

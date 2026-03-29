@@ -67,9 +67,8 @@ function mapSeedEntryToStateRow(
 }
 
 /**
- * Merges JSON `enquiryLogEntries` with synthetic rows (last 24h + 36 days ahead)
- * so Monitoring → Inquiry API shows rows under “Last 24 hrs” and future-dated demos
- * match `isWithinRelativeWindow` (future timestamps stay in-window).
+ * Merges JSON `enquiryLogEntries` with synthetic rows (last 24h + ~90 days in the past)
+ * so monitoring filters and dashboard ranges see realistic spread over time.
  */
 export function buildEnquiryStateRows(args: {
   seed: ReadonlyArray<Record<string, unknown>>;
@@ -111,11 +110,11 @@ export function buildEnquiryStateRows(args: {
     });
   }
 
-  for (let day = 1; day <= 36; day++) {
+  for (let day = 1; day <= 90; day++) {
     for (let slot = 0; slot < 4; slot++) {
       const off =
         day * 86_400_000 + slot * 150 * 60 * 1000 + ((slot * 37 + day * 11) % 1000) * 1000;
-      const t = nowMs + off;
+      const t = nowMs - off;
       const sub = subs[(day + slot) % subs.length];
       const prod = PRODUCT_CYCLE[(day * 4 + slot) % PRODUCT_CYCLE.length];
       const status = (day + slot) % 9 === 1 ? "Failed" : "Success";

@@ -11,8 +11,8 @@ This matrix records whether primary UI actions persist via HTTP. “Persisted”
 | Area | UI surface | HTTP | Persisted in dev API | Notes |
 |------|------------|------|----------------------|-------|
 | Auth | Login / refresh / logout | POST login, refresh; POST logout | Yes | JWT access + refresh rotation |
-| Institutions | List, detail, CRUD, suspend/reactivate, **register wizard** | GET/PATCH/POST/DELETE + multipart docs | Yes | **List** uses `GET /v1/institutions?page=0&size=200` so new rows are not clipped by default pagination. **POST** creates row + **`institution`** approval (`metadata.institutionId`). **Approve** sets lifecycle **`active`**. **Dev API:** `pushAudit` on create, document upload, suspend, **PATCH**, reactivate, soft delete, and institution sub-resource mutators (consortium membership, product subscription, billing, API access, consent). |
-| Institution docs | Register wizard uploads | POST multipart | Yes | Updates `complianceDocs` |
+| Institutions | List, detail, CRUD, suspend/reactivate, **register wizard** | GET/PATCH/POST/DELETE + multipart docs | Yes | **List** uses `GET /v1/institutions?page=0&size=200` so new rows are not clipped by default pagination. **POST** creates row + **`institution`** approval (`metadata.institutionId`). **Approve** sets lifecycle **`active`**. **GET** list/detail returns `complianceDocs` **without** embedded file bytes. **PATCH** ignores `complianceDocs` (use **POST** `…/documents` only). **Dev API:** `pushAudit` on create, document upload, suspend, **PATCH**, reactivate, soft delete, and institution sub-resource mutators (consortium membership, product subscription, billing, API access, consent). |
+| Institution docs | Register wizard uploads; member Overview **View** | POST multipart; GET `…/documents/:documentId` | Yes | **POST** stores file as **base64** in memory, upserts by `documentName`, returns sanitized `complianceDocs` (`id`, `name`, `status`, `fileName`, `mimeType`, `uploadedAt`). **GET** by `documentId` returns JSON `{ name, fileName, mimeType, dataBase64 }` for client preview. Seed-only rows without `id` / content cannot be opened in the UI. |
 | Consortium memberships (institution) | Memberships tab | GET/POST/DELETE | Yes | `state.institutionConsortiumMemberships` |
 | Product subscriptions (institution) | Products tab | GET/POST/PATCH | Yes | `state.institutionProductSubscriptions` |
 | Billing | Billing tab | GET summary, PATCH billing | Yes | Overrides on institution |
@@ -33,6 +33,7 @@ This matrix records whether primary UI actions persist via HTTP. “Persisted”
 | Monitoring (filters) | Data Submission / Enquiry API **Institution** combobox | GET `/v1/institutions?size=300` | Yes (when API up) | `InstitutionFilterSelect` calls `useInstitutions(..., { allowMockFallback: false })`: options are **always** from the API (no `institutions-mock` fallback even if `VITE_USE_MOCK_FALLBACK=true`). Client filters to `isDataSubmitter` (Data Submission API) or `isSubscriber` (Inquiry API). Static labels only for the top option: “All data submission institutes” / “All subscribers”. |
 | Monitoring | Inquiry API **Detailed Enquiry Log** table | GET `/v1/monitoring/enquiries` | Read-only | Dev seed merges `monitoring.json` `enquiryLogEntries` with **synthetic** rows (`src/lib/generateEnquiryStateRows.ts`): last **24h** (30m slots) + **36 days** future, subscriber institutions only, sorted newest-first. API supports `status`, `dateFrom`, `dateTo`, `institutionId`, pagination. **InquiryApiSection** “Institute” filter in the log card uses the same **`InstitutionFilterSelect`** (API-only) as the layout toolbar. Time range (5m–24h) is client-side via `isWithinRelativeWindow` (future timestamps stay visible). |
 | Institutions (overview) | Usage by Data Products chart | GET `/monitoring/enquiries?institutionId=` or GET `/institutions/:id/monitoring/enquiries` | Read-only | Paged list items include `productId`, `productName`, `alternateDataUsed`; chart counts successful enquiries only (`InstitutionDetail`) |
+| Institutions (overview) | Overview tab **trend** charts (submission volume, success vs rejected, rejection reasons, processing time; enquiry volume, success vs failed, response time) | GET `/institutions/:id/overview-charts` | Read-only | **Fastify:** member-scoped aggregates — submission rows filtered like `GET /monitoring/api-requests?institutionId=` (`api_key` → `dataSubmitterIdByApiKey`), enquiries filtered like monitoring enquiries, **last 30 days**. New members with no mapped keys / no traffic get **empty** series. **Spring:** this route is **not** implemented (404); see [`SPA-Service-Contract-Drift.md`](./SPA-Service-Contract-Drift.md). |
 | Login | Forgot password / SSO (when shown) | — | N/A | Demo UI gated by `VITE_SHOW_DEMO_AUTH_UI` / prod hidden |
 | Agents | “Contact admin” sheet | — | N/A | Toast only; message clarifies demo vs prod |
 
@@ -63,6 +64,7 @@ All paths below are under the same origin as the SPA in dev when using Vite prox
 | GET | `/api/v1/institutions/:id` |
 | GET | `/api/v1/institutions/:id/overview-charts` |
 | POST | `/api/v1/institutions/:id/documents` |
+| GET | `/api/v1/institutions/:id/documents/:documentId` |
 | POST | `/api/v1/institutions` |
 | PATCH | `/api/v1/institutions/:id` |
 | POST | `/api/v1/institutions/:id/suspend` |

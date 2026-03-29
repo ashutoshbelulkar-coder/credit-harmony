@@ -100,9 +100,10 @@ describe.sequential("HCB Fastify API (integration)", () => {
       },
     });
     expect(createRes.statusCode).toBe(200);
-    const created = createRes.json() as { id: number; institutionLifecycleStatus: string };
+    const created = createRes.json() as { id: number; institutionLifecycleStatus: string; apisEnabledCount: number };
     expect(created.id).toBeGreaterThan(0);
     expect(created.institutionLifecycleStatus).toBe("pending");
+    expect(created.apisEnabledCount).toBe(1);
 
     const listRes = await app.inject({
       method: "GET",
@@ -110,10 +111,11 @@ describe.sequential("HCB Fastify API (integration)", () => {
       headers: authHeaders(accessToken),
     });
     expect(listRes.statusCode).toBe(200);
-    const listBody = listRes.json() as { content: { id: number; name: string }[] };
+    const listBody = listRes.json() as { content: { id: number; name: string; apisEnabledCount: number }[] };
     const row = listBody.content.find((x) => x.id === created.id);
     expect(row).toBeTruthy();
     expect(row?.name).toBe("Vitest New Member Bank");
+    expect(row?.apisEnabledCount).toBe(1);
 
     const apprRes = await app.inject({
       method: "GET",
@@ -124,6 +126,82 @@ describe.sequential("HCB Fastify API (integration)", () => {
     const apprBody = apprRes.json() as { content: { metadata: { institutionId?: string } }[] };
     const ap = apprBody.content.find((x) => x.metadata?.institutionId === String(created.id));
     expect(ap).toBeTruthy();
+
+    const ovRes = await app.inject({
+      method: "GET",
+      url: `/api/v1/institutions/${created.id}/overview-charts`,
+      headers: authHeaders(accessToken),
+    });
+    expect(ovRes.statusCode).toBe(200);
+    const ov = ovRes.json() as {
+      submissionVolumeData: { volume: number }[];
+      successVsRejectedData: { value: number }[];
+      enquiryVolumeData: { volume: number }[];
+    };
+    const volSum = ov.submissionVolumeData.reduce((s, x) => s + x.volume, 0);
+    expect(volSum).toBe(0);
+    expect(ov.successVsRejectedData.length).toBe(0);
+    expect(ov.enquiryVolumeData.reduce((s, x) => s + x.volume, 0)).toBe(0);
+  });
+
+  it("PATCH /api/v1/institutions/:id/api-access updates apisEnabledCount on list/detail responses", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/institutions",
+      headers: authHeaders(accessToken),
+      payload: {
+        name: "Vitest Dual Role APIs",
+        tradingName: "VDRA",
+        institutionType: "Bank",
+        institutionLifecycleStatus: "active",
+        registrationNumber: "VT-DR-001",
+        jurisdiction: "Kenya",
+        licenseNumber: "LIC-VT-DR",
+        contactEmail: "api@vdr.test",
+        isDataSubmitter: true,
+        isSubscriber: true,
+      },
+    });
+    expect(createRes.statusCode).toBe(200);
+    const created = createRes.json() as { id: number; apisEnabledCount: number };
+    expect(created.apisEnabledCount).toBe(2);
+
+    const patchRes = await app.inject({
+      method: "PATCH",
+      url: `/api/v1/institutions/${created.id}/api-access`,
+      headers: authHeaders(accessToken),
+      payload: { dataSubmission: { enabled: false } },
+    });
+    expect(patchRes.statusCode).toBe(200);
+
+    const getRes = await app.inject({
+      method: "GET",
+      url: `/api/v1/institutions/${created.id}`,
+      headers: authHeaders(accessToken),
+    });
+    expect(getRes.statusCode).toBe(200);
+    const one = getRes.json() as { apisEnabledCount: number };
+    expect(one.apisEnabledCount).toBe(1);
+  });
+
+  it("GET /api/v1/institutions/1/overview-charts returns non-empty submission aggregates for seeded member", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/institutions/1/overview-charts",
+      headers: authHeaders(accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      submissionVolumeData: { volume: number }[];
+      successVsRejectedData: { name: string; value: number }[];
+    };
+    const volSum = body.submissionVolumeData.reduce((s, x) => s + x.volume, 0);
+    expect(volSum).toBeGreaterThan(0);
+    expect(body.successVsRejectedData.length).toBe(2);
+    const totalRec = body.successVsRejectedData.reduce((s, x) => s + x.value, 0);
+    expect(totalRec).toBeGreaterThan(0);
   });
 
   it("GET /api/v1/monitoring/enquiries?institutionId=1 returns product fields for usage breakdown", async () => {
@@ -347,6 +425,81 @@ describe.sequential("HCB Fastify API (integration)", () => {
     const body = after.json() as { totalElements: number; content: { actionType: string }[] };
     expect(body.totalElements).toBeGreaterThan(n0);
     expect(body.content[0]?.actionType).toBe("INSTITUTION_UPDATE");
+  });
+
+  it("POST /api/v1/institutions/:id/documents stores file; GET institution omits payload; GET by id returns base64", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const headers = authHeaders(accessToken);
+    const boundary = "----docTestBoundary";
+    const filePart = "integration-doc-bytes";
+    const docLabel = `Vitest Upload ${Date.now()}`;
+    const body =
+      `--${boundary}\r\n` +
+      `Content-Disposition: form-data; name="documentName"\r\n\r\n` +
+      `${docLabel}\r\n` +
+      `--${boundary}\r\n` +
+      `Content-Disposition: form-data; name="file"; filename="note.txt"\r\n` +
+      `Content-Type: text/plain\r\n\r\n` +
+      `${filePart}\r\n` +
+      `--${boundary}--\r\n`;
+    const upload = await app.inject({
+      method: "POST",
+      url: "/api/v1/institutions/1/documents",
+      headers: {
+        ...headers,
+        "content-type": `multipart/form-data; boundary=${boundary}`,
+      },
+      payload: body,
+    });
+    expect(upload.statusCode).toBe(200);
+    const up = upload.json() as { complianceDocs: { id: string; name: string }[] };
+    const docId = up.complianceDocs.find((d) => d.name === docLabel)?.id;
+    expect(docId).toBeTruthy();
+
+    const detail = await app.inject({
+      method: "GET",
+      url: "/api/v1/institutions/1",
+      headers,
+    });
+    expect(detail.statusCode).toBe(200);
+    const inst = detail.json() as { complianceDocs: { id?: string; dataBase64?: string }[] };
+    const row = inst.complianceDocs.find((d) => d.id === docId);
+    expect(row).toBeDefined();
+    expect(row?.dataBase64).toBeUndefined();
+
+    const fileRes = await app.inject({
+      method: "GET",
+      url: `/api/v1/institutions/1/documents/${docId}`,
+      headers,
+    });
+    expect(fileRes.statusCode).toBe(200);
+    const fj = fileRes.json() as { dataBase64: string };
+    expect(Buffer.from(fj.dataBase64, "base64").toString("utf8")).toBe(filePart);
+  });
+
+  it("PATCH /api/v1/institutions/:id ignores complianceDocs in body", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const h = { ...authHeaders(accessToken), "content-type": "application/json" };
+    const beforeDetail = await app.inject({
+      method: "GET",
+      url: "/api/v1/institutions/1",
+      headers: authHeaders(accessToken),
+    });
+    const beforeCount = (beforeDetail.json() as { complianceDocs?: unknown[] }).complianceDocs?.length ?? 0;
+    const patch = await app.inject({
+      method: "PATCH",
+      url: "/api/v1/institutions/1",
+      headers: h,
+      payload: { complianceDocs: [] },
+    });
+    expect(patch.statusCode).toBe(200);
+    const after = await app.inject({
+      method: "GET",
+      url: "/api/v1/institutions/1",
+      headers: authHeaders(accessToken),
+    });
+    const afterCount = (after.json() as { complianceDocs?: unknown[] }).complianceDocs?.length ?? 0;
+    expect(afterCount).toBe(beforeCount);
   });
 
   it("POST /api/v1/alert-rules creates pending rule + approval; approve enables; PATCH/DELETE work", async () => {

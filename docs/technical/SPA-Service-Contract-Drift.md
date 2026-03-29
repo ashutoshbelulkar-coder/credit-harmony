@@ -16,6 +16,7 @@ The SPA [`src/lib/api-client.ts`](../../src/lib/api-client.ts) and [`src/service
 | GET `/api/v1/roles` | Each row includes `permissions` as section×action matrix (Fastify in-memory) | JPA `Role` entity: `id`, `roleName`, `description`, `createdAt` only — **no** matrix JSON | SPA applies `mergeRolePermissionsFromApi`; persist matrix in Spring if the portal must be DB-authoritative for RBAC |
 | Monitoring KPIs | `MonitoringKpis` from seed / computed | `MonitoringController` uses DB column names / windows | Normalize DTO or map in `fetchMonitoringKpis` |
 | Institution sub-resources | consent, api-access, billing PATCH, product subscriptions, consortium memberships, documents | Subset implemented; some read-only or missing | Port missing routes or stub UI |
+| Member Overview charts | `GET /api/v1/institutions/:id/overview-charts` (member-scoped 30d aggregates) | **Not implemented** on `InstitutionController` | Add JDBC/service aggregates or hide chart cards when proxying Spring |
 | RBAC | Bearer present → allow | `@PreAuthorize` per route | Enforce same rules in Fastify or test Spring-only |
 
 **Authoritative Fastify surface:** hand-maintained snapshot [openapi-hcb-fastify-snapshot.yaml](./openapi-hcb-fastify-snapshot.yaml) and live [API-UI-Parity-Matrix.md](./API-UI-Parity-Matrix.md).

@@ -35,31 +35,80 @@ public class DashboardController {
         Map<String, Object> m = new LinkedHashMap<>();
 
         String volWhere = apiRequestTimeWhere(range, from, to);
-        String countSql = "SELECT COUNT(*) FROM api_requests WHERE " + volWhere;
+        String volPriorWhere = apiRequestPriorWhere(range, from, to);
 
-        Long apiVol = jdbc.queryForObject(countSql, Long.class);
-        m.put("apiVolume24h", apiVol != null ? apiVol : 0);
+        Long apiVol = jdbc.queryForObject("SELECT COUNT(*) FROM api_requests WHERE " + volWhere, Long.class);
+        long apiVolLong = apiVol != null ? apiVol : 0;
 
         Long failedVol = jdbc.queryForObject(
             "SELECT COUNT(*) FROM api_requests WHERE api_request_status IN ('failed','partial') AND " + volWhere,
             Long.class);
-        long total = apiVol != null && apiVol > 0 ? apiVol : 1;
         long failed = failedVol != null ? failedVol : 0;
-        double errorPct = Math.round((failed * 1000.0) / total) / 10.0;
-        m.put("errorRate", errorPct);
-        m.put("apiVolumeChange", "+12%");
+        double errorPct = apiVolLong > 0 ? Math.round((failed * 1000.0) / apiVolLong) / 10.0 : 0.0;
 
-        Double avgQuality = jdbc.queryForObject("SELECT COALESCE(AVG(data_quality_score),0) FROM institutions WHERE is_deleted=0", Double.class);
-        double dq = avgQuality != null ? Math.round(avgQuality * 10.0) / 10.0 : 0.0;
+        Long successVol = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM api_requests WHERE api_request_status='success' AND " + volWhere,
+            Long.class);
+        long success = successVol != null ? successVol : 0;
+        double slaHealth = apiVolLong > 0 ? Math.round((success * 1000.0) / apiVolLong) / 10.0 : 0.0;
+
+        Long apiVolPrev = jdbc.queryForObject("SELECT COUNT(*) FROM api_requests WHERE " + volPriorWhere, Long.class);
+        long prevVol = apiVolPrev != null ? apiVolPrev : 0;
+        Long failedPrev = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM api_requests WHERE api_request_status IN ('failed','partial') AND " + volPriorWhere,
+            Long.class);
+        long fp = failedPrev != null ? failedPrev : 0;
+        double errorPrev = prevVol > 0 ? Math.round((fp * 1000.0) / prevVol) / 10.0 : 0.0;
+        Long successPrev = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM api_requests WHERE api_request_status='success' AND " + volPriorWhere,
+            Long.class);
+        long sp = successPrev != null ? successPrev : 0;
+        double slaPrev = prevVol > 0 ? Math.round((sp * 1000.0) / prevVol) / 10.0 : 0.0;
+
+        String batchWhere = datetimeRangePredicate("bj.uploaded_at", range, from, to);
+        String batchPriorWhere = batchUploadedPriorWhere(range, from, to);
+        Long bc = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM batch_jobs bj WHERE bj.total_records > 0 AND bj.success_rate IS NOT NULL AND "
+                + batchWhere,
+            Long.class);
+        Double instDq = jdbc.queryForObject(
+            "SELECT COALESCE(AVG(data_quality_score),0) FROM institutions WHERE is_deleted=0", Double.class);
+        double dqFallback = instDq != null ? Math.round(instDq * 10.0) / 10.0 : 0.0;
+        double dq;
+        if (bc != null && bc > 0) {
+            Double avgBatch = jdbc.queryForObject(
+                "SELECT AVG(bj.success_rate) FROM batch_jobs bj WHERE bj.total_records > 0 AND bj.success_rate IS NOT NULL AND "
+                    + batchWhere,
+                Double.class);
+            dq = avgBatch != null ? Math.round(avgBatch * 10.0) / 10.0 : dqFallback;
+        } else {
+            dq = dqFallback;
+        }
+
+        Long bcp = jdbc.queryForObject(
+            "SELECT COUNT(*) FROM batch_jobs bj WHERE bj.total_records > 0 AND bj.success_rate IS NOT NULL AND "
+                + batchPriorWhere,
+            Long.class);
+        double dqPrev = dqFallback;
+        if (bcp != null && bcp > 0) {
+            Double prevBatch = jdbc.queryForObject(
+                "SELECT AVG(bj.success_rate) FROM batch_jobs bj WHERE bj.total_records > 0 AND bj.success_rate IS NOT NULL AND "
+                    + batchPriorWhere,
+                Double.class);
+            if (prevBatch != null) {
+                dqPrev = Math.round(prevBatch * 10.0) / 10.0;
+            }
+        }
+
+        m.put("apiVolume24h", apiVolLong);
+        m.put("apiVolumeChange", fmtPctChangeVol(apiVolLong, prevVol));
+        m.put("errorRate", errorPct);
+        m.put("errorRateChange", fmtDeltaPP(errorPct, errorPrev));
+        m.put("slaHealth", slaHealth);
+        m.put("slaHealthChange", fmtDeltaPP(slaHealth, slaPrev));
         m.put("dataQualityScore", dq);
         m.put("dataQuality", dq);
-
-        Double avgSla = jdbc.queryForObject("SELECT COALESCE(AVG(sla_health_percent),0) FROM institutions WHERE is_deleted=0", Double.class);
-        m.put("slaHealth", avgSla != null ? Math.round(avgSla * 10.0) / 10.0 : 0.0);
-
-        m.put("errorRateChange", errorPct < 2 ? "-0.3%" : "+0.5%");
-        m.put("slaHealthChange", "+0.2%");
-        m.put("dataQualityChange", "+1.1%");
+        m.put("dataQualityChange", fmtDeltaPP(dq, dqPrev));
 
         return ResponseEntity.ok(m);
     }
@@ -204,6 +253,50 @@ public class DashboardController {
 
     private static boolean isIsoDate(String s) {
         return s != null && ISO_DATE.matcher(s).matches();
+    }
+
+    /** Previous period of equal length (sliding presets), full prior day (today), or aligned custom window. */
+    private static String apiRequestPriorWhere(String range, String from, String to) {
+        if ("today".equalsIgnoreCase(range)) {
+            return "date(occurred_at) = date('now', '-1 day')";
+        }
+        if ("custom".equalsIgnoreCase(range) && isIsoDate(from) && isIsoDate(to)) {
+            long len = customRangeDays(from, to);
+            return "date(occurred_at) BETWEEN date('" + from + "', '-" + len + " days') AND date('" + from + "', '-1 day')";
+        }
+        int days = resolvePresetDays(range);
+        return "occurred_at >= datetime('now', '-" + (days * 2) + " days') AND occurred_at < datetime('now', '-" + days + " days')";
+    }
+
+    private static String batchUploadedPriorWhere(String range, String from, String to) {
+        if ("today".equalsIgnoreCase(range)) {
+            return "date(bj.uploaded_at) = date('now', '-1 day')";
+        }
+        if ("custom".equalsIgnoreCase(range) && isIsoDate(from) && isIsoDate(to)) {
+            long len = customRangeDays(from, to);
+            return "date(bj.uploaded_at) BETWEEN date('" + from + "', '-" + len + " days') AND date('" + from + "', '-1 day')";
+        }
+        int days = resolvePresetDays(range);
+        return "bj.uploaded_at >= datetime('now', '-" + (days * 2) + " days') AND bj.uploaded_at < datetime('now', '-" + days + " days')";
+    }
+
+    private static String fmtPctChangeVol(long curr, long prev) {
+        if (prev <= 0) {
+            return curr > 0 ? "+100%" : "0%";
+        }
+        double pct = (curr - prev) * 100.0 / prev;
+        double r = Math.round(pct * 10.0) / 10.0;
+        String sign = r > 0 ? "+" : "";
+        return sign + r + "%";
+    }
+
+    private static String fmtDeltaPP(double curr, double prev) {
+        double d = Math.round((curr - prev) * 10.0) / 10.0;
+        if (d == 0.0) {
+            return "0%";
+        }
+        String sign = d > 0 ? "+" : "";
+        return sign + d + "%";
     }
 
     /**

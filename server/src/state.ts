@@ -59,8 +59,6 @@ export interface AppState {
   dashboardChartsExtra: Record<string, unknown>;
   /** Raw `dashboard.json` for command-center agents / anomalies templates. */
   dashboardSeed: Record<string, unknown>;
-  /** Static template for institution overview tab charts (until per-institution analytics exist). */
-  institutionOverviewCharts: Record<string, unknown>;
   /** Consortium member rows (persisted in dev API; replaces stub GET /consortiums/:id/members). */
   consortiumMembers: {
     id: string;
@@ -304,7 +302,6 @@ export function createInitialState(): AppState {
   const monitoringData = readDataJson("monitoring.json");
   const dashboardData = readDataJson("dashboard.json");
   const dgData = readDataJson("data-governance.json");
-  const institutionDetailFile = readDataJson("institution-detail.json");
   const dataSubmitterIdByApiKey = (monitoringData.dataSubmitterIdByApiKey ?? {}) as Record<string, string>;
   const subscriberIdByApiKey = (monitoringData.subscriberIdByApiKey ?? {}) as Record<string, string>;
 
@@ -399,7 +396,6 @@ export function createInitialState(): AppState {
       ],
     },
     dashboardSeed: dashboardData as Record<string, unknown>,
-    institutionOverviewCharts: institutionDetailFile as Record<string, unknown>,
     consortiumMembers,
     consentFailureMetricsTemplate,
   };

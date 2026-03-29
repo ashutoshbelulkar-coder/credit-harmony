@@ -3,6 +3,7 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, AlertTriangle, ExternalLink, Copy } from "lucide-react";
 import { toast } from "sonner";
+import { institutionManagedApiSlotCount } from "@/lib/institutionManagedApiSlots";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses, detailPageTabTriggerBaseClasses } from "@/lib/typography";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
@@ -43,7 +44,8 @@ import { useApiKeys, useCreateApiKey, useRegenerateApiKey, useRevokeApiKey } fro
 import { useApiRequests, useEnquiries } from "@/hooks/api/useMonitoring";
 import { useBatchJobs } from "@/hooks/api/useBatchJobs";
 import { useProducts } from "@/hooks/api/useProducts";
-import type { InstitutionResponse } from "@/services/institutions.service";
+import type { InstitutionComplianceDoc, InstitutionResponse } from "@/services/institutions.service";
+import { fetchInstitutionDocument } from "@/services/institutions.service";
 import { defaultInstitutionApiAccessPayload } from "@/services/institutions.service";
 import type { ApiKeyResponse } from "@/services/apiKeys.service";
 import type { ApiRequestRecord, EnquiryRecord } from "@/services/monitoring.service";
@@ -257,6 +259,7 @@ function calcP95(values: number[]): string {
 
 function OverviewTab({ institution }: { institution: InstitutionResponse }) {
   const institutionId = String(institution.id);
+  const [openingDocId, setOpeningDocId] = useState<string | null>(null);
 
   const { data: overviewCharts } = useInstitutionOverviewCharts(institution.id);
   const submissionVolumeData = overviewCharts?.submissionVolumeData ?? [];
@@ -278,6 +281,28 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
   const catalogProducts = productsPage?.content ?? [];
 
   const docs = institution.complianceDocs ?? [];
+
+  const handleViewDocument = async (doc: InstitutionComplianceDoc) => {
+    if (!doc.id) {
+      toast.info("Preview is only available for documents uploaded with stored file content.");
+      return;
+    }
+    setOpeningDocId(doc.id);
+    try {
+      const payload = await fetchInstitutionDocument(institutionId, doc.id);
+      const binary = atob(payload.dataBase64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: payload.mimeType || "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 120_000);
+    } catch {
+      toast.error("Could not load document.");
+    } finally {
+      setOpeningDocId(null);
+    }
+  };
 
   const apiSuccessRate = useMemo(() => {
     if (memberApiRequests.length === 0) return "—";
@@ -332,14 +357,18 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
     }));
   }, [catalogProducts, memberEnquiries]);
 
+  const managedApiSlots = institutionManagedApiSlotCount(institution);
+  const allManagedApisEnabled =
+    managedApiSlots > 0 && institution.apisEnabledCount >= managedApiSlots;
+
   return (
     <div className="space-y-6">
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
         <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <p className="text-caption text-muted-foreground">APIs enabled</p>
-          <p className={cn("text-h4 font-bold mt-1", institution.apisEnabledCount === 3 ? "text-success" : "text-foreground")}>
-            {institution.apisEnabledCount}/3
+          <p className={cn("text-h4 font-bold mt-1", allManagedApisEnabled ? "text-success" : "text-foreground")}>
+            {managedApiSlots > 0 ? `${institution.apisEnabledCount}/${managedApiSlots}` : "—"}
           </p>
         </div>
         <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
@@ -402,7 +431,12 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
                     )}
                     <span className="text-body text-foreground">{doc.name}</span>
                   </div>
-                  <button className="text-caption text-primary hover:text-primary/80 flex items-center gap-1">
+                  <button
+                    type="button"
+                    className="text-caption text-primary hover:text-primary/80 flex items-center gap-1 disabled:opacity-50"
+                    disabled={openingDocId === doc.id}
+                    onClick={() => void handleViewDocument(doc)}
+                  >
                     View <ExternalLink className="w-3 h-3" />
                   </button>
                 </div>
@@ -436,11 +470,13 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
                 <p className="text-h4 font-bold mt-1 text-foreground">{apiP95}</p>
               </div>
               <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">APIs enabled</p>
-                <p className="text-h4 font-bold mt-1 text-foreground">{institution.apisEnabledCount}</p>
+                <p className="text-caption text-muted-foreground">APIs enabled (member)</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">
+                  {managedApiSlots > 0 ? `${institution.apisEnabledCount}/${managedApiSlots}` : "—"}
+                </p>
               </div>
             </div>
-            {/* Trend charts from overview-charts API (template until per-member series exist) */}
+            {/* Trend charts from GET …/overview-charts (member-scoped aggregates) */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               <div className="lg:col-span-7">
                 <div className={CHART_CARD}>
@@ -469,17 +505,23 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
                     <p className="mt-1 text-caption text-muted-foreground">Distribution of record processing outcomes</p>
                   </div>
                   <div className="flex-1">
-                    <ChartContainer config={successRejectedConfig} className="h-[260px] w-full">
-                      <PieChart>
-                        <Pie data={successVsRejectedData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={4}>
-                          {successVsRejectedData.map((_, i) => (
-                            <Cell key={i} fill={PIE_COLORS[i]} />
-                          ))}
-                        </Pie>
-                        <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                        <ChartLegend content={<ChartLegendContent />} />
-                      </PieChart>
-                    </ChartContainer>
+                    {successVsRejectedData.length === 0 ? (
+                      <p className="text-caption text-muted-foreground flex min-h-[220px] items-center justify-center px-4 text-center">
+                        No submission record outcomes in the last 30 days for this member.
+                      </p>
+                    ) : (
+                      <ChartContainer config={successRejectedConfig} className="h-[260px] w-full">
+                        <PieChart>
+                          <Pie data={successVsRejectedData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={4}>
+                            {successVsRejectedData.map((_, i) => (
+                              <Cell key={i} fill={PIE_COLORS[i]} />
+                            ))}
+                          </Pie>
+                          <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                          <ChartLegend content={<ChartLegendContent />} />
+                        </PieChart>
+                      </ChartContainer>
+                    )}
                   </div>
                 </div>
               </div>
@@ -622,17 +664,23 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
                     <p className="mt-1 text-caption text-muted-foreground">Distribution of enquiry outcomes</p>
                   </div>
                   <div className="flex-1">
-                    <ChartContainer config={successFailedConfig} className="h-[260px] w-full">
-                      <PieChart>
-                        <Pie data={successVsFailedData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={4}>
-                          {successVsFailedData.map((_, i) => (
-                            <Cell key={i} fill={PIE_COLORS[i]} />
-                          ))}
-                        </Pie>
-                        <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                        <ChartLegend content={<ChartLegendContent />} />
-                      </PieChart>
-                    </ChartContainer>
+                    {successVsFailedData.length === 0 ? (
+                      <p className="text-caption text-muted-foreground flex min-h-[220px] items-center justify-center px-4 text-center">
+                        No enquiry outcomes in the last 30 days for this member.
+                      </p>
+                    ) : (
+                      <ChartContainer config={successFailedConfig} className="h-[260px] w-full">
+                        <PieChart>
+                          <Pie data={successVsFailedData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={4}>
+                            {successVsFailedData.map((_, i) => (
+                              <Cell key={i} fill={PIE_COLORS[i]} />
+                            ))}
+                          </Pie>
+                          <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                          <ChartLegend content={<ChartLegendContent />} />
+                        </PieChart>
+                      </ChartContainer>
+                    )}
                   </div>
                 </div>
               </div>

@@ -58,7 +58,7 @@ function normaliseSeedRow(r: Record<string, unknown>): ApiSubmissionRequestRow |
 /**
  * Merges JSON seed rows with synthetic rows so dev always has:
  * - recent history (last 24h, every 30m) for time-range filters
- * - scheduled/future-looking timestamps spanning at least 36 days (UI treats future as in-window)
+ * - timestamps in the past spanning ~90 days so dashboard range filters behave intuitively
  */
 export function buildApiSubmissionRequests(
   seed: ReadonlyArray<Record<string, unknown>>,
@@ -87,11 +87,11 @@ export function buildApiSubmissionRequests(
     });
   }
 
-  for (let day = 1; day <= 36; day++) {
+  for (let day = 1; day <= 90; day++) {
     for (let slot = 0; slot < 4; slot++) {
       const off =
         day * 86_400_000 + slot * 150 * 60 * 1000 + ((slot * 37 + day * 11) % 1000) * 1000;
-      const t = nowMs + off;
+      const t = nowMs - off;
       const idx = (day * 4 + slot) % STATUS_CYCLE.length;
       const def = STATUS_CYCLE[idx];
       rows.push({
