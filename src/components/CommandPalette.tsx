@@ -172,7 +172,7 @@ export function CommandPalette() {
                 <div className="flex flex-col">
                   <span>{c.name}</span>
                   <span className="text-xs text-muted-foreground">
-                    {c.type} · {c.membersCount} members
+                    {c.membersCount} members
                   </span>
                 </div>
               </CommandItem>

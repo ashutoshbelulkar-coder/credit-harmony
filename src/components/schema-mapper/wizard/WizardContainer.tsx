@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Breadcrumb,
@@ -39,7 +40,19 @@ import {
   storageMetadataSummary,
   lineagePreview,
   governanceSummaryDefault,
+  masterSchemaTree,
 } from "@/data/schema-mapper-mock";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
+import { fieldMappingsToLlmRows, llmRowsToFieldMappings } from "@/lib/schema-mapper-api";
+import { QK } from "@/lib/query-keys";
+import { fetchMapping } from "@/services/schema-mapper.service";
+import {
+  useIngestSchema,
+  useCreateMappingJob,
+  usePatchMapping,
+  useSubmitMappingApproval,
+  useSchemaMappingDetail,
+} from "@/hooks/api/useSchemaMapper";
 
 interface WizardContainerProps {
   onCancel: () => void;
@@ -47,6 +60,13 @@ interface WizardContainerProps {
 }
 
 export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) {
+  const apiMode = !clientMockFallbackEnabled;
+  const queryClient = useQueryClient();
+  const ingestMutation = useIngestSchema();
+  const createJobMutation = useCreateMappingJob();
+  const patchMutation = usePatchMapping();
+  const submitApprovalMutation = useSubmitMappingApproval();
+
   const [currentStep, setCurrentStep] = useState<WizardStep>("source_ingestion");
   const [completedSteps, setCompletedSteps] = useState<Set<WizardStep>>(new Set());
 
@@ -54,6 +74,8 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
   const [parsedFields, setParsedFields] = useState<ParsedSourceField[]>([]);
   const [fieldStats, setFieldStats] = useState<SourceFieldStatistics | null>(null);
   const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null);
+  const [schemaVersionId, setSchemaVersionId] = useState<string | null>(null);
+  const [mappingId, setMappingId] = useState<string | null>(null);
   const [llmRows, setLlmRows] = useState<LLMFieldIntelligenceRow[]>(llmFieldIntelligenceRowsTelecom);
   const [enumReconciliations, setEnumReconciliations] = useState<EnumReconciliation[]>(telecomEnumReconciliations);
   const [validationRules, setValidationRules] = useState<GeneratedValidationRule[]>(generatedValidationRules);
@@ -61,6 +83,24 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
   const [storageMetadata, setStorageMetadata] = useState<StorageMetadataSummary | null>(storageMetadataSummary);
   const [lineage, setLineage] = useState<LineageEntry[]>(lineagePreview);
   const [governanceSummary, setGovernanceSummary] = useState<GovernanceSummary | null>(governanceSummaryDefault);
+
+  const { data: mappingData } = useSchemaMappingDetail(apiMode ? mappingId : null);
+
+  const apiSyncedRows = useMemo(() => {
+    if (!mappingData?.fieldMappings?.length) return null;
+    return fieldMappingsToLlmRows(mappingData.fieldMappings);
+  }, [mappingData?.fieldMappings]);
+
+  useEffect(() => {
+    if (!mappingData?.fieldMappings?.length) return;
+    const fm = mappingData.fieldMappings;
+    const mapped = fm.filter((f) => f.canonicalPath).length;
+    const pct = Math.round((mapped / fm.length) * 100);
+    setGovernanceSummary((prev) => ({
+      ...(prev ?? governanceSummaryDefault),
+      mappingCoveragePercent: pct,
+    }));
+  }, [mappingData?.fieldMappings]);
 
   const currentIdx = STEPS.findIndex((s) => s.key === currentStep);
   const isFirst = currentIdx === 0;
@@ -83,30 +123,65 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
   }, [currentIdx]);
 
   const handleSourceComplete = useCallback(
-    (meta: IngestedSourceMetadata, fields: ParsedSourceField[], stats: SourceFieldStatistics) => {
+    async (meta: IngestedSourceMetadata, fields: ParsedSourceField[], stats: SourceFieldStatistics) => {
       setIngestedMetadata(meta);
       setParsedFields(fields);
       setFieldStats(stats);
+      if (apiMode) {
+        try {
+          const res = await ingestMutation.mutateAsync({
+            sourceName: meta.sourceName,
+            sourceType: meta.sourceType,
+            versionNumber: meta.versionNumber,
+            effectiveDate: meta.effectiveDate,
+            parsedFields: fields as unknown[],
+            fieldStats: stats as unknown,
+          });
+          setSchemaVersionId(res.schemaVersionId);
+        } catch {
+          return;
+        }
+      }
       goNext();
     },
-    [goNext],
+    [apiMode, goNext, ingestMutation],
   );
 
   const handleMultiSchemaComplete = useCallback(
-    (schemaId: string | null, _createNew: boolean) => {
+    async (schemaId: string | null, _createNew: boolean) => {
       setSelectedSchemaId(schemaId);
+      if (apiMode && schemaVersionId) {
+        try {
+          const job = await createJobMutation.mutateAsync({ schemaVersionId });
+          setMappingId(job.mappingId);
+        } catch {
+          return;
+        }
+      }
       goNext();
     },
-    [goNext],
+    [apiMode, schemaVersionId, createJobMutation, goNext],
   );
 
   const handleLLMComplete = useCallback(
-    (rows: LLMFieldIntelligenceRow[], enums: EnumReconciliation[]) => {
+    async (rows: LLMFieldIntelligenceRow[], enums: EnumReconciliation[]) => {
       setLlmRows(rows);
       setEnumReconciliations(enums);
+      if (apiMode && mappingId) {
+        try {
+          const latest = await queryClient.fetchQuery({
+            queryKey: QK.schemaMapper.mapping(mappingId),
+            queryFn: () => fetchMapping(mappingId),
+          });
+          const body = llmRowsToFieldMappings(rows, masterSchemaTree, latest.fieldMappings);
+          await patchMutation.mutateAsync({ id: mappingId, body: { fieldMappings: body } });
+        } catch {
+          return;
+        }
+      }
       goNext();
     },
-    [goNext],
+    [apiMode, mappingId, queryClient, patchMutation, goNext],
   );
 
   const handleRulesComplete = useCallback(
@@ -120,10 +195,15 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
     [goNext],
   );
 
-  const handleGovernanceSubmit = useCallback(() => {
-    setGovernanceSummary((prev) => ({ ...(prev ?? governanceSummaryDefault), evolutionQueueStatus: "AI Proposed" }));
-    onComplete();
-  }, [onComplete]);
+  const handleGovernanceSubmitToQueue = useCallback(async () => {
+    setGovernanceSummary((prev) => ({
+      ...(prev ?? governanceSummaryDefault),
+      evolutionQueueStatus: "AI Proposed",
+    }));
+    if (apiMode && mappingId) {
+      await submitApprovalMutation.mutateAsync(mappingId);
+    }
+  }, [apiMode, mappingId, submitApprovalMutation]);
 
   const handleGovernanceSaveDraft = useCallback(() => {
     onComplete();
@@ -189,6 +269,8 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
           <LLMFieldIntelligenceStep
             initialRows={llmRows}
             initialEnums={enumReconciliations}
+            apiSyncedRows={apiSyncedRows}
+            mappingJobStatus={mappingData?.status ?? null}
             onComplete={handleLLMComplete}
           />
         )}
@@ -215,7 +297,7 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
         {currentStep === "governance_actions" && (
           <GovernanceActionsStep
             governanceSummary={governanceSummary}
-            onSubmitToQueue={handleGovernanceSubmit}
+            onSubmitToQueue={handleGovernanceSubmitToQueue}
             onSaveDraft={handleGovernanceSaveDraft}
             onReject={handleGovernanceReject}
             onComplete={onComplete}

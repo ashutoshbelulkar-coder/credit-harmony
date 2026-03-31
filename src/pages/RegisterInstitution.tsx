@@ -1,17 +1,30 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Upload, Building2, FileText, Eye, CheckCircle2, AlertCircle, Save } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, ChevronDown, Upload, Building2, FileText, Eye, CheckCircle2, AlertCircle, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { institutionTypes } from "@/data/institutions-mock";
 import { toast } from "sonner";
-import { useCreateInstitution } from "@/hooks/api/useInstitutions";
+import { useCreateInstitution, useInstitutionFormMetadata } from "@/hooks/api/useInstitutions";
+import {
+  applicableRequiredComplianceDocuments,
+  uploadInstitutionDocument,
+  type CreateInstitutionBody,
+  type InstitutionRequiredComplianceDocument,
+  type RegisterFormFieldResolved,
+  type RegisterFormPayload,
+  type RegisterFormSectionResolved,
+} from "@/services/institutions.service";
+import {
+  buildRegisterDetailsSchema,
+  defaultValuesFromRegisterForm,
+  mapRegisterDetailsToCreateBody,
+  sectionIsVisible,
+  type RegisterDetailsValues,
+} from "@/lib/institution-register-form";
 import { QK } from "@/lib/query-keys";
-import { uploadInstitutionDocument } from "@/services/institutions.service";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -32,31 +45,29 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const steps = [
-  { title: "Corporate Details", shortTitle: "Details", icon: Building2, description: "Basic institution information" },
-  { title: "Compliance Documents", shortTitle: "Documents", icon: FileText, description: "Upload required documents" },
-  { title: "Review & Submit", shortTitle: "Review", icon: Eye, description: "Verify and submit" },
-];
-
-const corporateDetailsSchema = z.object({
-  legalName: z.string().trim().min(1, "Legal name is required").max(200),
-  tradingName: z.string().trim().min(1, "Trading name is required").max(200),
-  registrationNumber: z.string().trim().min(1, "Registration number is required").max(50),
-  institutionType: z.string().min(1, "Institution type is required"),
-  jurisdiction: z.string().trim().min(1, "Jurisdiction is required").max(100),
-  licenseNumber: z.string().trim().min(1, "License number is required").max(50),
-  contactEmail: z.string().trim().email("Enter a valid email address").max(255),
-  contactPhone: z.string().trim().min(1, "Contact phone is required").max(30),
-  isDataSubmitter: z.boolean(),
-  isSubscriber: z.boolean(),
-}).refine((data) => data.isDataSubmitter || data.isSubscriber, {
-  message: "At least one participation type must be selected",
-  path: ["isDataSubmitter"],
-});
-
-type CorporateDetailsFormData = z.infer<typeof corporateDetailsSchema>;
+const STEP_DETAILS = {
+  title: "Corporate Details",
+  shortTitle: "Details",
+  icon: Building2,
+  description: "Basic institution information",
+};
+const STEP_DOCUMENTS = {
+  title: "Compliance Documents",
+  shortTitle: "Documents",
+  icon: FileText,
+  description: "Upload required documents",
+};
+const STEP_REVIEW = {
+  title: "Review & Submit",
+  shortTitle: "Review",
+  icon: Eye,
+  description: "Verify and submit",
+};
 
 interface UploadedDoc {
   name: string;
@@ -65,21 +76,16 @@ interface UploadedDoc {
   file?: File;
 }
 
-const baseDocs = [
-  "Certificate of Incorporation",
-  "Banking License",
-  "Data Protection Certificate",
-  "Board Resolution",
-];
-
-function getRequiredDocs(isDataSubmitter: boolean, isSubscriber: boolean) {
-  const docs = [...baseDocs];
-  if (isDataSubmitter) docs.push("Data Sharing Agreement");
-  if (isSubscriber) {
-    docs.push("Subscriber Agreement");
-    docs.push("Permitted Use Declaration");
+function consortiumLabelMap(registerForm: RegisterFormPayload): Record<string, string> {
+  const m: Record<string, string> = {};
+  for (const sec of registerForm.sections) {
+    for (const f of sec.fields) {
+      if (f.name === "consortiumIds") {
+        for (const o of f.options) m[o.value] = o.label;
+      }
+    }
   }
-  return docs;
+  return m;
 }
 
 const RegisterInstitution = () => {
@@ -87,46 +93,83 @@ const RegisterInstitution = () => {
   const [currentStep, setCurrentStep] = useState(0);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const queryClient = useQueryClient();
-  const { mutateAsync: createInstitution, isPending: submitting } = useCreateInstitution();
+  const { mutateAsync: submitNewInstitution, isPending: submitting } = useCreateInstitution();
+  const { data: registerFormMeta, isPending: metaPending, isError: metaError } = useInstitutionFormMetadata();
 
-  const form = useForm<CorporateDetailsFormData>({
-    resolver: zodResolver(corporateDetailsSchema),
-    defaultValues: {
-      legalName: "",
-      tradingName: "",
-      registrationNumber: "",
-      institutionType: "",
-      jurisdiction: "",
-      licenseNumber: "",
-      contactEmail: "",
-      contactPhone: "",
-      isDataSubmitter: false,
-      isSubscriber: false,
-    },
+  const registerForm = registerFormMeta?.registerForm;
+  const wizardLocked = metaPending && registerFormMeta === undefined;
+  const documentsStepEnabled =
+    !wizardLocked &&
+    registerFormMeta != null &&
+    registerFormMeta.requiredComplianceDocuments != null &&
+    registerFormMeta.requiredComplianceDocuments.length > 0;
+
+  const steps = useMemo(() => {
+    const s = [STEP_DETAILS];
+    if (documentsStepEnabled) s.push(STEP_DOCUMENTS);
+    s.push(STEP_REVIEW);
+    return s;
+  }, [documentsStepEnabled]);
+
+  const reviewStepIndex = steps.length - 1;
+  const documentsStepIndex = documentsStepEnabled ? 1 : -1;
+
+  const schema = useMemo(() => buildRegisterDetailsSchema(registerForm), [registerForm]);
+  const defaultVals = useMemo(() => defaultValuesFromRegisterForm(registerForm), [registerForm]);
+  const resolver = useMemo(() => zodResolver(schema), [schema]);
+
+  const form = useForm<RegisterDetailsValues>({
+    resolver,
+    defaultValues: defaultVals,
     mode: "onTouched",
   });
+
+  useEffect(() => {
+    if (registerForm) {
+      form.reset(defaultValuesFromRegisterForm(registerForm));
+    }
+  }, [registerForm?.geographyId, registerForm, form]);
+
+  const values = form.watch();
+  const applicableDocRows = applicableRequiredComplianceDocuments(
+    registerFormMeta?.requiredComplianceDocuments ?? null,
+    !!values.isDataSubmitter,
+    !!values.isSubscriber
+  );
+
+  const consortiumNameById = useMemo(
+    () => (registerForm ? consortiumLabelMap(registerForm) : {}),
+    [registerForm]
+  );
+
+  useEffect(() => {
+    const allow = new Set(applicableDocRows.map((d) => d.documentName));
+    setUploadedDocs((prev) => prev.filter((u) => allow.has(u.name)));
+  }, [values.isDataSubmitter, values.isSubscriber, registerFormMeta?.requiredComplianceDocuments]);
 
   const handleNext = async () => {
     if (currentStep === 0) {
       const valid = await form.trigger();
       if (!valid) return;
     }
-    setCurrentStep((s) => Math.min(s + 1, 2));
+    setCurrentStep((s) => Math.min(s + 1, reviewStepIndex));
   };
 
   const handlePrevious = () => {
     setCurrentStep((s) => Math.max(s - 1, 0));
   };
 
-  const handleFileUpload = (docName: string) => {
+  const handleFileUpload = (row: InstitutionRequiredComplianceDocument) => {
+    const docName = row.documentName;
+    const maxBytes = row.maxSizeBytes ?? 10 * 1024 * 1024;
     const input = document.createElement("input");
     input.type = "file";
-    input.accept = ".pdf,.jpg,.jpeg,.png";
+    input.accept = row.accept ?? ".pdf,.jpg,.jpeg,.png";
     input.onchange = (e) => {
       const file = (e.target as HTMLInputElement).files?.[0];
       if (!file) return;
-      if (file.size > 10 * 1024 * 1024) {
-        toast.error("File size must be under 10MB");
+      if (file.size > maxBytes) {
+        toast.error(`File size must be under ${Math.round(maxBytes / (1024 * 1024))}MB`);
         return;
       }
       setUploadedDocs((prev) => {
@@ -152,47 +195,40 @@ const RegisterInstitution = () => {
 
   const handleSubmit = async () => {
     const data = form.getValues();
-    const requiredDocs = getRequiredDocs(data.isDataSubmitter, data.isSubscriber);
-    const stringFields = Object.entries(data).filter(([, v]) => typeof v === "string") as [string, string][];
-    const allFieldsFilled = stringFields.every(([, v]) => v.trim().length > 0);
-    if (!allFieldsFilled) {
-      toast.error("Please fill in all required fields");
+    const rf = registerFormMeta?.registerForm;
+    if (!rf) {
+      toast.error("Form configuration is not loaded.");
       return;
     }
+    const valid = await form.trigger();
+    if (!valid) return;
     if (!(data.isDataSubmitter || data.isSubscriber)) {
       toast.error("At least one participation type must be selected");
       return;
     }
-    if (uploadedDocs.length < requiredDocs.length) {
-      toast.error(`Please upload all ${requiredDocs.length} required documents`);
-      return;
-    }
-    const missingFiles = uploadedDocs.filter((d) => !d.file);
-    if (missingFiles.length > 0) {
-      toast.error("Each required document must have a file attached. Re-upload any items loaded from a draft.");
-      return;
+    if (applicableDocRows.length > 0) {
+      if (uploadedDocs.length < applicableDocRows.length) {
+        toast.error(`Please upload all ${applicableDocRows.length} required documents`);
+        return;
+      }
+      const missingFiles = uploadedDocs.filter((d) => !d.file);
+      if (missingFiles.length > 0) {
+        toast.error("Each required document must have a file attached. Re-upload any items loaded from a draft.");
+        return;
+      }
     }
     try {
-      const inst = await createInstitution({
-        name: data.legalName,
-        tradingName: data.tradingName,
-        registrationNumber: data.registrationNumber,
-        institutionType: data.institutionType,
-        jurisdiction: data.jurisdiction,
-        licenseNumber: data.licenseNumber,
-        contactEmail: data.contactEmail,
-        contactPhone: data.contactPhone,
-        isDataSubmitter: data.isDataSubmitter,
-        isSubscriber: data.isSubscriber,
-        institutionLifecycleStatus: "pending",
-      });
+      const body = mapRegisterDetailsToCreateBody(data, rf);
+      const inst = await submitNewInstitution(body as CreateInstitutionBody);
       let uploadFailed = false;
-      for (const d of uploadedDocs) {
-        if (!d.file) continue;
-        try {
-          await uploadInstitutionDocument(inst.id, d.name, d.file);
-        } catch {
-          uploadFailed = true;
+      if (applicableDocRows.length > 0) {
+        for (const d of uploadedDocs) {
+          if (!d.file) continue;
+          try {
+            await uploadInstitutionDocument(inst.id, d.name, d.file);
+          } catch {
+            uploadFailed = true;
+          }
         }
       }
       await queryClient.invalidateQueries({ queryKey: QK.institutions.all() });
@@ -209,13 +245,11 @@ const RegisterInstitution = () => {
       }
       navigate("/institutions");
     } catch {
-      // createInstitution mutation surfaces errors via onError toast
+      // mutation surfaces errors via onError toast
     }
   };
 
-  const values = form.watch();
-  const requiredDocs = getRequiredDocs(values.isDataSubmitter, values.isSubscriber);
-  const completionPct = Math.round(((currentStep) / 2) * 100);
+  const completionPct = Math.round((currentStep / Math.max(1, reviewStepIndex)) * 100);
 
   return (
     <DashboardLayout>
@@ -225,18 +259,19 @@ const RegisterInstitution = () => {
           { label: "Register member" },
         ]} />
 
-        {/* Header row */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-xl font-bold text-foreground sm:text-2xl">Register member</h1>
             <p className="text-caption text-muted-foreground mt-0.5">Complete all steps to register a new member institution</p>
+            {registerFormMeta?.geographyDescription && (
+              <p className="text-[10px] text-muted-foreground mt-1 max-w-xl">{registerFormMeta.geographyDescription}</p>
+            )}
           </div>
           <Button variant="outline" size="sm" onClick={handleSaveDraft} className="gap-1.5 self-start">
             <Save className="w-3.5 h-3.5" /> Save Draft
           </Button>
         </div>
 
-        {/* Horizontal stepper at top — matches StepIndicator design */}
         <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden">
           <div className="overflow-x-auto">
             <div className="flex items-stretch flex-nowrap min-w-0">
@@ -314,7 +349,6 @@ const RegisterInstitution = () => {
           </div>
         </div>
 
-        {/* Main content area */}
         <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-3 mb-5 pb-4 border-b border-border">
@@ -329,22 +363,38 @@ const RegisterInstitution = () => {
               </div>
             </div>
 
-            {currentStep === 0 && <Step1Corporate form={form} />}
-            {currentStep === 1 && (
+            {currentStep === 0 && (
+              wizardLocked ? (
+                <div className="space-y-4">
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full" />
+                  <Skeleton className="h-10 w-full max-w-md" />
+                </div>
+              ) : metaError ? (
+                <p className="text-sm text-destructive">Could not load register form configuration. Check the API and try again.</p>
+              ) : registerForm ? (
+                <RegisterStep1 form={form} registerForm={registerForm} metaLoading={metaPending} metaError={metaError} />
+              ) : null
+            )}
+            {documentsStepEnabled && currentStep === documentsStepIndex && (
               <Step2Documents
+                rows={applicableDocRows}
                 uploadedDocs={uploadedDocs}
                 onUpload={handleFileUpload}
-                isDataSubmitter={values.isDataSubmitter}
-                isSubscriber={values.isSubscriber}
               />
             )}
-            {currentStep === 2 && (
-              <Step3Review values={values} uploadedDocs={uploadedDocs} />
+            {currentStep === reviewStepIndex && registerForm && (
+              <Step3Review
+                values={values}
+                registerForm={registerForm}
+                uploadedDocs={uploadedDocs}
+                applicableDocRows={applicableDocRows}
+                consortiumNameById={consortiumNameById}
+              />
             )}
           </CardContent>
         </Card>
 
-        {/* Actions footer */}
         <div className="flex items-center justify-between gap-3">
           <Button
             variant="outline"
@@ -355,7 +405,7 @@ const RegisterInstitution = () => {
           </Button>
 
           <div className="flex gap-2">
-            {currentStep < 2 ? (
+            {currentStep < reviewStepIndex ? (
               <Button onClick={handleNext} className="gap-1.5">
                 Next <ArrowRight className="w-4 h-4" />
               </Button>
@@ -371,162 +421,306 @@ const RegisterInstitution = () => {
   );
 };
 
-/* ─── Step 1: Corporate Details ─── */
-function Step1Corporate({ form }: { form: ReturnType<typeof useForm<CorporateDetailsFormData>> }) {
+function RegisterStep1({
+  form,
+  registerForm,
+  metaLoading,
+  metaError,
+}: {
+  form: UseFormReturn<RegisterDetailsValues>;
+  registerForm: RegisterFormPayload;
+  metaLoading: boolean;
+  metaError: boolean;
+}) {
+  const values = form.watch();
+  const [consortiumOpen, setConsortiumOpen] = useState(false);
+
+  useEffect(() => {
+    if (!values.isSubscriber) {
+      form.setValue("consortiumIds", []);
+      setConsortiumOpen(false);
+    }
+  }, [values.isSubscriber, form]);
+
   return (
     <Form {...form}>
       <div className="space-y-6">
-        {/* Entity Information */}
-        <fieldset>
-          <legend className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Entity Information</legend>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
-            <FormField control={form.control} name="legalName" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Legal Name *</FormLabel>
-                <FormControl><Input placeholder="Enter legal entity name" className="h-10" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="tradingName" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Trading Name *</FormLabel>
-                <FormControl><Input placeholder="Enter trading name" className="h-10" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="registrationNumber" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Registration Number *</FormLabel>
-                <FormControl><Input placeholder="e.g. BK-2024-00142" className="h-10" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="institutionType" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Institution Type *</FormLabel>
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl>
-                    <SelectTrigger className="h-10"><SelectValue placeholder="Select type" /></SelectTrigger>
-                  </FormControl>
-                  <SelectContent>
-                    {institutionTypes.map((t) => (
-                      <SelectItem key={t} value={t}>{t}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <FormMessage />
-              </FormItem>
-            )} />
-          </div>
-        </fieldset>
-
-        {/* Regulatory */}
-        <fieldset>
-          <legend className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Regulatory Details</legend>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
-            <FormField control={form.control} name="jurisdiction" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Jurisdiction *</FormLabel>
-                <FormControl><Input placeholder="e.g. Kenya" className="h-10" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="licenseNumber" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">License Number *</FormLabel>
-                <FormControl><Input placeholder="Enter license number" className="h-10" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-          </div>
-        </fieldset>
-
-        {/* Contact */}
-        <fieldset>
-          <legend className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Contact Information</legend>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4">
-            <FormField control={form.control} name="contactEmail" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Contact Email *</FormLabel>
-                <FormControl><Input type="email" placeholder="compliance@institution.com" className="h-10" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="contactPhone" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-xs text-muted-foreground">Contact Phone *</FormLabel>
-                <FormControl><Input placeholder="+254 700 000 000" className="h-10" {...field} /></FormControl>
-                <FormMessage />
-              </FormItem>
-            )} />
-          </div>
-        </fieldset>
-
-        {/* Participation Type */}
-        <fieldset>
-          <legend className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Participation Type</legend>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <FormField control={form.control} name="isDataSubmitter" render={({ field }) => (
-              <FormItem>
-                <label
-                  htmlFor="participation-ds"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg border p-3.5 cursor-pointer transition-all",
-                    field.value ? "border-primary/40 bg-primary/5" : "border-border hover:border-primary/20"
-                  )}
-                >
-                  <FormControl>
-                    <Checkbox id="participation-ds" checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Data Submission</p>
-                    <p className="text-[10px] text-muted-foreground">Submit credit data to the bureau</p>
-                  </div>
-                </label>
-              </FormItem>
-            )} />
-            <FormField control={form.control} name="isSubscriber" render={({ field }) => (
-              <FormItem>
-                <label
-                  htmlFor="participation-sub"
-                  className={cn(
-                    "flex items-center gap-3 rounded-lg border p-3.5 cursor-pointer transition-all",
-                    field.value ? "border-primary/40 bg-primary/5" : "border-border hover:border-primary/20"
-                  )}
-                >
-                  <FormControl>
-                    <Checkbox id="participation-sub" checked={field.value} onCheckedChange={field.onChange} />
-                  </FormControl>
-                  <div>
-                    <p className="text-sm font-medium text-foreground">Subscriber</p>
-                    <p className="text-[10px] text-muted-foreground">Query credit reports from the bureau</p>
-                  </div>
-                </label>
-              </FormItem>
-            )} />
-          </div>
-          {form.formState.errors.isDataSubmitter && (
-            <p className="text-xs text-destructive font-medium mt-2">{form.formState.errors.isDataSubmitter.message}</p>
-          )}
-        </fieldset>
+        {registerForm.sections.map((sec) => (
+          <RegisterSection
+            key={sec.id}
+            form={form}
+            section={sec}
+            values={values}
+            metaLoading={metaLoading}
+            metaError={metaError}
+            consortiumOpen={consortiumOpen}
+            setConsortiumOpen={setConsortiumOpen}
+          />
+        ))}
       </div>
     </Form>
   );
 }
 
-/* ─── Step 2: Documents ─── */
+function RegisterSection({
+  form,
+  section,
+  values,
+  metaLoading,
+  metaError,
+  consortiumOpen,
+  setConsortiumOpen,
+}: {
+  form: UseFormReturn<RegisterDetailsValues>;
+  section: RegisterFormSectionResolved;
+  values: RegisterDetailsValues;
+  metaLoading: boolean;
+  metaError: boolean;
+  consortiumOpen: boolean;
+  setConsortiumOpen: (v: boolean) => void;
+}) {
+  if (!sectionIsVisible(section, values)) return null;
+
+  const layout = section.layout ?? "grid2";
+  const gridClass =
+    layout === "checkboxCards"
+      ? "grid grid-cols-1 sm:grid-cols-2 gap-3"
+      : layout === "full"
+        ? "space-y-4"
+        : "grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-4";
+
+  return (
+    <fieldset>
+      <legend className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+        {section.legend}
+      </legend>
+      <div className={gridClass}>
+        {section.fields.map((f) => (
+          <RegisterField
+            key={f.name}
+            form={form}
+            field={f}
+            section={section}
+            metaLoading={metaLoading}
+            metaError={metaError}
+            consortiumOpen={consortiumOpen}
+            setConsortiumOpen={setConsortiumOpen}
+          />
+        ))}
+      </div>
+      {section.refineAtLeastOne?.includes("isDataSubmitter") && form.formState.errors.isDataSubmitter?.message && (
+        <p className="text-xs text-destructive font-medium mt-2">
+          {String(form.formState.errors.isDataSubmitter.message)}
+        </p>
+      )}
+    </fieldset>
+  );
+}
+
+function RegisterField({
+  form,
+  field,
+  section,
+  metaLoading,
+  metaError,
+  consortiumOpen,
+  setConsortiumOpen,
+}: {
+  form: UseFormReturn<RegisterDetailsValues>;
+  field: RegisterFormFieldResolved;
+  section: RegisterFormSectionResolved;
+  metaLoading: boolean;
+  metaError: boolean;
+  consortiumOpen: boolean;
+  setConsortiumOpen: (v: boolean) => void;
+}) {
+  const labelSuffix = field.required ? " *" : "";
+
+  if (field.inputType === "checkbox") {
+    const id = `reg-${section.id}-${field.name}`;
+    return (
+      <FormField
+        control={form.control}
+        name={field.name}
+        render={({ field: ff }) => (
+          <FormItem>
+            <label
+              htmlFor={id}
+              className={cn(
+                "flex items-center gap-3 rounded-lg border p-3.5 cursor-pointer transition-all",
+                ff.value ? "border-primary/40 bg-primary/5" : "border-border hover:border-primary/20"
+              )}
+            >
+              <FormControl>
+                <Checkbox id={id} checked={!!ff.value} onCheckedChange={ff.onChange} />
+              </FormControl>
+              <div>
+                <p className="text-sm font-medium text-foreground">{field.label}</p>
+                {field.description && (
+                  <p className="text-[10px] text-muted-foreground">{field.description}</p>
+                )}
+              </div>
+            </label>
+          </FormItem>
+        )}
+      />
+    );
+  }
+
+  if (field.inputType === "multiselect") {
+    return (
+      <FormField
+        control={form.control}
+        name={field.name}
+        render={({ field: ff }) => {
+          const arr = Array.isArray(ff.value) ? (ff.value as string[]) : [];
+          const n = arr.length;
+          const summary =
+            n === 0
+              ? field.placeholder ?? "Select…"
+              : n === 1
+                ? field.options.find((o) => o.value === arr[0])?.label ?? "1 selected"
+                : `${n} selected`;
+          const opts = field.options;
+          return (
+            <FormItem className={section.layout === "full" ? "sm:col-span-2" : ""}>
+              <FormLabel className="text-xs text-muted-foreground">{field.label}{labelSuffix}</FormLabel>
+              <Popover open={consortiumOpen} onOpenChange={setConsortiumOpen}>
+                <PopoverTrigger asChild>
+                  <FormControl>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={consortiumOpen}
+                      disabled={metaLoading || (!metaError && opts.length === 0)}
+                      className={cn(
+                        "h-10 w-full justify-between font-normal px-3",
+                        !n && "text-muted-foreground",
+                      )}
+                    >
+                      <span className="truncate text-left">{summary}</span>
+                      <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </FormControl>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+                  {metaError ? (
+                    <p className="text-xs text-destructive p-3">Could not load options.</p>
+                  ) : !metaLoading && opts.length === 0 ? (
+                    <p className="text-xs text-muted-foreground p-3">No options available.</p>
+                  ) : (
+                    <ScrollArea className="max-h-60">
+                      <div className="p-1 space-y-0.5">
+                        {opts.map((c) => {
+                          const selected = arr.includes(c.value);
+                          return (
+                            <button
+                              key={c.value}
+                              type="button"
+                              disabled={metaLoading}
+                              onClick={() => {
+                                if (selected) ff.onChange(arr.filter((id) => id !== c.value));
+                                else ff.onChange([...arr, c.value]);
+                              }}
+                              className={cn(
+                                "flex w-full items-start gap-2 rounded-sm px-2 py-2 text-left text-sm hover:bg-muted",
+                                selected && "bg-muted/80",
+                              )}
+                            >
+                              <Checkbox checked={selected} className="mt-0.5 pointer-events-none" tabIndex={-1} />
+                              <span className="min-w-0 text-left">{c.label}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </ScrollArea>
+                  )}
+                </PopoverContent>
+              </Popover>
+              <FormMessage />
+            </FormItem>
+          );
+        }}
+      />
+    );
+  }
+
+  if (field.inputType === "select") {
+    return (
+      <FormField
+        control={form.control}
+        name={field.name}
+        render={({ field: ff }) => (
+          <FormItem>
+            <FormLabel className="text-xs text-muted-foreground">{field.label}{labelSuffix}</FormLabel>
+            <Select
+              onValueChange={ff.onChange}
+              value={typeof ff.value === "string" ? ff.value : ""}
+              disabled={metaLoading || (!metaError && field.options.length === 0)}
+            >
+              <FormControl>
+                <SelectTrigger className="h-10">
+                  <SelectValue placeholder={metaLoading ? "Loading…" : field.placeholder ?? "Select"} />
+                </SelectTrigger>
+              </FormControl>
+              <SelectContent>
+                {field.options.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {metaError && (
+              <p className="text-xs text-destructive">Could not load form metadata.</p>
+            )}
+            {!metaError && !metaLoading && field.options.length === 0 && (
+              <p className="text-xs text-muted-foreground">No options configured for this field.</p>
+            )}
+            <FormMessage />
+          </FormItem>
+        )}
+      />
+    );
+  }
+
+  const inputType =
+    field.inputType === "email" ? "email" : field.inputType === "tel" ? "tel" : "text";
+
+  return (
+    <FormField
+      control={form.control}
+      name={field.name}
+      render={({ field: ff }) => (
+        <FormItem>
+          <FormLabel className="text-xs text-muted-foreground">{field.label}{labelSuffix}</FormLabel>
+          <FormControl>
+            <Input
+              type={inputType}
+              placeholder={field.placeholder}
+              className="h-10"
+              value={typeof ff.value === "string" ? ff.value : ""}
+              onChange={ff.onChange}
+              onBlur={ff.onBlur}
+              name={ff.name}
+              ref={ff.ref}
+            />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  );
+}
+
 function Step2Documents({
+  rows,
   uploadedDocs,
   onUpload,
-  isDataSubmitter,
-  isSubscriber,
 }: {
+  rows: InstitutionRequiredComplianceDocument[];
   uploadedDocs: UploadedDoc[];
-  onUpload: (docName: string) => void;
-  isDataSubmitter: boolean;
-  isSubscriber: boolean;
+  onUpload: (row: InstitutionRequiredComplianceDocument) => void;
 }) {
-  const requiredDocs = getRequiredDocs(isDataSubmitter, isSubscriber);
   const uploadedCount = uploadedDocs.length;
 
   return (
@@ -534,18 +728,18 @@ function Step2Documents({
       <div className="flex items-center justify-between">
         <p className="text-caption text-muted-foreground">Upload required regulatory documents for verification.</p>
         <Badge variant="outline" className="text-[10px] shrink-0">
-          {uploadedCount}/{requiredDocs.length} uploaded
+          {uploadedCount}/{rows.length} uploaded
         </Badge>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {requiredDocs.map((doc) => {
-          const uploaded = uploadedDocs.find((d) => d.name === doc);
+        {rows.map((row) => {
+          const uploaded = uploadedDocs.find((d) => d.name === row.documentName);
           return (
             <button
-              key={doc}
+              key={row.documentName}
               type="button"
-              onClick={() => onUpload(doc)}
+              onClick={() => onUpload(row)}
               className={cn(
                 "flex items-start gap-3 p-3.5 rounded-lg border text-left transition-all group",
                 uploaded
@@ -560,11 +754,11 @@ function Step2Documents({
                 {uploaded ? <CheckCircle2 className="w-4 h-4" /> : <Upload className="w-4 h-4" />}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-body font-medium text-foreground leading-tight">{doc}</p>
+                <p className="text-body font-medium text-foreground leading-tight">{row.label}</p>
                 {uploaded ? (
                   <p className="text-[10px] text-success mt-0.5 truncate">{uploaded.fileName} · {(uploaded.size / 1024).toFixed(0)} KB</p>
                 ) : (
-                  <p className="text-[10px] text-muted-foreground mt-0.5">PDF, JPG or PNG · up to 10MB</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">{row.hint ?? "PDF, JPG or PNG"}</p>
                 )}
               </div>
             </button>
@@ -575,50 +769,54 @@ function Step2Documents({
   );
 }
 
-/* ─── Step 3: Review ─── */
 function Step3Review({
   values,
+  registerForm,
   uploadedDocs,
+  applicableDocRows,
+  consortiumNameById,
 }: {
-  values: CorporateDetailsFormData;
+  values: RegisterDetailsValues;
+  registerForm: RegisterFormPayload;
   uploadedDocs: UploadedDoc[];
+  applicableDocRows: InstitutionRequiredComplianceDocument[];
+  consortiumNameById: Record<string, string>;
 }) {
-  const requiredDocs = getRequiredDocs(values.isDataSubmitter, values.isSubscriber);
-  const stringFields = Object.entries(values).filter(([, v]) => typeof v === "string") as [string, string][];
-  const allFieldsFilled = stringFields.every(([, v]) => v.trim().length > 0);
-  const participationSelected = values.isDataSubmitter || values.isSubscriber;
-  const allDocsUploaded = uploadedDocs.length >= requiredDocs.length;
-  const isReady = allFieldsFilled && allDocsUploaded && participationSelected;
+  const stringOk = registerForm.sections.every((sec) => {
+    if (!sectionIsVisible(sec, values)) return true;
+    return sec.fields.every((f) => {
+      if (f.inputType === "checkbox" || f.inputType === "multiselect") return true;
+      const v = values[f.name];
+      if (!f.required) return true;
+      return typeof v === "string" && v.trim().length > 0;
+    });
+  });
+  const participationSelected = !!values.isDataSubmitter || !!values.isSubscriber;
+  const allDocsUploaded = applicableDocRows.length === 0 || uploadedDocs.length >= applicableDocRows.length;
+  const isReady = stringOk && allDocsUploaded && participationSelected;
 
-  const sections = [
-    {
-      title: "Entity Information",
-      fields: [
-        ["Legal Name", values.legalName],
-        ["Trading Name", values.tradingName],
-        ["Registration No.", values.registrationNumber],
-        ["Institution Type", values.institutionType],
-      ],
-    },
-    {
-      title: "Regulatory Details",
-      fields: [
-        ["Jurisdiction", values.jurisdiction],
-        ["License Number", values.licenseNumber],
-      ],
-    },
-    {
-      title: "Contact",
-      fields: [
-        ["Email", values.contactEmail],
-        ["Phone", values.contactPhone],
-      ],
-    },
-  ];
+  const participationSectionLegend =
+    registerForm.sections.find((s) => s.id === "participation")?.legend ?? "Participation";
+  const consortiumIdsFieldLabel =
+    registerForm.sections
+      .find((s) => s.id === "consortium")
+      ?.fields.find((f) => f.name === "consortiumIds")?.label ?? "Consortiums";
+
+  const reviewBlocks = registerForm.sections
+    .filter((sec) => sectionIsVisible(sec, values) && sec.id !== "participation" && sec.id !== "consortium")
+    .map((sec) => ({
+      title: sec.legend,
+      fields: sec.fields
+        .filter((f) => f.inputType !== "checkbox" && f.inputType !== "multiselect")
+        .map((f) => {
+          const v = values[f.name];
+          const display = typeof v === "string" ? v : "";
+          return [f.label, display || "—"] as [string, string];
+        }),
+    }));
 
   return (
     <div className="space-y-5">
-      {/* Status banner */}
       {isReady ? (
         <div className="p-3 rounded-lg border border-success/30 bg-success/5 flex items-center gap-2.5">
           <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
@@ -631,49 +829,65 @@ function Step3Review({
         </div>
       )}
 
-      {/* Info sections */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {sections.map((section) => (
+        {reviewBlocks.map((section) => (
           <div key={section.title} className="rounded-lg border border-border p-3.5 space-y-2.5">
             <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{section.title}</h4>
             {section.fields.map(([label, value]) => (
               <div key={label}>
                 <p className="text-[10px] text-muted-foreground">{label}</p>
-                <p className={cn("text-body font-medium", value ? "text-foreground" : "text-muted-foreground")}>{value || "—"}</p>
+                <p className={cn("text-body font-medium", value && value !== "—" ? "text-foreground" : "text-muted-foreground")}>{value}</p>
               </div>
             ))}
           </div>
         ))}
       </div>
 
-      {/* Participation + Documents */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="rounded-lg border border-border p-3.5 space-y-2.5">
-          <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">Participation</h4>
+          <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
+            {participationSectionLegend}
+          </h4>
           <div className="flex flex-wrap gap-2">
             {values.isDataSubmitter && <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">Data Submission</Badge>}
             {values.isSubscriber && <Badge className="bg-primary/10 text-primary border-primary/20 text-[10px]">Subscriber</Badge>}
             {!values.isDataSubmitter && !values.isSubscriber && <span className="text-caption text-muted-foreground">None selected</span>}
           </div>
+          {values.isSubscriber && (
+            <div className="pt-2 border-t border-border mt-2 space-y-1">
+              <p className="text-[10px] text-muted-foreground">{consortiumIdsFieldLabel}</p>
+              <p className="text-body font-medium text-foreground">
+                {(() => {
+                  const ids = Array.isArray(values.consortiumIds) ? values.consortiumIds : [];
+                  if (ids.length === 0) return "None selected";
+                  return ids.map((id) => consortiumNameById[id] ?? id).join(", ");
+                })()}
+              </p>
+            </div>
+          )}
         </div>
         <div className="rounded-lg border border-border p-3.5 space-y-2.5">
           <h4 className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-            Documents ({uploadedDocs.length}/{requiredDocs.length})
+            Documents ({uploadedDocs.length}/{applicableDocRows.length || 0})
           </h4>
           <div className="space-y-1">
-            {requiredDocs.map((doc) => {
-              const uploaded = uploadedDocs.find((d) => d.name === doc);
-              return (
-                <div key={doc} className="flex items-center gap-2 text-caption">
-                  {uploaded ? (
-                    <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
-                  ) : (
-                    <AlertCircle className="w-3 h-3 text-warning shrink-0" />
-                  )}
-                  <span className={uploaded ? "text-foreground" : "text-muted-foreground"}>{doc}</span>
-                </div>
-              );
-            })}
+            {applicableDocRows.length === 0 ? (
+              <p className="text-caption text-muted-foreground">No documents required for this configuration.</p>
+            ) : (
+              applicableDocRows.map((row) => {
+                const uploaded = uploadedDocs.find((d) => d.name === row.documentName);
+                return (
+                  <div key={row.documentName} className="flex items-center gap-2 text-caption">
+                    {uploaded ? (
+                      <CheckCircle2 className="w-3 h-3 text-success shrink-0" />
+                    ) : (
+                      <AlertCircle className="w-3 h-3 text-warning shrink-0" />
+                    )}
+                    <span className={uploaded ? "text-foreground" : "text-muted-foreground"}>{row.label}</span>
+                  </div>
+                );
+              })
+            )}
           </div>
         </div>
       </div>

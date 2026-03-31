@@ -221,5 +221,14 @@
     "Fintech",
     "Savings Bank",
     "MFI"
+  ],
+  "requiredComplianceDocuments": [
+    { "documentName": "Certificate of Incorporation" },
+    { "documentName": "Banking License" },
+    { "documentName": "Data Protection Certificate" },
+    { "documentName": "Board Resolution" },
+    { "documentName": "Data Sharing Agreement", "requiredWhen": "data_submitter" },
+    { "documentName": "Subscriber Agreement", "requiredWhen": "subscriber" },
+    { "documentName": "Permitted Use Declaration", "requiredWhen": "subscriber" }
   ]
 }

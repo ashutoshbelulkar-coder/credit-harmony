@@ -67,6 +67,118 @@ describe.sequential("HCB Fastify API (integration)", () => {
     expect(res.statusCode).toBe(401);
   });
 
+  it("GET /api/v1/institutions/form-metadata returns institutionTypes and activeConsortiums", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/institutions/form-metadata",
+      headers: authHeaders(accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      institutionTypes?: string[];
+      activeConsortiums?: { id: string; name: string; type: string }[];
+      requiredComplianceDocuments?: { documentName: string; label?: string }[] | null;
+    };
+    expect(Array.isArray(body.institutionTypes)).toBe(true);
+    expect(body.institutionTypes).toContain("Commercial Bank");
+    expect(Array.isArray(body.activeConsortiums)).toBe(true);
+    const ids = (body.activeConsortiums ?? []).map((c) => c.id);
+    expect(ids).toContain("CONS_001");
+    expect(ids).toContain("CONS_002");
+    expect(ids).not.toContain("CONS_003");
+    expect(body.requiredComplianceDocuments).not.toBeNull();
+    expect(Array.isArray(body.requiredComplianceDocuments)).toBe(true);
+    const docNames = (body.requiredComplianceDocuments ?? []).map((d) => d.documentName);
+    expect(docNames).toContain("Certificate of Incorporation");
+    expect(docNames).toContain("Data Sharing Agreement");
+    const rf = body as {
+      geographyId?: string;
+      registerForm?: { sections?: { id: string; fields: { name: string; inputType?: string; selectionMode?: string; options?: { value: string }[] }[] }[] };
+    };
+    expect(rf.geographyId).toBe("default");
+    expect(Array.isArray(rf.registerForm?.sections)).toBe(true);
+    const entity = rf.registerForm?.sections?.find((s) => s.id === "entity");
+    expect(entity?.legend).toBe("Entity Information");
+    const instType = entity?.fields.find((f) => f.name === "institutionType");
+    expect(instType?.inputType).toBe("select");
+    expect(instType?.selectionMode).toBe("single");
+    expect((instType?.options ?? []).length).toBe(body.institutionTypes?.length);
+    const contact = rf.registerForm?.sections?.find((s) => s.id === "contact");
+    expect(contact?.fields.find((f) => f.name === "contactEmail")?.label).toBe("Contact Email");
+    const regulatory = rf.registerForm?.sections?.find((s) => s.id === "regulatory");
+    const jur = regulatory?.fields.find((f) => f.name === "jurisdiction");
+    expect(jur?.inputType).toBe("text");
+  });
+
+  it("GET /api/v1/institutions/form-metadata?geography=kenya returns registerForm with jurisdiction select enum", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/institutions/form-metadata?geography=kenya",
+      headers: authHeaders(accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      geographyId?: string;
+      registerForm?: { sections?: { id: string; fields: { name: string; inputType?: string; options?: { value: string }[] }[] }[] };
+    };
+    expect(body.geographyId).toBe("kenya");
+    const regulatory = body.registerForm?.sections?.find((s) => s.id === "regulatory");
+    const jur = regulatory?.fields.find((f) => f.name === "jurisdiction");
+    expect(jur?.inputType).toBe("select");
+    const vals = (jur?.options ?? []).map((o) => o.value).sort();
+    expect(vals).toEqual(["Kenya", "Tanzania", "Uganda"].sort());
+  });
+
+  it("POST /api/v1/institutions?geography=kenya rejects jurisdiction outside geography enum", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/institutions?geography=kenya",
+      headers: authHeaders(accessToken),
+      payload: {
+        name: "Wrong Jurisdiction Co",
+        tradingName: "WJC",
+        institutionType: "Commercial Bank",
+        institutionLifecycleStatus: "pending",
+        registrationNumber: "VT-JUR-BAD",
+        jurisdiction: "Rwanda",
+        licenseNumber: "LIC-WJC",
+        contactEmail: "wjc@example.test",
+        contactPhone: "+254700000002",
+        isDataSubmitter: true,
+        isSubscriber: false,
+      },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("POST /api/v1/institutions?geography=kenya succeeds when jurisdiction is in enum", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/institutions?geography=kenya",
+      headers: authHeaders(accessToken),
+      payload: {
+        name: "Kenya Enum OK Bank",
+        tradingName: "KEOB",
+        institutionType: "Commercial Bank",
+        institutionLifecycleStatus: "pending",
+        registrationNumber: "VT-JUR-KE-OK",
+        jurisdiction: "Kenya",
+        licenseNumber: "LIC-KEOB",
+        contactEmail: "keob@example.test",
+        contactPhone: "+254700000003",
+        isDataSubmitter: true,
+        isSubscriber: false,
+      },
+    });
+    expect(res.statusCode).toBe(200);
+    const created = res.json() as { id: number };
+    expect(typeof created.id).toBe("number");
+  });
+
   it("GET /api/v1/institutions returns paged content with Bearer token", async () => {
     const { accessToken } = await loginAsAdmin(app);
     const res = await app.inject({
@@ -78,6 +190,88 @@ describe.sequential("HCB Fastify API (integration)", () => {
     const body = res.json() as { content: unknown[]; totalElements: number };
     expect(Array.isArray(body.content)).toBe(true);
     expect(body.content.length).toBeGreaterThan(0);
+  });
+
+  it("POST /api/v1/institutions rejects institutionType outside configured allowlist", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/institutions",
+      headers: authHeaders(accessToken),
+      payload: {
+        name: "Invalid Type Co",
+        tradingName: "ITC",
+        institutionType: "Not A Configured Type",
+        institutionLifecycleStatus: "pending",
+        registrationNumber: "VT-BAD-TYPE",
+        jurisdiction: "Kenya",
+        licenseNumber: "LIC-BAD",
+        contactEmail: "bad@example.test",
+        isDataSubmitter: true,
+        isSubscriber: false,
+      },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("POST /api/v1/institutions rejects non-active consortiumIds", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/v1/institutions",
+      headers: authHeaders(accessToken),
+      payload: {
+        name: "Bad Consortium Pick",
+        tradingName: "BCP",
+        institutionType: "Commercial Bank",
+        institutionLifecycleStatus: "pending",
+        registrationNumber: "VT-CONS-BAD",
+        jurisdiction: "Kenya",
+        licenseNumber: "LIC-BC",
+        contactEmail: "x@example.test",
+        isDataSubmitter: true,
+        isSubscriber: false,
+        consortiumIds: ["CONS_003"],
+      },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("POST /api/v1/institutions with consortiumIds creates pending consortium memberships", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const createRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/institutions",
+      headers: authHeaders(accessToken),
+      payload: {
+        name: "Vitest With Consortia",
+        tradingName: "VWC",
+        institutionType: "MFI",
+        institutionLifecycleStatus: "pending",
+        registrationNumber: "VT-CONS-OK",
+        jurisdiction: "Kenya",
+        licenseNumber: "LIC-VWC",
+        contactEmail: "vwc@example.test",
+        contactPhone: "+254700000001",
+        isDataSubmitter: true,
+        isSubscriber: true,
+        consortiumIds: ["CONS_001", "CONS_002"],
+      },
+    });
+    expect(createRes.statusCode).toBe(200);
+    const created = createRes.json() as { id: number };
+    const memRes = await app.inject({
+      method: "GET",
+      url: `/api/v1/institutions/${created.id}/consortium-memberships`,
+      headers: authHeaders(accessToken),
+    });
+    expect(memRes.statusCode).toBe(200);
+    const memberships = memRes.json() as { consortiumId: string; consortiumMemberStatus: string }[];
+    const cids = memberships.map((m) => m.consortiumId);
+    expect(cids).toContain("CONS_001");
+    expect(cids).toContain("CONS_002");
+    const m1 = memberships.find((m) => m.consortiumId === "CONS_001");
+    expect(m1?.consortiumMemberStatus).toBe("pending");
   });
 
   it("POST /api/v1/institutions appears in list and approvals (institution flow)", async () => {
@@ -95,6 +289,7 @@ describe.sequential("HCB Fastify API (integration)", () => {
         jurisdiction: "Kenya",
         licenseNumber: "LIC-VT-1",
         contactEmail: "ops@vnm.test",
+        contactPhone: "+254700000002",
         isDataSubmitter: true,
         isSubscriber: false,
       },
@@ -153,12 +348,13 @@ describe.sequential("HCB Fastify API (integration)", () => {
       payload: {
         name: "Vitest Dual Role APIs",
         tradingName: "VDRA",
-        institutionType: "Bank",
+        institutionType: "NBFI",
         institutionLifecycleStatus: "active",
         registrationNumber: "VT-DR-001",
         jurisdiction: "Kenya",
         licenseNumber: "LIC-VT-DR",
         contactEmail: "api@vdr.test",
+        contactPhone: "+254700000003",
         isDataSubmitter: true,
         isSubscriber: true,
       },
@@ -597,6 +793,24 @@ describe.sequential("HCB Fastify API (integration)", () => {
     expect(body.content.length).toBeGreaterThan(0);
   });
 
+  it("GET /api/v1/products/packet-catalog returns productCatalogPacketOptions", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/products/packet-catalog",
+      headers: authHeaders(accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      options: { id: string; sourceType: string; category: string; derivedFields: string[] }[];
+    };
+    expect(Array.isArray(body.options)).toBe(true);
+    expect(body.options.some((o) => o.id === "PKT_BCF" && o.sourceType === "bank")).toBe(true);
+    const bcf = body.options.find((o) => o.id === "PKT_BCF");
+    expect(bcf?.derivedFields?.length).toBeGreaterThan(0);
+    expect(bcf?.derivedFields).toContain("weighted_cashflow_score");
+  });
+
   it("POST /api/v1/products with approval_pending persists product and enqueues approval", async () => {
     const { accessToken } = await loginAsAdmin(app);
     const createRes = await app.inject({
@@ -637,6 +851,32 @@ describe.sequential("HCB Fastify API (integration)", () => {
     expect(detail.statusCode).toBe(200);
     const prod = detail.json() as { packetIds: string[] };
     expect(prod.packetIds).toEqual(["PKT_BCF"]);
+  });
+
+  it("POST /api/v1/batch-jobs/:id/retry returns 403 when owning institution is suspended", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const batchId = "BATCH-20250919-0002";
+    const suspendRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/institutions/2/suspend",
+      headers: authHeaders(accessToken),
+    });
+    expect(suspendRes.statusCode).toBe(204);
+    const retryRes = await app.inject({
+      method: "POST",
+      url: `/api/v1/batch-jobs/${batchId}/retry`,
+      headers: authHeaders(accessToken),
+    });
+    expect(retryRes.statusCode).toBe(403);
+    const errBody = retryRes.json() as { error?: string; message?: string };
+    expect(errBody.error).toBe("ERR_INSTITUTION_SUSPENDED");
+    expect(String(errBody.message ?? "")).toMatch(/suspended/i);
+    const reactivateRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/institutions/2/reactivate",
+      headers: authHeaders(accessToken),
+    });
+    expect(reactivateRes.statusCode).toBe(204);
   });
 
   it("POST /api/v1/batch-jobs/:id/retry sets status to Queued", async () => {
@@ -681,9 +921,10 @@ describe.sequential("HCB Fastify API (integration)", () => {
       headers: authHeaders(accessToken),
     });
     expect(res.statusCode).toBe(200);
-    const rows = res.json() as { institutionName: string; role: string }[];
+    const rows = res.json() as { institutionName: string; joinedAt: string }[];
     expect(rows.length).toBeGreaterThan(0);
     expect(rows[0].institutionName).toBeTruthy();
+    expect(rows[0].joinedAt).toBeTruthy();
   });
 
   it("POST /api/v1/consortiums with approval_pending enqueues approval and members", async () => {
@@ -694,12 +935,9 @@ describe.sequential("HCB Fastify API (integration)", () => {
       headers: authHeaders(accessToken),
       payload: {
         name: "Integration Test Consortium",
-        type: "Closed",
-        purpose: "Risk sharing",
-        governanceModel: "Majority vote",
         description: "Vitest create",
         status: "approval_pending",
-        members: [{ institutionId: 1, role: "Contributor" }],
+        members: [{ institutionId: 1 }],
       },
     });
     expect(createRes.statusCode).toBe(200);
@@ -837,5 +1075,204 @@ describe.sequential("HCB Fastify API (integration)", () => {
     });
     const roles = list.json() as { id: string }[];
     expect(roles.some((r) => r.id === id)).toBe(false);
+  });
+
+  it("GET /api/v1/data-ingestion/drift-alerts requires auth", async () => {
+    const res = await app.inject({ method: "GET", url: "/api/v1/data-ingestion/drift-alerts" });
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("GET /api/v1/data-ingestion/drift-alerts returns filtered seeded alerts", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/data-ingestion/drift-alerts?dateFrom=2026-03-01&dateTo=2026-03-31&sourceType=telecom",
+      headers: authHeaders(accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { alerts: { source: string }[] };
+    expect(body.alerts.length).toBeGreaterThan(0);
+    expect(body.alerts.some((a) => /jio/i.test(a.source))).toBe(true);
+  });
+
+  it("GET /api/v1/schema-mapper/schemas returns paged registry", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/schema-mapper/schemas?page=0&size=5",
+      headers: authHeaders(accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { content: unknown[] };
+    expect(Array.isArray(body.content)).toBe(true);
+    expect(body.content.length).toBeGreaterThan(0);
+  });
+
+  it("GET /api/v1/schema-mapper/wizard-metadata returns configurable source type and data category options", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/schema-mapper/wizard-metadata",
+      headers: authHeaders(accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as {
+      sourceTypeOptions: { value: string; label: string }[];
+      dataCategoryOptions: { value: string; label: string }[];
+    };
+    expect(body.sourceTypeOptions.some((o) => o.value === "telecom" && o.label === "Telecom")).toBe(true);
+    expect(body.dataCategoryOptions.some((o) => o.value === "Behavioral Data")).toBe(true);
+    expect(body.sourceTypeOptions.every((o) => o.value && o.label)).toBe(true);
+    expect(body.dataCategoryOptions.every((o) => o.value && o.label)).toBe(true);
+  });
+
+  it("GET /api/v1/schema-mapper/schemas/source-types returns distinct types from registry", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/schema-mapper/schemas/source-types",
+      headers: authHeaders(accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { sourceTypes: string[] };
+    expect(Array.isArray(body.sourceTypes)).toBe(true);
+    expect(body.sourceTypes.length).toBeGreaterThan(0);
+    expect(new Set(body.sourceTypes).size).toBe(body.sourceTypes.length);
+  });
+
+  it("GET /api/v1/schema-mapper/schemas/source-type-fields requires sourceType", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/schema-mapper/schemas/source-type-fields",
+      headers: authHeaders(accessToken),
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  it("GET /api/v1/schema-mapper/schemas/source-type-fields returns parsed field paths for sourceType", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/schema-mapper/schemas/source-type-fields?sourceType=telecom",
+      headers: authHeaders(accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json() as { sourceType: string; fields: { path: string }[] };
+    expect(body.sourceType).toBe("telecom");
+    expect(body.fields.some((f) => f.path === "subscriber_id")).toBe(true);
+  });
+
+  it("GET /api/v1/schema-mapper/schemas/source-type-fields returns per-type sample fields (bank, utility, gst, custom)", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const h = authHeaders(accessToken);
+    const bank = await app.inject({
+      method: "GET",
+      url: "/api/v1/schema-mapper/schemas/source-type-fields?sourceType=bank",
+      headers: h,
+    });
+    expect(bank.statusCode).toBe(200);
+    const bankBody = bank.json() as { fields: { path: string }[] };
+    expect(bankBody.fields.some((f) => f.path === "borrower_ucin")).toBe(true);
+    expect(bankBody.fields.some((f) => f.path === "subscriber_id")).toBe(false);
+
+    const util = await app.inject({
+      method: "GET",
+      url: "/api/v1/schema-mapper/schemas/source-type-fields?sourceType=utility",
+      headers: h,
+    });
+    expect(util.statusCode).toBe(200);
+    const utilBody = util.json() as { fields: { path: string }[] };
+    expect(utilBody.fields.some((f) => f.path === "utility_customer_id")).toBe(true);
+
+    const gst = await app.inject({
+      method: "GET",
+      url: "/api/v1/schema-mapper/schemas/source-type-fields?sourceType=gst",
+      headers: h,
+    });
+    expect(gst.statusCode).toBe(200);
+    expect((gst.json() as { fields: { path: string }[] }).fields.some((f) => f.path === "gstin")).toBe(true);
+
+    const custom = await app.inject({
+      method: "GET",
+      url: "/api/v1/schema-mapper/schemas/source-type-fields?sourceType=custom",
+      headers: h,
+    });
+    expect(custom.statusCode).toBe(200);
+    expect((custom.json() as { fields: { path: string }[] }).fields.some((f) => f.path === "member_id")).toBe(
+      true
+    );
+  });
+
+  it("GET /api/v1/schema-mapper/metrics returns counters", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const res = await app.inject({
+      method: "GET",
+      url: "/api/v1/schema-mapper/metrics",
+      headers: authHeaders(accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const m = res.json() as { mappingJobsCompleted: number };
+    expect(typeof m.mappingJobsCompleted).toBe("number");
+  });
+
+  it("Schema mapper: ingest → mapping job → submit approval → approve activates mapping", async () => {
+    const { accessToken } = await loginAsAdmin(app);
+    const h = { ...authHeaders(accessToken), "content-type": "application/json" };
+    const ingest = await app.inject({
+      method: "POST",
+      url: "/api/v1/schema-mapper/ingest",
+      headers: h,
+      payload: {
+        sourceName: "Vitest Telecom",
+        sourceType: "telecom",
+        versionNumber: "v9",
+      },
+    });
+    expect(ingest.statusCode).toBe(201);
+    const { schemaVersionId } = ingest.json() as { schemaVersionId: string };
+
+    const job = await app.inject({
+      method: "POST",
+      url: "/api/v1/schema-mapper/mappings",
+      headers: h,
+      payload: { schemaVersionId },
+    });
+    expect(job.statusCode).toBe(202);
+    const { mappingId } = job.json() as { mappingId: string };
+
+    await new Promise((r) => setTimeout(r, 900));
+    const mapRes = await app.inject({
+      method: "GET",
+      url: `/api/v1/schema-mapper/mappings/${mappingId}`,
+      headers: authHeaders(accessToken),
+    });
+    expect(mapRes.statusCode).toBe(200);
+    const mapping = mapRes.json() as { status: string; fieldMappings: unknown[] };
+    expect(mapping.status).toBe("needs_review");
+    expect(mapping.fieldMappings.length).toBeGreaterThan(0);
+
+    const sub = await app.inject({
+      method: "POST",
+      url: `/api/v1/schema-mapper/mappings/${mappingId}/submit-approval`,
+      headers: h,
+      payload: {},
+    });
+    expect(sub.statusCode).toBe(202);
+    const { approvalId } = sub.json() as { approvalId: string };
+
+    const appr = await app.inject({
+      method: "POST",
+      url: `/api/v1/approvals/${approvalId}/approve`,
+      headers: authHeaders(accessToken),
+    });
+    expect(appr.statusCode).toBe(204);
+
+    const map2 = await app.inject({
+      method: "GET",
+      url: `/api/v1/schema-mapper/mappings/${mappingId}`,
+      headers: authHeaders(accessToken),
+    });
+    expect((map2.json() as { status: string }).status).toBe("active");
   });
 });

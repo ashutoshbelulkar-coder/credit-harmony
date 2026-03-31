@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
-import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -19,20 +18,20 @@ import {
 } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ReasonInputDialog } from "@/components/data-governance/ReasonInputDialog";
-import { matchClusters, reasonCodes, approvalConfig, filterInstitutions, filterDataSources } from "@/data/data-governance-mock";
+import { matchClusters, reasonCodes, approvalConfig } from "@/data/data-governance-mock";
 import type { MatchCluster } from "@/types/data-governance";
+import { useInstitutions } from "@/hooks/api/useInstitutions";
 import { AlertTriangle, Merge, RotateCcw, X, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const DATA_SOURCES = filterDataSources.filter((s) => s !== "All");
-const INSTITUTIONS = filterInstitutions.slice(0, 3);
-
 export default function MatchReview() {
   const [confidenceRange, setConfidenceRange] = useState([60, 100]);
-  const [dataSource, setDataSource] = useState("all");
-  const [institution, setInstitution] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [memberId, setMemberId] = useState("all");
+  const { data: membersPage, isLoading: membersLoading, isError: membersError } = useInstitutions(
+    { page: 0, size: 200, role: "dataSubmitter" },
+    { allowMockFallback: false }
+  );
+  const dataSubmitters = membersPage?.content ?? [];
   const [selectedCluster, setSelectedCluster] = useState<MatchCluster | null>(null);
   const [actionDialog, setActionDialog] = useState<{
     clusterId: string;
@@ -58,7 +57,7 @@ export default function MatchReview() {
 
       {/* Filters */}
       <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label className="text-caption">Confidence range</Label>
             <div className="flex items-center gap-2">
@@ -76,40 +75,27 @@ export default function MatchReview() {
             </div>
           </div>
           <div className="space-y-2">
-            <Label className="text-caption">Data source</Label>
-            <Select value={dataSource} onValueChange={setDataSource}>
+            <Label className="text-caption">Members</Label>
+            <Select
+              value={memberId}
+              onValueChange={setMemberId}
+              disabled={membersLoading || membersError}
+            >
               <SelectTrigger className="h-9">
-                <SelectValue placeholder="All" />
+                <SelectValue placeholder={membersLoading ? "Loading…" : "All"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All</SelectItem>
-                {DATA_SOURCES.map((s) => (
-                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                {dataSubmitters.map((m) => (
+                  <SelectItem key={m.id} value={String(m.id)}>
+                    {m.name}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-caption">Institution</Label>
-            <Select value={institution} onValueChange={setInstitution}>
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {INSTITUTIONS.map((i) => (
-                  <SelectItem key={i} value={i}>{i}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-caption">Date from</Label>
-            <DatePicker value={dateFrom} onChange={setDateFrom} className="h-8" />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-caption">Date to</Label>
-            <DatePicker value={dateTo} onChange={setDateTo} className="h-8" />
+            {membersError && (
+              <p className="text-caption text-destructive">Could not load members. Is the API running?</p>
+            )}
           </div>
         </div>
       </div>

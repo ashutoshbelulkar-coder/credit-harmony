@@ -1,6 +1,14 @@
 # HCB Platform — Data Flow Diagrams
 
-**Version:** 3.0.0 | **Date:** 2026-03-28
+**Version:** 3.0.1 | **Date:** 2026-03-30
+
+---
+
+## Member institution lifecycle gate (Data Submission, batch, Enquiry)
+
+**Rule:** For **Data Submission API** (real-time tradeline / event ingress), **batch file ingestion** (processing member-submitted batches), and **Enquiry API** (subscriber credit pulls), the **member institution** resolved from the API key (or batch ownership) must have **`institutionLifecycleStatus === active`**. If the member is **pending approval**, **suspended**, **draft**, or any other non-active state, the gateway must **reject the request** with **HTTP 403** and a **stable `error` code** plus a safe **`message`** (see [Global-API-Error-Dictionary.md](./Global-API-Error-Dictionary.md) §2.3). This check runs **after** API-key authentication and **before** schema validation or business processing. Operator-only portal actions that do not submit bureau traffic (for example **cancelling** a batch job from the admin UI) may remain allowed when the member is not active, unless product policy says otherwise.
+
+**Fastify dev API:** `POST /api/v1/batch-jobs/:id/retry` enforces the same rule when the job carries an **`institution_id`** (retry re-queues processing). **`POST …/cancel`** does not apply this gate so operators can stop jobs for suspended members.
 
 ---
 
@@ -14,6 +22,11 @@ flowchart TD
         A1[Send X-API-Key header]
         A2{Validate api_keys.key_hash<br/>via SHA-256 comparison}
         A3[Check api_key_status = 'active']
+    end
+
+    subgraph Step1b [1b. Member institution active]
+        A4[Resolve institution_id from API key]
+        A5{institutionLifecycleStatus<br/>is active?}
     end
 
     subgraph Step2 [2. Schema Validation]
@@ -47,7 +60,13 @@ flowchart TD
     A2 -->|Invalid| FAIL1([Return 401 ERR_AUTH_FAILED])
     A2 -->|Valid| A3
     A3 -->|Revoked| FAIL2([Return 401 ERR_AUTH_REVOKED])
-    A3 -->|Active| B1
+    A3 -->|Active| A4
+    A4 --> A5
+    A5 -->|pending| FAIL1b([Return 403 ERR_INSTITUTION_PENDING_APPROVAL])
+    A5 -->|suspended| FAIL1c([Return 403 ERR_INSTITUTION_SUSPENDED])
+    A5 -->|draft| FAIL1d([Return 403 ERR_INSTITUTION_DRAFT])
+    A5 -->|other non-active| FAIL1e([Return 403 ERR_INSTITUTION_NOT_ACTIVE])
+    A5 -->|active| B1
     B1 --> B2
     B2 --> B3
     B3 -->|Fail| FAIL3([Return 422 ERR_VALIDATION<br/>+ error details])
@@ -74,6 +93,7 @@ flowchart TD
 
     subgraph Auth [1. Authentication + Subscription Check]
         A1[Validate X-API-Key]
+        A1b[Resolve member institution<br/>institutionLifecycleStatus must be active]
         A2{Check product_subscriptions<br/>institution has product access?}
     end
 
@@ -105,7 +125,9 @@ flowchart TD
 
     START --> A1
     A1 -->|Invalid| FAIL1([401 ERR_AUTH_FAILED])
-    A1 -->|Valid| A2
+    A1 -->|Valid| A1b
+    A1b -->|pending / suspended / draft / not active| FAIL1b([403 ERR_INSTITUTION_*<br/>see error dictionary])
+    A1b -->|active| A2
     A2 -->|No subscription| FAIL2([403 ERR_NO_PRODUCT_SUBSCRIPTION])
     A2 -->|Subscribed| B1
     B1 --> B2
@@ -126,7 +148,7 @@ flowchart TD
 
 ## Data Flow 3: Approval Workflow
 
-**Fastify dev API (in-memory):** **Register member** (`POST /api/v1/institutions`) prepends `type: institution` with `metadata.institutionId` and keeps the row in `GET /api/v1/institutions` (typically **pending** until **approve** → **active**). New **data products** use `POST /api/v1/products` with `approval_pending` → `type: product` / `metadata.productId`. New **consortia** use `POST /api/v1/consortiums` with `approval_pending` → `type: consortium` / `metadata.consortiumId`.
+**Fastify dev API (in-memory):** **Register member** (`POST /api/v1/institutions`) prepends `type: institution` with `metadata.institutionId` and keeps the row in `GET /api/v1/institutions` (typically **pending** until **approve** → **active**). New **data products** use `POST /api/v1/products` with `approval_pending` → `type: product` / `metadata.productId`. New **consortia** use `POST /api/v1/consortiums` with `approval_pending` → `type: consortium` / `metadata.consortiumId`. **Schema Mapper:** `POST /api/v1/schema-mapper/ingest` stores a versioned schema; `POST /api/v1/schema-mapper/mappings` runs an async mapping job; `POST …/mappings/:id/submit-approval` prepends `type: schema_mapping` with `metadata.mappingId` — **approve** sets the mapping to **active** (see `server/src/schemaMapper.ts`). **Validation Rules (portal):** operators read **data submitter** members via `GET /api/v1/institutions?role=dataSubmitter` and **field paths per source type** via `GET /api/v1/schema-mapper/schemas/source-type-fields?sourceType=` (read-only for rule authoring in dev). **Schema Mapper wizard Step 1** reads **Source Type** / **Data Category** lists via `GET /api/v1/schema-mapper/wizard-metadata` (seeded from `schema-mapper.json`).
 
 ```mermaid
 flowchart TD

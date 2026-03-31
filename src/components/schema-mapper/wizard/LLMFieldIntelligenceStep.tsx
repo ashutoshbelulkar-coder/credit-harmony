@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { ArrowRight, Pencil, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +46,11 @@ function flattenMasterFields(fields: MasterSchemaField[]): { id: string; label: 
 interface LLMFieldIntelligenceStepProps {
   initialRows: LLMFieldIntelligenceRow[];
   initialEnums: EnumReconciliation[];
-  onComplete: (rows: LLMFieldIntelligenceRow[], enums: EnumReconciliation[]) => void;
+  /** When API-backed mapping job finishes, rows sync from server field mappings */
+  apiSyncedRows?: LLMFieldIntelligenceRow[] | null;
+  /** Mapping job status from API (`queued` | `processing` | …) */
+  mappingJobStatus?: string | null;
+  onComplete: (rows: LLMFieldIntelligenceRow[], enums: EnumReconciliation[]) => void | Promise<void>;
 }
 
 const ACTION_OPTIONS: { value: LLMFieldAction; label: string }[] = [
@@ -58,10 +62,18 @@ const ACTION_OPTIONS: { value: LLMFieldAction; label: string }[] = [
 export function LLMFieldIntelligenceStep({
   initialRows,
   initialEnums,
+  apiSyncedRows,
+  mappingJobStatus,
   onComplete,
 }: LLMFieldIntelligenceStepProps) {
   const [rows, setRows] = useState<LLMFieldIntelligenceRow[]>(initialRows);
   const [enums, setEnums] = useState<EnumReconciliation[]>(initialEnums);
+
+  useEffect(() => {
+    if (apiSyncedRows && apiSyncedRows.length > 0) {
+      setRows(apiSyncedRows);
+    }
+  }, [apiSyncedRows]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [masterFieldDrawerOpen, setMasterFieldDrawerOpen] = useState(false);
   const [enumDrawerOpen, setEnumDrawerOpen] = useState(false);
@@ -124,8 +136,16 @@ export function LLMFieldIntelligenceStep({
     ? Math.round((rows.filter((r) => r.canonicalMatch != null).length / rows.length) * 100)
     : telecomMappingSummary.coveragePercent;
 
+  const jobPending =
+    mappingJobStatus === "queued" || mappingJobStatus === "processing";
+
   return (
     <div className="space-y-3 animate-fade-in">
+      {jobPending && (
+        <p className="text-caption text-muted-foreground rounded-lg border border-border bg-muted/30 px-3 py-2">
+          AI mapping job running… suggestions will appear when complete (typically under a few seconds).
+        </p>
+      )}
       <MappingSummaryBanner
         summary={{
           ...telecomMappingSummary,
@@ -276,7 +296,12 @@ export function LLMFieldIntelligenceStep({
       )}
 
       <div className="flex justify-end pt-1">
-        <Button size="sm" onClick={() => onComplete(rows, enums)} className="gap-1.5">
+        <Button
+          size="sm"
+          onClick={() => void Promise.resolve(onComplete(rows, enums))}
+          className="gap-1.5"
+          disabled={jobPending && rows.length === 0}
+        >
           Confirm & Generate Rules
           <ArrowRight className="h-3.5 w-3.5" />
         </Button>

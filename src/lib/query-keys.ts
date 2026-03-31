@@ -20,6 +20,8 @@ export const QK = {
   // ── Institutions ─────────────────────────────────────────────────────────
   institutions: {
     all: () => ["institutions"] as const,
+    formMetadata: (geography?: string) =>
+      ["institutions", "form-metadata", geography ?? "default"] as const,
     list: (params?: Record<string, unknown>) => ["institutions", "list", params ?? {}] as const,
     detail: (id: string | number) => ["institutions", String(id)] as const,
     apiKeys: (id: string | number) => ["institutions", String(id), "api-keys"] as const,
@@ -95,6 +97,7 @@ export const QK = {
     all: () => ["products"] as const,
     list: (params?: Record<string, unknown>) => ["products", "list", params ?? {}] as const,
     detail: (id: string) => ["products", id] as const,
+    packetCatalog: () => ["products", "packet-catalog"] as const,
   },
 
   // ── Audit Logs ────────────────────────────────────────────────────────────
@@ -107,5 +110,23 @@ export const QK = {
   apiKeys: {
     all: () => ["api-keys"] as const,
     byInstitution: (id: string | number) => ["api-keys", "institution", String(id)] as const,
+  },
+
+  // ── Data Ingestion (drift alerts for Data Quality Monitoring) ─────────────
+  dataIngestion: {
+    all: () => ["data-ingestion"] as const,
+    driftAlerts: (params?: Record<string, unknown>) =>
+      ["data-ingestion", "drift-alerts", params ?? {}] as const,
+  },
+
+  // ── Schema Mapper Agent ───────────────────────────────────────────────────
+  schemaMapper: {
+    all: () => ["schema-mapper"] as const,
+    registry: (params?: Record<string, unknown>) => ["schema-mapper", "registry", params ?? {}] as const,
+    schemaRegistrySourceTypes: () => ["schema-mapper", "schemas", "source-types"] as const,
+    sourceTypeFields: (sourceType: string) => ["schema-mapper", "source-type-fields", sourceType] as const,
+    mapping: (id: string) => ["schema-mapper", "mapping", id] as const,
+    metrics: () => ["schema-mapper", "metrics"] as const,
+    wizardMetadata: () => ["schema-mapper", "wizard-metadata"] as const,
   },
 } as const;

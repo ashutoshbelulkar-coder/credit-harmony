@@ -1,6 +1,6 @@
 # HCB Platform — Testing Plan
 
-**Version:** 3.0.2 | **Date:** 2026-03-29
+**Version:** 3.0.4 | **Date:** 2026-03-31
 
 ---
 
@@ -10,7 +10,13 @@ Run from repo root: **`npm run test`**. Vitest loads **two projects** (`vitest.c
 
 | Suite | File(s) | Count (approx.) | What is proven |
 |-------|---------|-----------------|----------------|
-| Server integration | `server/src/api.integration.test.ts` | 20 cases | Real Fastify app via `buildServer()` + `inject`; shared in-memory state — tests run **`describe.sequential`** to avoid cross-test races |
+| Server integration | `server/src/api.integration.test.ts` | 60+ cases | Real Fastify app via `buildServer()` + `inject`; shared in-memory state — tests run **`describe.sequential`** to avoid cross-test races; includes **Register member** `form-metadata` / `?geography=` / `registerForm`, **Schema Mapper** ingest → job → submit-approval → approve, **`GET …/schema-mapper/wizard-metadata`** (labeled source type + data category options), **`GET …/schema-mapper/schemas/source-type-fields`** (required param **400**, per-type sample paths) |
+| Server institution traffic gate | `server/src/institutionTrafficGate.test.ts` | 6 cases | Lifecycle checks for Data Submission / batch retry / Enquiry target contract (`ERR_INSTITUTION_*`) |
+| Server register-form unit | `server/src/institutionRegisterForm.test.ts` | 12 cases | `resolveRegisterGeographyId`, `buildRegisterFormPayload` option resolution, `validateRegisterInstitutionBody` (enums, participation, consortium rules) — no HTTP |
+| Client register-form unit | `src/lib/institution-register-form.test.ts` | 8+ cases | Client-side `resolveRegisterFormClientSide`, Zod `buildRegisterDetailsSchema`, `mapRegisterDetailsToCreateBody` (parallels server rules for Step 1) |
+| Client schema-mapper helpers | `src/lib/schema-mapper-api.test.ts` | 3 | `fieldMappingsToLlmRows` / `llmRowsToFieldMappings` / master flatten |
+| Client schema-mapper source fields | `src/lib/schema-mapper-source-fields.test.ts` | 9 | `flattenParsedSourceFields` (nested paths); `sourceTypeFieldsFromMockCatalog` per **telecom** / **utility** / **bank** / **gst** / **custom**; unknown type **[]**; sorted paths |
+| Client schema-mapper wizard metadata | `src/lib/schema-mapper-wizard-metadata.test.ts` | 4 | `normaliseWizardLabeledOptions` (fallback, aliases, empty) |
 | Server helpers | `server/src/test-helpers.ts` | — | DRY login + auth headers for integration tests |
 | API client | `src/test/lib/api-client.test.ts` | 19 | Error types, refresh behaviour, request shaping |
 | Feature flags | `src/test/lib/feature-flags.test.ts` | 2 | Demo UI toggles stay internally consistent |
@@ -40,6 +46,55 @@ The HCB Platform testing strategy covers four layers:
 `buildServer()` is exported from `server/src/index.ts`; the CLI entrypoint only listens when the file is executed directly (`import.meta.url` matches `process.argv[1]`), so test imports do not start a listener.
 
 See also: [API-UI-Parity-Matrix.md](./API-UI-Parity-Matrix.md) for which UI actions must hit the API.
+
+---
+
+## Fastify dev API — Register member (geography-backed form) test specification
+
+**Scope:** `GET /api/v1/institutions/form-metadata`, `POST /api/v1/institutions` with optional **`?geography=`**, configuration file **`src/data/institution-register-form.json`**, and the SPA-aligned helpers in **`src/lib/institution-register-form.ts`** / **`server/src/institutionRegisterForm.ts`**.
+
+**How to run automated coverage**
+
+```bash
+npm run test
+# Or only these suites:
+npx vitest run server/src/institutionRegisterForm.test.ts
+npx vitest run server/src/api.integration.test.ts -t "form-metadata"
+npx vitest run src/lib/institution-register-form.test.ts
+```
+
+### Traceability matrix (documented case → automated test)
+
+| ID | Objective | Preconditions | Steps | Expected result | Automated (`it(...)` name) |
+|----|-------------|---------------|-------|-----------------|------------------------------|
+| **FM-REG-INT-001** | Default form-metadata shape | Fastify seeded; admin JWT | `GET /api/v1/institutions/form-metadata` with `Authorization: Bearer` | `200`; `geographyId` is `default`; `registerForm.sections` is non-empty; `institutionTypes` contains seeded types; `activeConsortiums` lists only **active** consortiums; `requiredComplianceDocuments` non-null per seed; default regulatory **jurisdiction** field is **text** | `GET /api/v1/institutions/form-metadata returns institutionTypes and activeConsortiums` |
+| **FM-REG-INT-002** | Kenya geography exposes closed jurisdiction enum | Same | `GET …/form-metadata?geography=kenya` | `200`; `geographyId` is `kenya`; **jurisdiction** is **`select`** with options Kenya, Uganda, Tanzania | `GET … form-metadata?geography=kenya returns registerForm with jurisdiction select enum` |
+| **FM-REG-INT-003** | POST validates against Kenya enum | Same | `POST …/institutions?geography=kenya` with body including `jurisdiction: "Rwanda"` and other valid required fields | `400` (value not in geography config) | `POST … geography=kenya rejects jurisdiction outside geography enum` |
+| **FM-REG-INT-004** | POST accepts Kenya when jurisdiction matches enum | Same | `POST …/institutions?geography=kenya` with `jurisdiction: "Kenya"` and valid payload | `200`; JSON includes numeric `id` | `POST … geography=kenya succeeds when jurisdiction is in enum` |
+| **FM-REG-INT-005** | Institution type allowlist | Same | `POST …/institutions` with `institutionType` not in `institutionTypes` | `400` | `POST … rejects institutionType outside configured allowlist` |
+| **FM-REG-INT-006** | Consortium IDs must be active | Same | `POST …` with invalid / inactive consortium id in `consortiumIds` | `400` | `POST … rejects non-active consortiumIds` |
+| **FM-REG-INT-007** | Valid consortium IDs create pending memberships | Same | `POST …` subscriber + `consortiumIds` of active ids | `200`; `GET …/:id/consortium-memberships` includes rows with `pending` | `POST … with consortiumIds creates pending consortium memberships` |
+| **FM-REG-UNIT-001** | Unknown geography key falls back | None (loads JSON from disk) | Call `resolveRegisterGeographyId("no-such-region-xyz")` | Returns configured **`defaultGeography`** (`default`) | `falls back to defaultGeography for unknown keys` |
+| **FM-REG-UNIT-002** | Server validator matches Kenya enum | Minimal `AppState` with types + consortiums | `validateRegisterInstitutionBody` kenya + `jurisdiction: "Rwanda"` | Non-null error string | `kenya: rejects jurisdiction not in enum` |
+| **FM-REG-UNIT-003** | Consortium field ignored when not subscriber | Same | `validateRegisterInstitutionBody` default + `isSubscriber: false` + bogus `consortiumIds` | `null` | `skips consortiumIds validation when not subscriber` |
+| **FM-REG-CLI-001** | Client Zod rejects bad jurisdiction for kenya | None | `buildRegisterDetailsSchema` + `safeParse` with kenya form + `jurisdiction: "Rwanda"` | `success === false` | `kenya: rejects jurisdiction not in enum` |
+| **FM-REG-CLI-002** | `legalName` maps to `name` on POST body | Resolved default form | `mapRegisterDetailsToCreateBody` | `body.name` set; no `legalName` key | `maps legalName to name via apiKey` |
+
+**Manual / E2E (optional):** With `npm run server` and `VITE_USE_MOCK_FALLBACK=false`, open **`/institutions/register`**, confirm Step 1 sections match **`form-metadata`** for **`VITE_INSTITUTION_REGISTER_GEOGRAPHY`**; set env to **`kenya`** and confirm jurisdiction control is a single-select with three countries only.
+
+---
+
+## Fastify dev API — Schema Mapper `source-type-fields` (traceability)
+
+**Scope:** `GET /api/v1/schema-mapper/schemas/source-type-fields?sourceType=` and client **`sourceTypeFieldsFromMockCatalog`** (`src/lib/schema-mapper-source-fields.ts`).
+
+| ID | Objective | Automated (`it(...)` name) |
+|----|------------|---------------------------|
+| **SM-STF-INT-001** | Missing `sourceType` returns **400** | `GET /api/v1/schema-mapper/schemas/source-type-fields requires sourceType` |
+| **SM-STF-INT-002** | Telecom returns telecom sample paths | `…returns parsed field paths for sourceType` (subscriber_id) |
+| **SM-STF-INT-003** | Bank / utility / gst / custom return distinct reference paths | `…returns per-type sample fields (bank, utility, gst, custom)` |
+
+**Client unit:** `npx vitest run src/lib/schema-mapper-source-fields.test.ts`
 
 ---
 

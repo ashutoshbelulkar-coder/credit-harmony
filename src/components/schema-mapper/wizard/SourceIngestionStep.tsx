@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Upload, FileJson, Code, Globe, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +27,11 @@ import {
 } from "@/data/schema-mapper-mock";
 import type { IngestedSourceMetadata, ParsedSourceField, SourceFieldStatistics, SourceType } from "@/types/schema-mapper";
 import simulationDefaults from "@/data/simulation-defaults.json";
+import { useSchemaMapperWizardMetadata } from "@/hooks/api/useSchemaMapper";
+import {
+  FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS,
+  FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS,
+} from "@/lib/schema-mapper-wizard-metadata";
 
 const similarityChartConfig = {
   similarity: { label: "Similarity %", color: "hsl(var(--primary))" },
@@ -36,22 +41,45 @@ const SAMPLE_JSON = simulationDefaults.schemaMapper.sampleJson;
 
 interface SourceIngestionStepProps {
   initialMetadata: IngestedSourceMetadata | null;
-  onComplete: (metadata: IngestedSourceMetadata, parsedFields: ParsedSourceField[], fieldStats: SourceFieldStatistics) => void;
+  onComplete: (
+    metadata: IngestedSourceMetadata,
+    parsedFields: ParsedSourceField[],
+    fieldStats: SourceFieldStatistics,
+  ) => void | Promise<void>;
 }
 
 export function SourceIngestionStep({ initialMetadata, onComplete }: SourceIngestionStepProps) {
-  const categoryOptions = [
-    "Financial Data",
-    "Business Data",
-    "Behavioral Data",
-    "Consortium Data",
-    "Fraud Signals",
-    "Synthetic / Test",
-  ] as const;
+  const {
+    data: wizardMeta,
+    isLoading: wizardMetaLoading,
+    isError: wizardMetaError,
+    error: wizardMetaErrorObj,
+  } = useSchemaMapperWizardMetadata();
+
+  const sourceTypeOptions = wizardMeta?.sourceTypeOptions ?? FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS;
+  const dataCategoryOptions = wizardMeta?.dataCategoryOptions ?? FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS;
 
   const [sourceName, setSourceName] = useState(initialMetadata?.sourceName ?? "");
   const [sourceType, setSourceType] = useState<SourceType>(initialMetadata?.sourceType ?? "telecom");
-  const [packetCategory, setPacketCategory] = useState<(typeof categoryOptions)[number]>("Behavioral Data");
+  const [packetCategory, setPacketCategory] = useState(
+    () => FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS.find((o) => o.value === "Behavioral Data")?.value ?? "Behavioral Data"
+  );
+
+  useEffect(() => {
+    setSourceType((prev) => {
+      const ok = sourceTypeOptions.some((o) => o.value === prev);
+      if (ok) return prev;
+      return (sourceTypeOptions[0]?.value ?? "telecom") as SourceType;
+    });
+  }, [sourceTypeOptions]);
+
+  useEffect(() => {
+    setPacketCategory((prev) => {
+      const ok = dataCategoryOptions.some((o) => o.value === prev);
+      if (ok) return prev;
+      return dataCategoryOptions[0]?.value ?? prev;
+    });
+  }, [dataCategoryOptions]);
   const [effectiveDate, setEffectiveDate] = useState(initialMetadata?.effectiveDate ?? "2026-03-01");
   const [versionNumber, setVersionNumber] = useState(initialMetadata?.versionNumber ?? "v1.0");
   const [schemaInput, setSchemaInput] = useState<"upload_json" | "upload_csv" | "paste_json" | "select_previous">("paste_json");
@@ -67,7 +95,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
     if (selectedPreviousId) setIsParsed(true);
   }, [selectedPreviousId]);
 
-  const handleProceed = useCallback(() => {
+  const handleProceed = useCallback(async () => {
     const baseMeta = initialMetadata ?? ingestedSourceMetadataTelecom;
     const meta: IngestedSourceMetadata = {
       ...baseMeta,
@@ -78,7 +106,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
     };
     const fields = getParsedSourceFieldsForIngestionScenario(sourceType, schemaInput, selectedPreviousId);
     const stats = getSourceFieldStatisticsForIngestionScenario(sourceType, schemaInput, selectedPreviousId);
-    onComplete(meta, fields, stats);
+    await Promise.resolve(onComplete(meta, fields, stats));
   }, [initialMetadata, sourceName, sourceType, effectiveDate, versionNumber, schemaInput, selectedPreviousId, onComplete]);
 
   const parsedFields = useMemo(
@@ -110,16 +138,25 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
             <Label className="text-caption text-muted-foreground">Source Type *</Label>
             <Select value={sourceType} onValueChange={(v) => setSourceType(v as SourceType)}>
               <SelectTrigger className="h-8">
-                <SelectValue />
+                <SelectValue placeholder={wizardMetaLoading ? "Loading…" : undefined} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="telecom">Telecom</SelectItem>
-                <SelectItem value="utility">Utility</SelectItem>
-                <SelectItem value="bank">Bank</SelectItem>
-                <SelectItem value="gst">GST</SelectItem>
-                <SelectItem value="custom">Custom</SelectItem>
+                {sourceTypeOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              Options from <span className="font-medium text-foreground">GET /api/v1/schema-mapper/wizard-metadata</span>
+              {wizardMetaLoading ? " (loading…)" : ""}.
+            </p>
+            {wizardMetaError && (
+              <p className="text-[10px] text-destructive" role="alert">
+                {wizardMetaErrorObj instanceof Error ? wizardMetaErrorObj.message : "Using offline defaults."}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-caption text-muted-foreground">Effective Date</Label>
@@ -127,17 +164,14 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
           </div>
           <div className="space-y-1.5">
             <Label className="text-caption text-muted-foreground">Data Category</Label>
-            <Select
-              value={packetCategory}
-              onValueChange={(v) => setPacketCategory(v as (typeof categoryOptions)[number])}
-            >
+            <Select value={packetCategory} onValueChange={setPacketCategory}>
               <SelectTrigger className="h-8">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {categoryOptions.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {option}
+                {dataCategoryOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -296,7 +330,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
 
       {isParsed && (
         <div className="flex justify-center sm:justify-end">
-          <Button onClick={handleProceed} disabled={!isFormValid} className="gap-1.5">
+          <Button onClick={() => void handleProceed()} disabled={!isFormValid} className="gap-1.5">
             Proceed to Similarity Analysis
             <ArrowRight className="h-3.5 w-3.5" />
           </Button>

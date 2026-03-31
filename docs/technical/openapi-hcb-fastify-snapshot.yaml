@@ -150,6 +150,15 @@ paths:
           name: status
           schema: { type: string }
         - in: query
+          name: role
+          schema:
+            type: string
+            enum: [dataSubmitter, subscriber]
+          description: >-
+            Optional filter by participation. Value dataSubmitter returns institutions with isDataSubmitter.
+            Value subscriber returns institutions with isSubscriber (includes dual-role with data submission).
+            Consortium wizard member picker and Data Governance Validation Rules “Applicable members” use dataSubmitter with allowMockFallback false in the SPA when wired to the live API.
+        - in: query
           name: page
           schema: { type: integer }
         - in: query
@@ -165,9 +174,86 @@ paths:
     post:
       security:
         - bearerAuth: []
+      parameters:
+        - in: query
+          name: geography
+          schema: { type: string }
+          description: Optional. When set, POST body is validated against the register-member form configuration for that geography (see GET …/form-metadata?geography=).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Standard institution fields plus optional consortiumIds (active consortiums only; SPA sends when subscriber)
+              properties:
+                consortiumIds:
+                  type: array
+                  items: { type: string }
+                  description: Optional; creates pending consortium memberships when provided
       responses:
         "200":
           description: Created institution
+  /v1/institutions/form-metadata:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Register wizard — geography-specific registerForm + institution types + active consortiums + optional compliance doc checklist
+      parameters:
+        - in: query
+          name: geography
+          schema: { type: string }
+          description: Configuration key (e.g. default, kenya). Unknown values fall back to defaultGeography in server config.
+      responses:
+        "200":
+          description: geography metadata, registerForm.sections (Step 1 field definitions and resolved options), institutionTypes, activeConsortiums, requiredComplianceDocuments
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [geographyId, registerForm, institutionTypes, activeConsortiums, requiredComplianceDocuments]
+                properties:
+                  geographyId: { type: string }
+                  geographyLabel: { type: string }
+                  geographyDescription: { type: string }
+                  registerForm:
+                    type: object
+                    required: [sections]
+                    description: SPA renders Step 1 from sections (fields include inputType, selectionMode, options, visibleWhen, etc.)
+                    properties:
+                      sections:
+                        type: array
+                        items:
+                          type: object
+                  institutionTypes:
+                    type: array
+                    items: { type: string }
+                  activeConsortiums:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, type]
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        type: { type: string }
+                  requiredComplianceDocuments:
+                    type: array
+                    nullable: true
+                    description: When null or empty on the server, the Register member wizard skips the compliance upload step. documentName is sent as multipart documentName on POST …/documents.
+                    items:
+                      type: object
+                      required: [documentName, label]
+                      properties:
+                        documentName: { type: string }
+                        label: { type: string }
+                        hint: { type: string }
+                        maxSizeBytes: { type: integer }
+                        accept: { type: string }
+                        requiredWhen:
+                          type: string
+                          enum: [data_submitter, subscriber]
+                          description: Optional; when set, the row applies only if that participation type is selected on step 1.
   /v1/institutions/{id}:
     get:
       security:
@@ -359,6 +445,44 @@ paths:
           description: Created product (summary fields + id)
         "400":
           description: Validation (e.g. missing name)
+  /v1/products/packet-catalog:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Data product packet catalogue (Schema Mapper source types)
+      description: |
+        Returns `productCatalogPacketOptions` from the dev seed (`data-products.json`): each packet has a
+        Schema Mapper `sourceType`, `category` group, field list, **`derivedFields`** (Configure → Derived tab),
+        and `previewKey`. The create/edit product form uses this payload (with client-side filtering) so labels
+        align with the Schema Mapper agent. Per-packet **Configure** in the SPA loads **raw paths** from
+        `GET /v1/schema-mapper/schemas/source-type-fields` (merged with packet-only `fields` from this catalogue)
+        and **Sources** from `GET /v1/schema-mapper/schemas?sourceType=`.
+      responses:
+        "200":
+          description: Packet option list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  options:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        label: { type: string }
+                        description: { type: string }
+                        category: { type: string }
+                        sourceType: { type: string }
+                        previewKey: { type: string }
+                        fields:
+                          type: array
+                          items: { type: string }
+                        derivedFields:
+                          type: array
+                          items: { type: string }
+                          description: Derived field names for this catalogue packet (product form Configure modal)
   /v1/products/{id}:
     get:
       security:
@@ -419,7 +543,7 @@ paths:
       description: |
         Requires `name`. Default `status` is `approval_pending` when omitted, which prepends an approvals row
         with `type: consortium` and `metadata.consortiumId`. Send `status: active` to skip the queue.
-        Optional `members` (institutionId + role) and `dataPolicy` are persisted; members populate `state.consortiumMembers`.
+        Optional `members` (`institutionId` only) and `dataPolicy` (`dataVisibility` only: `full` \| `masked_pii` \| `derived`) are persisted; `shareLoanData`, `shareRepaymentHistory`, and `allowAggregation` in the body are ignored. Members populate `state.consortiumMembers`.
       requestBody:
         required: true
         content:
@@ -429,20 +553,22 @@ paths:
               required: [name]
               properties:
                 name: { type: string }
-                type: { type: string }
-                purpose: { type: string }
-                governanceModel: { type: string }
                 description: { type: string }
                 status:
                   $ref: "#/components/schemas/ConsortiumLifecycleStatus"
-                dataPolicy: { type: object }
+                dataPolicy:
+                  type: object
+                  description: Only dataVisibility is stored; other keys ignored.
+                  properties:
+                    dataVisibility:
+                      type: string
+                      enum: [full, masked_pii, derived]
                 members:
                   type: array
                   items:
                     type: object
                     properties:
                       institutionId: { type: integer }
-                      role: { type: string }
       responses:
         "200":
           description: Created consortium row
@@ -494,3 +620,120 @@ paths:
       responses:
         "200":
           description: Member rows for consortium
+  /v1/data-ingestion/drift-alerts:
+    get:
+      summary: List schema/mapping drift alerts (Data Ingestion Agent store)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: dateFrom
+          schema: { type: string, format: date }
+          description: Lower bound yyyy-MM-dd (inclusive)
+        - in: query
+          name: dateTo
+          schema: { type: string, format: date }
+          description: Upper bound yyyy-MM-dd (inclusive)
+        - in: query
+          name: sourceType
+          schema: { type: string }
+          description: Schema Mapper sourceType, or omit / all for every type
+      responses:
+        "200":
+          description: Filtered drift alerts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alerts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        type: { type: string, enum: [schema, mapping] }
+                        source: { type: string }
+                        message: { type: string }
+                        timestamp: { type: string, format: date-time }
+                        severity: { type: string, enum: [low, medium, high] }
+                  requestId: { type: string }
+  /v1/schema-mapper/wizard-metadata:
+    get:
+      summary: Schema Mapper wizard Step 1 — Source Type and Data Category dropdown options (from seed JSON)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Labeled option lists for the ingestion wizard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sourceTypeOptions:
+                    type: array
+                    items:
+                      type: object
+                      required: [value, label]
+                      properties:
+                        value: { type: string }
+                        label: { type: string }
+                  dataCategoryOptions:
+                    type: array
+                    items:
+                      type: object
+                      required: [value, label]
+                      properties:
+                        value: { type: string }
+                        label: { type: string }
+                  requestId: { type: string }
+  /v1/schema-mapper/schemas/source-types:
+    get:
+      summary: Distinct Schema Mapper sourceType values from the in-memory registry
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Sorted source types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sourceTypes:
+                    type: array
+                    items: { type: string }
+                  requestId: { type: string }
+  /v1/schema-mapper/schemas/source-type-fields:
+    get:
+      summary: Union of parsed field paths for a sourceType (Validation Rules field picker)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: sourceType
+          required: true
+          schema: { type: string }
+          description: Schema Mapper source type (e.g. telecom, utility, bank, gst, custom). Must not be empty or `all`.
+      responses:
+        "200":
+          description: Deduped field list for UI reference
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sourceType: { type: string }
+                  fields:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        path: { type: string }
+                        name: { type: string }
+                        dataType: { type: string }
+                  requestId: { type: string }
+        "400":
+          description: ERR_VALIDATION — missing or invalid sourceType

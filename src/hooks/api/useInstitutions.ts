@@ -29,11 +29,35 @@ import {
   type InstitutionApiAccessPatch,
   type InstitutionConsentPatch,
   fetchInstitutionOverviewCharts,
+  fetchInstitutionFormMetadata,
+  type CreateInstitutionBody,
   type InstitutionListParams,
   type InstitutionResponse,
   type ConsortiumMembershipRow,
   type ProductSubscriptionRow,
 } from "@/services/institutions.service";
+
+/** Geography for register-member schema + `POST /institutions?geography=` (tenant / operating region). */
+export const INSTITUTION_REGISTER_GEOGRAPHY =
+  typeof import.meta.env.VITE_INSTITUTION_REGISTER_GEOGRAPHY === "string" &&
+  import.meta.env.VITE_INSTITUTION_REGISTER_GEOGRAPHY.trim().length > 0
+    ? import.meta.env.VITE_INSTITUTION_REGISTER_GEOGRAPHY.trim()
+    : "default";
+
+export function useInstitutionFormMetadata(options?: {
+  enabled?: boolean;
+  allowMockFallback?: boolean;
+  geography?: string;
+}) {
+  const allowMockFallback = options?.allowMockFallback !== false;
+  const geography = options?.geography ?? INSTITUTION_REGISTER_GEOGRAPHY;
+  return useQuery({
+    queryKey: [...QK.institutions.formMetadata(geography), allowMockFallback ? "mockOk" : "apiOnly"] as const,
+    queryFn: () => fetchInstitutionFormMetadata({ allowMockFallback, geography }),
+    enabled: options?.enabled ?? true,
+    staleTime: 5 * 60 * 1000,
+  });
+}
 
 export function useInstitutions(
   params?: InstitutionListParams,
@@ -55,13 +79,15 @@ export function useInstitution(id: string | number | undefined) {
   });
 }
 
-export function useCreateInstitution() {
+export function useCreateInstitution(options?: { geography?: string }) {
   const qc = useQueryClient();
+  const geography = options?.geography ?? INSTITUTION_REGISTER_GEOGRAPHY;
   return useMutation({
-    mutationFn: (data: Partial<InstitutionResponse>) => createInstitution(data),
+    mutationFn: (data: CreateInstitutionBody) => createInstitution(data, { geography }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.institutions.all() });
       qc.invalidateQueries({ queryKey: QK.approvals.all() });
+      qc.invalidateQueries({ queryKey: QK.consortiums.all() });
     },
     onError: (e: ApiError) => toast.error(e.message),
   });

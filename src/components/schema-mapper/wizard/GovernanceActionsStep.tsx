@@ -8,7 +8,7 @@ import { governanceSummaryDefault } from "@/data/schema-mapper-mock";
 
 interface GovernanceActionsStepProps {
   governanceSummary: GovernanceSummary | null;
-  onSubmitToQueue: () => void;
+  onSubmitToQueue: () => void | Promise<void>;
   onSaveDraft: () => void;
   onReject: () => void;
   onComplete: () => void;
@@ -22,12 +22,18 @@ export function GovernanceActionsStep({
   onComplete,
 }: GovernanceActionsStepProps) {
   const [submitted, setSubmitted] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
   const summary = governanceSummary ?? governanceSummaryDefault;
 
-  const handleSubmitToQueue = () => {
-    setSubmitted(true);
-    onSubmitToQueue();
-    onComplete();
+  const handleSubmitToQueue = async () => {
+    setSubmitting(true);
+    try {
+      await onSubmitToQueue();
+      setSubmitted(true);
+      onComplete();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleSaveDraft = () => {
@@ -109,12 +115,12 @@ export function GovernanceActionsStep({
           </Button>
           <Button
             size="sm"
-            onClick={handleSubmitToQueue}
+            onClick={() => void handleSubmitToQueue()}
             className="gap-1.5"
-            disabled={submitted}
+            disabled={submitted || submitting}
           >
             <Send className="h-3.5 w-3.5" />
-            Submit to Evolution Queue
+            {submitting ? "Submitting…" : "Submit to Evolution Queue"}
           </Button>
           <Button
             variant="destructive"

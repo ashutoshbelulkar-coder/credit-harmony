@@ -4,8 +4,12 @@ import multipart from "@fastify/multipart";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
 import { randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { pathToFileURL } from "node:url";
+import { dataPath } from "./paths.js";
 import { createInitialState, pushAudit } from "./state.js";
+import { registerSchemaMapperRoutes, applySchemaMappingApprovalDecision } from "./schemaMapper.js";
+import { registerDataIngestionRoutes } from "./ingestionDriftAlerts.js";
 import {
   buildDashboardCharts,
   buildDashboardMetrics,
@@ -14,6 +18,12 @@ import {
   resolveDashboardWindow,
 } from "./dashboardAggregation.js";
 import { buildInstitutionOverviewCharts } from "./institutionOverviewCharts.js";
+import {
+  buildRegisterFormPayload,
+  resolveRegisterGeographyId,
+  validateRegisterInstitutionBody,
+} from "./institutionRegisterForm.js";
+import { institutionActiveForTrafficOrError } from "./institutionTrafficGate.js";
 import type { JwtUser } from "./types.js";
 import { isWithinDateRange } from "../../src/lib/calc/dateFilter.ts";
 
@@ -312,7 +322,6 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
           id: m.id,
           institutionId: String(m.institutionId),
           institutionName: inst?.name ?? `Institution ${m.institutionId}`,
-          role: m.role,
           joinedAt: m.joinedAt,
         };
       });
@@ -320,7 +329,7 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
 
   function replaceConsortiumMembers(
     consortiumId: string,
-    bodyMembers: { institutionId: string | number; role?: string }[] | undefined
+    bodyMembers: { institutionId: string | number }[] | undefined
   ) {
     if (!Array.isArray(bodyMembers)) return;
     state.consortiumMembers = state.consortiumMembers.filter((m) => m.consortiumId !== consortiumId);
@@ -333,7 +342,6 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
         id: randomUUID(),
         consortiumId,
         institutionId: iid,
-        role: String(raw.role ?? "Consumer"),
         joinedAt: new Date().toISOString(),
       });
     }
@@ -445,6 +453,56 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
   });
 
   // ─── Institutions ─────────────────────────────────────────────────────────
+  /** Register-member wizard: geography-specific **`registerForm`** (fields, validation, enums, single vs multi) + compliance docs. */
+  app.get("/api/v1/institutions/form-metadata", { preHandler: authPreHandler }, async (req) => {
+    const q = req.query as Record<string, string | undefined>;
+    const geographyId = resolveRegisterGeographyId(q.geography);
+    const registerForm = buildRegisterFormPayload(state, geographyId);
+    const activeConsortiums = state.consortiums
+      .filter((c: any) => String(c.status ?? "").toLowerCase() === "active")
+      .map((c: any) => ({
+        id: String(c.id),
+        name: String(c.name ?? ""),
+      }));
+    const rawDocs = state.requiredComplianceDocuments;
+    const mappedDocs =
+      rawDocs == null
+        ? null
+        : (rawDocs
+            .map((d: any) => {
+              if (typeof d === "string") {
+                const documentName = String(d).trim();
+                return documentName ? { documentName, label: documentName } : null;
+              }
+              const documentName = String(d?.documentName ?? d?.name ?? "").trim();
+              if (!documentName) return null;
+              const label =
+                typeof d?.label === "string" && d.label.trim() ? String(d.label).trim() : documentName;
+              const hint = d?.hint != null ? String(d.hint) : undefined;
+              const maxSizeBytes =
+                typeof d?.maxSizeBytes === "number" && d.maxSizeBytes > 0 ? d.maxSizeBytes : undefined;
+              const accept = d?.accept != null ? String(d.accept) : undefined;
+              const rw = d?.requiredWhen ?? d?.when;
+              const requiredWhen =
+                rw === "data_submitter" || rw === "subscriber" ? (rw as "data_submitter" | "subscriber") : undefined;
+              return { documentName, label, hint, maxSizeBytes, accept, requiredWhen };
+            })
+            .filter(Boolean) as Record<string, unknown>[]);
+    const requiredComplianceDocuments =
+      mappedDocs == null || mappedDocs.length === 0 ? null : mappedDocs;
+    return {
+      geographyId: registerForm.geographyId,
+      geographyLabel: registerForm.geographyLabel,
+      geographyDescription: registerForm.geographyDescription,
+      registerForm: {
+        sections: registerForm.sections,
+      },
+      institutionTypes: [...state.institutionTypes],
+      activeConsortiums,
+      requiredComplianceDocuments,
+    };
+  });
+
   app.get("/api/v1/institutions", { preHandler: authPreHandler }, async (req) => {
     const q = req.query as Record<string, string | undefined>;
     let list = state.institutions.filter((i) => !i.isDeleted);
@@ -546,15 +604,38 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     }
   );
 
-  app.post("/api/v1/institutions", { preHandler: authPreHandler }, async (req) => {
+  app.post("/api/v1/institutions", { preHandler: authPreHandler }, async (req, reply) => {
     const b = req.body as Record<string, unknown>;
+    const qPost = req.query as Record<string, string | undefined>;
+    const geographyId = resolveRegisterGeographyId(qPost.geography);
+    const formErr = validateRegisterInstitutionBody(b, state, geographyId);
+    if (formErr) return err(reply, 400, "ERR_VALIDATION", formErr);
+    const institutionTypeRaw = b.institutionType != null ? String(b.institutionType).trim() : "";
+    let consortiumIds: string[] = [];
+    if (b.isSubscriber && b.consortiumIds != null) {
+      if (!Array.isArray(b.consortiumIds)) {
+        return err(reply, 400, "ERR_VALIDATION", "consortiumIds must be an array of consortium id strings");
+      }
+      for (const raw of b.consortiumIds) {
+        const cid = String(raw ?? "").trim();
+        if (!cid) continue;
+        if (!consortiumIds.includes(cid)) consortiumIds.push(cid);
+      }
+      for (const cid of consortiumIds) {
+        const c = state.consortiums.find((x: any) => String(x.id) === cid);
+        if (!c) return err(reply, 400, "ERR_VALIDATION", `Unknown consortium: ${cid}`);
+        if (String(c.status ?? "").toLowerCase() !== "active") {
+          return err(reply, 400, "ERR_VALIDATION", `Consortium is not active: ${cid}`);
+        }
+      }
+    }
     const id = state.institutionNextId++;
     const now = new Date().toISOString().slice(0, 10);
     const row = {
       id,
       name: String(b.name ?? ""),
       tradingName: String(b.tradingName ?? b.name ?? ""),
-      institutionType: String(b.institutionType ?? "Unknown"),
+      institutionType: institutionTypeRaw || "Unknown",
       institutionLifecycleStatus: String(b.institutionLifecycleStatus ?? "pending"),
       registrationNumber: String(b.registrationNumber ?? ""),
       jurisdiction: String(b.jurisdiction ?? ""),
@@ -603,6 +684,26 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       entityId: String(id),
       description: `Created institution ${row.name}`,
     });
+    for (const consortiumId of consortiumIds) {
+      const c = state.consortiums.find((x: any) => String(x.id) === consortiumId);
+      const membershipId = state.institutionConsortiumMembershipNextId++;
+      state.institutionConsortiumMemberships.push({
+        membershipId,
+        institutionId: id,
+        consortiumId,
+        memberRole: "Consumer",
+        consortiumMemberStatus: "pending",
+        joinedAt: new Date().toISOString(),
+      });
+      row.updatedAt = new Date().toISOString().slice(0, 10);
+      pushAudit(state, {
+        userEmail: req.user!.email,
+        actionType: "INSTITUTION_CONSORTIUM_JOIN",
+        entityType: "INSTITUTION",
+        entityId: String(id),
+        description: `Initial consortium membership ${consortiumId} (${c?.name ?? consortiumId}) at registration`,
+      });
+    }
     return sanitizeInstitutionForResponse(row as Record<string, unknown>);
   });
 
@@ -612,6 +713,13 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     if (!inst) return err(reply, 404, "ERR_NOT_FOUND", "Not found");
     const body = { ...(req.body as Record<string, unknown>) };
     delete body.complianceDocs;
+    if (body.institutionType !== undefined && state.institutionTypes.length > 0) {
+      const t = String(body.institutionType).trim();
+      if (!t || !state.institutionTypes.includes(t)) {
+        return err(reply, 400, "ERR_VALIDATION", "institutionType must be a configured institution type");
+      }
+      body.institutionType = t;
+    }
     Object.assign(inst, body, { updatedAt: new Date().toISOString().slice(0, 10) });
     pushAudit(state, {
       userEmail: req.user!.email,
@@ -672,7 +780,6 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
         membershipId: m.membershipId,
         consortiumId: m.consortiumId,
         consortiumName: c?.name ?? "Unknown consortium",
-        consortiumType: c?.type ?? "",
         consortiumStatus: c?.status ?? "",
         memberRole: m.memberRole,
         consortiumMemberStatus: m.consortiumMemberStatus,
@@ -723,7 +830,6 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       membershipId: row.membershipId,
       consortiumId: row.consortiumId,
       consortiumName: c.name,
-      consortiumType: c.type,
       consortiumStatus: c.status,
       memberRole: row.memberRole,
       consortiumMemberStatus: row.consortiumMemberStatus,
@@ -1119,6 +1225,7 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       const ar = state.alertRules.find((x: any) => String(x.id) === String(alertRuleIdApprove));
       if (ar) ar.status = "Enabled";
     }
+    applySchemaMappingApprovalDecision(state, a, "approved");
     pushAudit(state, {
       userEmail: req.user!.email,
       actionType: "APPROVAL_APPROVE",
@@ -1152,6 +1259,7 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       const ar = state.alertRules.find((x: any) => String(x.id) === String(alertRuleIdReject));
       if (ar) ar.status = "Disabled";
     }
+    applySchemaMappingApprovalDecision(state, a, "rejected");
     pushAudit(state, {
       userEmail: req.user!.email,
       actionType: "APPROVAL_REJECT",
@@ -1184,6 +1292,7 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       const ar = state.alertRules.find((x: any) => String(x.id) === String(alertRuleIdChanges));
       if (ar) ar.status = "Disabled";
     }
+    applySchemaMappingApprovalDecision(state, a, "changes_requested");
     pushAudit(state, {
       userEmail: req.user!.email,
       actionType: "APPROVAL_REQUEST_CHANGES",
@@ -1512,6 +1621,14 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     const id = (req.params as { id: string }).id;
     const job = state.batchJobs.find((b: any) => b.batch_id === id);
     if (!job) return err(reply, 404, "ERR_NOT_FOUND", "Not found");
+    const rawIid = job.institution_id;
+    if (rawIid != null && String(rawIid).trim() !== "") {
+      const nid = Number(String(rawIid).replace(/\D/g, ""));
+      if (!Number.isNaN(nid)) {
+        const inst = state.institutions.find((i: any) => i.id === nid && !i.isDeleted);
+        if (!institutionActiveForTrafficOrError(reply, inst)) return;
+      }
+    }
     job.status = "Queued";
     job.success = 0;
     job.failed = 0;
@@ -1760,21 +1877,30 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     buildDashboardCommandCenter(state, req.query as Record<string, string | undefined>)
   );
 
-  // ─── Consortiums ─────────────────────────────────────────────────────────
-  app.get("/api/v1/consortiums", { preHandler: authPreHandler }, async (req) => {
-    const q = req.query as Record<string, string | undefined>;
-    let list = state.consortiums.map((c: any) => ({
+  function sanitizeConsortiumPublic(c: Record<string, unknown>) {
+    return {
       id: c.id,
       name: c.name,
-      type: c.type,
       status: c.status,
       membersCount: c.membersCount,
       dataVolume: c.dataVolume,
       description: c.description,
-      purpose: c.purpose,
-      governanceModel: c.governanceModel,
       createdAt: c.createdAt ?? "2026-01-01",
-    }));
+    };
+  }
+
+  /** Persist only `dataVisibility` on consortium `dataPolicy`; ignore legacy share/aggregation flags. */
+  function sanitizeConsortiumDataPolicyInput(dp: unknown): { dataVisibility: string } | undefined {
+    if (dp == null || typeof dp !== "object") return undefined;
+    const v = (dp as Record<string, unknown>).dataVisibility;
+    if (v === "full" || v === "masked_pii" || v === "derived") return { dataVisibility: v };
+    return undefined;
+  }
+
+  // ─── Consortiums ─────────────────────────────────────────────────────────
+  app.get("/api/v1/consortiums", { preHandler: authPreHandler }, async (req) => {
+    const q = req.query as Record<string, string | undefined>;
+    let list = state.consortiums.map((c: any) => sanitizeConsortiumPublic(c as Record<string, unknown>));
     if (q.search) {
       const s = q.search.toLowerCase();
       list = list.filter((c) => c.name.toLowerCase().includes(s));
@@ -1786,18 +1912,7 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     const id = (req.params as { id: string }).id;
     const c = state.consortiums.find((x: any) => x.id === id);
     if (!c) return err(reply, 404, "ERR_NOT_FOUND", "Not found");
-    return {
-      id: c.id,
-      name: c.name,
-      type: c.type,
-      status: c.status,
-      membersCount: c.membersCount,
-      dataVolume: c.dataVolume,
-      description: c.description,
-      purpose: c.purpose,
-      governanceModel: c.governanceModel,
-      createdAt: "2026-01-01",
-    };
+    return sanitizeConsortiumPublic({ ...c, createdAt: "2026-01-01" } as Record<string, unknown>);
   });
 
   app.get("/api/v1/consortiums/:id/members", { preHandler: authPreHandler }, async (req) => {
@@ -1807,15 +1922,25 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
 
   app.post("/api/v1/consortiums", { preHandler: authPreHandler }, async (req, reply) => {
     const b = req.body as Record<string, unknown> & {
-      members?: { institutionId: string | number; role?: string }[];
+      members?: { institutionId: string | number }[];
     };
     const name = String(b.name ?? "").trim();
     if (!name) return err(reply, 400, "ERR_VALIDATION", "name is required");
     const id = `CONS_${String(state.consortiumNextId++).padStart(3, "0")}`;
-    const { members, ...rest } = b;
+    const {
+      members,
+      type: _ignoreType,
+      purpose: _ignorePurpose,
+      governanceModel: _ignoreGov,
+      dataPolicy: bodyDataPolicy,
+      ...rest
+    } = b;
     const status =
       b.status != null && String(b.status).length > 0 ? String(b.status) : "approval_pending";
     const row: Record<string, unknown> = { id, ...rest, membersCount: 0, status };
+    const sdp = sanitizeConsortiumDataPolicyInput(bodyDataPolicy);
+    if (sdp) row.dataPolicy = sdp;
+    else delete row.dataPolicy;
     state.consortiums.push(row);
     replaceConsortiumMembers(id, members);
     const c = state.consortiums.find((x: any) => x.id === id);
@@ -1825,14 +1950,13 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     if (needsApproval) {
       const now = new Date().toISOString();
       const mc = (c?.membersCount as number) ?? 0;
-      const typeLabel = rest.type != null ? String(rest.type) : "Consortium";
       state.approvals.unshift({
         id: `ap-cons-${id}-${randomUUID().slice(0, 8)}`,
         type: "consortium",
         name,
         description:
           (rest.description != null && String(rest.description).trim()) ||
-          `New consortium — ${typeLabel} · ${mc} member(s)`,
+          `New consortium · ${mc} member(s)`,
         submittedBy: req.user!.email,
         submittedAt: now,
         status: "pending",
@@ -1848,7 +1972,7 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       description: `Created consortium ${name}`,
     });
 
-    return c ?? row;
+    return sanitizeConsortiumPublic((c ?? row) as Record<string, unknown>);
   });
 
   app.patch("/api/v1/consortiums/:id", { preHandler: authPreHandler }, async (req, reply) => {
@@ -1856,13 +1980,18 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     const c = state.consortiums.find((x: any) => x.id === id);
     if (!c) return err(reply, 404, "ERR_NOT_FOUND", "Not found");
     const body = (req.body ?? {}) as Record<string, unknown> & {
-      members?: { institutionId: string | number; role?: string }[];
+      members?: { institutionId: string | number }[];
     };
-    const { members, ...patchRest } = body;
+    const { members, type: _t, purpose: _p, governanceModel: _g, dataPolicy: bodyDataPolicy, ...patchRest } = body;
     Object.assign(c, patchRest);
+    if (bodyDataPolicy !== undefined) {
+      const sdp = sanitizeConsortiumDataPolicyInput(bodyDataPolicy);
+      if (sdp) (c as Record<string, unknown>).dataPolicy = sdp;
+      else delete (c as Record<string, unknown>).dataPolicy;
+    }
     if (members !== undefined) replaceConsortiumMembers(id, members);
     c.membersCount = state.consortiumMembers.filter((m) => m.consortiumId === id).length;
-    return c;
+    return sanitizeConsortiumPublic(c as Record<string, unknown>);
   });
 
   app.delete("/api/v1/consortiums/:id", { preHandler: authPreHandler }, async (req, reply) => {
@@ -1892,6 +2021,13 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       list = list.filter((p) => p.name.toLowerCase().includes(s));
     }
     return pageSlice(list, Number(q.page), Number(q.size));
+  });
+
+  app.get("/api/v1/products/packet-catalog", { preHandler: authPreHandler }, async () => {
+    const raw = JSON.parse(readFileSync(dataPath("data-products.json"), "utf8")) as {
+      productCatalogPacketOptions?: unknown[];
+    };
+    return { options: raw.productCatalogPacketOptions ?? [] };
   });
 
   app.get("/api/v1/products/:id", { preHandler: authPreHandler }, async (req, reply) => {
@@ -1992,6 +2128,9 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     state.products.splice(i, 1);
     return reply.code(204).send();
   });
+
+  registerSchemaMapperRoutes(app, state, authPreHandler, pushAudit);
+  registerDataIngestionRoutes(app, state, authPreHandler);
 
   return { app, state };
 }

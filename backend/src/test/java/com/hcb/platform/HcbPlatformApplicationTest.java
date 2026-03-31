@@ -1,5 +1,6 @@
 package com.hcb.platform;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hcb.platform.model.entity.User;
 import com.hcb.platform.repository.UserRepository;
@@ -11,10 +12,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 
 import java.time.LocalDateTime;
+import java.util.Iterator;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -191,5 +194,28 @@ class HcbPlatformApplicationTest {
             .andReturn();
         Map<?, ?> response = objectMapper.readValue(result.getResponse().getContentAsString(), Map.class);
         return (String) response.get("accessToken");
+    }
+
+    @Test
+    @DisplayName("T09 - GET /api/v1/products/packet-catalog returns options with derivedFields")
+    @WithMockUser(roles = "SUPER_ADMIN")
+    void packetCatalogReturnsOptionsWithDerivedFields() throws Exception {
+        MvcResult res = mockMvc.perform(get("/api/v1/products/packet-catalog"))
+            .andExpect(status().isOk())
+            .andReturn();
+        JsonNode root = objectMapper.readTree(res.getResponse().getContentAsString());
+        JsonNode options = root.get("options");
+        assertThat(options.isArray()).isTrue();
+        JsonNode bcf = null;
+        for (Iterator<JsonNode> it = options.elements(); it.hasNext(); ) {
+            JsonNode o = it.next();
+            if ("PKT_BCF".equals(o.path("id").asText())) {
+                bcf = o;
+                break;
+            }
+        }
+        assertThat(bcf).isNotNull();
+        assertThat(bcf.path("derivedFields").isArray()).isTrue();
+        assertThat(bcf.path("derivedFields").get(0).asText()).isEqualTo("weighted_cashflow_score");
     }
 }

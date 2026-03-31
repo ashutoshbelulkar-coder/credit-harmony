@@ -96,7 +96,7 @@ export default function ProductListPage() {
         <div className="min-w-0 flex-1">
           <h1 className="text-h2 font-semibold text-foreground">Products</h1>
           <p className="text-caption text-muted-foreground mt-1">
-            Configure catalogue products from internal data packets, pricing, and delivery order.
+            Configure catalogue products from internal data packets, pricing, and enquiry settings.
           </p>
         </div>
         <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:min-w-[min(100%,22rem)] sm:max-w-xl sm:grid-cols-2 sm:gap-2 sm:shrink-0">

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Table,
   TableBody,
@@ -28,8 +28,9 @@ import {
 } from "@/components/ui/sheet";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import { ruleSets, validationRules } from "@/data/data-governance-mock";
-import { institutions } from "@/data/institutions-mock";
 import { schemaRegistryEntries } from "@/data/schema-mapper-mock";
+import { useInstitutions } from "@/hooks/api/useInstitutions";
+import { useSchemaRegistrySourceTypes, useSourceTypeFields } from "@/hooks/api/useSchemaMapper";
 import type { ValidationRule, RuleType, RuleSeverity, ExpressionBlock } from "@/types/data-governance";
 import { Plus, Play, BarChart3, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -66,10 +67,15 @@ export default function ValidationRules() {
 
   const rules = validationRules.filter((r) => r.ruleSetId === ruleSetId);
 
+  const { data: registrySourceTypesRes } = useSchemaRegistrySourceTypes();
   const sourceTypeOptions = useMemo(() => {
-    const set = new Set(schemaRegistryEntries.map((e) => e.sourceType));
-    return [...set].sort().map((st) => ({ value: st, label: formatSourceTypeLabel(st) }));
-  }, []);
+    const fromApi = registrySourceTypesRes?.sourceTypes;
+    const types =
+      fromApi && fromApi.length > 0
+        ? fromApi
+        : [...new Set(schemaRegistryEntries.map((e) => e.sourceType))].sort();
+    return types.map((st) => ({ value: st, label: formatSourceTypeLabel(st) }));
+  }, [registrySourceTypesRes]);
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -217,21 +223,59 @@ function RuleForm({
   const [name, setName] = useState("");
   const [type, setType] = useState<RuleType>("format");
   const [severity, setSeverity] = useState<RuleSeverity>("error");
-  const [applicableInstitutionId, setApplicableInstitutionId] = useState("all");
+  const [applicableMemberId, setApplicableMemberId] = useState("all");
+  const {
+    data: dataSubmitterInstitutions,
+    isLoading: membersLoading,
+    isError: membersError,
+    error: membersErrorObj,
+  } = useInstitutions({ page: 0, size: 200, role: "dataSubmitter" });
+
+  const dataSubmitterMembers = dataSubmitterInstitutions?.content ?? [];
+
+  useEffect(() => {
+    if (applicableMemberId === "all") return;
+    if (
+      dataSubmitterMembers.length > 0 &&
+      !dataSubmitterMembers.some((m) => String(m.id) === applicableMemberId)
+    ) {
+      setApplicableMemberId("all");
+    }
+  }, [applicableMemberId, dataSubmitterMembers]);
   const [sourceType, setSourceType] = useState(sourceTypeOptions[0]?.value ?? "bank");
+  const {
+    data: sourceTypeFieldsRes,
+    isLoading: sourceFieldsLoading,
+    isError: sourceFieldsError,
+    error: sourceFieldsErrorObj,
+  } = useSourceTypeFields(sourceType);
+  const sourceFields = sourceTypeFieldsRes?.fields ?? [];
+  const fieldPathSet = useMemo(() => new Set(sourceFields.map((f) => f.path)), [sourceFields]);
+
   const [errorMessage, setErrorMessage] = useState("");
   const [effectiveDate, setEffectiveDate] = useState("");
   const [expiryDate, setExpiryDate] = useState("");
   const [blocks, setBlocks] = useState<ExpressionBlock[]>([
-    { id: "1", field: "pan", operator: "matches_regex", value: "^[A-Z]{5}[0-9]{4}[A-Z]$", logicalOp: "and" },
+    { id: "1", field: "", operator: "matches_regex", value: "", logicalOp: "and" },
   ]);
+
+  useEffect(() => {
+    const pathSet = new Set(sourceFields.map((f) => f.path));
+    const first = sourceFields[0]?.path ?? "";
+    setBlocks((prev) =>
+      prev.map((b) => ({
+        ...b,
+        field: b.field && pathSet.has(b.field) ? b.field : first,
+      }))
+    );
+  }, [sourceType, sourceFields]);
 
   const addBlock = () => {
     setBlocks((prev) => [
       ...prev,
       {
         id: String(prev.length + 1),
-        field: "",
+        field: sourceFields[0]?.path ?? "",
         operator: "equals",
         value: "",
         logicalOp: "and",
@@ -254,20 +298,29 @@ function RuleForm({
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. PAN Format" className="h-9" />
       </div>
       <div className="space-y-2">
-        <Label>Applicable institution</Label>
-        <Select value={applicableInstitutionId} onValueChange={setApplicableInstitutionId}>
+        <Label>Applicable members</Label>
+        <Select
+          value={applicableMemberId}
+          onValueChange={setApplicableMemberId}
+          disabled={membersLoading}
+        >
           <SelectTrigger className="h-9">
-            <SelectValue placeholder="Select" />
+            <SelectValue placeholder={membersLoading ? "Loading members…" : "Select"} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All institutions</SelectItem>
-            {institutions.map((i) => (
-              <SelectItem key={i.id} value={i.id}>
-                {i.tradingName ?? i.name}
+            <SelectItem value="all">All data submitter members</SelectItem>
+            {dataSubmitterMembers.map((m) => (
+              <SelectItem key={m.id} value={String(m.id)}>
+                {m.tradingName?.trim() ? m.tradingName : m.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
+        {membersError && (
+          <p className="text-caption text-destructive" role="alert">
+            {membersErrorObj instanceof Error ? membersErrorObj.message : "Could not load members."}
+          </p>
+        )}
       </div>
       <div className="space-y-2">
         <Label>Applicable source type (Schema Mapper)</Label>
@@ -287,23 +340,56 @@ function RuleForm({
 
       <div className="space-y-2">
         <Label>Expression (logic blocks)</Label>
-        <p className="text-caption text-muted-foreground">Structured conditions – no code</p>
+        <p className="text-caption text-muted-foreground">
+          Structured conditions – no code. Field paths load from{" "}
+          <span className="font-medium text-foreground">
+            GET /api/v1/schema-mapper/schemas/source-type-fields?sourceType=…
+          </span>{" "}
+          (parsed variables for the selected Schema Mapper source type).
+        </p>
+        {sourceFieldsError && (
+          <p className="text-caption text-destructive" role="alert">
+            {sourceFieldsErrorObj instanceof Error
+              ? sourceFieldsErrorObj.message
+              : "Could not load fields for this source type."}
+          </p>
+        )}
         <div className="space-y-2 rounded-lg border border-border p-4">
           {blocks.map((block) => (
             <div key={block.id} className="flex flex-wrap items-center gap-2 rounded border border-border bg-muted/20 p-2">
-              <Select
-                value={block.field}
-                onValueChange={(v) => updateBlock(block.id, { field: v })}
-              >
-                <SelectTrigger className="h-8 w-32">
-                  <SelectValue placeholder="Field" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="pan">pan</SelectItem>
-                  <SelectItem value="date_of_birth">date_of_birth</SelectItem>
-                  <SelectItem value="borrower_full_name">borrower_full_name</SelectItem>
-                </SelectContent>
-              </Select>
+              {sourceFieldsLoading ? (
+                <div
+                  className="h-8 min-w-[10rem] w-full max-w-[min(100%,14rem)] shrink-0 rounded-md bg-muted/50 animate-pulse sm:w-56"
+                  aria-hidden
+                />
+              ) : sourceFields.length === 0 ? (
+                <span className="text-caption text-muted-foreground py-1.5 shrink-0">
+                  No parsed fields for this source type
+                </span>
+              ) : (
+                <Select
+                  value={
+                    block.field && fieldPathSet.has(block.field)
+                      ? block.field
+                      : sourceFields[0]!.path
+                  }
+                  onValueChange={(v) => updateBlock(block.id, { field: v })}
+                >
+                  <SelectTrigger className="h-8 min-w-[10rem] w-full max-w-[min(100%,14rem)] sm:w-56">
+                    <SelectValue placeholder="Field" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-60">
+                    {sourceFields.map((f) => (
+                      <SelectItem key={f.path} value={f.path} title={f.path}>
+                        <span className="font-mono text-xs">{f.path}</span>
+                        {f.name !== f.path ? (
+                          <span className="text-caption text-muted-foreground ml-1">({f.name})</span>
+                        ) : null}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
               <Select
                 value={block.operator}
                 onValueChange={(v) => updateBlock(block.id, { operator: v as ExpressionBlock["operator"] })}

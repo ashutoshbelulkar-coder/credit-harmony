@@ -72,5 +72,53 @@
     { "id": "uf-6", "name": "outstanding_amount", "dataType": "number", "path": "outstanding_amount", "depth": 0, "sampleValues": ["5600"], "nullFrequency": 1, "distinctCount": 2100, "isEnumCandidate": false, "detectedEnumValues": [] },
     { "id": "uf-7", "name": "disconnection_flag", "dataType": "boolean", "path": "disconnection_flag", "depth": 0, "sampleValues": ["false"], "nullFrequency": 0, "distinctCount": 2, "isEnumCandidate": false, "detectedEnumValues": [] }
   ],
-  "utilityFieldStatistics": { "totalFields": 7, "nestedFields": 0, "enumCandidates": 1, "numericFields": 2, "stringFields": 4, "dateFields": 0 }
+  "utilityFieldStatistics": { "totalFields": 7, "nestedFields": 0, "enumCandidates": 1, "numericFields": 2, "stringFields": 4, "dateFields": 0 },
+  "bankParsedFields": [
+    { "id": "bf-1", "name": "borrower_ucin", "dataType": "string", "path": "borrower_ucin", "depth": 0, "sampleValues": ["UCIN-8849201","UCIN-8849202"], "nullFrequency": 0, "distinctCount": 42000, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "bf-2", "name": "loan_account_number", "dataType": "string", "path": "loan_account_number", "depth": 0, "sampleValues": ["LN-HDFC-009821334"], "nullFrequency": 0, "distinctCount": 41000, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "bf-3", "name": "product_code", "dataType": "string", "path": "product_code", "depth": 0, "sampleValues": ["PL_RETAIL","HL_FLOATING","CC_PREMIUM"], "nullFrequency": 0, "distinctCount": 28, "isEnumCandidate": true, "detectedEnumValues": ["PL_RETAIL","HL_FLOATING","CC_PREMIUM"] },
+    { "id": "bf-4", "name": "sanction_amount", "dataType": "number", "path": "sanction_amount", "depth": 0, "sampleValues": ["850000","1200000","250000"], "nullFrequency": 0.2, "distinctCount": 15000, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "bf-5", "name": "current_outstanding", "dataType": "number", "path": "current_outstanding", "depth": 0, "sampleValues": ["412300","0","89200"], "nullFrequency": 0, "distinctCount": 38000, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "bf-6", "name": "emi_amount", "dataType": "number", "path": "emi_amount", "depth": 0, "sampleValues": ["18450","22400","0"], "nullFrequency": 1.1, "distinctCount": 8900, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "bf-7", "name": "dpd_bucket", "dataType": "string", "path": "dpd_bucket", "depth": 0, "sampleValues": ["CURRENT","1_30","31_60","90_PLUS"], "nullFrequency": 0, "distinctCount": 6, "isEnumCandidate": true, "detectedEnumValues": ["CURRENT","1_30","31_60","61_90","90_PLUS","RESTRUCTURED"] },
+    { "id": "bf-8", "name": "account_status", "dataType": "string", "path": "account_status", "depth": 0, "sampleValues": ["ACTIVE","CLOSED","NPA"], "nullFrequency": 0, "distinctCount": 5, "isEnumCandidate": true, "detectedEnumValues": ["ACTIVE","CLOSED","NPA","WRITTEN_OFF"] }
+  ],
+  "bankFieldStatistics": { "totalFields": 8, "nestedFields": 0, "enumCandidates": 3, "numericFields": 3, "stringFields": 5, "dateFields": 0 },
+  "gstParsedFields": [
+    { "id": "gf-1", "name": "gstin", "dataType": "string", "path": "gstin", "depth": 0, "sampleValues": ["27AABCU9603R1ZX","29ABCDE1234F1Z5"], "nullFrequency": 0, "distinctCount": 185000, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "gf-2", "name": "legal_trade_name", "dataType": "string", "path": "legal_trade_name", "depth": 0, "sampleValues": ["Acme Components Pvt Ltd"], "nullFrequency": 0, "distinctCount": 172000, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "gf-3", "name": "filing_frequency", "dataType": "string", "path": "filing_frequency", "depth": 0, "sampleValues": ["MONTHLY","QUARTERLY"], "nullFrequency": 0, "distinctCount": 2, "isEnumCandidate": true, "detectedEnumValues": ["MONTHLY","QUARTERLY"] },
+    { "id": "gf-4", "name": "return_period", "dataType": "string", "path": "return_period", "depth": 0, "sampleValues": ["202602","202601","202512"], "nullFrequency": 0, "distinctCount": 36, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "gf-5", "name": "taxable_turnover", "dataType": "number", "path": "taxable_turnover", "depth": 0, "sampleValues": ["2450000","890000","12400000"], "nullFrequency": 0.4, "distinctCount": 120000, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "gf-6", "name": "tax_paid_in_period", "dataType": "number", "path": "tax_paid_in_period", "depth": 0, "sampleValues": ["441000","160200"], "nullFrequency": 0.6, "distinctCount": 118000, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "gf-7", "name": "filing_status", "dataType": "string", "path": "filing_status", "depth": 0, "sampleValues": ["FILED","PENDING","LATE"], "nullFrequency": 0, "distinctCount": 4, "isEnumCandidate": true, "detectedEnumValues": ["FILED","PENDING","LATE","NOT_APPLICABLE"] },
+    { "id": "gf-8", "name": "compliance_rating", "dataType": "string", "path": "compliance_rating", "depth": 0, "sampleValues": ["A","B","C"], "nullFrequency": 2.1, "distinctCount": 3, "isEnumCandidate": true, "detectedEnumValues": ["A","B","C","UNRATED"] }
+  ],
+  "gstFieldStatistics": { "totalFields": 8, "nestedFields": 0, "enumCandidates": 4, "numericFields": 2, "stringFields": 6, "dateFields": 0 },
+  "customParsedFields": [
+    { "id": "cf-1", "name": "member_id", "dataType": "string", "path": "member_id", "depth": 0, "sampleValues": ["MFI-M-102938","MFI-M-102939"], "nullFrequency": 0, "distinctCount": 5400, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "cf-2", "name": "group_id", "dataType": "string", "path": "group_id", "depth": 0, "sampleValues": ["SHG-W-4412"], "nullFrequency": 0, "distinctCount": 210, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "cf-3", "name": "cycle_number", "dataType": "number", "path": "cycle_number", "depth": 0, "sampleValues": ["1","2","3"], "nullFrequency": 0, "distinctCount": 8, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "cf-4", "name": "loan_principal", "dataType": "number", "path": "loan_principal", "depth": 0, "sampleValues": ["25000","50000","75000"], "nullFrequency": 0, "distinctCount": 120, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "cf-5", "name": "collection_amount", "dataType": "number", "path": "collection_amount", "depth": 0, "sampleValues": ["2100","4200","0"], "nullFrequency": 0.5, "distinctCount": 3400, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "cf-6", "name": "arrears_days", "dataType": "number", "path": "arrears_days", "depth": 0, "sampleValues": ["0","7","35","120"], "nullFrequency": 0, "distinctCount": 45, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "cf-7", "name": "officer_code", "dataType": "string", "path": "officer_code", "depth": 0, "sampleValues": ["FO-8821","FO-8822"], "nullFrequency": 0, "distinctCount": 85, "isEnumCandidate": false, "detectedEnumValues": [] },
+    { "id": "cf-8", "name": "village_code", "dataType": "string", "path": "village_code", "depth": 0, "sampleValues": ["V-MAH-009821"], "nullFrequency": 0, "distinctCount": 190, "isEnumCandidate": false, "detectedEnumValues": [] }
+  ],
+  "customFieldStatistics": { "totalFields": 8, "nestedFields": 0, "enumCandidates": 0, "numericFields": 4, "stringFields": 4, "dateFields": 0 },
+  "wizardSourceTypeOptions": [
+    { "value": "telecom", "label": "Telecom" },
+    { "value": "utility", "label": "Utility" },
+    { "value": "bank", "label": "Bank" },
+    { "value": "gst", "label": "GST" },
+    { "value": "custom", "label": "Custom" }
+  ],
+  "wizardDataCategoryOptions": [
+    { "value": "Financial Data", "label": "Financial Data" },
+    { "value": "Business Data", "label": "Business Data" },
+    { "value": "Behavioral Data", "label": "Behavioral Data" },
+    { "value": "Consortium Data", "label": "Consortium Data" },
+    { "value": "Fraud Signals", "label": "Fraud Signals" },
+    { "value": "Synthetic / Test", "label": "Synthetic / Test" }
+  ]
 }

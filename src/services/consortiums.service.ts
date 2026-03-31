@@ -7,13 +7,10 @@ const BASE = "/v1/consortiums";
 export interface ConsortiumResponse {
   id: string;
   name: string;
-  type: string;
   status: string;
   membersCount: number;
   dataVolume?: string;
   description?: string;
-  purpose?: string;
-  governanceModel?: string;
   createdAt?: string;
 }
 
@@ -21,7 +18,6 @@ export interface ConsortiumMember {
   id: string;
   institutionId: string;
   institutionName: string;
-  role: string;
   joinedAt: string;
 }
 
@@ -83,9 +79,9 @@ export async function fetchConsortiumMembers(id: string): Promise<ConsortiumMemb
   }
 }
 
-/** Create/update body: consortium fields plus optional members and dataPolicy (dev API persists these). */
+/** Create/update body: consortium fields plus optional members and `dataPolicy: { dataVisibility }` (dev API persists these; legacy share/aggregation flags are ignored). */
 export type ConsortiumWritePayload = Partial<ConsortiumResponse> & {
-  members?: { institutionId: string | number; role?: string }[];
+  members?: { institutionId: string | number }[];
   dataPolicy?: Record<string, unknown>;
 };
 

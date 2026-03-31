@@ -27,6 +27,7 @@ export function useApproveItem() {
       qc.invalidateQueries({ queryKey: QK.consortiums.all() });
       qc.invalidateQueries({ queryKey: QK.institutions.all() });
       qc.invalidateQueries({ queryKey: QK.alerts.rules() });
+      qc.invalidateQueries({ queryKey: QK.schemaMapper.all() });
       toast.success("Item approved");
     },
     onError: (e: ApiError) => toast.error(e.message),
@@ -43,6 +44,7 @@ export function useRejectItem() {
       qc.invalidateQueries({ queryKey: QK.consortiums.all() });
       qc.invalidateQueries({ queryKey: QK.institutions.all() });
       qc.invalidateQueries({ queryKey: QK.alerts.rules() });
+      qc.invalidateQueries({ queryKey: QK.schemaMapper.all() });
       toast.success("Item rejected");
     },
     onError: (e: ApiError) => toast.error(e.message),
@@ -59,6 +61,7 @@ export function useRequestChanges() {
       qc.invalidateQueries({ queryKey: QK.consortiums.all() });
       qc.invalidateQueries({ queryKey: QK.institutions.all() });
       qc.invalidateQueries({ queryKey: QK.alerts.rules() });
+      qc.invalidateQueries({ queryKey: QK.schemaMapper.all() });
       toast.success("Changes requested");
     },
     onError: (e: ApiError) => toast.error(e.message),

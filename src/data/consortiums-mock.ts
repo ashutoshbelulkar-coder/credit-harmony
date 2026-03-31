@@ -1,39 +1,31 @@
 import data from "./consortiums.json";
-import type { ConsortiumStatus, ConsortiumType } from "@/lib/consortium-ui";
+import type { ConsortiumStatus } from "@/lib/consortium-ui";
 
-export type { ConsortiumStatus, ConsortiumType } from "@/lib/consortium-ui";
+export type { ConsortiumStatus } from "@/lib/consortium-ui";
 export {
   consortiumStatusStyles,
-  consortiumTypeBadgeClass,
   consortiumListLabel,
   consortiumListLabelStyles,
 } from "@/lib/consortium-ui";
 export type ConsortiumDataVisibility = "full" | "masked_pii" | "derived";
 
 export interface ConsortiumDataPolicy {
-  shareLoanData: boolean;
-  shareRepaymentHistory: boolean;
-  allowAggregation: boolean;
   dataVisibility: ConsortiumDataVisibility;
 }
 
 export interface Consortium {
   id: string;
   name: string;
-  type: ConsortiumType;
   membersCount: number;
   dataVolume: string;
   status: ConsortiumStatus;
   description?: string;
-  purpose: string;
-  governanceModel: string;
   dataPolicy: ConsortiumDataPolicy;
 }
 
 export interface ConsortiumMember {
   institutionId: string;
   institutionName: string;
-  role: "Contributor" | "Consumer";
   joinedDate: string;
   status: "active" | "pending";
 }
@@ -50,8 +42,6 @@ export interface ConsortiumDataSummary {
   dataTypes: string[];
 }
 
-export const consortiumPurposes = data.purposes as string[];
-export const consortiumGovernanceModels = data.governanceModels as string[];
 export const consortiums = data.consortiums as Consortium[];
 export const consortiumMembersByConsortiumId = data.membersByConsortiumId as Record<string, ConsortiumMember[]>;
 export const consortiumContributionById = data.contributionByConsortiumId as Record<string, ConsortiumDataContributionRow[]>;

@@ -2,7 +2,7 @@
 
 **Version:** 1.0.0 | **Date:** 2026-03-29 | **Audience:** Product, compliance, ML/engineering
 
-The HCB Admin Portal includes **AI-assisted** UX (e.g. schema mapping narrative, agent workspace mock). Any production use of LLMs for **credit-adjacent** decisions must meet governance below. Today’s in-repo **Agents** surface is largely **demo** (see [API-UI-Parity-Matrix.md](./API-UI-Parity-Matrix.md)); this document defines the **enterprise target**.
+The HCB Admin Portal includes **AI-assisted** UX (e.g. schema mapping narrative, agent workspace mock). The **Schema Mapper** dev API can call **OpenAI** for structured field proposals when **`OPENAI_API_KEY`** is set; otherwise it uses deterministic heuristics and still requires **human review** and **approval queue** activation (see [Canonical-Backend.md](./Canonical-Backend.md)). Any production use of LLMs for **credit-adjacent** decisions must meet governance below. Today’s in-repo **Agents** surface is largely **demo** (see [API-UI-Parity-Matrix.md](./API-UI-Parity-Matrix.md)); this document defines the **enterprise target**.
 
 ---
 

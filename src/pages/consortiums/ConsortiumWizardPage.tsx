@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -32,15 +31,13 @@ import { Check, ChevronRight, FileStack, Shield, Users, Eye } from "lucide-react
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses } from "@/lib/typography";
 import {
-  consortiumGovernanceModels,
-  consortiumPurposes,
   type ConsortiumDataPolicy,
   type ConsortiumMember,
-  type ConsortiumType,
 } from "@/data/consortiums-mock";
 import { toast } from "sonner";
 import { useConsortium, useConsortiumMembers, useCreateConsortium, useUpdateConsortium } from "@/hooks/api/useConsortiums";
 import { useInstitutions } from "@/hooks/api/useInstitutions";
+import type { InstitutionResponse } from "@/services/institutions.service";
 
 const steps = [
   { title: "Basic info", shortTitle: "Info", icon: FileStack },
@@ -49,27 +46,9 @@ const steps = [
   { title: "Review", shortTitle: "Review", icon: Eye },
 ] as const;
 
-function buildSummaryFromPolicy(policy: ConsortiumDataPolicy): {
-  totalRecordsShared: string;
-  lastUpdated: string;
-  dataTypes: string[];
-} {
-  const dataTypes: string[] = [];
-  if (policy.shareLoanData) dataTypes.push("Loan performance");
-  if (policy.shareRepaymentHistory) dataTypes.push("Repayment history");
-  if (policy.allowAggregation) dataTypes.push("Aggregated insights");
-  const visibilityLabel =
-    policy.dataVisibility === "masked_pii"
-      ? "Masked PII"
-      : policy.dataVisibility === "derived"
-      ? "Derived"
-      : "Full details";
-  dataTypes.push(`Visibility: ${visibilityLabel}`);
-  return {
-    totalRecordsShared: "—",
-    lastUpdated: new Date().toISOString().replace("T", " ").slice(0, 22) + " UTC",
-    dataTypes,
-  };
+function subscriberParticipationCaption(inst: InstitutionResponse) {
+  if (inst.isSubscriber && inst.isDataSubmitter) return "Subscriber · Data submission";
+  return "Subscriber";
 }
 
 export default function ConsortiumWizardPage() {
@@ -84,45 +63,39 @@ export default function ConsortiumWizardPage() {
   const { data: existingMembers } = useConsortiumMembers(editId);
   const { mutate: createConsortium, isPending: creating } = useCreateConsortium();
   const { mutate: updateConsortium, isPending: updating } = useUpdateConsortium();
-  const { data: institutionsPage } = useInstitutions({ size: 50 });
-  const institutionList = institutionsPage?.content ?? [];
+  const {
+    data: institutionsPage,
+    isPending: institutionsLoading,
+    isError: institutionsError,
+  } = useInstitutions(
+    { page: 0, size: 200, role: "subscriber" },
+    { allowMockFallback: false }
+  );
+  /** Server filter (`role=subscriber`) plus client guard for proxies that ignore the query param. */
+  const subscriberPickList = useMemo(
+    () => (institutionsPage?.content ?? []).filter((i) => i.isSubscriber),
+    [institutionsPage]
+  );
 
   const [currentStep, setCurrentStep] = useState(0);
   const [name, setName] = useState("");
-  const [type, setType] = useState<ConsortiumType>("Closed");
-  const [purpose, setPurpose] = useState<string>(consortiumPurposes[0]);
-  const [governanceModel, setGovernanceModel] = useState<string>(
-    consortiumGovernanceModels[0]
-  );
   const [description, setDescription] = useState("");
   const [members, setMembers] = useState<ConsortiumMember[]>([]);
   const [institutionOpen, setInstitutionOpen] = useState(false);
   const [dataPolicy, setDataPolicy] = useState<ConsortiumDataPolicy>({
-    shareLoanData: true,
-    shareRepaymentHistory: true,
-    allowAggregation: true,
     dataVisibility: "full",
   });
 
   useEffect(() => {
     if (existing && editId) {
       setName(existing.name);
-      setType((existing.type as ConsortiumType) ?? "Closed");
-      setPurpose(existing.purpose ?? consortiumPurposes[0]);
-      setGovernanceModel(existing.governanceModel ?? consortiumGovernanceModels[0]);
       setDescription(existing.description ?? "");
       // dataPolicy is a UI-only construct; keep form defaults when loading existing
     } else if (!isEdit) {
       setName("");
-      setType("Closed");
-      setPurpose(consortiumPurposes[0]);
-      setGovernanceModel(consortiumGovernanceModels[0]);
       setDescription("");
       setMembers([]);
       setDataPolicy({
-        shareLoanData: true,
-        shareRepaymentHistory: true,
-        allowAggregation: true,
         dataVisibility: "full",
       });
       setCurrentStep(0);
@@ -147,7 +120,6 @@ export default function ConsortiumWizardPage() {
         {
           institutionId: instId,
           institutionName: instName,
-          role: "Contributor" as const,
           joinedDate: joined,
           status: "active" as const,
         },
@@ -158,12 +130,6 @@ export default function ConsortiumWizardPage() {
 
   const removeMember = (instId: string) => {
     setMembers((prev) => prev.filter((m) => m.institutionId !== instId));
-  };
-
-  const setMemberRole = (instId: string, role: "Contributor" | "Consumer") => {
-    setMembers((prev) =>
-      prev.map((m) => (m.institutionId === instId ? { ...m, role } : m))
-    );
   };
 
   const handleNext = () => {
@@ -191,16 +157,8 @@ export default function ConsortiumWizardPage() {
       toast.error("Complete required fields");
       return;
     }
-    const memberPayload = members.map((m) => ({
-      institutionId: m.institutionId,
-      role: m.role,
-    }));
-    const policyPayload = {
-      shareLoanData: dataPolicy.shareLoanData,
-      shareRepaymentHistory: dataPolicy.shareRepaymentHistory,
-      allowAggregation: dataPolicy.allowAggregation,
-      dataVisibility: dataPolicy.dataVisibility,
-    };
+    const memberPayload = members.map((m) => ({ institutionId: m.institutionId }));
+    const policyPayload = { dataVisibility: dataPolicy.dataVisibility };
 
     if (isEdit && editId) {
       updateConsortium(
@@ -208,9 +166,6 @@ export default function ConsortiumWizardPage() {
           id: editId,
           data: {
             name: name.trim(),
-            type,
-            purpose,
-            governanceModel,
             description: description.trim() || undefined,
             status: existing?.status,
             dataPolicy: policyPayload,
@@ -223,9 +178,6 @@ export default function ConsortiumWizardPage() {
       createConsortium(
         {
           name: name.trim(),
-          type,
-          purpose,
-          governanceModel,
           description: description.trim() || undefined,
           status: "approval_pending",
           dataPolicy: policyPayload,
@@ -381,54 +333,11 @@ export default function ConsortiumWizardPage() {
             <CardTitle className="text-h4 font-medium">Basic info</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-6 md:gap-y-4">
-            <div className="space-y-1.5 min-w-0">
+            <div className="space-y-1.5 min-w-0 md:col-span-2">
               <Label htmlFor="cw-name" className="text-caption">
                 Name
               </Label>
               <Input id="cw-name" value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="space-y-1.5 min-w-0">
-              <Label className="text-caption">Type</Label>
-              <Select value={type} onValueChange={(v) => setType(v as ConsortiumType)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Closed">Closed</SelectItem>
-                  <SelectItem value="Open">Open</SelectItem>
-                  <SelectItem value="Hybrid">Hybrid</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5 min-w-0">
-              <Label className="text-caption">Purpose</Label>
-              <Select value={purpose} onValueChange={setPurpose}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {consortiumPurposes.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5 min-w-0">
-              <Label className="text-caption">Governance model</Label>
-              <Select value={governanceModel} onValueChange={setGovernanceModel}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {consortiumGovernanceModels.map((g) => (
-                    <SelectItem key={g} value={g}>
-                      {g}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
             </div>
             <div className="space-y-1.5 min-w-0 md:col-span-2">
               <Label htmlFor="cw-desc" className="text-caption">
@@ -453,28 +362,47 @@ export default function ConsortiumWizardPage() {
             <Popover open={institutionOpen} onOpenChange={setInstitutionOpen}>
               <PopoverTrigger asChild>
                 <Button type="button" variant="outline" size="sm" className="shrink-0">
-                  Add institution
+                  Add member
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="p-0 w-[min(100vw-2rem,320px)]" align="end">
+              <PopoverContent className="p-0 w-[min(100vw-2rem,360px)]" align="end">
+                <p className="px-3 pt-2.5 pb-2 text-caption text-muted-foreground border-b border-border leading-snug">
+                  Subscriber institutions only (includes dual-role subscriber + data submission). Loaded from the API.
+                </p>
                 <Command>
-                  <CommandInput placeholder="Search institutions..." />
+                  <CommandInput placeholder="Search members…" />
                   <CommandList>
-                    <CommandEmpty>No institution found.</CommandEmpty>
-                    <CommandGroup>
-                      {institutionList.map((inst) => (
-                        <CommandItem
-                          key={inst.id}
-                          value={`${inst.name} ${inst.institutionType}`}
-                          onSelect={() => addInstitution(String(inst.id), inst.name)}
-                        >
-                          <span className="truncate">{inst.name}</span>
-                          <span className="text-caption text-muted-foreground ml-2 truncate">
-                            {inst.institutionType}
-                          </span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
+                    {institutionsError ? (
+                      <div className="py-6 px-3 text-center text-caption text-destructive">
+                        Could not load institutions. Use a running API and{" "}
+                        <code className="text-[10px]">VITE_USE_MOCK_FALLBACK=false</code>.
+                      </div>
+                    ) : institutionsLoading ? (
+                      <div className="py-6 px-3 text-center text-caption text-muted-foreground">
+                        Loading…
+                      </div>
+                    ) : (
+                      <>
+                        <CommandEmpty>No subscriber institutions found.</CommandEmpty>
+                        <CommandGroup>
+                          {subscriberPickList.map((inst) => {
+                            const cap = subscriberParticipationCaption(inst);
+                            return (
+                              <CommandItem
+                                key={inst.id}
+                                value={`${inst.name} ${inst.institutionType} ${cap}`}
+                                onSelect={() => addInstitution(String(inst.id), inst.name)}
+                              >
+                                <span className="truncate">{inst.name}</span>
+                                <span className="text-caption text-muted-foreground ml-2 shrink-0 truncate max-w-[40%]">
+                                  {cap} · {inst.institutionType}
+                                </span>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </>
+                    )}
                   </CommandList>
                 </Command>
               </PopoverContent>
@@ -491,9 +419,6 @@ export default function ConsortiumWizardPage() {
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
                         Name
                       </th>
-                      <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
-                        Role
-                      </th>
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-right")} />
                     </tr>
                   </thead>
@@ -501,22 +426,6 @@ export default function ConsortiumWizardPage() {
                     {members.map((m) => (
                       <tr key={m.institutionId} className="border-b border-border last:border-0">
                         <td className="px-4 py-3 text-body">{m.institutionName}</td>
-                        <td className="px-4 py-3">
-                          <Select
-                            value={m.role}
-                            onValueChange={(v) =>
-                              setMemberRole(m.institutionId, v as "Contributor" | "Consumer")
-                            }
-                          >
-                            <SelectTrigger className="h-8 w-[140px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Contributor">Contributor</SelectItem>
-                              <SelectItem value="Consumer">Consumer</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </td>
                         <td className="px-4 py-3 text-right">
                           <Button
                             type="button"
@@ -544,26 +453,6 @@ export default function ConsortiumWizardPage() {
             <CardTitle className="text-h4 font-medium">Data policy</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6 max-w-md">
-            {(
-              [
-                ["shareLoanData", "Share loan data"],
-                ["shareRepaymentHistory", "Share repayment history"],
-                ["allowAggregation", "Allow aggregation"],
-              ] as const
-            ).map(([key, label]) => (
-              <div
-                key={key}
-                className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2"
-              >
-                <p className="text-body text-foreground">{label}</p>
-                <Switch
-                  checked={dataPolicy[key]}
-                  onCheckedChange={(v) =>
-                    setDataPolicy((p) => ({ ...p, [key]: v }))
-                  }
-                />
-              </div>
-            ))}
             <div className="space-y-1.5">
               <Label className="text-caption">Data visibility</Label>
               <Select
@@ -595,24 +484,25 @@ export default function ConsortiumWizardPage() {
             <CardTitle className="text-h4 font-medium">Review</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-body text-muted-foreground">
-            <div className="rounded-lg border border-border p-4 space-y-2 bg-muted/20">
+            <div className="rounded-lg border border-border p-4 space-y-4 bg-muted/20">
               <p>
-                <span className="text-foreground font-medium">{name}</span> · {type}
+                <span className="text-foreground font-medium text-body">{name}</span>
               </p>
-              <p>
-                Purpose: {purpose} · Governance: {governanceModel}
-              </p>
-              <p>{members.length} member(s)</p>
-              <p className="text-caption">
-                Loan: {dataPolicy.shareLoanData ? "Yes" : "No"} · Repayment:{" "}
-                {dataPolicy.shareRepaymentHistory ? "Yes" : "No"} · Aggregation:{" "}
-                {dataPolicy.allowAggregation ? "Yes" : "No"} · Visibility:{" "}
-                {dataPolicy.dataVisibility === "masked_pii"
-                  ? "Masked PII"
-                  : dataPolicy.dataVisibility === "derived"
-                  ? "Derived"
-                  : "Full details"}
-              </p>
+              <div className="space-y-2">
+                <p className="text-caption text-muted-foreground uppercase tracking-wider">Members</p>
+                <ul className="space-y-2 list-none m-0 p-0">
+                  {members.map((m) => (
+                    <li
+                      key={m.institutionId}
+                      className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                    >
+                      <span className="text-[10px] font-medium leading-[14px] text-foreground block truncate">
+                        {m.institutionName}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             </div>
             <Button type="button" onClick={handleSubmit} disabled={creating || updating} className="gap-2">
               {creating || updating ? "Saving…" : (isEdit ? "Save changes" : "Create consortium")}

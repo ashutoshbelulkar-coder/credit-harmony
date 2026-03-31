@@ -17,7 +17,7 @@ import type { SimilarSchemaEntry } from "@/types/schema-mapper";
 interface MultiSchemaMatchingStepProps {
   similarSchemas: SimilarSchemaEntry[];
   selectedSchemaId: string | null;
-  onComplete: (selectedSchemaId: string | null, createNewDerived: boolean) => void;
+  onComplete: (selectedSchemaId: string | null, createNewDerived: boolean) => void | Promise<void>;
 }
 
 export function MultiSchemaMatchingStep({
@@ -28,11 +28,11 @@ export function MultiSchemaMatchingStep({
   const [selected, setSelected] = useState<string | null>(selectedSchemaId ?? similarSchemas.find((s) => s.recommended)?.schemaId ?? null);
   const [createNewDerived, setCreateNewDerived] = useState(false);
 
-  const handleProceed = useCallback(() => {
+  const handleProceed = useCallback(async () => {
     if (createNewDerived) {
-      onComplete(null, true);
+      await Promise.resolve(onComplete(null, true));
     } else {
-      onComplete(selected, false);
+      await Promise.resolve(onComplete(selected, false));
     }
   }, [selected, createNewDerived, onComplete]);
 
@@ -122,7 +122,7 @@ export function MultiSchemaMatchingStep({
       </div>
 
       <div className="flex justify-end">
-        <Button onClick={handleProceed} disabled={!canProceed} className="gap-1.5">
+        <Button onClick={() => void handleProceed()} disabled={!canProceed} className="gap-1.5">
           Proceed to Field Intelligence
           <ArrowRight className="h-3.5 w-3.5" />
         </Button>

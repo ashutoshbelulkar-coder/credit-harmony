@@ -1,11 +1,17 @@
 # Hybrid Credit Bureau (HCB) Admin Portal
 ## Complete Product Requirement Document (PRD) & Business Requirement Document (BRD)
 
-**Document Version:** 2.4
-**Date:** 2026-03-29
-**Status:** Updated — Enterprise Edition; Production-Grade Requirements (member registry, API metrics, overview analytics aligned to Fastify contract)
+**Document Version:** 2.8
+**Date:** 2026-03-31
+**Status:** Updated — Enterprise Edition; Data Products **single Configure per source-type row** + **PacketConfigModal** packet-group / in-modal **Packet** switcher (v2.8); Validation Rules + Schema Mapper **wizard-metadata** / **source-type-fields** (v2.7); Data Ingestion drift alerts API + Data Quality Monitoring (v2.6); Schema Mapper Agent Fastify API + SPA (v2.5); member registry and analytics aligned to Fastify contract
 **Classification:** Internal – Confidential
 
+> **Change Summary v2.8 (2026-03-31) — Data Products packet row + modal; Register review typography:** **Product form — Data packets:** one **Configure** button per **source-type** row (badge = total selected raw+derived field count for all packets in that row). No secondary **packet title** lines under the row label. **`PacketConfigModal`** (`src/components/data-products/PacketConfigModal.tsx`) takes **`packetIds[]`** (catalogue order) and **`catalogOptions`** from the resolved **`packet-catalog`** response (or seed); when **length > 1**, a **Packet** switcher uses catalogue **labels**; **Save configuration** updates **`packetConfigs`** for **every** id in the group. **Derived** names come from each option’s **`derivedFields`**. **Register member — Step 3 Review** (`RegisterInstitution.tsx` **`Step3Review`**): value lines use **`text-body`** without losing the token to **`tailwind-merge`** (dynamic colours applied via template literal **`className`**, not **`cn("text-body", …)`**). See [Canonical-Backend.md](./technical/Canonical-Backend.md), [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md).
+>
+> **Change Summary v2.7 (2026-03-31) — Validation Rules + Schema Mapper field discovery + Data Products configure modal:** On **`/data-governance/validation-rules`**, the **Create Rule** sheet loads **Applicable members** from **`GET /api/v1/institutions?role=dataSubmitter`** (paged list of data-submitting member institutions). **Schema Mapper source types** for the rule use **`GET /api/v1/schema-mapper/schemas/source-types`** when the API is available (fallback: distinct types from registry mock JSON). After the user picks a source type, **expression block field paths** load from **`GET /api/v1/schema-mapper/schemas/source-type-fields?sourceType=`** via **`fetchSourceTypeFields`** / **`useSourceTypeFields`**; client mock fallback uses **`src/lib/schema-mapper-source-fields.ts`** aligned with the server. **Schema Mapper wizard Step 1** (**Source Ingestion** / **Source Definition**) loads **Source Type** and **Data Category** from **`GET /api/v1/schema-mapper/wizard-metadata`** (`fetchWizardMetadata`, **`useSchemaMapperWizardMetadata`**); options are **`wizardSourceTypeOptions`** / **`wizardDataCategoryOptions`** in **`schema-mapper.json`** (mock fallback **`wizardMetadataFromSeed`**). **Data Products (`/data-products/products/create` & `…/edit`):** packet rows show the **source-type label** only (no “Source types:” prefix); **catalogue descriptions** are not shown on the card. **PacketConfigModal:** **Raw data** uses **`useSourceTypeFields`** (same **`source-type-fields`** endpoint) merged with packet-only paths from the catalogue; **Sources** uses **`useSchemaRegistryList`** with **`GET /api/v1/schema-mapper/schemas?sourceType=`**; dialog **title** is **sr-only** (“Configure packet fields”); **Derived** tab lists each packet’s **`derivedFields`** from **`GET /api/v1/products/packet-catalog`** (form passes **`catalogOptions`** into the modal; seed JSON is the same shape). **`useSchemaRegistryList`** supports **`enabled`** / **`allowMockFallback`**; **`fetchSchemaRegistryPage`** accepts optional **`allowMockFallback`**. **Dev seed:** `src/data/schema-mapper.json` defines **reference `parsedFields`** per type: **`telecomParsedFields`**, **`utilityParsedFields`**, **`bankParsedFields`**, **`gstParsedFields`**, **`customParsedFields`** (plus `*FieldStatistics`); Fastify **`createSchemaMapperSlice`** and **`POST …/ingest`** (empty body fields) use the same template map. **Automated tests:** `server/src/api.integration.test.ts` covers **`source-type-fields`** and **`wizard-metadata`**; **`src/lib/schema-mapper-source-fields.test.ts`** and **`schema-mapper-wizard-metadata.test.ts`** cover normalisation helpers. See [Canonical-Backend.md](./technical/Canonical-Backend.md), [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md), [openapi-hcb-fastify-snapshot.yaml](./technical/openapi-hcb-fastify-snapshot.yaml).
+>
+> **Change Summary v2.6 (2026-03-31) — Data Quality Monitoring drift alerts (API-backed):** **Drift alerts** for `/data-governance/data-quality-monitoring` are served by **`GET /api/v1/data-ingestion/drift-alerts`** (JWT). The Fastify store **`state.ingestionDriftAlerts`** is seeded from **`src/data/data-governance.json`** `driftAlerts`. The **Data Ingestion Agent** path appends alerts on **`POST /api/v1/schema-mapper/ingest`** (schema) and when an async **mapping job** completes (mapping). Query params **`dateFrom`**, **`dateTo`**, **`sourceType`** mirror the page filters. The SPA uses **`data-ingestion.service.ts`** and **`useDriftAlerts`**; **`VITE_USE_MOCK_FALLBACK=true`** still allows client-side filtering of the JSON mock when the API is unreachable. **Schema Drift** / **Mapping Drift** KPI counts on that page derive from the filtered API response when data is loaded. See [Canonical-Backend.md](./technical/Canonical-Backend.md) (section *Data Ingestion Agent — drift alerts*).
+>
 > **Change Summary v2.0:** Added Module 10 (Consortium Management), Module 11 (Data Products), Module 12 (Enquiry Simulation), Institution Detail extensions (Consortium Memberships tab, Product Subscriptions tab). Updated routing table, project structure, exception scenarios (with sample data), data models, API specs, and QA test suites. Typography system documented: compact 10px/12px scale with explicit pixel values to prevent browser-default overrides.
 
 > **Change Summary v2.1 (2026-03-27):** Upgraded performance targets to enterprise scale (99.9% uptime, 5M API calls/day, P95 ≤ 200ms latency). Enhanced security section (RBAC/ABAC, JWT best practices, PII encryption, consent enforcement at API level). Added enterprise use cases (multi-country, multi-bureau, alternate data monetization). Added missing feature modules roadmap (CBS Integration, Live Enquiry, Scheduled Reporting, Multi-Bureau Comparison, Consumer Portal, Advanced RBAC, Data Lineage). Aligned mock data architecture to JSON-only layer (no hardcoded values in components). Updated Business Goals with BO-10–BO-13.
@@ -15,18 +21,19 @@
 > **Change Summary v2.3 (2026-03-28) — Documentation depth & mock alignment:**
 >
 > **A. Data Quality Monitoring (`/data-governance/data-quality-monitoring`)**  
-> - **Drift alerts dataset:** `driftAlerts` in `src/data/data-governance.json` holds **eight** records with **March 2026** `timestamp` values so the default filter window (**start of current month → today**) includes them.  
-> - **Registry alignment:** Each alert’s `source` string matches a **Schema Mapper registry** source name (e.g. bank, telecom, utility, GST, MFI) so the **Source type** `<Select>` (built from distinct `schemaRegistryEntries[].sourceType`) resolves to name sets via `namesBySourceType` and filtering behaves predictably.  
+> - **Drift alerts (API):** **`GET /api/v1/data-ingestion/drift-alerts`** returns **`alerts`** from **`state.ingestionDriftAlerts`** (seeded from **`driftAlerts`** in `src/data/data-governance.json`). New rows are appended by the ingestion/mapping pipeline (**`POST /api/v1/schema-mapper/ingest`** and completed mapping jobs).  
+> - **Query filters:** `dateFrom`, `dateTo`, `sourceType` — server-side, aligned with the page’s date range and **Source type** control (registry source names for that `sourceType`).  
+> - **Registry alignment:** Seed alert `source` strings match **Schema Mapper**-style submitter/source names so filtering by **telecom**, **bank**, etc. remains predictable as the live registry grows.  
 > - **Alert fields:** `id`, `type` (`schema` \| `mapping`), `source`, `message`, `timestamp`, `severity` (`low` \| `medium` \| `high`).  
-> - **UI recap:** Date pickers; submitter institution; optional compare institution (trend series); source type; KPI strip; quality trend chart with threshold line; downloadable export control (mock).
+> - **UI recap:** Date pickers; submitter institution; optional compare institution (trend series); source type; KPI strip (**Schema / Mapping drift** counts follow filtered alerts when API data is present); quality trend chart with threshold line; downloadable export control (mock metrics CSV).
 >
 > **B. Data Products — Product form (`/data-products/products/create`, `/data-products/products/:id/edit`)**  
 > - **Category sections:** Packets listed under **category** headings (Bureau / Banking / Consortium per mock).  
-> - **Source types line:** Per category, **one** line lists **unique** Schema Mapper source types (sorted, human-readable labels from `SOURCE_TYPE_LABELS`), replacing repeated per-row source-type noise.  
-> - **Packet row:** Checkbox, **packet label** as primary text, **description** as secondary; **Configure** opens `PacketConfigModal` for **Raw** vs **Derived** field checklists.  
+> - **Source types line:** Per category, **one** row per **unique** Schema Mapper source type (sorted, human-readable labels from `SOURCE_TYPE_LABELS`); the row label is that **source-type name** only (no “Source types:” prefix).  
+> - **Packet row:** Checkbox; **no** catalogue **description** on the card; **no** extra packet-title lines under the source-type label. **One** **Configure** per row opens `PacketConfigModal` for **all** selected packets in that source-type group (**Packet** switcher inside the modal when several catalogue entries share the type). **Raw** paths from **`GET …/schema-mapper/schemas/source-type-fields`** plus packet-only catalogue paths; **Sources** from **`GET …/schema-mapper/schemas?sourceType=`**; **Derived** from each packet’s **`derivedFields`** on **`GET …/products/packet-catalog`** (or static seed). **Save** writes **`packetConfigs`** for each packet in the group.  
 > - **Enquiry settings card:** Scope selector (SELF, NETWORK, CONSORTIUM, VERTICAL) with tooltips; **Latest vs Trended** toggle; live **product preview JSON** block reflects selections.  
-> - **Reorder:** Selected packets can be reordered (drag handle) for delivery order.  
-> - **Save:** Validates name and ≥1 packet; persists `packetIds`, `packetConfigs`, `enquiryConfig` via `CatalogMockContext` (mock).
+> - **Reorder:** Removed; **`packetIds`** order follows **catalogue** order.  
+> - **Save:** Validates name and ≥1 packet; persists `packetIds`, `packetConfigs`, `enquiryConfig` via API (Fastify) or mock context when fallback applies.
 >
 > **C. Data Governance Dashboard (`/data-governance/dashboard`) — PRD correction**  
 > - Charts match implementation: **Mapping Accuracy Trend** (30/60/90-day toggle at page top); **Validation Errors by Institution** (vertical bar, `institution` key); **Match Confidence Distribution**; **Data Quality Score Trend**; **Rejection Reasons Breakdown** (donut). The **Override vs Auto-Accept** stacked chart is **not** present in the current build (removed per v2.2).
@@ -36,6 +43,9 @@
 >
 > **E. Data models (Section 15)**  
 > - Added **DriftAlert** entity; extended **DataProduct** with optional `packetConfigs` and `enquiryConfig`; noted **ManagedUser** may omit institution in bureau-only mock.
+>
+> **Change Summary v2.5 (2026-03-29) — Schema Mapper Agent (Fastify + SPA)**  
+> **Schema Mapper:** Canonical dev API **`/api/v1/schema-mapper`** (ingest, mapping jobs, PATCH mappings, validation rules CRUD, drift-scan stub, metrics). Async worker applies heuristics + optional OpenAI (`OPENAI_API_KEY`). Submit for approval enqueues **`schema_mapping`** with **`metadata.mappingId`**; approval actions update mapping lifecycle. SPA: **`schema-mapper.service.ts`**, **`useSchemaMapper`**, registry list + wizard wired when **`VITE_USE_MOCK_FALLBACK=false`**; Approval Queue deep link to Schema Mapper when **`mappingId`** present. See [Canonical-Backend.md](./technical/Canonical-Backend.md), [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md).
 >
 > **Change Summary v2.4 (2026-03-29) — Member registry truth, API enablement, overview analytics, BRD parity**
 >
@@ -336,7 +346,7 @@ flowchart LR
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Member / institution lifecycle |
-| **Description** | **Member Institutions** registry at **`/institutions`** (unified list; legacy `/institutions/data-submitters` and `/institutions/subscribers` **redirect** here). **Member Management** sidebar group: **Member Institutions**, **Consortiums**. 3-step registration wizard (Corporate Details → Compliance Documents → Review) — on submit, **Fastify** **creates the member row immediately** and **enqueues** an **institution** approval (**reject does not delete** the row; see **§3.1.2** / BRD **§3.4**). **APIs enabled** column = **`apisEnabledCount/slots`** derived from **API & Access** toggles. **Overview** tab charts = **`GET …/overview-charts`** (member-scoped **30d**). Institution detail includes Consortium Memberships and Product Subscriptions tabs. |
+| **Description** | **Member Institutions** registry at **`/institutions`** (unified list; legacy `/institutions/data-submitters` and `/institutions/subscribers` **redirect** here). **Member Management** sidebar group: **Member Institutions**, **Consortiums**. Registration wizard: **Corporate Details** → optional **Compliance Documents** (driven by **`GET /api/v1/institutions/form-metadata`** `requiredComplianceDocuments`; omitted or **`null`** ⇒ two-step flow, **Review** immediately after details) → **Review**. On submit, **Fastify** **creates the member row immediately** and **enqueues** an **institution** approval (**reject does not delete** the row; see **§3.1.2** / BRD **§3.4**). **APIs enabled** column = **`apisEnabledCount/slots`** derived from **API & Access** toggles. **Overview** tab charts = **`GET …/overview-charts`** (member-scoped **30d**). Institution detail includes Consortium Memberships and Product Subscriptions tabs. |
 | **Business Value** | Standardized onboarding and a single place to manage members and consortium entry points |
 | **User Benefit** | Guided wizard; unified list and clear navigation labels |
 
@@ -390,7 +400,7 @@ flowchart LR
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Consortium Governance |
-| **Description** | End-to-end management of multi-institution data sharing consortiums. Includes: consortium list (search, type/status filters, mobile cards + desktop table), consortium detail with 3 tabs (Overview, Members, Data Contribution), and a 4-step creation/edit wizard (Basic Info → Members → Policy → Review). |
+| **Description** | End-to-end management of multi-institution data sharing consortiums. Includes: consortium list (search + status filter, mobile cards + desktop table), consortium detail with 3 tabs (Overview, Members, Data Contribution), and a 4-step creation/edit wizard (Basic Info: name + optional description → Members → Policy → Review). **Type, purpose, and governance model** are not exposed in the API or UI. |
 | **Business Value** | Enables bureau operators to manage governed data sharing agreements across multiple institutions within a structured, auditable framework. |
 | **User Benefit** | Single view of all consortium memberships, data contributions, and sharing policies; guided wizard prevents incomplete setup. |
 | **Route** | `/consortiums` (list), `/consortiums/:id` (detail), `/consortiums/create` (wizard), `/consortiums/:id/edit` (edit wizard) |
@@ -400,7 +410,7 @@ flowchart LR
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Data Product Configurator |
-| **Description** | Catalogue of configurable data products. **v2.2–v2.3:** Packets are tied to Schema Mapper **`sourceType`**; create/edit form **groups packets by category**, shows **distinct source types once per category** (sorted labels), packet rows use **label + description**, **Configure** opens Raw/Derived field selection, **Enquiry settings** include scope and **Latest vs Trended**, reorderable list, live preview JSON. Product list/detail; mock pricing in catalogue context. |
+| **Description** | Catalogue of configurable data products. **v2.2–v2.3:** Packets tie to Schema Mapper **`sourceType`**; form **groups by category** and **dedupes by source type**. **v2.8:** Rows show **source-type label** only (**no** catalogue descriptions or secondary packet lines on the card); **one Configure per row** opens **`PacketConfigModal`** for the **packet group** (in-modal **Packet** switcher when needed); **Save** updates **`packetConfigs`** for all packets in the group. **Derived** field names come from **`derivedFields`** on each **`GET /api/v1/products/packet-catalog`** option (Spring: classpath JSON in sync). **Enquiry settings:** scope and **Latest vs Trended**; **packetIds** order follows catalogue (reorder UI removed). Live preview JSON. Product list/detail; mock pricing in catalogue context. |
 | **Business Value** | Sellable products align to governance taxonomy; operators can demo field-level and enquiry behaviour before APIs exist. |
 | **User Benefit** | Less repetitive UI; clearer mapping from catalogue to subscriber enquiry. |
 | **Route** | `/data-products/products` (list), `/data-products/products/:id` (detail), `/data-products/products/create` (create), `/data-products/products/:id/edit` (edit) |
@@ -516,22 +526,20 @@ Step 5: Session active
 ```
 Step 1: User clicks "Register New Institution" on Institution List
   → Navigate to /institutions/register
-  → System renders 3-step wizard (Corporate Details → Compliance Documents → Review)
+  → System loads **`GET /api/v1/institutions/form-metadata?geography=<id>`** (SPA: **`VITE_INSTITUTION_REGISTER_GEOGRAPHY`**) and renders Step 1 from **`registerForm.sections`** (labels, control types, required rules, enums, single vs multi-select). Renders either a 2-step wizard (Details → Review) or a 3-step wizard (Details → Compliance Documents → Review) depending on **`requiredComplianceDocuments`** (**`null`** ⇒ skip the compliance step)
 
-Step 2: Corporate Details (Step 1/3)
-  → User fills: Legal Name, Trading Name, Registration Number, Institution Type (dropdown),
-    Jurisdiction, License Number, Contact Email, Contact Phone
-  → User selects participation type: Data Submitter ✓ and/or Subscriber ✓
-  → Decision: At least one participation type selected? → Proceed | Neither → Error
-  → Frontend validates via Zod schema (all fields required, email format, max lengths)
+Step 2: Corporate Details (first step)
+  → Field set is **geography configuration** (dev: **`src/data/institution-register-form.json`**); e.g. default geography may include Legal Name, Trading Name, Registration Number, Institution Type (select from resolved options), Jurisdiction (text or closed enum per geography), License Number, contact fields, participation checkboxes, optional consortium multi-select when Subscriber
+  → Decision: At least one participation type selected when configured? → Proceed | Neither → Error
+  → Frontend builds Zod from metadata; server **`POST /api/v1/institutions?geography=<id>`** validates the same rules
   → User clicks "Next"
 
-Step 3: Compliance Documents (Step 2/3)
-  → System displays document upload area
-  → User uploads: Certificate of Incorporation, Regulatory License, Data Protection Certificate
+Step 3: Compliance Documents (middle step — only when metadata defines a non-empty checklist)
+  → System displays one upload control per configured row (**`documentName`** / **`label`**, optional **`requiredWhen`** for submitter vs subscriber)
+  → User uploads each required file (types/size per row or defaults)
   → User clicks "Next"
 
-Step 4: Review & Submit (Step 3/3)
+Step 4: Review & Submit (final step)
   → System displays summary of all entered data
   → User reviews and clicks "Submit Registration"
   → When VITE_USE_MOCK_FALLBACK=false and Fastify API is up:
@@ -669,8 +677,7 @@ Step 2: Basic Info (Step 1/4)
   → User clicks "Next"
 
 Step 3: Members (Step 2/4)
-  → User adds member institutions with their roles (Sponsor/Participant/Observer)
-  → At least one Sponsor is required
+  → User adds at least one member institution
   → User clicks "Next"
 
 Step 4: Policy (Step 3/4)
@@ -877,27 +884,18 @@ Step 5: Reviewed items remain in queue with updated status
 
 **Purpose:** 3-step guided registration for new institutions.
 
-#### Step 1: Corporate Details
+#### Step 1: Corporate Details (backend-driven per geography)
 
-| Element | Type | Description | Validation |
-|---------|------|-------------|------------|
-| Legal Name | Text Input | Full legal entity name | Required, max 200 chars |
-| Trading Name | Text Input | DBA / short name | Required, max 200 chars |
-| Registration Number | Text Input | Government registration ID | Required, max 50 chars |
-| Institution Type | Select | Commercial Bank, Credit Union, NBFI, Fintech, Savings Bank, MFI | Required |
-| Jurisdiction | Text Input | Operating country | Required, max 100 chars |
-| License Number | Text Input | Regulatory license ID | Required, max 50 chars |
-| Contact Email | Text Input | Primary contact email | Required, valid email format |
-| Contact Phone | Text Input | Primary phone number | Required, max 30 chars |
-| Data Submitter | Checkbox | Participates as data submitter | At least one checkbox required |
-| Subscriber | Checkbox | Participates as subscriber | At least one checkbox required |
+Step 1 is **not** a fixed field matrix in production: the SPA renders **`registerForm.sections`** from **`GET /api/v1/institutions/form-metadata?geography=<id>`**, including **`inputType`** (text, email, tel, select, multiselect, checkbox), **`selectionMode`** where relevant, **`required`**, **`maxLength`**, **`options`** or resolved **`optionSource`** (`institutionTypes`, `activeConsortiums`), **`visibleWhen`** (e.g. consortium picker only when Subscriber), and section-level rules such as **`refineAtLeastOne`** for participation. **`geographyId`** / **`geographyDescription`** in the response identify the active configuration. **`POST /api/v1/institutions?geography=<id>`** applies the same validation server-side.
 
-#### Step 2: Compliance Documents
+**Default dev geography (illustrative):** matches the former static table — entity, regulatory (jurisdiction as free text), contact, participation checkboxes, optional consortium multi-select after Subscriber — seeded from **`src/data/institution-register-form.json`** `geographies.default` plus **`institutions.json`** for types and compliance docs. **Sample `kenya` geography** in the same file uses a **closed-list** jurisdiction **select** instead of free text.
+
+#### Step 2: Compliance Documents (optional — when `form-metadata.requiredComplianceDocuments` is non-null)
 
 | Element | Type | Description |
 |---------|------|-------------|
-| Document Upload Area | File Upload | Drag-and-drop or click to upload |
-| Document List | Table | Name, Status (Verified/Pending) |
+| Document Upload Area | File Upload | One control per metadata row; **`documentName`** must match **`POST …/documents`** |
+| Document List | Table | Name, Status (Verified/Pending) — on member detail after registration |
 
 #### Step 3: Review & Submit
 
@@ -1123,21 +1121,19 @@ flowchart TB
 | Page Title | H1 | Top left | "Consortiums" | Static | — |
 | Description | Paragraph | Below title | "Manage multi-institution data sharing consortiums." | Static | — |
 | Search Input | Text Input | Above filters | Filter by consortium name | User input | Real-time client-side filter |
-| Type Filter | Select | Beside search | All / Closed / Open | Static options | Filters by consortium type |
-| Status Filter | Select | Beside search | All / Active / Inactive | Static options | Filters by status |
+| Status Filter | Select | Beside search | All / Active / Draft (non-active) | Static options | Filters by status |
 | Create Button | Primary Button | Top right | "Create consortium" | N/A | Navigate to `/consortiums/create` |
-| Desktop Table | Data Table | Main content (md+) | Columns: Name, Type, Status, Members, Data Volume, Last Updated, Actions | `consortiums` mock data | Row click → `/consortiums/:id` |
-| Mobile Cards | Card List | Main content (sm) | Shows Name, Type badge, Status badge, Members, Data Volume per card | `consortiums` mock data | Card click → `/consortiums/:id` |
-| Type Badge | Badge | Table/Card | "Closed" (primary tint) / "Open" (secondary tint) | `consortium.type` | Read-only |
-| Status Badge | Badge | Table/Card | "Active" (success/15) / "Inactive" (muted) | `consortium.status` | Read-only |
+| Desktop Table | Data Table | Main content (md+) | Columns: Name, Members, Status, Actions | API / seed | Row actions → detail / edit |
+| Mobile Cards | Card List | Main content (sm) | Name, Status badge, Members, Data volume | API / seed | Card tap → detail |
+| Status Badge | Badge | Table/Card | Active / Draft | `consortium.status` | Read-only |
 
 **Mock Data (sample):**
 
-| ID | Name | Type | Status | Members | Data Volume |
-|----|------|------|--------|---------|-------------|
-| CST_001 | SME Lending Consortium | Closed | Active | 12 | 1.2M records |
-| CST_002 | Agricultural Finance Network | Open | Inactive | 5 | 340K records |
-| CST_003 | Retail Credit Collective | Closed | Active | 8 | 890K records |
+| ID | Name | Status | Members | Data Volume |
+|----|------|--------|---------|-------------|
+| CONS_001 | SME Lending Consortium | Active | 12 | 4.2M records / mo |
+| CONS_002 | Retail Credit Alliance | Active | 28 | 12.8M records / mo |
+| CONS_003 | Trade Finance Network | Draft | 8 | 890K records / mo |
 
 ### 6.16 Consortium Detail (`/consortiums/:id`) — NEW v2.0
 
@@ -1148,8 +1144,7 @@ flowchart TB
 | Breadcrumb | Dashboard → Consortiums → {Consortium Name} |
 | Back Button | Ghost icon button; navigates to `/consortiums` |
 | Page Title | `consortium.name` (text-h2 font-semibold) |
-| Type Badge | "Closed" or "Open" with type-appropriate styling |
-| Status Dot + Span | Active (success) or Inactive (muted) |
+| Status | Active / Draft from lifecycle |
 | Edit Button | Outline size-sm; navigates to `/consortiums/:id/edit` |
 | Tab Bar | Overview · Members · Data Contribution |
 
@@ -1157,8 +1152,8 @@ flowchart TB
 
 | Card | Fields | Sample Data |
 |------|--------|-------------|
-| Details | Purpose, Governance, Status | Purpose: Risk sharing · Governance: Federated · Status: Active |
-| Scale | Member count (h3 large number) + data volume | 12 members · 1.2M records |
+| Details | Status | Status: Active |
+| Scale | Member count (h3 large number) + data volume | 12 members · 4.2M records / mo |
 | Description | Full description text | "A closed consortium of 12 SME-focused lenders sharing credit exposure data." |
 | Data Policy | Share Loan Data, Share Repayment History, Allow Aggregation, Data Visibility | All Yes · Full visibility |
 
@@ -1187,9 +1182,9 @@ flowchart TB
 
 | Step | Name | Key Fields | Validation |
 |------|------|-----------|------------|
-| 1 | Basic Info | Name, Type (select: Closed/Open), Purpose, Governance Model, Description | Name, Type, Purpose, Governance required |
-| 2 | Members | Member institution + role pairs | At least one Sponsor required |
-| 3 | Policy | shareLoanData, shareRepaymentHistory, allowAggregation, dataVisibility | No required fields; all default to true/full |
+| 1 | Basic Info | Name, optional Description | Name required |
+| 2 | Members | Add **member** (subscriber institutions from **`GET /api/v1/institutions?role=subscriber&page=0&size=200`**, API-only — no mock); includes pure subscribers and dual-role (subscriber + data submission) | At least one member required |
+| 3 | Policy | **Data visibility** (`dataVisibility`: full / masked_pii / derived) | Defaults to full |
 | 4 | Review | Summary of all entries | Confirm + Submit |
 
 **Desktop Layout (Basic Info step):** 2-column responsive grid (`grid-cols-1 md:grid-cols-2`). Description field spans full width (`md:col-span-2`).
@@ -1228,7 +1223,7 @@ flowchart TB
 | Pricing card | 2-column grid: Model (e.g. "Subscription") + Price (e.g. "4,500 / mo (mock)") |
 | Usage Metrics | 3-column KPI cards: Hits (30d), Active subscribers, Error rate — all with `text-h3` numbers |
 
-### 6.20 Product Form (`/data-products/products/create`, `/data-products/products/:id/edit`) — NEW v2.0; **UX v2.3**
+### 6.20 Product Form (`/data-products/products/create`, `/data-products/products/:id/edit`) — NEW v2.0; **UX v2.3**; **packet row + modal v2.8**
 
 **Purpose:** Create or edit a data product with catalogue alignment, field-level config, and enquiry behaviour.
 
@@ -1237,9 +1232,9 @@ flowchart TB
 | Section | Contents |
 |---------|----------|
 | **Basic info** | Product name (required), description (optional). |
-| **Data packets** | Packets grouped by **category** (Bureau, Banking, Consortium, etc. per mock). Each group header shows **category name**, then a single line: **Source types:** `Label1 · Label2 · …` where labels are **distinct** Schema Mapper source types in that group (sorted). |
-| **Packet row** | Checkbox; **packet label** (primary); **description** (muted); when selected, **Configure** opens **PacketConfigModal** (Raw fields vs Derived fields). Badge shows selected field count when > 0. |
-| **Packet order** | Selected packets appear in a **reorderable** list (drag handle) to define delivery order. |
+| **Data packets** | Packets grouped by **category** from **`GET /api/v1/products/packet-catalog`** (same **`sourceType`** / **`category`** as Schema Mapper). **Custom** source types and **Synthetic / Test** category are **omitted** from the picker. Within each category, **one row per distinct Schema Mapper source type** (duplicate source types collapsed). Primary line: **human-readable source-type label** only (`text-[11px]` muted). **Catalogue descriptions** are not shown; **no** secondary lines listing packet titles under the label. |
+| **Packet row** | Checkbox selects **all catalogue packets** in that source-type group. **One** **Configure** opens **`PacketConfigModal`** with **`packetIds`** and **`catalogOptions`** for that group in catalogue order (**Raw** = **`source-type-fields`** API ∪ packet-only paths; **Sources** = **`schemas?sourceType=`**; **Derived** = catalogue **`derivedFields`** **per packet** from **`packet-catalog`** or seed). If several packets share the type, the modal includes a **Packet** switcher (catalogue labels). **Save configuration** writes **`packetConfigs`** for **each** packet in the group. Badge shows **combined** selected field count when > 0. Products that still reference **legacy/custom** packets show an **orphan** subsection to remove them. |
+| **Packet order** | **Removed** from the form; enquiry **`packetIds`** order follows **catalogue order** (stable sort). |
 | **Enquiry settings** | **Data coverage scope** (select: SELF, NETWORK, CONSORTIUM, VERTICAL) with tooltips; **Latest vs Trended** control; optional fields per `EnquiryConfig` mock. |
 | **Preview** | Read-only JSON preview (`buildProductPreviewJson`) updates with packets, configs, and enquiry config. |
 | **Actions** | Cancel → list; Save → validates name + ≥1 packet; persists via mock context (`packetIds`, `packetConfigs`, `enquiryConfig`). |
@@ -1945,8 +1940,7 @@ Example:
 | Consortium not found (invalid URL id, e.g. `/consortiums/CST_999`) | Not-found state rendered in page body; back link available. | "Consortium not found. The consortium you are looking for does not exist or may have been removed." |
 | Create wizard Step 1 — Name field empty | Inline validation prevents advancing to Step 2. | "Consortium name is required." below the Name field |
 | Create wizard Step 1 — Type not selected | Inline validation. | "Please select a consortium type." below the Type dropdown |
-| Create wizard Step 2 — No members added | Warning on Next, but allow proceeding (members can be added later). | Toast warning: "No members added. You can add members later from the detail page." |
-| Create wizard Step 2 — No Sponsor assigned | Blocking validation; must have at least one Sponsor. | "At least one member must have the role of Sponsor." |
+| Create wizard Step 2 — No members added | Blocking validation on Next. | Toast: "Add at least one member." |
 | Edit consortium — save fails (network error) | Error toast; user stays in wizard with all entered data preserved. | "Failed to save consortium. Please check your connection and try again." |
 | Consortium list — no results match search | Empty state; clear-search CTA. | "No consortiums match your search. Try adjusting your filters or clear the search." |
 | Consortium list — no results match type/status filter | Empty state with filter-specific message. | "No Closed / Active consortiums found. Try changing the filter." |
@@ -2749,9 +2743,6 @@ Response (200):
     "dataTypes": ["Loan Accounts", "Repayment History", "Credit Exposure"]
   },
   "dataPolicy": {
-    "shareLoanData": true,
-    "shareRepaymentHistory": true,
-    "allowAggregation": true,
     "dataVisibility": "full"
   }
 }
@@ -2776,10 +2767,7 @@ Request:
     { "institutionId": "1", "role": "Sponsor" }
   ],
   "dataPolicy": {
-    "shareLoanData": true,
-    "shareRepaymentHistory": false,
-    "allowAggregation": true,
-    "dataVisibility": "aggregated_only"
+    "dataVisibility": "masked_pii"
   }
 }
 
@@ -3151,25 +3139,22 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | lastUpdated | string (date) | Yes | Last modification date |
 | dataPolicy | ConsortiumDataPolicy | Yes | Data sharing policy object |
 
-#### ConsortiumDataPolicy (NEW — v2.0)
+#### ConsortiumDataPolicy (Fastify dev API)
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| shareLoanData | boolean | Yes | Whether loan data is shared |
-| shareRepaymentHistory | boolean | Yes | Whether repayment history is shared |
-| allowAggregation | boolean | Yes | Whether data may be aggregated |
-| dataVisibility | enum (full, aggregated_only) | Yes | Visibility scope |
+| dataVisibility | enum (`full`, `masked_pii`, `derived`) | Yes | PII / derivation visibility scope for the consortium policy record |
 
-#### ConsortiumMember (NEW — v2.0)
+Legacy **`shareLoanData`**, **`shareRepaymentHistory`**, and **`allowAggregation`** are not part of the contract; the server ignores them if sent.
+
+#### ConsortiumMember (consortium roster — Fastify dev API)
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| consortiumId | string | Yes | Parent consortium reference |
+| id | string | Yes | Row id |
 | institutionId | string | Yes | Member institution reference |
-| institutionName | string | Yes | Denormalized name for display |
-| role | enum (Sponsor, Participant, Observer) | Yes | Member role within consortium |
-| status | enum (Active, Pending, Suspended) | Yes | Membership status |
-| joinedDate | string (date) | Yes | Date membership became active |
+| institutionName | string | Yes | Resolved name for display |
+| joinedAt | string (ISO 8601) | Yes | When the institution was added to the consortium roster |
 
 #### DataProduct (NEW — v2.0)
 
@@ -3541,8 +3526,8 @@ Optional **Spring Boot** on port **8090** uses **different REST shapes and RBAC*
 | CST-05 | Navigate to detail | Click a consortium row/card | Navigates to `/consortiums/:id` with correct data | P0 |
 | CST-06 | Detail tabs | Navigate to consortium detail → click each tab | Overview, Members, Data Contribution all render | P0 |
 | CST-07 | Overview — details card | View Overview tab | Details card shows Purpose, Governance, Status | P0 |
-| CST-08 | Overview — data policy card | View Overview tab | Data Policy card shows all four boolean fields correctly | P0 |
-| CST-09 | Members tab — desktop table | View Members tab on md+ viewport | Table shows Institution, Role, Status, Joined columns | P0 |
+| CST-08 | Overview — data policy card | View Overview tab | Data Policy card renders (stewardship copy; wizard persists `dataVisibility` only on create/edit) | P0 |
+| CST-09 | Members tab — desktop table | View Members tab on md+ viewport | Table shows Institution and Joined columns | P0 |
 | CST-10 | Members tab — mobile cards | View Members tab on sm viewport | Card layout renders per member | P1 |
 | CST-11 | Data contribution tab | View Data Contribution tab | Records shared, last updated, data types all render | P0 |
 | CST-12 | Create wizard — navigation | Click "Create consortium" | Navigate to `/consortiums/create`; Step 1 renders | P0 |
@@ -4043,9 +4028,9 @@ No API call. Navigates to `/institutions/:id`.
 
 | Field | Value |
 |-------|-------|
-| **API** | `POST /api/v1/institutions` then, for each uploaded file, `POST /api/v1/institutions/:id/documents` (multipart) |
+| **API** | `POST /api/v1/institutions` then, when the wizard collected files, `POST /api/v1/institutions/:id/documents` (multipart) per required row |
 | **Trigger** | User clicks **Submit Registration** on the Review & Submit step |
-| **Request body** | Corporate fields + `institutionLifecycleStatus: "pending"` + `isDataSubmitter` / `isSubscriber`; documents sent per upload call with `documentName` + `file` |
+| **Request body** | Corporate fields + `institutionLifecycleStatus: "pending"` + `isDataSubmitter` / `isSubscriber`; optional `consortiumIds` when configured; uploads use `documentName` + `file` matching **`form-metadata.requiredComplianceDocuments`**. |
 | **Fastify dev API** | Creates institution, prepends **`institution`** row on `GET /api/v1/approvals` (`metadata.institutionId`), audit `INSTITUTION_CREATE`. |
 | **Client cache** | `invalidateQueries` **institutions** + **approvals** (+ detail) after create/uploads so the list and queue stay consistent. |
 | **Success** | Toast explains **Pending** appears on **Member Institutions** and approval lives under **Approval Queue (Institutions tab)**. Navigate to **`/institutions`** (not only the queue). |
@@ -4405,7 +4390,7 @@ No API on button click. Navigates to `/consortiums/create`.
 | Field | Value |
 |-------|-------|
 | **API** | `POST /api/v1/consortiums` |
-| **Request body** | `name`, `type`, `purpose`, `governanceModel`, optional `description`, `dataPolicy`, `members[]` (`institutionId`, `role`), `status: "approval_pending"` (sent by the wizard so the record stays out of **Active** until approved). |
+| **Request body** | `name`, optional `description`, optional `dataPolicy: { dataVisibility }`, `members[]` (`institutionId` only), `status: "approval_pending"` (sent by the wizard so the record stays out of **Active** until approved). **`type`**, **`purpose`**, and **`governanceModel`** are not part of the contract (ignored if sent). Loan/repayment/aggregation flags are not persisted. |
 | **Fastify dev API success** | Consortium stored in memory; members applied; **`consortium`** approval row prepended (`metadata.consortiumId`); audit `CONSORTIUM_CREATE`. React Query invalidates **consortiums** and **approvals**. Toast: **"Consortium created"**. Navigate to `/consortiums/:id`. |
 | **Default without `status` in body** | Server defaults to **`approval_pending`** and still enqueues approval (API clients should pass `status: active` only if they intentionally skip governance). |
 | **Error** | `toast.error` from `ApiError` (e.g. empty `name` → **400**). |
@@ -4613,7 +4598,7 @@ Added in Phase 6/7. All endpoints require `Bearer <access_token>` and any of the
 #### GET /api/v1/institutions/{id}/consortium-memberships
 
 - **UI trigger:** `ConsortiumMembershipsTab` renders on Institution Detail > Memberships tab
-- **Response:** `Array<{ membershipId, consortiumId, consortiumName, consortiumType, consortiumStatus, memberRole, consortiumMemberStatus, joinedAt }>`
+- **Response:** `Array<{ membershipId, consortiumId, consortiumName, consortiumStatus, memberRole, consortiumMemberStatus, joinedAt }>` (**`consortiumType`** removed)
 - **Error:** 404 if institution not found; 403 if role insufficient
 
 #### GET /api/v1/institutions/{id}/product-subscriptions

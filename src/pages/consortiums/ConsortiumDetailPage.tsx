@@ -11,7 +11,6 @@ import { tableHeaderClasses, badgeTextClasses, detailPageTabTriggerBaseClasses }
 import {
   consortiumListLabel,
   consortiumListLabelStyles,
-  consortiumTypeBadgeClass,
   consortiumContributionSummaryById as mockContributionSummary,
 } from "@/data/consortiums-mock";
 import { useConsortium, useConsortiumMembers } from "@/hooks/api/useConsortiums";
@@ -95,13 +94,6 @@ export default function ConsortiumDetailPage() {
                 {consortium.name}
               </h1>
               <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                <Badge
-                  variant="secondary"
-                  className={cn(badgeTextClasses, consortiumTypeBadgeClass[consortium.type])}
-                >
-                  {consortium.type}
-                </Badge>
-                <span className="h-1 w-1 rounded-full bg-muted-foreground" />
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5",
@@ -154,14 +146,6 @@ export default function ConsortiumDetailPage() {
                 <CardTitle>Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-[10px] text-muted-foreground">
-                <p>
-                  <span className="text-foreground font-medium">Purpose:</span>{" "}
-                  {consortium.purpose}
-                </p>
-                <p>
-                  <span className="text-foreground font-medium">Governance:</span>{" "}
-                  {consortium.governanceModel}
-                </p>
                 <p>
                   <span className="text-foreground font-medium">Status:</span>{" "}
                   {statusLabel}
@@ -216,7 +200,7 @@ export default function ConsortiumDetailPage() {
                     <CardContent className="pt-4 space-y-1">
                       <p className="text-[10px] font-medium text-foreground">{m.institutionName}</p>
                       <p className="text-caption text-muted-foreground">
-                        Role: {m.role} · Joined {m.joinedAt ? m.joinedAt.split("T")[0] : "—"}
+                        Joined {m.joinedAt ? m.joinedAt.split("T")[0] : "—"}
                       </p>
                     </CardContent>
                   </Card>
@@ -232,9 +216,6 @@ export default function ConsortiumDetailPage() {
                         Institution
                       </th>
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
-                        Role
-                      </th>
-                      <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
                         Joined
                       </th>
                     </tr>
@@ -242,7 +223,7 @@ export default function ConsortiumDetailPage() {
                   <tbody>
                     {members.length === 0 ? (
                       <tr>
-                        <td colSpan={3} className="px-4 py-8 text-center text-caption text-muted-foreground">
+                        <td colSpan={2} className="px-4 py-8 text-center text-caption text-muted-foreground">
                           No members found for this consortium.
                         </td>
                       </tr>
@@ -253,7 +234,6 @@ export default function ConsortiumDetailPage() {
                           className="border-b border-border last:border-0"
                         >
                           <td className="px-4 py-3 text-[10px]">{m.institutionName}</td>
-                          <td className="px-4 py-3 text-[10px] text-muted-foreground">{m.role}</td>
                           <td className="px-4 py-3 text-[10px] text-muted-foreground tabular-nums">
                             {m.joinedAt ? m.joinedAt.split("T")[0] : "—"}
                           </td>

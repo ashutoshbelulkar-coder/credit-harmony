@@ -4,8 +4,21 @@
  */
 import { get, post, postMultipart, patch, del, buildQuery, ApiError } from "@/lib/api-client";
 import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
-import { institutions as mockInstitutions, getInstitutionById as mockGetById } from "@/data/institutions-mock";
+import {
+  institutions as mockInstitutions,
+  getInstitutionById as mockGetById,
+  institutionTypes as mockInstitutionTypes,
+} from "@/data/institutions-mock";
+import { consortiums as mockConsortiums } from "@/data/consortiums-mock";
 import tabsData from "@/data/institution-tabs.json";
+import institutionsSeed from "@/data/institutions.json";
+import { resolveRegisterFormClientSide, type RegisterFormPayload } from "@/lib/institution-register-form";
+
+export type {
+  RegisterFormFieldResolved,
+  RegisterFormPayload,
+  RegisterFormSectionResolved,
+} from "@/lib/institution-register-form";
 
 const BASE = "/v1/institutions";
 
@@ -81,6 +94,131 @@ export interface PagedResponse<T> {
   size: number;
 }
 
+/** Register-member wizard options — from `GET /v1/institutions/form-metadata`. */
+export interface InstitutionFormMetadataConsortiumOption {
+  id: string;
+  name: string;
+}
+
+/** Normalised register-wizard row; `documentName` is sent as multipart `documentName` on upload. */
+export interface InstitutionRequiredComplianceDocument {
+  documentName: string;
+  label: string;
+  hint?: string;
+  maxSizeBytes?: number;
+  accept?: string;
+  /** When set, the row applies only if the user selected that participation type on step 1. */
+  requiredWhen?: "data_submitter" | "subscriber";
+}
+
+export interface InstitutionFormMetadata {
+  /** Geography key for this configuration (e.g. `default`, `kenya`). */
+  geographyId: string;
+  geographyLabel?: string;
+  /** Explains that field sets / enums are geography-specific (tenant / operating region). */
+  geographyDescription?: string;
+  /** Step 1 is driven entirely from this payload: sections, labels, validation hints, `selectionMode`, resolved `options`. */
+  registerForm: RegisterFormPayload;
+  /** Convenience copy of institution-type strings (also embedded under registerForm). */
+  institutionTypes: string[];
+  /** Active consortiums only; convenience list (also embedded as multiselect options). */
+  activeConsortiums: InstitutionFormMetadataConsortiumOption[];
+  /**
+   * Required uploads for the compliance step. `null` or omitted (after normalise) skips the step entirely.
+   * Backend may send strings or objects; see `normaliseRequiredComplianceDocuments`.
+   */
+  requiredComplianceDocuments?: InstitutionRequiredComplianceDocument[] | null;
+}
+
+function normaliseInstitutionFormMetadata(
+  raw: Record<string, unknown>,
+  geography: string
+): InstitutionFormMetadata {
+  const institutionTypes = Array.isArray(raw.institutionTypes)
+    ? (raw.institutionTypes as string[]).map(String)
+    : [];
+  const activeConsortiums = Array.isArray(raw.activeConsortiums)
+    ? (raw.activeConsortiums as InstitutionFormMetadataConsortiumOption[])
+    : [];
+  const rf = raw.registerForm as RegisterFormPayload | undefined;
+  const registerForm =
+    rf?.sections && Array.isArray(rf.sections) && rf.sections.length > 0
+      ? {
+          geographyId: String(raw.geographyId ?? rf.geographyId ?? geography),
+          geographyLabel: (raw.geographyLabel as string | undefined) ?? rf.geographyLabel,
+          geographyDescription:
+            (raw.geographyDescription as string | undefined) ?? rf.geographyDescription,
+          sections: rf.sections,
+        }
+      : resolveRegisterFormClientSide(geography, institutionTypes, activeConsortiums);
+  return {
+    geographyId: registerForm.geographyId,
+    geographyLabel: registerForm.geographyLabel,
+    geographyDescription: registerForm.geographyDescription,
+    registerForm,
+    institutionTypes,
+    activeConsortiums,
+    requiredComplianceDocuments: normaliseRequiredComplianceDocuments(raw.requiredComplianceDocuments),
+  };
+}
+
+const DEFAULT_COMPLIANCE_DOC_HINT = "PDF, JPG or PNG · up to 10MB";
+const DEFAULT_COMPLIANCE_MAX_BYTES = 10 * 1024 * 1024;
+const DEFAULT_COMPLIANCE_ACCEPT = ".pdf,.jpg,.jpeg,.png";
+
+/** Normalises API/mock payloads: unknown shapes, legacy `name` key, string entries. */
+export function normaliseRequiredComplianceDocuments(
+  raw: unknown
+): InstitutionRequiredComplianceDocument[] | null {
+  if (raw === null) return null;
+  if (raw === undefined) return null;
+  if (!Array.isArray(raw)) return null;
+  const out: InstitutionRequiredComplianceDocument[] = [];
+  for (const item of raw) {
+    if (typeof item === "string") {
+      const documentName = item.trim();
+      if (!documentName) continue;
+      out.push({
+        documentName,
+        label: documentName,
+        hint: DEFAULT_COMPLIANCE_DOC_HINT,
+        maxSizeBytes: DEFAULT_COMPLIANCE_MAX_BYTES,
+        accept: DEFAULT_COMPLIANCE_ACCEPT,
+      });
+      continue;
+    }
+    if (!item || typeof item !== "object") continue;
+    const o = item as Record<string, unknown>;
+    const documentName = String(o.documentName ?? o.name ?? "").trim();
+    if (!documentName) continue;
+    const label =
+      typeof o.label === "string" && o.label.trim() ? String(o.label).trim() : documentName;
+    const hint =
+      typeof o.hint === "string" && o.hint.trim() ? String(o.hint).trim() : DEFAULT_COMPLIANCE_DOC_HINT;
+    const maxSizeBytes =
+      typeof o.maxSizeBytes === "number" && o.maxSizeBytes > 0 ? o.maxSizeBytes : DEFAULT_COMPLIANCE_MAX_BYTES;
+    const accept = typeof o.accept === "string" && o.accept.trim() ? String(o.accept).trim() : DEFAULT_COMPLIANCE_ACCEPT;
+    const rw = o.requiredWhen ?? o.when;
+    const requiredWhen =
+      rw === "data_submitter" || rw === "subscriber" ? rw : undefined;
+    out.push({ documentName, label, hint, maxSizeBytes, accept, requiredWhen });
+  }
+  return out.length > 0 ? out : null;
+}
+
+export function applicableRequiredComplianceDocuments(
+  defs: InstitutionRequiredComplianceDocument[] | null,
+  isDataSubmitter: boolean,
+  isSubscriber: boolean
+): InstitutionRequiredComplianceDocument[] {
+  if (!defs?.length) return [];
+  return defs.filter((d) => {
+    if (d.requiredWhen === "data_submitter") return isDataSubmitter;
+    if (d.requiredWhen === "subscriber") return isSubscriber;
+    return true;
+  });
+}
+
 // ─── Normalise mock → API shape ───────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -115,6 +253,42 @@ function normaliseMockInstitution(m: any): InstitutionResponse {
 // ─── API Calls ────────────────────────────────────────────────────────────────
 
 export type FetchInstitutionsOptions = { allowMockFallback?: boolean };
+
+export type FetchInstitutionFormMetadataOptions = FetchInstitutionsOptions & {
+  /** Geography configuration key; must match server `institution-register-form.json` and `POST ?geography=`. */
+  geography?: string;
+};
+
+export async function fetchInstitutionFormMetadata(
+  options?: FetchInstitutionFormMetadataOptions
+): Promise<InstitutionFormMetadata> {
+  const geography = (options?.geography ?? "default").trim() || "default";
+  const allowMockFallback = options?.allowMockFallback !== false;
+  try {
+    const raw = await get<Record<string, unknown>>(`${BASE}/form-metadata${buildQuery({ geography })}`);
+    return normaliseInstitutionFormMetadata(raw, geography);
+  } catch (err) {
+    if (allowMockFallback && clientMockFallbackEnabled && isNetworkOrServerError(err)) {
+      const activeConsortiums = mockConsortiums
+        .filter((c) => String(c.status ?? "").toLowerCase() === "active")
+        .map((c) => ({ id: c.id, name: c.name }));
+      const registerForm = resolveRegisterFormClientSide(geography, [...mockInstitutionTypes], activeConsortiums);
+      const requiredComplianceDocuments = normaliseRequiredComplianceDocuments(
+        institutionsSeed.requiredComplianceDocuments
+      );
+      return {
+        geographyId: registerForm.geographyId,
+        geographyLabel: registerForm.geographyLabel,
+        geographyDescription: registerForm.geographyDescription,
+        registerForm,
+        institutionTypes: [...mockInstitutionTypes],
+        activeConsortiums,
+        requiredComplianceDocuments,
+      };
+    }
+    throw err;
+  }
+}
 
 export async function fetchInstitutions(
   params?: InstitutionListParams,
@@ -188,8 +362,18 @@ export async function fetchInstitutionById(id: string | number): Promise<Institu
   }
 }
 
-export async function createInstitution(data: Partial<InstitutionResponse>): Promise<InstitutionResponse> {
-  return post<InstitutionResponse>(BASE, data);
+export type CreateInstitutionBody = Partial<InstitutionResponse> & {
+  /** Optional; each id must be an **active** consortium on the server. */
+  consortiumIds?: string[];
+};
+
+export async function createInstitution(
+  data: CreateInstitutionBody,
+  options?: { geography?: string }
+): Promise<InstitutionResponse> {
+  const g = options?.geography?.trim();
+  const suffix = g ? buildQuery({ geography: g }) : "";
+  return post<InstitutionResponse>(`${BASE}${suffix}`, data);
 }
 
 export async function updateInstitution(id: string | number, data: Partial<InstitutionResponse>): Promise<InstitutionResponse> {
@@ -214,7 +398,6 @@ export interface ConsortiumMembershipRow {
   membershipId: number;
   consortiumId: string | number;
   consortiumName: string;
-  consortiumType: string;
   consortiumStatus: string;
   memberRole: string;
   consortiumMemberStatus: string;

@@ -1,5 +1,6 @@
 import { get, post, patch, del, buildQuery, ApiError } from "@/lib/api-client";
 import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
+import type { ProductCatalogPacketOption } from "@/data/data-products-mock";
 import type { PagedResponse } from "./institutions.service";
 
 const BASE = "/v1/products";
@@ -57,6 +58,23 @@ export async function fetchProducts(params?: ProductListParams): Promise<PagedRe
 
 export async function fetchProductById(id: string): Promise<ProductResponse> {
   return get<ProductResponse>(`${BASE}/${id}`);
+}
+
+export interface ProductPacketCatalogResponse {
+  options: ProductCatalogPacketOption[];
+}
+
+/** Same shape as `src/data/data-products.json` → `productCatalogPacketOptions` (Schema Mapper `sourceType`, `category`, `derivedFields`, … per packet). */
+export async function fetchProductPacketCatalog(): Promise<ProductPacketCatalogResponse> {
+  try {
+    return await get<ProductPacketCatalogResponse>(`${BASE}/packet-catalog`);
+  } catch (err) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
+      const { productCatalogPacketOptions } = await import("@/data/data-products-mock");
+      return { options: productCatalogPacketOptions };
+    }
+    throw err;
+  }
 }
 
 export async function createProduct(data: Partial<ProductResponse>): Promise<ProductResponse> {

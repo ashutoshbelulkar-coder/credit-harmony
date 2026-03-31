@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Upload, FileJson, Code, Globe, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,8 @@ import {
   getSourceFieldStatisticsForSourceType,
 } from "@/data/schema-mapper-mock";
 import type { SourceMetadata, SourceType } from "@/types/schema-mapper";
+import { useSchemaMapperWizardMetadata } from "@/hooks/api/useSchemaMapper";
+import { FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS } from "@/lib/schema-mapper-wizard-metadata";
 
 interface SourceDefinitionStepProps {
   initialMetadata: SourceMetadata | null;
@@ -39,8 +41,20 @@ const SAMPLE_JSON = `{
 }`;
 
 export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefinitionStepProps) {
+  const { data: wizardMeta, isLoading: wizardMetaLoading, isError: wizardMetaError, error: wizardMetaErrorObj } =
+    useSchemaMapperWizardMetadata();
+  const sourceTypeOptions = wizardMeta?.sourceTypeOptions ?? FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS;
+
   const [sourceName, setSourceName] = useState(initialMetadata?.sourceName ?? "");
   const [sourceType, setSourceType] = useState<SourceType>(initialMetadata?.sourceType ?? "telecom");
+
+  useEffect(() => {
+    setSourceType((prev) => {
+      const ok = sourceTypeOptions.some((o) => o.value === prev);
+      if (ok) return prev;
+      return (sourceTypeOptions[0]?.value ?? "telecom") as SourceType;
+    });
+  }, [sourceTypeOptions]);
   const [effectiveDate, setEffectiveDate] = useState(initialMetadata?.effectiveDate ?? "2026-03-01");
   const [version] = useState(initialMetadata?.versionNumber ?? "v1.0");
 
@@ -92,16 +106,25 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
             <Label className="text-caption text-muted-foreground">Source Type *</Label>
             <Select value={sourceType} onValueChange={(v) => setSourceType(v as SourceType)}>
               <SelectTrigger className="h-8">
-                <SelectValue />
+                <SelectValue placeholder={wizardMetaLoading ? "Loading…" : undefined} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="telecom">Telecom</SelectItem>
-                <SelectItem value="utility">Utility</SelectItem>
-                <SelectItem value="bank">Bank</SelectItem>
-                <SelectItem value="gst">GST</SelectItem>
-                <SelectItem value="custom">Custom</SelectItem>
+                {sourceTypeOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            <p className="text-[10px] text-muted-foreground leading-tight">
+              From <span className="font-medium text-foreground">GET /api/v1/schema-mapper/wizard-metadata</span>
+              {wizardMetaLoading ? " (loading…)" : ""}.
+            </p>
+            {wizardMetaError && (
+              <p className="text-[10px] text-destructive" role="alert">
+                {wizardMetaErrorObj instanceof Error ? wizardMetaErrorObj.message : "Using offline defaults."}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-caption text-muted-foreground">Effective Date</Label>

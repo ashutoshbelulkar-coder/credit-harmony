@@ -1,21 +1,27 @@
 package com.hcb.platform.controller;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hcb.platform.model.entity.User;
 import com.hcb.platform.service.AuditService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.util.*;
 
 /**
  * Product Controller — Data Products / Credit Packages
  * - GET    /api/v1/products
+ * - GET    /api/v1/products/packet-catalog
  * - GET    /api/v1/products/{id}
  * - POST   /api/v1/products
  * - PATCH  /api/v1/products/{id}
@@ -28,6 +34,7 @@ public class ProductController {
 
     private final JdbcTemplate jdbc;
     private final AuditService auditService;
+    private final ObjectMapper objectMapper;
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','BUREAU_ADMIN','ANALYST','VIEWER')")
@@ -49,6 +56,20 @@ public class ProductController {
             + " FROM products p " + where + " ORDER BY p.product_name LIMIT ? OFFSET ?";
         List<Object> dp = new ArrayList<>(params); dp.add(size); dp.add(page * size);
         return ResponseEntity.ok(buildPage(jdbc.queryForList(sql, dp.toArray()), total != null ? total : 0, page, size));
+    }
+
+    /**
+     * Packet catalogue for the data-product form — keep {@code catalog/product-packet-catalog.json}
+     * aligned with {@code src/data/data-products.json} {@code productCatalogPacketOptions} on the SPA repo.
+     */
+    @GetMapping("/packet-catalog")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','BUREAU_ADMIN','ANALYST','VIEWER')")
+    public ResponseEntity<Map<String, Object>> getPacketCatalog() throws IOException {
+        ClassPathResource resource = new ClassPathResource("catalog/product-packet-catalog.json");
+        try (InputStream in = resource.getInputStream()) {
+            Map<String, Object> body = objectMapper.readValue(in, new TypeReference<Map<String, Object>>() {});
+            return ResponseEntity.ok(body);
+        }
     }
 
     @GetMapping("/{id}")

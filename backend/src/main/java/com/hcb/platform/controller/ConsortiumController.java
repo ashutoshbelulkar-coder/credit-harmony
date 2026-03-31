@@ -64,7 +64,7 @@ public class ConsortiumController {
     public ResponseEntity<List<Map<String, Object>>> members(@PathVariable Long id) {
         return ResponseEntity.ok(jdbc.queryForList(
             "SELECT cm.id, i.id as institutionId, i.name as institutionName,"
-            + " cm.member_role as role, cm.joined_at as joinedAt"
+            + " cm.joined_at as joinedAt"
             + " FROM consortium_members cm JOIN institutions i ON i.id=cm.institution_id"
             + " WHERE cm.consortium_id=? AND cm.is_deleted=0", id));
     }

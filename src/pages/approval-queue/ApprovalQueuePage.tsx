@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { ClipboardCheck, Clock, CheckCircle2, XCircle, AlertTriangle, ThumbsUp, ThumbsDown, MessageSquare, Building2, ScrollText, Users, Package, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -292,6 +293,21 @@ export function ApprovalQueuePage() {
                   </div>
                 </>
               )}
+
+              {detailItem.type === "schema_mapping" &&
+                detailItem.metadata &&
+                typeof (detailItem.metadata as Record<string, string>).mappingId === "string" && (
+                  <>
+                    <Separator />
+                    <Button variant="outline" size="sm" asChild>
+                      <Link
+                        to={`/data-governance/auto-mapping-review?mapping=${encodeURIComponent((detailItem.metadata as Record<string, string>).mappingId)}`}
+                      >
+                        Open in Schema Mapper
+                      </Link>
+                    </Button>
+                  </>
+                )}
 
               {detailItem.status === "pending" && (
                 <>

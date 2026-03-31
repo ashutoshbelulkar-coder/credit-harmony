@@ -40,6 +40,7 @@ function minimalState(over: Partial<AppState> = {}): AppState {
     enquiries: [],
     dashboardActivity: [],
     governanceKpis: {},
+    ingestionDriftAlerts: [],
     dataQualityRows: [],
     dataSubmitterIdByApiKey: {},
     institutionConsortiumMemberships: [],

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { Search } from "lucide-react";
 import {
@@ -16,72 +16,127 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  derivedFieldTemplatesByPacketId,
-  getAllRawFieldKeysForPacketOption,
   productCatalogPacketOptions,
   SOURCE_TYPE_LABELS,
+  type ProductCatalogPacketOption,
 } from "@/data/data-products-mock";
-import { schemaRegistryEntries } from "@/data/schema-mapper-mock";
+import { useSchemaRegistryList, useSourceTypeFields } from "@/hooks/api/useSchemaMapper";
 
 export interface PacketConfigSavePayload {
   selectedFields: string[];
   selectedDerivedFields: string[];
 }
 
+function buildInitialDrafts(
+  ids: string[],
+  catalog: ProductCatalogPacketOption[],
+  getPacketConfig: (packetId: string) => {
+    selectedFields: string[];
+    selectedDerivedFields: string[];
+  }
+): Record<string, { raw: string[]; derived: string[] }> {
+  const drafts: Record<string, { raw: string[]; derived: string[] }> = {};
+  for (const id of ids) {
+    const p = catalog.find((o) => o.id === id);
+    const c = getPacketConfig(id);
+    drafts[id] = {
+      raw: c.selectedFields.length > 0 ? [...c.selectedFields] : [...(p?.fields ?? [])],
+      derived:
+        (c.selectedDerivedFields?.length ?? 0) > 0 ? [...c.selectedDerivedFields] : [],
+    };
+  }
+  return drafts;
+}
+
 interface PacketConfigModalProps {
-  packetId: string | null;
-  open: boolean;
+  /** Catalogue-order ids for this source-type row (one or more packets). */
+  packetIds: string[];
+  /** Resolved packet rows (API catalogue or static seed); defaults to `productCatalogPacketOptions`. */
+  catalogOptions?: ProductCatalogPacketOption[];
   onClose: () => void;
-  selectedFields: string[];
-  selectedDerivedFields?: string[];
+  getPacketConfig: (packetId: string) => {
+    selectedFields: string[];
+    selectedDerivedFields: string[];
+  };
   onSave: (packetId: string, payload: PacketConfigSavePayload) => void;
 }
 
 export function PacketConfigModal({
-  packetId,
-  open,
+  packetIds,
+  catalogOptions,
   onClose,
-  selectedFields,
-  selectedDerivedFields = [],
+  getPacketConfig,
   onSave,
 }: PacketConfigModalProps) {
-  const packet = useMemo(
-    () => productCatalogPacketOptions.find((o) => o.id === packetId),
-    [packetId]
+  const catalog = catalogOptions ?? productCatalogPacketOptions;
+  const [activePacketId, setActivePacketId] = useState(packetIds[0]);
+  const [packetDrafts, setPacketDrafts] = useState(() =>
+    buildInitialDrafts(packetIds, catalog, getPacketConfig)
   );
 
-  /** All Schema Mapper registry sources for this packet’s source type (same data as Data Governance → Schema Mapper). */
-  const registrySourcesForType = useMemo(() => {
-    if (!packet) return [];
-    return schemaRegistryEntries
-      .filter((e) => e.sourceType === packet.sourceType)
-      .slice()
-      .sort((a, b) => a.sourceName.localeCompare(b.sourceName));
-  }, [packet]);
+  const packet = useMemo(
+    () => catalog.find((o) => o.id === activePacketId),
+    [activePacketId, catalog]
+  );
 
-  const allRawKeys = useMemo(() => (packet ? getAllRawFieldKeysForPacketOption(packet) : []), [packet]);
+  const sourceTypeKey = packet?.sourceType ?? "";
+  const registryListParams = packet
+    ? { sourceType: packet.sourceType, page: 0, size: 500 }
+    : undefined;
+  const {
+    data: registryPage,
+    isLoading: sourcesLoading,
+    isError: sourcesError,
+    refetch: refetchSources,
+  } = useSchemaRegistryList(registryListParams, { enabled: !!packet });
+
+  const registrySourcesForType = useMemo(() => {
+    const rows = registryPage?.content ?? [];
+    return [...rows].sort((a, b) => a.sourceName.localeCompare(b.sourceName));
+  }, [registryPage?.content]);
+  const {
+    data: sourceTypeFieldsRes,
+    isLoading: rawFieldsLoading,
+    isError: rawFieldsError,
+    refetch: refetchRawFields,
+  } = useSourceTypeFields(sourceTypeKey || undefined, {
+    enabled: sourceTypeKey.length > 0,
+  });
+
+  /** Union of API field paths for this source type and catalogue packet-only fields. */
+  const allRawKeys = useMemo(() => {
+    if (!packet) return [];
+    const fromApi =
+      sourceTypeFieldsRes?.fields
+        ?.map((f) => String(f.path ?? "").trim())
+        .filter(Boolean) ?? [];
+    const set = new Set<string>([...fromApi, ...packet.fields]);
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [packet, sourceTypeFieldsRes?.fields]);
   const derivedOptions = useMemo(
-    () => (packetId ? derivedFieldTemplatesByPacketId[packetId] ?? [] : []),
-    [packetId]
+    () => (packet?.derivedFields?.length ? packet.derivedFields : []),
+    [packet?.derivedFields]
   );
 
   const [tab, setTab] = useState<"raw" | "derived">("raw");
   const [search, setSearch] = useState("");
-  const [checkedRaw, setCheckedRaw] = useState<string[]>([]);
-  const [checkedDerived, setCheckedDerived] = useState<string[]>([]);
+  const initialActiveDraft = packetDrafts[packetIds[0]];
+  const [checkedRaw, setCheckedRaw] = useState<string[]>(initialActiveDraft.raw);
+  const [checkedDerived, setCheckedDerived] = useState<string[]>(initialActiveDraft.derived);
 
-  useEffect(() => {
-    if (open && packet) {
-      setTab("raw");
-      setSearch("");
-      const defaultRaw =
-        selectedFields.length > 0 ? [...selectedFields] : [...packet.fields];
-      setCheckedRaw(defaultRaw);
-      setCheckedDerived(
-        selectedDerivedFields.length > 0 ? [...selectedDerivedFields] : []
-      );
-    }
-  }, [open, packet, selectedFields, selectedDerivedFields]);
+  const switchActivePacket = (nextId: string) => {
+    if (nextId === activePacketId) return;
+    const merged = {
+      ...packetDrafts,
+      [activePacketId]: { raw: checkedRaw, derived: checkedDerived },
+    };
+    setPacketDrafts(merged);
+    setActivePacketId(nextId);
+    setCheckedRaw(merged[nextId].raw);
+    setCheckedDerived(merged[nextId].derived);
+    setTab("raw");
+    setSearch("");
+  };
 
   const filteredRaw = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -118,32 +173,90 @@ export function PacketConfigModal({
   };
 
   const handleSave = () => {
-    if (!packetId) return;
-    if (checkedRaw.length === 0 && checkedDerived.length === 0) return;
-    onSave(packetId, { selectedFields: checkedRaw, selectedDerivedFields: checkedDerived });
+    const merged = {
+      ...packetDrafts,
+      [activePacketId]: { raw: checkedRaw, derived: checkedDerived },
+    };
+    const hasAny = packetIds.some(
+      (id) => merged[id].raw.length > 0 || merged[id].derived.length > 0
+    );
+    if (!hasAny) return;
+    for (const id of packetIds) {
+      const d = merged[id];
+      onSave(id, { selectedFields: d.raw, selectedDerivedFields: d.derived });
+    }
     onClose();
   };
 
-  const canSave = checkedRaw.length > 0 || checkedDerived.length > 0;
+  const mergedPreview = {
+    ...packetDrafts,
+    [activePacketId]: { raw: checkedRaw, derived: checkedDerived },
+  };
+  const canSave = packetIds.some(
+    (id) => mergedPreview[id].raw.length > 0 || mergedPreview[id].derived.length > 0
+  );
 
   if (!packet) return null;
 
   return (
-    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="sm:max-w-lg w-full max-h-[90vh] flex flex-col">
         <DialogHeader>
+          <DialogTitle className="sr-only">Configure packet fields</DialogTitle>
           <div className="flex flex-wrap items-center gap-2">
-            <DialogTitle className="text-h4 font-semibold">{packet.label}</DialogTitle>
             <Badge variant="secondary" className="font-normal">
               Source type: {SOURCE_TYPE_LABELS[packet.sourceType]}
             </Badge>
           </div>
-          <p className="text-caption text-muted-foreground mt-0.5">{packet.description}</p>
-          {registrySourcesForType.length > 0 && (
-            <div className="text-caption text-muted-foreground mt-1 space-y-1">
-              <p className="font-medium text-foreground">
-                Schema Mapper registry ({SOURCE_TYPE_LABELS[packet.sourceType]})
+          {packetIds.length > 1 && (
+            <div className="mt-2 space-y-1">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
+                Packet
               </p>
+              <div className="flex flex-wrap gap-1.5">
+                {packetIds.map((id) => {
+                  const meta = catalog.find((o) => o.id === id);
+                  return (
+                    <Button
+                      key={id}
+                      type="button"
+                      size="sm"
+                      variant={id === activePacketId ? "default" : "outline"}
+                      className="h-7 text-caption"
+                      onClick={() => switchActivePacket(id)}
+                    >
+                      {meta?.label ?? id}
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          <div className="text-caption text-muted-foreground mt-1 space-y-1">
+            <p className="font-medium text-foreground">Sources</p>
+            {sourcesLoading && (
+              <p className="text-caption text-muted-foreground">Loading sources…</p>
+            )}
+            {sourcesError && (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-caption text-destructive">
+                <span>Could not load registry sources.</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-caption"
+                  onClick={() => refetchSources()}
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
+            {!sourcesLoading && !sourcesError && registrySourcesForType.length === 0 && (
+              <p className="text-caption text-muted-foreground">
+                No schema registry sources for this source type yet.
+              </p>
+            )}
+            {!sourcesLoading && !sourcesError && registrySourcesForType.length > 0 && (
               <p className="flex flex-wrap items-baseline gap-x-1 gap-y-1">
                 {registrySourcesForType.map((e, i) => (
                   <span key={e.id} className="inline-flex items-baseline gap-x-1">
@@ -157,8 +270,8 @@ export function PacketConfigModal({
                   </span>
                 ))}
               </p>
-            </div>
-          )}
+            )}
+          </div>
         </DialogHeader>
 
         <Tabs value={tab} onValueChange={(v) => setTab(v as "raw" | "derived")} className="flex flex-col min-h-0 flex-1">
@@ -169,8 +282,26 @@ export function PacketConfigModal({
 
           <TabsContent value="raw" className="space-y-3 py-2 mt-2 flex flex-col min-h-0 data-[state=inactive]:hidden">
             <p className="text-caption text-muted-foreground">
-              Raw field paths match Schema Mapper for this source type (merged with any packet-only fields).
+              Raw field paths for this source type are loaded from the Schema Mapper API and merged with any
+              packet-only fields from the catalogue.
             </p>
+            {rawFieldsLoading && (
+              <p className="text-caption text-muted-foreground">Loading field catalogue…</p>
+            )}
+            {rawFieldsError && (
+              <div className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-caption text-destructive">
+                <span>Could not load fields from the API.</span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-caption"
+                  onClick={() => refetchRawFields()}
+                >
+                  Retry
+                </Button>
+              </div>
+            )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input

@@ -5,6 +5,7 @@ import { ApiError } from "@/lib/api-client";
 import {
   fetchProducts,
   fetchProductById,
+  fetchProductPacketCatalog,
   createProduct,
   updateProduct,
   deleteProduct,
@@ -21,6 +22,14 @@ export function useProduct(id: string | undefined) {
     queryKey: QK.products.detail(id ?? ""),
     queryFn: () => fetchProductById(id!),
     enabled: !!id,
+  });
+}
+
+export function useProductPacketCatalog() {
+  return useQuery({
+    queryKey: QK.products.packetCatalog(),
+    queryFn: fetchProductPacketCatalog,
+    staleTime: 60_000,
   });
 }
 

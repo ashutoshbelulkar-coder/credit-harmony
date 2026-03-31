@@ -9,6 +9,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { useAuth } from "@/contexts/AuthContext";
 import { useInstitutions } from "@/hooks/api/useInstitutions";
+import type { InstitutionListParams } from "@/services/institutions.service";
 import { cn } from "@/lib/utils";
 
 export type InstitutionFilterMode = "submitters" | "subscribers" | "all";
@@ -31,18 +32,18 @@ export function InstitutionFilterSelect({
   id?: string;
 }) {
   const { user } = useAuth();
-  /** Filter dropdowns must reflect live members from the API — no institutions-mock fallback. */
-  const { data: page, isPending, isError } = useInstitutions(
-    { size: 300 },
-    { enabled: !!user, allowMockFallback: false }
-  );
-  const institutions = page?.content ?? [];
+  const listParams = useMemo((): InstitutionListParams => {
+    if (mode === "submitters") return { page: 0, size: 300, role: "dataSubmitter" };
+    if (mode === "subscribers") return { page: 0, size: 300, role: "subscriber" };
+    return { page: 0, size: 300 };
+  }, [mode]);
 
-  const list = useMemo(() => {
-    if (mode === "submitters") return institutions.filter((i) => i.isDataSubmitter);
-    if (mode === "subscribers") return institutions.filter((i) => i.isSubscriber);
-    return institutions;
-  }, [mode, institutions]);
+  /** Lists are loaded from the API (`role` filters data submitters / subscribers on the server). */
+  const { data: page, isPending, isError } = useInstitutions(listParams, {
+    enabled: !!user,
+    allowMockFallback: false,
+  });
+  const list = page?.content ?? [];
 
   return (
     <div className="space-y-1.5">

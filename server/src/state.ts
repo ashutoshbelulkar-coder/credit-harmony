@@ -6,6 +6,8 @@ import { buildApiSubmissionRequests } from "../../src/lib/generateApiSubmissionR
 import { buildEnquiryStateRows } from "../../src/lib/generateEnquiryStateRows.ts";
 import { sectionMatrixForRoleName } from "../../src/data/user-management-mock.ts";
 import { buildAuditLogSeed } from "./auditSeed.js";
+import { createSchemaMapperSlice } from "./schemaMapper.js";
+import type { IngestionDriftAlert } from "./ingestionDriftAlerts.js";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -13,6 +15,13 @@ export type RefreshRecord = { userId: number; expiresAt: number };
 
 export interface AppState {
   institutions: any[];
+  /** Allowed values for institution registration/edits; seeded from `institutions.json` `institutionTypes`. */
+  institutionTypes: string[];
+  /**
+   * Register-member wizard: required compliance uploads from `institutions.json` `requiredComplianceDocuments`.
+   * `null` means the SPA skips the documents step entirely.
+   */
+  requiredComplianceDocuments: unknown[] | null;
   institutionNextId: number;
   users: any[];
   userNextId: number;
@@ -42,6 +51,8 @@ export interface AppState {
   enquiries: any[];
   dashboardActivity: any[];
   governanceKpis: any;
+  /** Schema & mapping drift alerts (Data Ingestion Agent); UI: Data Quality Monitoring. */
+  ingestionDriftAlerts: IngestionDriftAlert[];
   dataQualityRows: any[];
   dataSubmitterIdByApiKey: Record<string, string>;
   /** Per-institution consortium memberships (dev API; in-memory). */
@@ -64,11 +75,12 @@ export interface AppState {
     id: string;
     consortiumId: string;
     institutionId: number;
-    role: string;
     joinedAt: string;
   }[];
   /** Template series for new institutions' consent failure chart (from `institution-tabs.json`). */
   consentFailureMetricsTemplate: { day: string; failures: number }[];
+  /** Schema Mapper Agent — in-memory document store (NoSQL-shaped). */
+  schemaMapper: ReturnType<typeof createSchemaMapperSlice>;
 }
 
 function readDataJson(name: string) {
@@ -109,6 +121,18 @@ export function createInitialState(): AppState {
   const instData = readDataJson("institutions.json");
   const institutions = (instData.institutions as any[]).map(toInstitutionRecord);
   const institutionNextId = institutions.reduce((m, r) => Math.max(m, r.id), 0) + 1;
+  const rawTypes = (instData as { institutionTypes?: unknown }).institutionTypes;
+  const institutionTypes = Array.isArray(rawTypes)
+    ? (rawTypes as string[]).map((t) => String(t).trim()).filter(Boolean)
+    : [];
+
+  const rawReqDocs = (instData as { requiredComplianceDocuments?: unknown }).requiredComplianceDocuments;
+  let requiredComplianceDocuments: unknown[] | null = null;
+  if (rawReqDocs === null) {
+    requiredComplianceDocuments = null;
+  } else if (Array.isArray(rawReqDocs)) {
+    requiredComplianceDocuments = rawReqDocs.length > 0 ? [...rawReqDocs] : null;
+  }
 
   const tabsSeed = readDataJson("institution-tabs.json");
   const consentFailureMetricsTemplate = JSON.parse(
@@ -222,7 +246,7 @@ export function createInitialState(): AppState {
 
   const membersByConsortiumId = (consData.membersByConsortiumId ?? {}) as Record<
     string,
-    { institutionId?: string; institutionName?: string; role?: string; joinedDate?: string; status?: string }[]
+    { institutionId?: string; institutionName?: string; joinedDate?: string; status?: string }[]
   >;
   const consortiumMembers: AppState["consortiumMembers"] = [];
   for (const [cid, mlist] of Object.entries(membersByConsortiumId)) {
@@ -238,7 +262,6 @@ export function createInitialState(): AppState {
         id: randomUUID(),
         consortiumId: cid,
         institutionId: inst.id,
-        role: String(m.role ?? "Consumer"),
         joinedAt: m.joinedDate ? `${m.joinedDate}T00:00:00.000Z` : new Date().toISOString(),
       });
     }
@@ -314,6 +337,8 @@ export function createInitialState(): AppState {
 
   return {
     institutions,
+    institutionTypes,
+    requiredComplianceDocuments,
     institutionNextId,
     users,
     userNextId,
@@ -369,6 +394,7 @@ export function createInitialState(): AppState {
       };
     }),
     governanceKpis: dgData.governanceKpis ?? dgData,
+    ingestionDriftAlerts: JSON.parse(JSON.stringify(dgData.driftAlerts ?? [])) as IngestionDriftAlert[],
     dataQualityRows: dgData.validationFailureBySource ?? [],
     dataSubmitterIdByApiKey,
     institutionConsortiumMemberships,
@@ -398,6 +424,7 @@ export function createInitialState(): AppState {
     dashboardSeed: dashboardData as Record<string, unknown>,
     consortiumMembers,
     consentFailureMetricsTemplate,
+    schemaMapper: createSchemaMapperSlice(),
   };
 }
 
