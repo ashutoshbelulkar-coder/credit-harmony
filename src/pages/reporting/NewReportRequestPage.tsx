@@ -156,7 +156,7 @@ export function NewReportRequestPage() {
               name="institution"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-caption">Member institution (Optional)</FormLabel>
+                  <FormLabel className="text-caption">Source name (Optional)</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value ?? "all"}>
                     <FormControl>
                       <SelectTrigger className="h-9 text-caption">

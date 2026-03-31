@@ -152,7 +152,7 @@ export function AlertMonitoringDashboard() {
         <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           <Select value={institution} onValueChange={setInstitution}>
             <SelectTrigger className="h-9 w-full sm:w-[200px] text-body" id="alert-institution">
-              <SelectValue placeholder="Member institution" />
+              <SelectValue placeholder="Source name" />
             </SelectTrigger>
             <SelectContent>
               {institutionOptions.map((o) => (

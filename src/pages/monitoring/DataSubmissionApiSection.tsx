@@ -494,7 +494,7 @@ export function DataSubmissionApiSection({
                 <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
                   <tr className="border-b border-border">
                     <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("requestId")}>Request ID</th>
-                    <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Member institution</th>
+                    <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Source name</th>
                     <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("status")}>Status</th>
                     <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Error reason</th>
                     <th className={cn("text-right px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("responseTimeMs")}>Response Time</th>

@@ -443,7 +443,7 @@ All calculation utilities in `src/lib/calc/` are fully covered by Vitest unit te
 
 | Test ID | Component | Scenario | Expected |
 |---------|-----------|----------|----------|
-| IFS-001 | InstitutionFilterSelect | Submitters mode | Label **Member institution**; combobox shows **All submitters** |
+| IFS-001 | InstitutionFilterSelect | Submitters mode | Label **Source name**; combobox shows **All submitters** |
 | IFS-002 | InstitutionFilterSelect | Subscribers mode | Combobox shows **All subscribers** |
 | IFS-003 | InstitutionFilterSelect | All mode | Combobox shows **All institutions** |
 | IFS-004 | InstitutionFilterSelect | Query error | **`role="alert"`** shows error message |

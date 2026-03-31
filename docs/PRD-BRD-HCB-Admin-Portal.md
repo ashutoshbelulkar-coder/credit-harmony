@@ -1339,7 +1339,7 @@ flowchart TB
 | Control | Detail |
 |---------|--------|
 | **Date from / Date to** | ISO date strings; default **first day of current month** through **today** (`date-fns` + `yyyy-MM-dd`). Alerts must have `timestamp` within this inclusive range to appear. |
-| **Member institution** | `InstitutionFilterSelect` (**submitters**): **`GET /api/v1/institutions?page=0&size=300&role=dataSubmitter`** (`allowMockFallback: false`). Top option **All submitters**. KPI/trend may still use mock-backed nudges when a specific submitter is selected. |
+| **Source name** | `InstitutionFilterSelect` (**submitters**): **`GET /api/v1/institutions?page=0&size=300&role=dataSubmitter`** (`allowMockFallback: false`). Top option **All submitters**. KPI/trend may still use mock-backed nudges when a specific submitter is selected. |
 | **Compare to** | Optional second submitter; when set, trend chart shows **primary** vs **comparison** series (`compareValue`). |
 | **Source type** | Options = distinct `sourceType` values from `schemaRegistryEntries` plus **All**. Drift list keeps alerts whose `source` matches a name under the chosen type (substring match against registry names). |
 
@@ -1811,7 +1811,7 @@ Example:
 
 | Filter | Type | Default | Options | Behaviour |
 |--------|------|---------|---------|-----------|
-| Member institution | Select | All submitters / All subscribers | **`InstitutionFilterSelect`** — **`GET /api/v1/institutions?page=0&size=300`** with **`role=dataSubmitter`** (Data Submission API) or **`role=subscriber`** (Inquiry API), **`allowMockFallback: false`**. Top options: **All submitters** / **All subscribers**. **Live Request Monitoring** (`DataSubmissionApiSection`) uses the same control (not `institutions-mock`). |
+| Source name | Select | All submitters / All subscribers | **`InstitutionFilterSelect`** — **`GET /api/v1/institutions?page=0&size=300`** with **`role=dataSubmitter`** (Data Submission API) or **`role=subscriber`** (Inquiry API), **`allowMockFallback: false`**. Top options: **All submitters** / **All subscribers**. **Live Request Monitoring** (`DataSubmissionApiSection`) uses the same control (not `institutions-mock`). |
 | Time Range | Select | "Last 24h" | Last 1h, Last 24h, Last 7d, Last 30d | Filters request log and refreshes charts |
 | Request ID | Text Input | Empty | Free text | Exact match on request/enquiry ID |
 
@@ -1821,7 +1821,7 @@ Example:
 |--------|------|---------|---------|-----------|
 | Date from / Date to | Date picker | Empty | Custom | **`from` / `to`** on **`GET /api/v1/audit-logs`** |
 | Action type | Select | All | Mapping/rule/merge/override/config action types | **`actionType`** query param |
-| Member institution | Select | All institutions | **`InstitutionFilterSelect`** **`mode="all"`** + **`GET /api/v1/audit-logs?institutionId=`** when a specific member is chosen (digit-normalized match on optional row **`institutionId`**; seed governance rows may tag member **1** / **2**) |
+| Source name | Select | All institutions | **`InstitutionFilterSelect`** **`mode="all"`** + **`GET /api/v1/audit-logs?institutionId=`** when a specific member is chosen (digit-normalized match on optional row **`institutionId`**; seed governance rows may tag member **1** / **2**) |
 
 ### 10.7 Schema Registry
 
@@ -1864,7 +1864,7 @@ Example:
 | Filter | Type | Default | Options | Behaviour |
 |--------|------|---------|---------|-----------|
 | Date from / to | Date picker | Start of month → today | Custom | Filters **drift alert** rows by `timestamp` (inclusive day bounds) |
-| Member institution | Select | All submitters | **`InstitutionFilterSelect`** + **`role=dataSubmitter`** (**API-only**, **`allowMockFallback: false`**); KPI/trend may still use mock-backed adjustments when institution ≠ All |
+| Source name | Select | All submitters | **`InstitutionFilterSelect`** + **`role=dataSubmitter`** (**API-only**, **`allowMockFallback: false`**); KPI/trend may still use mock-backed adjustments when institution ≠ All |
 | Compare to | Select | None | None + submitters | Optional second series on trend chart |
 | Source type | Select | All | Distinct registry source types | Filters drift alerts by registry name ↔ type mapping |
 
@@ -4226,14 +4226,14 @@ No API call. Client-side CSV from the currently loaded `users` array.
 | **Success** | Table rows update to match server-filtered results. Pagination totals reflect filter. |
 | **Error** | `ApiErrorCard` inside the table card with **Try again** button. |
 
-#### Member institution dropdown — **All submitters** (Data Submission API)
+#### Source name dropdown — **All submitters** (Data Submission API)
 
 | Field | Value |
 |-------|-------|
 | **Component** | `InstitutionFilterSelect` in `MonitoringFilterBar` and **`DataSubmissionApiSection`** (`mode="submitters"`) |
 | **Options source** | **`GET /api/v1/institutions?page=0&size=300&role=dataSubmitter`** via `useInstitutions(..., { allowMockFallback: false })`. Each `SelectItem` uses `String(id)` and **`institutionDisplayLabel`** (`src/lib/institutions-display.ts` — legal **`name`** first, then **`tradingName`**). |
 | **All submitters** | Top option for `value="all"` (no `institutionId` sent to monitoring APIs until a specific id is chosen). |
-| **UI label** | **Member institution** (shared component default). |
+| **UI label** | **Source name** (shared component default). |
 | **Mock fallback** | **None** for this dropdown: `allowMockFallback: false` so the member list is never sourced from `institutions-mock.ts` (unlike other `fetchInstitutions` callers). On failure the query errors; trigger shows “Could not load institutions” and the list is empty aside from **All**. |
 | **Disabled when** | Loading (`isPending`) or no logged-in user (`enabled: !!user` on the query). |
 
@@ -4287,7 +4287,7 @@ No API call. Selected row data is passed as props to the drawer. All information
 | **Params sent to API** | `status=Failed&institutionId=inst_002` |
 | **Client-side only** | `timeRange`, `enquiryIdSearch` |
 
-#### Member institution dropdown — **All subscribers** (Inquiry API)
+#### Source name dropdown — **All subscribers** (Inquiry API)
 
 Same component and **same API-only contract** as G.8: `InstitutionFilterSelect` with `mode="subscribers"` uses **`GET /api/v1/institutions?page=0&size=300&role=subscriber`** via `useInstitutions(..., { allowMockFallback: false })`. The **All subscribers** row is the static `value="all"` option. No `institutions-mock` fallback for options; on API failure the dropdown errors the same way as the submitter control.
 
@@ -4327,7 +4327,7 @@ No API call. Console data comes from static `batch-console.json` mock. This is a
 | `useSlaConfigs` | `GET /api/v1/sla-configs` | SLA configuration cards (seeds local state) |
 | `useBreachHistory` | `GET /api/v1/sla-configs/breach-history` | SLA breach history table (seeds local state) |
 
-**SLA Breach History — Member institution filter:** options from **`GET /api/v1/institutions?page=0&size=300`** (unscoped list) via `InstitutionFilterSelect` (`mode="all"`, **`allowMockFallback: false`**), not `institutions-mock`. Top option **All institutions**. Filtering compares breach row `institution_id` to the selected member using digit-normalized ids.
+**SLA Breach History — Source name filter:** options from **`GET /api/v1/institutions?page=0&size=300`** (unscoped list) via `InstitutionFilterSelect` (`mode="all"`, **`allowMockFallback: false`**), not `institutions-mock`. Top option **All institutions**. Filtering compares breach row `institution_id` to the selected member using digit-normalized ids.
 
 **Error**: Each section shows `ApiErrorCard` independently.
 

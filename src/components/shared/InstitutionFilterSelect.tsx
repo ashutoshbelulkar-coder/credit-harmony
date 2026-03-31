@@ -25,7 +25,7 @@ export function InstitutionFilterSelect({
   mode,
   value,
   onValueChange,
-  label = "Member institution",
+  label = "Source name",
   allLabel: allLabelProp,
   triggerClassName,
   id,

@@ -38,3 +38,7 @@ test-results/
 *.njsproj
 *.sln
 *.sw?
+
+# SQLite WAL/SHM side-car files (never commit these)
+*.db-shm
+*.db-wal

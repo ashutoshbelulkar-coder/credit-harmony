@@ -44,11 +44,11 @@ beforeEach(() => {
 });
 
 describe("InstitutionFilterSelect", () => {
-  it("renders Member institution label and All submitters for submitters mode", () => {
+  it("renders Source name label and All submitters for submitters mode", () => {
     renderWithClient(
       <InstitutionFilterSelect mode="submitters" value="all" onValueChange={vi.fn()} />
     );
-    expect(screen.getByText("Member institution")).toBeInTheDocument();
+    expect(screen.getByText("Source name")).toBeInTheDocument();
     expect(screen.getByRole("combobox")).toHaveTextContent("All submitters");
   });
 

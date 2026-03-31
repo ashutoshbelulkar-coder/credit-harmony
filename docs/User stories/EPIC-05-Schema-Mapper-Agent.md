@@ -69,7 +69,7 @@ The Schema Mapper Agent is the data normalization backbone of the HCB platform. 
 | Feature | Description | Status |
 |---------|-------------|--------|
 | Schema Ingestion | Upload source file, parse fields | ✅ Implemented |
-| Wizard Step 1: Source Definition | Source name, type, member institution | ✅ Implemented |
+| Wizard Step 1: Source Definition | Source name, type, source name (institution picker) | ✅ Implemented |
 | Wizard Step 2: AI/LLM Mapping | Async mapping job with heuristics + optional LLM | ✅ Implemented |
 | Wizard Step 3: Review & Edit | Manual review and correction of suggestions | ✅ Implemented |
 | Wizard Step 4: LLM Intelligence | PII detection per field | ✅ Implemented |
@@ -204,7 +204,7 @@ VALUES ('raw-uuid-001', '<JSON with parsedFields, sourceName, sourceType>');
 
 #### 1. Description
 > As a bureau administrator,
-> I want to specify source name, type, and member institution,
+> I want to specify source name, source type, and source name (institution picker),
 > So that the schema is correctly attributed.
 
 #### 2. API Requirements
