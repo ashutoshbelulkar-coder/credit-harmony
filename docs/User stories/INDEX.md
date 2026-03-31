@@ -25,7 +25,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 | EPIC-11 Reporting | On-demand report generation (PDF/CSV/XLSX), status lifecycle management, and export for regulatory and operational reporting. |
 | EPIC-12 User Management & RBAC | User invitation, role assignment, permissions matrix, account lifecycle, and platform activity log. |
 | EPIC-13 Dashboard & Command Center | Executive KPI dashboard with API usage charts, data quality trends, active batch pipeline table, processing throughput, and anomaly feed. |
-| EPIC-14 Batch Pipeline | Non-UI backend contract for batch credit data submission: file intake through all pipeline stages, phase/stage logging, error sampling, and monitoring integration. |
+| EPIC-14 Batch Pipeline | Schemaless SFTP + HTTP bulk data ingestion pipeline: institutions drop files (CSV/JSON/XML/fixed-width) in their designated SFTP folder; auto-format detection, schema auto-mapping, all pipeline stages, full KPI tracking, and monitoring integration. |
 | EPIC-15 Data Submission API | External-facing API-first platform for real-time tradeline submission by member institutions using API keys. |
 | EPIC-16 Enquiry API | External-facing API-first platform for credit enquiry requests with consent validation, consumer profile fetch, and product-level enrichment. |
 | EPIC-17 Agents | AI agent platform: agent catalogue, chat workspace, bureau operator tools, bank statement upload, and agent fleet monitoring. |
@@ -50,7 +50,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 | EPIC-11 | RPT | Reporting | Report request, queue, export | 5 | RPT-US-001–005 | [EPIC-11](./EPIC-11-Reporting.md) | ✅ Implemented | ✅ Implemented | ✅ Implemented |
 | EPIC-12 | USR | User Management & RBAC | Invite, roles, permissions, activity log | 7 | USR-US-001–007 | [EPIC-12](./EPIC-12-User-Management-RBAC.md) | ✅ Implemented | ✅ Implemented | ✅ Implemented |
 | EPIC-13 | DASH | Dashboard & Command Center | KPI row, charts, pipeline, anomaly feed | 6 | DASH-US-001–006 | [EPIC-13](./EPIC-13-Dashboard-Command-Center.md) | ⚠️ Partial | ✅ Implemented | ✅ Implemented |
-| EPIC-14 | BATCH | Batch Pipeline (non-UI) | File intake → all stages → logging | 9 | BATCH-US-001–009 | [EPIC-14](./EPIC-14-Batch-Pipeline.md) | N/A | ⚠️ Partial | ✅ Implemented |
+| EPIC-14 | BATCH | Batch Pipeline (non-UI) | Schemaless SFTP + HTTP intake → format detection → schema auto-mapping → all stages → KPI tracking | 13 | BATCH-US-001–013 | [EPIC-14](./EPIC-14-Batch-Pipeline.md) | N/A | ⚠️ Partial | ⚠️ Partial |
 | EPIC-15 | DSAPI | Data Submission API | API-first real-time tradeline submission | 7 | DSAPI-US-001–007 | [EPIC-15](./EPIC-15-Data-Submission-API.md) | N/A | ❌ Missing | ✅ Implemented |
 | EPIC-16 | ENQ | Enquiry API | API-first credit enquiry with consent | 7 | ENQ-US-001–007 | [EPIC-16](./EPIC-16-Enquiry-API.md) | N/A | ❌ Missing | ✅ Implemented |
 | EPIC-17 | AGNT | Agents | Agent catalogue, workspace, bureau ops | 8 | AGNT-US-001–008 | [EPIC-17](./EPIC-17-Agents.md) | ⚠️ Partial | ❌ Missing | ❌ Missing |
@@ -137,7 +137,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 | Story ID | Title | As a… I want to… So that… | API Endpoint | Primary Table | Priority | Status |
 |----------|-------|---------------------------|--------------|---------------|----------|--------|
 | SMAP-US-001 | Ingest Source Schema File | As a bureau admin, I want to upload a source schema so that the mapping wizard can parse its fields. | `POST /api/v1/schema-mapper/ingest` | `schema_mapper_raw_data`, `schema_mapper_registry` | P0 | ✅ Implemented |
-| SMAP-US-002 | Define Source in Wizard (Step 1) | As a bureau admin, I want to specify source name, type, and member institution so that the schema is correctly attributed. | `GET /api/v1/schema-mapper/wizard-metadata` | `schema_mapper_registry` | P0 | ✅ Implemented |
+| SMAP-US-002 | Define Source in Wizard (Step 1) | As a bureau admin, I want to specify source name, type, and source name (institution picker) so that the schema is correctly attributed. | `GET /api/v1/schema-mapper/wizard-metadata` | `schema_mapper_registry` | P0 | ✅ Implemented |
 | SMAP-US-003 | Run AI/LLM Field Mapping (Step 2) | As a bureau admin, I want the system to automatically suggest field mappings using AI so that manual effort is minimised. | `POST /api/v1/schema-mapper/mappings` (async, 202) | `schema_mapper_mapping` | P0 | ✅ Implemented |
 | SMAP-US-004 | Review and Edit Field Mappings (Step 3) | As a bureau admin, I want to review AI-suggested mappings and correct any errors so that data quality is maintained. | `GET/PATCH /api/v1/schema-mapper/mappings/:id` | `schema_mapper_mapping` | P0 | ✅ Implemented |
 | SMAP-US-005 | LLM Field Intelligence and PII Detection | As a bureau admin, I want the system to flag PII fields automatically so that sensitive data is handled appropriately. | `PATCH /api/v1/schema-mapper/mappings/:id` (`containsPii`) | `schema_mapper_mapping` | P1 | ✅ Implemented |
@@ -273,12 +273,12 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 
 ### EPIC-14 — Batch Pipeline (BATCH) — Non-UI
 
-> Documents the complete backend batch data submission pipeline as an engineering and compliance contract. No UI screens. Covers file arrival through all processing stages, phase/stage logging, error sampling, retry/cancel, and monitoring integration.
+> Schemaless SFTP + HTTP bulk data ingestion pipeline. Member institutions drop files (CSV, JSON, JSONL, fixed-width, XML) in their designated SFTP folder; the platform auto-detects the format, resolves the institution's approved schema mapping, processes all pipeline stages, and tracks every tracking point for monitoring KPI visibility.
 
 | Story ID | Title | As a… I want to… So that… | API / Trigger | Primary Table | Priority | Status |
 |----------|-------|---------------------------|---------------|---------------|----------|--------|
-| BATCH-US-001 | Batch File Arrival and Intake | As a member institution system, I want to submit a batch file so that the bureau can process my credit data. | `POST /api/v1/batch-jobs` (multipart) | `batch_jobs` | P0 | ✅ Implemented |
-| BATCH-US-002 | Schema Detection Stage | As the pipeline, I want to detect the source schema of the submitted file so that the correct mapping is applied. | Internal pipeline stage | `batch_jobs`, `schema_mapper_registry` | P0 | ⚠️ Partial |
+| BATCH-US-001 | Batch File Arrival and Intake (HTTP) | As a member institution system, I want to submit a batch file via HTTP POST so that the bureau can process my credit data. | `POST /api/v1/batch-jobs` (multipart) | `batch_jobs` | P0 | ✅ Implemented |
+| BATCH-US-002 | Schema Detection Stage | As the pipeline, I want to detect the source schema of the submitted file so that the correct field mapping is applied. | Internal pipeline stage | `batch_jobs`, `schema_mapper_registry` | P0 | ⚠️ Partial |
 | BATCH-US-003 | Field Validation Stage | As the pipeline, I want to validate every record against the configured validation rules so that only quality data proceeds. | Internal pipeline stage | `batch_phase_logs`, `validation_rules` | P0 | ✅ Implemented |
 | BATCH-US-004 | Field Mapping Stage | As the pipeline, I want to map source fields to canonical fields using the approved schema mapping so that data is normalised. | Internal pipeline stage | `batch_phase_logs`, `mapping_pairs` | P0 | ✅ Implemented |
 | BATCH-US-005 | Data Transformation Stage | As the pipeline, I want to apply transformations (PII encryption, type casting, normalisation) so that data meets storage standards. | Internal pipeline stage | `batch_stage_logs` | P0 | ⚠️ Partial |
@@ -286,6 +286,10 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 | BATCH-US-007 | Phase and Stage Logging | As an operations engineer, I want every pipeline phase and stage to be logged with status, timing, and record counts so that the execution console has full visibility. | Internal, writes to DB | `batch_phase_logs`, `batch_stage_logs`, `batch_error_samples` | P0 | ✅ Implemented |
 | BATCH-US-008 | Retry a Failed Batch Job | As a member institution operator, I want to retry a failed batch job so that transient failures are recoverable. | `POST /api/v1/batch-jobs/:id/retry` | `batch_jobs` | P1 | ✅ Implemented |
 | BATCH-US-009 | Cancel an In-Progress Batch Job | As a bureau admin, I want to cancel an in-progress batch job so that erroneous submissions are stopped before full load. | `POST /api/v1/batch-jobs/:id/cancel` | `batch_jobs` | P1 | ✅ Implemented |
+| BATCH-US-010 | SFTP File Drop and Auto-Detection | As a member institution, I want to place a data file in my designated SFTP folder so that the bureau automatically picks it up and begins processing without any API call. | `SftpPollerService` (scheduled) | `batch_sftp_events`, `batch_jobs` | P0 | ❌ Missing |
+| BATCH-US-011 | Multi-Format File Parsing | As the pipeline, I want to parse files in CSV, JSON, JSONL, fixed-width, and XML formats so that member institutions can submit in their native format. | Internal pipeline stage | `batch_sftp_events`, `batch_stage_logs` | P0 | ❌ Missing |
+| BATCH-US-012 | Schema Auto-Detection and Mapping Resolution | As the pipeline, I want to automatically resolve the correct schema mapping for a submitted file even when no sourceType is provided so that members do not need to tag their files. | Internal pipeline stage | `batch_jobs`, `schema_mapper_registry` | P0 | ❌ Missing |
+| BATCH-US-013 | Batch Job Tracking and Monitoring KPI Integration | As an operations engineer, I want every batch job's full lifecycle tracked with granular metrics so that monitoring dashboards have real-time KPI data from batch processing. | Internal, writes to DB | `batch_tracking_snapshots`, `batch_jobs`, `batch_sftp_events` | P0 | ❌ Missing |
 
 ---
 
@@ -373,6 +377,10 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 | GAP-013 | RPT-US-005 | Report download endpoint not fully wired; `file_path_encrypted` exists in DB but download API not confirmed | Partial | P1 |
 | GAP-014 | GOV-US-004 | `MatchReview.tsx` is a partial stub; consumer match review API not implemented | Partial | P1 |
 | GAP-015 | BATCH-US-002 | Schema detection stage in batch pipeline is not fully implemented; relies on manual schema mapper pre-registration | Partial | P0 |
+| GAP-016 | BATCH-US-010 | SFTP file drop intake not implemented; `SftpPollerService`, `batch_sftp_events` table, and SFTP folder lifecycle all missing | Missing API | P0 |
+| GAP-017 | BATCH-US-011 | Multi-format file parsers (fixed-width layout, XML SAX) not implemented; JSON/CSV partial only | Missing API | P0 |
+| GAP-018 | BATCH-US-012 | Schema auto-detection from file headers (Jaccard similarity) and filename hints not implemented | Missing API | P0 |
+| GAP-019 | BATCH-US-013 | `batch_tracking_snapshots` table missing; `batch_jobs` lacks SFTP/schema/mapping quality columns; SFTP monitoring endpoints absent | Missing API + DB | P0 |
 
 ---
 
