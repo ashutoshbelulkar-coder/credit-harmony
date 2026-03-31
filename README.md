@@ -1,10 +1,10 @@
 # HCB — Hybrid Credit Bureau Admin Portal
 
-**Version 3.0.0** | React 18 SPA + **Fastify dev API (default)** | JWT | Optional Spring Boot track
+**Version 3.0.0** | React 18 SPA + **Spring Boot API (canonical)** | JWT | Legacy Fastify dev track
 
-This repository is a **Hybrid Credit Bureau (HCB) admin portal**: a React 18 + TypeScript SPA (Vite) that talks to an **in-repo Fastify server** on **port 8091** by default — the **canonical contract** for local development (`npm run server` + `npm run dev`). That API uses **JWT auth** and **in-memory state** seeded from `src/data/*.json` (restart clears mutations).
+This repository is a **Hybrid Credit Bureau (HCB) admin portal**: a React 18 + TypeScript SPA (Vite) that talks to **Spring Boot** under `backend/` on **port 8090** by default — **durable SQLite** in dev (`backend/data/hcb_platform.db`) and PostgreSQL in production. Vite proxies `/api` to `http://127.0.0.1:8090` unless `VITE_API_PROXY_TARGET` overrides.
 
-An optional **Spring Boot** application under `backend/` (port **8090**, SQLite dev / PostgreSQL prod) provides a **separate** normalized persistence and RBAC model; the SPA does **not** proxy to it unless you set `VITE_API_PROXY_TARGET` when starting Vite. Contracts differ — see `docs/technical/SPA-Service-Contract-Drift.md`.
+A **legacy Fastify** server in `server/` (port **8091**, in-memory) remains for historical comparison and small Node unit tests; it is **not** the default product backend. Remaining contract gaps vs the SPA are tracked in `docs/technical/SPA-Service-Contract-Drift.md` (being closed toward Spring).
 
 **First-time engineers:** read `docs/technical/Developer-Handbook.md` and `AGENTS.md`. **Product / compliance:** `docs/PRD-BRD-HCB-Admin-Portal.md`, `docs/BRD-Hybrid-Credit-Bureau-Admin-Portal.md`.
 
@@ -32,9 +32,9 @@ An optional **Spring Boot** application under `backend/` (port **8090**, SQLite 
 
 ## Overview
 
-The HCB Admin Portal is the primary control plane for bureau operators, compliance officers, and analysts. With **`npm run server`** + **`VITE_USE_MOCK_FALLBACK=false`**, core flows hit the **Fastify** JWT API; otherwise the SPA can fall back to static JSON mocks. It provides:
+The HCB Admin Portal is the primary control plane for bureau operators, compliance officers, and analysts. With **`npm run spring:start`** + **`VITE_USE_MOCK_FALLBACK=false`**, core flows hit the **Spring** JWT API; otherwise the SPA can fall back to static JSON mocks. It provides:
 
-- **Member Management** — dual-role onboarding (data submitters + subscribers), registration wizard, institution detail with tabbed views
+- **Member Management** — dual-role onboarding (data submitters + subscribers), registration wizard, institution detail with tabbed views; **single-string** labels (pickers, dashboard command-center, monitoring) prefer **legal name** over optional trading name — see `docs/technical/API-UI-Parity-Matrix.md` (*Institution display labels*)
 - **Data Governance** — AI-assisted schema mapper, validation rules, match review, data quality monitoring, governance audit logs
 - **Monitoring** — real-time API monitoring, batch job tracking, SLA configuration, alert engine with auto-remediation
 - **Consortium Management** — multi-institution data sharing agreements, member management, policy configuration
@@ -43,16 +43,16 @@ The HCB Admin Portal is the primary control plane for bureau operators, complian
 - **Reporting** — self-service report generation (10 report types, status tracking, export)
 - **User Management** — users list, roles & permissions (5 roles, 9 permission categories), activity log
 - **AI Agents** — 10 specialized credit analysis agents with chat workspace and bureau enquiry integration
-- **Approval Queue** — centralized governance approval workflow (institutions, schema mappings, consortiums, **data products** when using the in-repo Fastify dev API)
+- **Approval Queue** — centralized governance approval workflow (institutions, consortiums, products, etc., backed by the **Spring** persistence model)
 
 ### Canonical backend for the SPA (local development)
 
 | Role | Code | Default port | Persistence |
 |------|------|--------------|-------------|
-| **Default API for the React app** | `server/` (Fastify) | **8091** | In-memory, seeded from `src/data/*.json` |
-| Optional Java API | `backend/` (Spring Boot) | **8090** | SQLite (dev) / PostgreSQL (prod) |
+| **Default API for the React app** | `backend/` (Spring Boot) | **8090** | SQLite (dev) / PostgreSQL (prod) |
+| Legacy Node API | `server/` (Fastify) | **8091** | In-memory only (`npm run server` / `server:legacy`) |
 
-Vite proxies `/api` to `process.env.VITE_API_PROXY_TARGET` or **`http://127.0.0.1:8091`**. To point the SPA at Spring (experimental; contracts differ), set `VITE_API_PROXY_TARGET=http://127.0.0.1:8090` when starting Vite and read `docs/technical/SPA-Service-Contract-Drift.md`.
+Vite proxies `/api` to `process.env.VITE_API_PROXY_TARGET` or **`http://127.0.0.1:8090`**. Copy `.env.development.example` for a documented starting point.
 
 Full write-up: **`docs/technical/Canonical-Backend.md`**.
 
@@ -64,7 +64,7 @@ Full write-up: **`docs/technical/Canonical-Backend.md`**.
 |------------|---------|---------|
 | React | 18.x | UI framework |
 | TypeScript | 5.x | Type safety |
-| Vite | 5.x | Build tool and dev server (port 8080; proxies `/api` → dev API, default `127.0.0.1:8091`) |
+| Vite | 5.x | Build tool and dev server (port 8080; proxies `/api` → Spring, default `127.0.0.1:8090`) |
 | Tailwind CSS | 3.x | Utility-first styling |
 | shadcn/ui + Radix UI | — | Accessible headless component system |
 | Recharts | 2.x | Chart visualizations |
@@ -85,7 +85,7 @@ The frontend uses a fully wired API integration layer with mock fallback for off
 ### Architecture
 
 ```
-Pages → React Query Hooks → Services → api-client.ts → **Fastify dev API (port 8091)** unless `VITE_API_PROXY_TARGET` overrides
+Pages → React Query Hooks → Services → api-client.ts → **Spring API (port 8090)** unless `VITE_API_PROXY_TARGET` overrides
                                    ↓ (on error, dev + VITE_USE_MOCK_FALLBACK=true only)
                                 Mock data (src/data/*.json)
 ```
@@ -110,24 +110,24 @@ npm run dev
 # All pages render with static mock data — no backend required
 ```
 
-### Running with live backend (in-repo Fastify API)
+### Running with live backend (Spring Boot)
 
 ```sh
-# Terminal 1 — local dev API (in-memory state, seeded from src/data JSON)
-npm run server
+# Terminal 1 — Java API (SQLite under backend/data/ by default; requires Maven on PATH)
+npm run spring:start
 
 # Terminal 2 — SPA against real HTTP (disable mock fallback)
 VITE_USE_MOCK_FALLBACK=false npm run dev
 ```
 
-Optional: Spring Boot on port 8090 — set environment variable **`VITE_API_PROXY_TARGET=http://127.0.0.1:8090`** before `npm run dev` (same shell / `.env.development`). Expect client changes for pagination and HTTP verbs until contracts align.
+Legacy Fastify (in-memory): **`npm run server`** on port **8091** — use only for comparison; set `VITE_API_PROXY_TARGET=http://127.0.0.1:8091` if needed.
 
 ### Vite Proxy
 
-[`vite.config.ts`](vite.config.ts) proxies `/api` to `process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8091"`:
+[`vite.config.ts`](vite.config.ts) proxies `/api` to `process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8090"`:
 
 ```
-Frontend (8080)  →  /api/v1/...  →  Fastify (8091) by default
+Frontend (8080)  →  /api/v1/...  →  Spring Boot (8090) by default
 ```
 
 ### Wired Pages (v2.2)
@@ -153,7 +153,7 @@ All pages below call their respective React Query hook and fall back to static m
 | `ProductFormPage.tsx` | `useProduct`, `useCreateProduct`, `useUpdateProduct` | Product Create/Edit |
 | `ReportListPage.tsx` | `useReports`, `useCancelReport`, `useRetryReport` | Reports |
 | `NewReportRequestPage.tsx` | `useCreateReport`, `useInstitutions`, `useProducts` | New Report |
-| `DataSubmissionBatchSection.tsx` | `useBatchJobs`, `useBatchKpis` | Monitoring / Batch |
+| `DataSubmissionBatchSection.tsx` | `useBatchJobs`, `useBatchKpis`, `useBatchCharts`, `useBatchDetail` | Monitoring / Batch (list + KPIs + charts; execution console via **`GET /v1/batch-jobs/:id/detail`** → **`resolveBatchConsoleData`**) |
 | `DataSubmissionApiSection.tsx` | `useApiRequests`, `useMonitoringKpis`, `useMonitoringCharts` | Monitoring / API |
 | `InquiryApiSection.tsx` | `useEnquiries` | Monitoring / Enquiry |
 | `AlertRulesDashboard.tsx` | `useAlertRules`, `useCreateAlertRule`, `useToggleAlertRule`, `useDeleteAlertRule` | Alerts |
@@ -193,7 +193,7 @@ src/data/
 ├── institution-tabs.json      # Monitoring/Billing/Consent/Users tab data
 ├── app-notifications.json     # App header notification items
 ├── simulation-defaults.json   # Enquiry simulation form defaults + agent chat history
-├── batch-console.json         # Batch execution console dummy diagnostics
+├── batch-console.json         # Batch execution console mock tree for **`BATCH-*`** ids (Spring numeric ids use **`GET …/batch-jobs/:id/detail`**)
 └── reporting.json             # Initial report rows + report type filter options
 ```
 
@@ -621,76 +621,55 @@ backend/
 
 ## 11. Testing
 
-**This repository:** Run **`npm run test`** (Vitest — client + in-repo Fastify integration) and **`npm run openapi:validate`** (validates `docs/technical/openapi-hcb-fastify-snapshot.yaml`; also run in CI). Step-by-step setup, env vars, ports, and troubleshooting: **`docs/technical/Developer-Handbook.md`**. UI ↔ API mapping: **`docs/technical/API-UI-Parity-Matrix.md`**.
+**This repository:** Run **`npm run test`** (Vitest — client + legacy Node tests under `server/`) and **`npm run spring:test`** (Spring Boot / JUnit — **`HcbPlatformApplicationTest`**, SQLite integration tests: **`RouteParitySqliteIntegrationTest`** (drift alerts, API keys, user deactivate, GET bundle), **`ApprovalQueueSqliteIntegrationTest`** (approvals **`metadata`**, product/alert-rule enqueue, **204** approve/reject), **`DashboardCommandCenterSqliteIntegrationTest`**, **`MonitoringAlertSqliteIntegrationTest`**, **`SchemaMapperSqliteIntegrationTest`** — all against **`create_tables.sql`** + seed where applicable). Optional smoke: **`npm run check:route-parity`**. Also **`npm run openapi:validate`** for **`docs/technical/openapi-hcb-fastify-snapshot.yaml`**. Setup: **`docs/technical/Developer-Handbook.md`**. UI ↔ API: **`docs/technical/API-UI-Parity-Matrix.md`**. Routes: **`docs/technical/Spring-SPA-Route-Inventory.md`**.
 
-**End-to-end (Playwright):** Install browsers once with **`npx playwright install`**, then **`npm run test:e2e`**. This starts Fastify on 8091 and Vite on **4173** with `VITE_USE_MOCK_FALLBACK=false` and runs critical flows against the live dev API. OpenAPI snapshot (hand-maintained): **`docs/technical/openapi-hcb-fastify-snapshot.yaml`**.
+**End-to-end (Playwright):** `npx playwright install` once, then **`npm run test:e2e`**. **`playwright.config.ts`** starts **Spring Boot on 8090** and Vite on **4173** with **`VITE_USE_MOCK_FALLBACK=false`** (see repo config for exact `webServer` commands).
 
-### Run Backend Tests
+### Spring Boot tests (canonical HTTP regression)
+
 ```bash
-cd backend
-mvn test
+npm run spring:test
+# or: cd backend && mvn test
 ```
 
-### Test Coverage
-| Test | Description |
+| Area | Description |
 |------|-------------|
-| T01 | Context loads successfully |
-| T02 | Health endpoint publicly accessible |
-| T03 | Protected endpoint returns 401 without token |
-| T04 | Login with valid credentials returns JWT |
-| T05 | Login with invalid credentials returns 401 |
-| T06 | Login response never contains sensitive fields |
-| T07 | Auth endpoint requires valid email format |
-| T08 | Internal errors return generic error codes |
+| Auth | Login, refresh, validation, no password leakage (`HcbPlatformApplicationTest`) |
+| Dashboard | **`GET /api/v1/dashboard/command-center`** on real SQLite DDL + seed (`DashboardCommandCenterSqliteIntegrationTest`) |
+| Institutions / catalog | Health, form-metadata, packet-catalog, protected routes |
+| Approval queue | **`ApprovalQueueSqliteIntegrationTest`** — enqueue, **`metadata`**, **204** mutations |
 
-### Test the Full Auth Flow (in-repo Fastify API — port **8091**)
+### Manual auth + dashboard (Spring — port **8090**)
+
 ```bash
 # 1. Login
-curl -X POST http://127.0.0.1:8091/api/v1/auth/login \
+curl -s -X POST http://127.0.0.1:8090/api/v1/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"admin@hcb.com","password":"Admin@1234"}'
 
-# 2. Use the token
-ACCESS_TOKEN="<token from step 1>"
-curl -H "Authorization: Bearer $ACCESS_TOKEN" \
-  http://127.0.0.1:8091/api/v1/institutions
+# 2. Use the access token
+ACCESS_TOKEN="<paste accessToken from JSON>"
+curl -s "http://127.0.0.1:8090/api/v1/dashboard/command-center?range=30d" \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 
-# 3. Refresh the token
-curl -X POST http://127.0.0.1:8091/api/v1/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{"refresh_token":"<your_refresh_token>"}'
-
-# 4. Test suspended user (should return 401)
-curl -X POST http://127.0.0.1:8091/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"suspended@hcb.com","password":"Suspended@1234"}'
-```
-
-*If you use a future Spring backend instead, replace host/port with that deployment; this repo’s dev server is Fastify on **8091**.*
-
-# 5. Test role-based access (Viewer cannot manage users)
-VIEWER_TOKEN="<viewer token>"
-curl -H "Authorization: Bearer $VIEWER_TOKEN" \
-  http://localhost:8090/api/v1/users
+# 3. Viewer cannot manage users (expect 403)
+VIEWER_TOKEN="<token from viewer@hcb.com login>"
+curl -s http://127.0.0.1:8090/api/v1/users \
+  -H "Authorization: Bearer $VIEWER_TOKEN"
 # Expected: 403 ERR_ACCESS_DENIED
 ```
 
-### Run Frontend + API integration tests (Vitest)
+### Legacy Fastify (port **8091**) — optional
+
+**Schema Mapper** and most governance APIs are implemented on **Spring (8090)**; use the default Vite proxy. If you run **`npm run server`** and set **`VITE_API_PROXY_TARGET=http://127.0.0.1:8091`**, Fastify’s in-memory routes remain available for comparison; behaviour may **differ** — see **`docs/technical/SPA-Service-Contract-Drift.md`**.
+
+### Vitest (frontend + Node helpers)
 
 ```bash
 npm run test
 ```
 
-Uses two Vitest projects: **client** (jsdom, `src/**/*.test.*`) and **server** (node, `server/**/*.test.ts`). Server tests call `buildServer()` and `app.inject()` — no listening port required.
-
-### Run Backend Tests (Spring / Java track)
-
-```bash
-cd backend
-mvn test
-```
-
-When the Java backend is not present, rely on the Fastify integration suite above.
+Projects: **client** (jsdom, `src/**/*.test.*`) and **server** (node, `server/**/*.test.ts`). Legacy Fastify **`app.inject()`** integration was removed; use **`npm run spring:test`** for HTTP API regression.
 
 ---
 

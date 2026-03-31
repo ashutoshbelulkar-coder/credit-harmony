@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import {
   LineChart, Line, CartesianGrid, XAxis, YAxis, BarChart, Bar, PieChart, Pie, Cell,
 } from "recharts";
@@ -107,9 +108,19 @@ export function ApiUsageChart({
   );
 }
 
+function mappingAccuracyYDomain(points: { accuracy: number }[]): [number, number] {
+  if (!points.length) return [95, 100];
+  const vals = points.map((p) => p.accuracy);
+  const lo = Math.min(...vals);
+  const hi = Math.max(...vals);
+  const pad = Math.max(0.25, (hi - lo) * 0.15 || 0.5);
+  return [Math.max(0, lo - pad), Math.min(100, hi + pad)];
+}
+
 export function DataQualityCharts({ data, loading }: { data?: DashboardChartsData; loading?: boolean }) {
   const mappingAccuracyData = data?.mappingAccuracy ?? [];
   const matchConfidenceData = data?.matchConfidence ?? [];
+  const accuracyYDomain = useMemo(() => mappingAccuracyYDomain(mappingAccuracyData), [mappingAccuracyData]);
 
   return (
     <section aria-label="Data quality and matching" className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-2 laptop:grid-cols-12">
@@ -124,7 +135,13 @@ export function DataQualityCharts({ data, loading }: { data?: DashboardChartsDat
               <LineChart data={loading ? [] : mappingAccuracyData} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="week" tickLine={false} axisLine={false} tickMargin={8} />
-                <YAxis tickLine={false} axisLine={false} tickMargin={8} domain={[96, 100]} tickFormatter={(v) => `${v.toFixed(1)}%`} />
+                <YAxis
+                  tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
+                  domain={accuracyYDomain}
+                  tickFormatter={(v) => `${Number(v).toFixed(1)}%`}
+                />
                 <ChartTooltip content={<ChartTooltipContent labelKey="week" />} />
                 <ChartLegend content={<ChartLegendContent />} />
                 <Line type="monotone" dataKey="accuracy" stroke="var(--color-accuracy)" strokeWidth={2} dot={{ r: 3 }} />

@@ -1,5 +1,6 @@
 package com.hcb.platform.model.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -61,11 +62,36 @@ public class Institution {
     @Column(name = "onboarded_at")
     private LocalDateTime onboardedAt;
 
+    /** Lombok {@code setDataSubmitter} alone maps JSON {@code dataSubmitter}, not {@code isDataSubmitter}. */
     @Column(name = "is_data_submitter", nullable = false)
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
     private boolean isDataSubmitter;
 
     @Column(name = "is_subscriber", nullable = false)
+    @Getter(AccessLevel.NONE)
+    @Setter(AccessLevel.NONE)
     private boolean isSubscriber;
+
+    @JsonProperty("isDataSubmitter")
+    public boolean isDataSubmitter() {
+        return isDataSubmitter;
+    }
+
+    @JsonProperty("isDataSubmitter")
+    public void setDataSubmitter(boolean isDataSubmitter) {
+        this.isDataSubmitter = isDataSubmitter;
+    }
+
+    @JsonProperty("isSubscriber")
+    public boolean isSubscriber() {
+        return isSubscriber;
+    }
+
+    @JsonProperty("isSubscriber")
+    public void setSubscriber(boolean isSubscriber) {
+        this.isSubscriber = isSubscriber;
+    }
 
     @Column(name = "billing_model", length = 20)
     private String billingModel;
@@ -92,6 +118,7 @@ public class Institution {
     private LocalDateTime updatedAt;
 
     @Column(name = "is_deleted", nullable = false)
+    @JsonProperty("isDeleted")
     private boolean isDeleted;
 
     @Column(name = "deleted_at")

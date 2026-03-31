@@ -118,8 +118,9 @@ function heuristicFieldMappings(
       }
     }
     const master = canonicalPath ? byPath.get(canonicalPath) : undefined;
+    const sp = String(pf.path ?? pf.name ?? "");
     return {
-      sourcePath: pf.path ?? pf.name,
+      sourcePath: sp,
       sourceFieldId: pf.id,
       canonicalPath,
       canonicalFieldId,
@@ -129,6 +130,7 @@ function heuristicFieldMappings(
       llmRationale: canonicalPath
         ? `Heuristic alignment to ${canonicalPath}${master ? `: ${master.description}` : ""}`
         : "No confident match — needs human review",
+      containsPii: false,
     };
   });
 }
@@ -387,6 +389,7 @@ export function scheduleMappingJob(state: AppState, mappingId: string, audit: Sc
           confidence: typeof row.confidence === "number" ? row.confidence : 0.7,
           reviewStatus: "pending",
           llmRationale: String(row.llmRationale ?? "LLM proposal"),
+          containsPii: Boolean(base?.containsPii),
         });
       }
       fieldMappings = Array.from(bySource.values());
@@ -539,10 +542,16 @@ export function registerSchemaMapperRoutes(
       schemaRegistryId: regId,
     });
 
+    const dataCategory =
+      body.dataCategory != null && String(body.dataCategory).trim() !== "" ?
+        String(body.dataCategory).trim()
+      : undefined;
+
     sm.schemaRegistry.unshift({
       id: regId,
       sourceName,
       sourceType,
+      ...(dataCategory ? { dataCategory } : {}),
       masterSchemaVersion: "HCB Master v1.1",
       mappingCoverage: 0,
       unmappedFields: parsedFields.length,

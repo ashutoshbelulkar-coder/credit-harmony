@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import {
   Table,
   TableBody,
@@ -26,7 +26,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { tableHeaderClasses } from "@/lib/typography";
-import { filterInstitutions } from "@/data/data-governance-mock";
+import { InstitutionFilterSelect } from "@/components/shared/InstitutionFilterSelect";
 import { ChevronDown, Filter } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAuditLogs } from "@/hooks/api/useAuditLogs";
@@ -44,8 +44,6 @@ const ACTION_TYPES = [
   "CONFIG_CHANGED",
 ];
 
-const INSTITUTIONS = filterInstitutions;
-
 interface SelectedEntry {
   id: number;
   userEmail: string;
@@ -62,6 +60,7 @@ export default function GovernanceAuditLogs() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [actionFilter, setActionFilter] = useState<string>("all");
+  const [institutionId, setInstitutionId] = useState("all");
   const [selectedEntry, setSelectedEntry] = useState<SelectedEntry | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
 
@@ -70,12 +69,11 @@ export default function GovernanceAuditLogs() {
     actionType: actionFilter !== "all" ? actionFilter : undefined,
     from: dateFrom || undefined,
     to: dateTo || undefined,
+    institutionId: institutionId !== "all" ? institutionId : undefined,
     size: 50,
   });
 
   const entries: AuditLogEntry[] = data?.content ?? [];
-
-  const filtered = useMemo(() => entries, [entries]);
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -98,46 +96,39 @@ export default function GovernanceAuditLogs() {
         <CollapsibleContent>
           <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="space-y-2">
-                <Label className="text-caption">Date from</Label>
-                <DatePicker value={dateFrom} onChange={setDateFrom} className="h-8" />
+              <div className="space-y-1.5">
+                <Label className="text-caption text-muted-foreground">Date from</Label>
+                <DatePicker value={dateFrom} onChange={setDateFrom} className="h-9 text-caption" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-caption">Date to</Label>
-                <DatePicker value={dateTo} onChange={setDateTo} className="h-8" />
+              <div className="space-y-1.5">
+                <Label className="text-caption text-muted-foreground">Date to</Label>
+                <DatePicker value={dateTo} onChange={setDateTo} className="h-9 text-caption" />
               </div>
-              <div className="space-y-2">
-                <Label className="text-caption">Action type</Label>
+              <div className="space-y-1.5">
+                <Label className="text-caption text-muted-foreground">Action type</Label>
                 <Select value={actionFilter} onValueChange={setActionFilter}>
-                  <SelectTrigger className="h-8">
+                  <SelectTrigger className="h-9 text-caption">
                     <SelectValue placeholder="All actions" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All actions</SelectItem>
+                    <SelectItem value="all" className="text-caption">
+                      All actions
+                    </SelectItem>
                     {ACTION_TYPES.map((a) => (
-                      <SelectItem key={a} value={a}>
+                      <SelectItem key={a} value={a} className="text-caption">
                         {a.replace(/_/g, " ").toLowerCase()}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label className="text-caption">Institution</Label>
-                <Select defaultValue="all">
-                  <SelectTrigger className="h-8">
-                    <SelectValue placeholder="All" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All</SelectItem>
-                    {INSTITUTIONS.map((i) => (
-                      <SelectItem key={i} value={i}>
-                        {i}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              <InstitutionFilterSelect
+                id="governance-audit-institution-mobile"
+                mode="all"
+                value={institutionId}
+                onValueChange={setInstitutionId}
+                triggerClassName="h-9 min-w-[200px]"
+              />
             </div>
           </div>
         </CollapsibleContent>
@@ -146,46 +137,39 @@ export default function GovernanceAuditLogs() {
       {/* Desktop: always-visible filters */}
       <div className="hidden rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] md:block">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="space-y-2">
-            <Label className="text-caption">Date from</Label>
-            <DatePicker value={dateFrom} onChange={setDateFrom} className="h-8" />
+          <div className="space-y-1.5">
+            <Label className="text-caption text-muted-foreground">Date from</Label>
+            <DatePicker value={dateFrom} onChange={setDateFrom} className="h-9 text-caption" />
           </div>
-          <div className="space-y-2">
-            <Label className="text-caption">Date to</Label>
-            <DatePicker value={dateTo} onChange={setDateTo} className="h-8" />
+          <div className="space-y-1.5">
+            <Label className="text-caption text-muted-foreground">Date to</Label>
+            <DatePicker value={dateTo} onChange={setDateTo} className="h-9 text-caption" />
           </div>
-          <div className="space-y-2">
-            <Label className="text-caption">Action type</Label>
+          <div className="space-y-1.5">
+            <Label className="text-caption text-muted-foreground">Action type</Label>
             <Select value={actionFilter} onValueChange={setActionFilter}>
-              <SelectTrigger className="h-8">
+              <SelectTrigger className="h-9 text-caption">
                 <SelectValue placeholder="All actions" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All actions</SelectItem>
+                <SelectItem value="all" className="text-caption">
+                  All actions
+                </SelectItem>
                 {ACTION_TYPES.map((a) => (
-                  <SelectItem key={a} value={a}>
+                  <SelectItem key={a} value={a} className="text-caption">
                     {a.replace(/_/g, " ").toLowerCase()}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-2">
-            <Label className="text-caption">Institution</Label>
-            <Select defaultValue="all">
-              <SelectTrigger className="h-8">
-                <SelectValue placeholder="All" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {INSTITUTIONS.map((i) => (
-                  <SelectItem key={i} value={i}>
-                    {i}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          <InstitutionFilterSelect
+            id="governance-audit-institution-desktop"
+            mode="all"
+            value={institutionId}
+            onValueChange={setInstitutionId}
+            triggerClassName="h-9 min-w-[200px]"
+          />
         </div>
       </div>
 
@@ -207,13 +191,13 @@ export default function GovernanceAuditLogs() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filtered.length === 0 ? (
+              {entries.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
                     No governance audit logs found
                   </TableCell>
                 </TableRow>
-              ) : filtered.map((entry) => (
+              ) : entries.map((entry) => (
                 <TableRow
                   key={entry.id}
                   className="cursor-pointer"

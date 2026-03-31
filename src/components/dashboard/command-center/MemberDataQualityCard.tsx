@@ -49,16 +49,21 @@ export function MemberDataQualityCard({
   points,
   loading,
   dateRange,
+  /** When set (from GET /dashboard/command-center), table rows are exactly these active data-submitters. */
+  memberRowLabels,
   onOpenQualityCenter,
 }: {
   points: MemberQualityPoint[];
   loading?: boolean;
   /** When set, roll-up columns such as `30d` are hidden unless they match the selected window and have data. */
   dateRange?: DashboardDateRange;
+  memberRowLabels?: string[];
   onOpenQualityCenter?: () => void;
 }) {
-  // Simple grid “heatmap-like” table: members x periods
-  const members = Array.from(new Set(points.map((p) => p.member)));
+  // Simple grid “heatmap-like” table: members x periods (row order from API when provided)
+  const membersFromPoints = Array.from(new Set(points.map((p) => p.member)));
+  const members =
+    memberRowLabels != null && memberRowLabels.length > 0 ? memberRowLabels : membersFromPoints;
   const periodsRaw = Array.from(new Set(points.map((p) => p.period)));
   const periods = periodsRaw.filter((p) => periodVisibleForSelectedRange(p, points, dateRange));
 

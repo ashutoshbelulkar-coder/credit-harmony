@@ -281,11 +281,39 @@ async function readJsonBody<T>(res: Response): Promise<T> {
   }
 }
 
+/** Read full body as text with the same timeout budget as JSON reads (handles 200 No Content / empty Spring bodies). */
+async function readResponseTextWithTimeout(res: Response, path: string): Promise<string> {
+  let tid: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    tid = setTimeout(
+      () => reject(new DOMException("Response body read timed out", "TimeoutError")),
+      JSON_BODY_READ_TIMEOUT_MS
+    );
+  });
+  try {
+    return await Promise.race([res.text(), timeout]);
+  } finally {
+    if (tid !== undefined) clearTimeout(tid);
+  }
+}
+
 async function parseResponse<T>(res: Response, path: string): Promise<T> {
   if (res.ok) {
-    if (res.status === 204) return undefined as T;
+    if (res.status === 204 || res.status === 205) return undefined as T;
     try {
-      return await readJsonBody<T>(res);
+      const text = await readResponseTextWithTimeout(res, path);
+      const trimmed = text.trim();
+      if (trimmed === "") return undefined as T;
+      try {
+        return JSON.parse(trimmed) as T;
+      } catch {
+        throw new ApiError(
+          502,
+          "ERR_INVALID_JSON",
+          `Invalid JSON in success response (${path})`,
+          path
+        );
+      }
     } catch (e) {
       if (isAbortOrTimeout(e)) {
         throw new ApiError(

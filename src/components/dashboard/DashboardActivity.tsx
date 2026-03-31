@@ -1,5 +1,8 @@
 import { BarChart3 } from "lucide-react";
+import { Link } from "react-router-dom";
 import type { DashboardActivitySnapshot } from "@/api/dashboard-types";
+
+const RECENT_ACTIVITY_PREVIEW = 5;
 
 const dotColors: Record<string, string> = {
   info: "bg-info",
@@ -15,6 +18,7 @@ export function DashboardActivity({
   loading?: boolean;
 }) {
   const recentActivity = data?.recentActivity ?? [];
+  const previewActivity = recentActivity.slice(0, RECENT_ACTIVITY_PREVIEW);
   const topInstitutions = data?.topInstitutions ?? [];
 
   return (
@@ -26,10 +30,15 @@ export function DashboardActivity({
       <div className="lg:col-span-3 laptop:col-span-7 bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <div className="flex items-center justify-between border-b border-border pb-4">
           <h2 className="text-label uppercase tracking-[0.08em] text-muted-foreground">Recent Activity</h2>
-          <button className="text-caption font-medium text-primary hover:text-primary/80 transition-colors">View all</button>
+          <Link
+            to="/data-governance/governance-audit-logs"
+            className="text-caption font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            View all
+          </Link>
         </div>
         <div className="divide-y divide-border">
-          {(loading ? [] : recentActivity).map((activity, i) => (
+          {(loading ? [] : previewActivity).map((activity, i) => (
             <div key={i} className="flex items-center gap-4 px-1 py-3">
               <div className={`h-2 w-2 shrink-0 rounded-full ${dotColors[activity.status] || ""}`} />
               <div className="min-w-0 flex-1">

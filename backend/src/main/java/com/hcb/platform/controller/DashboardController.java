@@ -164,7 +164,7 @@ public class DashboardController {
                 + " COALESCE(i.data_quality_score, 0) AS quality,"
                 + " COALESCE(i.sla_health_percent, 0) AS sla"
                 + " FROM enquiries e"
-                + " INNER JOIN institutions i ON i.id = e.requesting_institution_id AND i.is_deleted = 0"
+                + " INNER JOIN institutions i ON i.id = e.requesting_institution_id AND NOT i.is_deleted"
                 + " WHERE " + enqWhere
                 + " GROUP BY i.id, i.name, i.data_quality_score, i.sla_health_percent"
                 + " ORDER BY enquiryCount DESC LIMIT 5"));
@@ -175,7 +175,7 @@ public class DashboardController {
                 + " ROUND(AVG(bj.success_rate), 2) AS accuracy"
                 + " FROM batch_jobs bj"
                 + " WHERE bj.total_records > 0 AND bj.success_rate IS NOT NULL AND " + batchWhere
-                + " GROUP BY week ORDER BY week LIMIT 16"));
+                + " GROUP BY week ORDER BY week LIMIT 24"));
 
         result.put("matchConfidence", jdbc.queryForList(
             "SELECT CASE"
@@ -185,7 +185,7 @@ public class DashboardController {
                 + " ELSE '98%+'"
                 + " END AS bucket, COUNT(*) AS count"
                 + " FROM institutions i"
-                + " WHERE i.is_deleted = 0 AND i.is_data_submitter = 1"
+                + " WHERE NOT i.is_deleted AND i.is_data_submitter = 1"
                 + " GROUP BY bucket"
                 + " ORDER BY MIN(COALESCE(i.match_accuracy_score, 0))"));
 
@@ -342,12 +342,12 @@ public class DashboardController {
         cc.put("activeAlerts", activeAlerts != null ? activeAlerts : 0);
 
         Long pendingOnboarding = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM institutions WHERE institution_lifecycle_status = 'Pending Approval' AND is_deleted = 0",
+            "SELECT COUNT(*) FROM institutions WHERE institution_lifecycle_status = 'pending' AND NOT is_deleted",
             Long.class);
         cc.put("pendingOnboarding", pendingOnboarding != null ? pendingOnboarding : 0);
 
         Long activeInstitutions = jdbc.queryForObject(
-            "SELECT COUNT(*) FROM institutions WHERE institution_lifecycle_status = 'active' AND is_deleted = 0",
+            "SELECT COUNT(*) FROM institutions WHERE institution_lifecycle_status = 'active' AND NOT is_deleted",
             Long.class);
         cc.put("activeInstitutions", activeInstitutions != null ? activeInstitutions : 0);
 
@@ -360,8 +360,26 @@ public class DashboardController {
         cc.put("batches", queryBatchPipelineRows());
         cc.put("anomalies", queryAnomalyFeed());
         cc.put("memberQuality", queryMemberQualityGrid(range, from, to));
+        cc.put("memberQualitySubmitters", queryActiveDataSubmitterLabels());
 
         return ResponseEntity.ok(cc);
+    }
+
+    /**
+     * Display labels for institutions that may submit batch/API data: active lifecycle + data submitter flag.
+     * Drives dashboard Member Data Quality row axis (cells still come from batch aggregations in-window).
+     */
+    private List<String> queryActiveDataSubmitterLabels() {
+        return jdbc.query(
+            """
+                SELECT COALESCE(NULLIF(TRIM(i.name), ''), i.trading_name) AS label
+                FROM institutions i
+                WHERE NOT i.is_deleted
+                  AND i.is_data_submitter = 1
+                  AND i.institution_lifecycle_status = 'active'
+                ORDER BY LOWER(COALESCE(NULLIF(TRIM(i.name), ''), i.trading_name))
+                """,
+            (rs, rowNum) -> rs.getString("label"));
     }
 
     private List<Map<String, Object>> dashboardAgentsFleet() {
@@ -393,16 +411,16 @@ public class DashboardController {
     private List<Map<String, Object>> queryBatchPipelineRows() {
         List<Map<String, Object>> rows = jdbc.queryForList(
             """
-                SELECT bj.id, COALESCE(i.trading_name, i.name) AS member, bj.file_name AS file_name,
+                SELECT bj.id, COALESCE(NULLIF(TRIM(i.name), ''), i.trading_name) AS institution_label, bj.file_name AS file_name,
                        bj.batch_job_status AS batch_job_status, bj.total_records AS total_records,
                        bj.success_count AS success_count, bj.failed_count AS failed_count,
                        bj.success_rate AS success_rate, bj.uploaded_at AS uploaded_at
                 FROM batch_jobs bj
-                INNER JOIN institutions i ON i.id = bj.institution_id AND i.is_deleted = 0
-                WHERE bj.batch_job_status IN ('queued','processing','failed','partial')
+                INNER JOIN institutions i ON i.id = bj.institution_id AND NOT i.is_deleted
+                WHERE bj.batch_job_status IN ('queued','processing')
                 ORDER BY CASE bj.batch_job_status
-                    WHEN 'processing' THEN 0 WHEN 'failed' THEN 1 WHEN 'partial' THEN 2 WHEN 'queued' THEN 3
-                    ELSE 4 END, bj.uploaded_at DESC
+                    WHEN 'processing' THEN 0 WHEN 'queued' THEN 1
+                    ELSE 2 END, bj.uploaded_at DESC
                 LIMIT 20
                 """);
         List<Map<String, Object>> out = new ArrayList<>();
@@ -452,7 +470,7 @@ public class DashboardController {
         }
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("id", String.valueOf(row.get("id")));
-        m.put("member", row.get("member"));
+        m.put("member", row.get("institution_label"));
         m.put("format", fmt);
         m.put("records", total);
         m.put("progress", progress);
@@ -469,9 +487,9 @@ public class DashboardController {
                 SELECT ai.id, ar.rule_name AS rule_name, ar.alert_domain AS alert_domain, ar.severity_level AS severity_level,
                        ai.metric_name AS metric_name, ai.current_value_text AS current_value, ai.threshold_text AS threshold_text,
                        ai.alert_incident_status AS incident_status, ai.triggered_at AS triggered_at,
-                       COALESCE(i.trading_name, i.name) AS institution_name
+                       COALESCE(NULLIF(TRIM(i.name), ''), i.trading_name) AS institution_name
                 FROM alert_incidents ai
-                INNER JOIN alert_rules ar ON ar.id = ai.alert_rule_id AND ar.is_deleted = 0
+                INNER JOIN alert_rules ar ON ar.id = ai.alert_rule_id AND NOT ar.is_deleted
                 LEFT JOIN institutions i ON i.id = ai.institution_id
                 WHERE ai.alert_incident_status IN ('active','acknowledged')
                 ORDER BY ai.triggered_at DESC
@@ -524,17 +542,18 @@ public class DashboardController {
         String batchWhere = datetimeRangePredicate("bj.uploaded_at", range, from, to);
         boolean dayBuckets = "7d".equalsIgnoreCase(range)
             || ("custom".equalsIgnoreCase(range) && isIsoDate(from) && isIsoDate(to) && customRangeDays(from, to) <= 7);
+        // Short windows: mm-dd; longer presets: 4-hour buckets (e.g. "04h").
         String periodExpr = dayBuckets
             ? "strftime('%m-%d', bj.uploaded_at)"
             : "printf('%02dh', (CAST(strftime('%H', bj.uploaded_at) AS INTEGER) / 4) * 4)";
 
+        // SQLite 3.39+ reserves MEMBER (JSON); avoid AS member. anomalyFlag computed in Java.
         String sql = """
-            SELECT member, period,
+            SELECT institution_label, period,
                    ROUND(AVG(sr), 1) AS qualityScore,
-                   SUM(tr) AS recordCount,
-                   CASE WHEN AVG(sr) < 95 THEN 1 ELSE 0 END AS anomalyFlag
+                   SUM(tr) AS recordCount
             FROM (
-                SELECT COALESCE(i.trading_name, i.name) AS member,
+                SELECT COALESCE(NULLIF(TRIM(i.name), ''), i.trading_name) AS institution_label,
             """
             + periodExpr
             + """
@@ -542,26 +561,28 @@ public class DashboardController {
                        bj.success_rate AS sr,
                        bj.total_records AS tr
                 FROM batch_jobs bj
-                INNER JOIN institutions i ON i.id = bj.institution_id AND i.is_deleted = 0 AND i.is_data_submitter = 1
+                INNER JOIN institutions i ON i.id = bj.institution_id AND NOT i.is_deleted AND i.is_data_submitter = 1
+                    AND i.institution_lifecycle_status = 'active'
                 WHERE bj.batch_job_status IN ('completed','partial','failed','processing')
                   AND bj.success_rate IS NOT NULL
                   AND """
-            + batchWhere
+            + " " + batchWhere
             + """
             ) t
-            GROUP BY member, period
-            ORDER BY member, period
+            GROUP BY institution_label, period
+            ORDER BY institution_label, period
             """;
 
         List<Map<String, Object>> raw = jdbc.queryForList(sql);
         List<Map<String, Object>> out = new ArrayList<>();
         for (Map<String, Object> row : raw) {
+            double qs = toDouble(row.get("qualityScore"));
             Map<String, Object> m = new LinkedHashMap<>();
-            m.put("member", row.get("member"));
+            m.put("member", row.get("institution_label"));
             m.put("period", row.get("period"));
-            m.put("qualityScore", toDouble(row.get("qualityScore")));
+            m.put("qualityScore", qs);
             m.put("recordCount", toLong(row.get("recordCount")));
-            m.put("anomalyFlag", toLong(row.get("anomalyFlag")) != 0);
+            m.put("anomalyFlag", qs < 95.0);
             out.add(m);
         }
         return out;

@@ -1,6 +1,6 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { X } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQueries } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Breadcrumb,
@@ -32,7 +32,6 @@ import type {
   GovernanceSummary,
 } from "@/types/schema-mapper";
 import {
-  similarSchemasForTelecom,
   llmFieldIntelligenceRowsTelecom,
   telecomEnumReconciliations,
   generatedValidationRules,
@@ -52,7 +51,20 @@ import {
   usePatchMapping,
   useSubmitMappingApproval,
   useSchemaMappingDetail,
+  useSchemaRegistryList,
+  useSchemaMapperWizardMetadata,
 } from "@/hooks/api/useSchemaMapper";
+import { fetchSourceTypeFields } from "@/services/schema-mapper.service";
+import {
+  buildMultiSchemaMatchRows,
+  pathsFromParsedFields,
+} from "@/lib/build-multi-schema-match-rows";
+import {
+  FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS,
+  FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS,
+} from "@/lib/schema-mapper-wizard-metadata";
+import { schemaRegistryEntries } from "@/data/schema-mapper-mock";
+import type { SourceType } from "@/types/schema-mapper";
 
 interface WizardContainerProps {
   onCancel: () => void;
@@ -85,6 +97,73 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
   const [governanceSummary, setGovernanceSummary] = useState<GovernanceSummary | null>(governanceSummaryDefault);
 
   const { data: mappingData } = useSchemaMappingDetail(apiMode ? mappingId : null);
+
+  const allowMockForQueries = !apiMode;
+  const registryListParams = useMemo(() => ({ page: 0, size: 500 }), []);
+  const { data: wizardMetaForMatch } = useSchemaMapperWizardMetadata({
+    allowMockFallback: allowMockForQueries,
+  });
+  const { data: registryPageForMatch, isLoading: registryMatchLoading } = useSchemaRegistryList(
+    registryListParams,
+    {
+      enabled: currentStep === "multi_schema_matching",
+      allowMockFallback: allowMockForQueries,
+    },
+  );
+
+  const sourceTypeOptionValues = useMemo(() => {
+    const opts = wizardMetaForMatch?.sourceTypeOptions ?? FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS;
+    return opts
+      .map((o) => String(o.value ?? "").trim())
+      .filter(Boolean) as SourceType[];
+  }, [wizardMetaForMatch?.sourceTypeOptions]);
+
+  const refPathQueries = useQueries({
+    queries: sourceTypeOptionValues.map((st) => ({
+      queryKey: [...QK.schemaMapper.sourceTypeFields(st), "wizard-ref-paths", allowMockForQueries ? "mock" : "api"] as const,
+      queryFn: async () => {
+        const r = await fetchSourceTypeFields(st, { allowMockFallback: allowMockForQueries });
+        return r.fields.map((f) => String(f.path ?? "").trim()).filter(Boolean);
+      },
+      enabled: currentStep === "multi_schema_matching" && sourceTypeOptionValues.length > 0,
+      staleTime: 60 * 1000,
+    })),
+  });
+
+  const refPathsBySourceType = useMemo(() => {
+    const m: Partial<Record<SourceType, string[]>> = {};
+    sourceTypeOptionValues.forEach((st, i) => {
+      const paths = refPathQueries[i]?.data;
+      if (paths?.length) m[st] = paths;
+    });
+    return m;
+  }, [sourceTypeOptionValues, refPathQueries]);
+
+  const refPathsLoading =
+    currentStep === "multi_schema_matching" &&
+    refPathQueries.some((q) => q.isLoading || q.isFetching);
+
+  const multiSchemaMatchRows = useMemo(() => {
+    const opts = wizardMetaForMatch?.sourceTypeOptions ?? FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS;
+    const dcOpts = wizardMetaForMatch?.dataCategoryOptions ?? FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS;
+    const entries = registryPageForMatch?.content ?? schemaRegistryEntries;
+    const incoming = pathsFromParsedFields(parsedFields);
+    return buildMultiSchemaMatchRows({
+      sourceTypeOptions: opts,
+      dataCategoryOptions: dcOpts,
+      registryEntries: entries,
+      incomingPaths: incoming,
+      referencePathsBySourceType: refPathsBySourceType,
+      preferredSourceType: ingestedMetadata?.sourceType,
+    });
+  }, [
+    wizardMetaForMatch?.sourceTypeOptions,
+    wizardMetaForMatch?.dataCategoryOptions,
+    registryPageForMatch?.content,
+    parsedFields,
+    refPathsBySourceType,
+    ingestedMetadata?.sourceType,
+  ]);
 
   const apiSyncedRows = useMemo(() => {
     if (!mappingData?.fieldMappings?.length) return null;
@@ -132,19 +211,24 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
           const res = await ingestMutation.mutateAsync({
             sourceName: meta.sourceName,
             sourceType: meta.sourceType,
+            dataCategory: meta.dataCategory,
             versionNumber: meta.versionNumber,
             effectiveDate: meta.effectiveDate,
             parsedFields: fields as unknown[],
             fieldStats: stats as unknown,
           });
           setSchemaVersionId(res.schemaVersionId);
+          await queryClient.invalidateQueries({ queryKey: ["schema-mapper", "registry"] });
+          await queryClient.invalidateQueries({
+            queryKey: [...QK.schemaMapper.sourceTypeFields(meta.sourceType)],
+          });
         } catch {
           return;
         }
       }
       goNext();
     },
-    [apiMode, goNext, ingestMutation],
+    [apiMode, goNext, ingestMutation, queryClient],
   );
 
   const handleMultiSchemaComplete = useCallback(
@@ -260,7 +344,8 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
         )}
         {currentStep === "multi_schema_matching" && (
           <MultiSchemaMatchingStep
-            similarSchemas={ingestedMetadata?.similarSchemas ?? similarSchemasForTelecom}
+            similarSchemas={multiSchemaMatchRows}
+            isLoading={registryMatchLoading || refPathsLoading}
             selectedSchemaId={selectedSchemaId}
             onComplete={handleMultiSchemaComplete}
           />

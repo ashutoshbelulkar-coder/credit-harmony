@@ -1,6 +1,6 @@
 package com.hcb.platform.controller;
 
-import com.hcb.platform.model.entity.User;
+import com.hcb.platform.security.AuthUserPrincipal;
 import com.hcb.platform.service.AuditService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -39,20 +39,34 @@ public class ReportController {
         @RequestParam(defaultValue = "0") int page,
         @RequestParam(defaultValue = "20") int size
     ) {
-        StringBuilder where = new StringBuilder("WHERE r.is_deleted=0");
+        StringBuilder where = new StringBuilder("WHERE 1=1");
         List<Object> params = new ArrayList<>();
-        if (type != null && !type.isBlank()) { where.append(" AND r.report_type=?"); params.add(type); }
-        if (status != null && !status.isBlank()) { where.append(" AND r.report_status=?"); params.add(status); }
-        if (dateFrom != null && !dateFrom.isBlank()) { where.append(" AND date(r.requested_at)>=?"); params.add(dateFrom); }
-        if (dateTo != null && !dateTo.isBlank()) { where.append(" AND date(r.requested_at)<=?"); params.add(dateTo); }
+        if (type != null && !type.isBlank()) {
+            where.append(" AND r.report_type=?");
+            params.add(type);
+        }
+        if (status != null && !status.isBlank()) {
+            where.append(" AND lower(r.report_status)=lower(?)");
+            params.add(status);
+        }
+        if (dateFrom != null && !dateFrom.isBlank()) {
+            where.append(" AND date(r.requested_at)>=date(?)");
+            params.add(dateFrom);
+        }
+        if (dateTo != null && !dateTo.isBlank()) {
+            where.append(" AND date(r.requested_at)<=date(?)");
+            params.add(dateTo);
+        }
 
         Long total = jdbc.queryForObject("SELECT COUNT(*) FROM reports r " + where, Long.class, params.toArray());
-        String sql = "SELECT r.id, r.report_type as type, r.report_name as name,"
-            + " r.report_status as status, r.period_start as dateFrom, r.period_end as dateTo,"
+        String sql = "SELECT r.id, r.report_type as type, r.report_type as name,"
+            + " r.report_status as status, r.date_range_start as dateFrom, r.date_range_end as dateTo,"
             + " u.email as requestedBy, r.requested_at as requestedAt, r.completed_at as completedAt"
             + " FROM reports r LEFT JOIN users u ON u.id=r.requested_by_user_id"
             + " " + where + " ORDER BY r.requested_at DESC LIMIT ? OFFSET ?";
-        List<Object> dp = new ArrayList<>(params); dp.add(size); dp.add(page * size);
+        List<Object> dp = new ArrayList<>(params);
+        dp.add(size);
+        dp.add(page * size);
         return ResponseEntity.ok(buildPage(jdbc.queryForList(sql, dp.toArray()), total != null ? total : 0, page, size));
     }
 
@@ -60,50 +74,78 @@ public class ReportController {
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','BUREAU_ADMIN','ANALYST')")
     public ResponseEntity<Map<String, Object>> create(
         @RequestBody Map<String, Object> body,
-        @AuthenticationPrincipal User currentUser,
+        @AuthenticationPrincipal AuthUserPrincipal currentUser,
         HttpServletRequest req
     ) {
         String now = LocalDateTime.now().toString();
+        Object nameObj = body.get("name");
+        Object typeObj = body.get("type");
+        String reportType = nameObj != null && !String.valueOf(nameObj).isBlank()
+            ? String.valueOf(nameObj)
+            : (typeObj != null ? String.valueOf(typeObj) : "Report");
         jdbc.update(
-            "INSERT INTO reports(report_type,report_name,period_start,period_end,report_status,requested_by_user_id,requested_at,is_deleted)"
-            + " VALUES(?,?,?,?,?,?,?,0)",
-            body.get("type"), body.get("name"), body.get("dateFrom"), body.get("dateTo"),
-            "Queued", currentUser.getId(), now
+            "INSERT INTO reports(report_type,date_range_start,date_range_end,report_status,requested_by_user_id,requested_at)"
+                + " VALUES(?,?,?,?,?,?)",
+            reportType,
+            body.get("dateFrom"),
+            body.get("dateTo"),
+            "queued",
+            currentUser.getId(),
+            now
         );
-        Long id = jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
-        auditService.log(currentUser, "REPORT_REQUESTED", "report", String.valueOf(id), "Report requested: " + body.get("name"), getIp(req));
-        return ResponseEntity.status(201).body(Map.of("id", id, "status", "Queued"));
+        Long newId = jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
+        auditService.log(currentUser, "REPORT_REQUESTED", "report", String.valueOf(newId),
+            "Report requested: " + reportType, getIp(req));
+        return ResponseEntity.status(201).body(Map.of("id", newId, "status", "queued"));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','BUREAU_ADMIN')")
-    public ResponseEntity<Void> delete(@PathVariable Long id, @AuthenticationPrincipal User currentUser, HttpServletRequest req) {
-        jdbc.update("UPDATE reports SET is_deleted=1 WHERE id=?", id);
+    public ResponseEntity<Void> delete(
+        @PathVariable Long id,
+        @AuthenticationPrincipal AuthUserPrincipal currentUser,
+        HttpServletRequest req
+    ) {
+        jdbc.update("DELETE FROM reports WHERE id=?", id);
         auditService.log(currentUser, "REPORT_DELETED", "report", String.valueOf(id), "Report deleted", getIp(req));
         return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','BUREAU_ADMIN','ANALYST')")
-    public ResponseEntity<Void> cancel(@PathVariable Long id, @AuthenticationPrincipal User currentUser, HttpServletRequest req) {
-        jdbc.update("UPDATE reports SET report_status='Cancelled' WHERE id=? AND report_status IN ('Queued','Processing')", id);
+    public ResponseEntity<Void> cancel(
+        @PathVariable Long id,
+        @AuthenticationPrincipal AuthUserPrincipal currentUser,
+        HttpServletRequest req
+    ) {
+        // Schema CHECK allows only queued|processing|completed|failed — map cancel to failed
+        jdbc.update(
+            "UPDATE reports SET report_status='failed' WHERE id=? AND report_status IN ('queued','processing')",
+            id
+        );
         auditService.log(currentUser, "REPORT_CANCELLED", "report", String.valueOf(id), "Report cancelled", getIp(req));
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/{id}/retry")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','BUREAU_ADMIN','ANALYST')")
-    public ResponseEntity<Void> retry(@PathVariable Long id, @AuthenticationPrincipal User currentUser, HttpServletRequest req) {
-        jdbc.update("UPDATE reports SET report_status='Queued' WHERE id=? AND report_status='Failed'", id);
+    public ResponseEntity<Void> retry(
+        @PathVariable Long id,
+        @AuthenticationPrincipal AuthUserPrincipal currentUser,
+        HttpServletRequest req
+    ) {
+        jdbc.update("UPDATE reports SET report_status='queued' WHERE id=? AND report_status='failed'", id);
         auditService.log(currentUser, "REPORT_RETRIED", "report", String.valueOf(id), "Report retried", getIp(req));
         return ResponseEntity.ok().build();
     }
 
     private Map<String, Object> buildPage(List<Map<String, Object>> content, long total, int page, int size) {
         Map<String, Object> p = new LinkedHashMap<>();
-        p.put("content", content); p.put("totalElements", total);
+        p.put("content", content);
+        p.put("totalElements", total);
         p.put("totalPages", size > 0 ? (int) Math.ceil((double) total / size) : 1);
-        p.put("page", page); p.put("size", size);
+        p.put("page", page);
+        p.put("size", size);
         return p;
     }
 

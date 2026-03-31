@@ -71,11 +71,16 @@ export function useInstitutions(
   });
 }
 
-export function useInstitution(id: string | number | undefined) {
+export function useInstitution(
+  id: string | number | undefined,
+  options?: { enabled?: boolean; allowMockFallback?: boolean }
+) {
+  const allowMockFallback = options?.allowMockFallback !== false;
+  const sid = String(id ?? "");
   return useQuery({
-    queryKey: QK.institutions.detail(String(id ?? "")),
-    queryFn: () => fetchInstitutionById(id!),
-    enabled: !!id,
+    queryKey: [...QK.institutions.detail(sid), allowMockFallback ? "mockOk" : "apiOnly"] as const,
+    queryFn: () => fetchInstitutionById(id!, { allowMockFallback }),
+    enabled: options?.enabled ?? !!id,
   });
 }
 

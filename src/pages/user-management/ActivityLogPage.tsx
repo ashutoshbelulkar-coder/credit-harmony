@@ -16,6 +16,11 @@ import { ApiErrorCard } from "@/components/ui/api-error-card";
 
 const PAGE_SIZE = 10;
 
+/** Backend stores {@code success} / {@code failure} (lowercase); seed matches. */
+function auditOutcomeIsSuccess(outcome: string | undefined): boolean {
+  return (outcome ?? "").toLowerCase() === "success";
+}
+
 const KNOWN_ACTIONS = [
   "LOGIN",
   "LOGOUT",
@@ -93,8 +98,8 @@ export function ActivityLogPage() {
         a.actionType.toLowerCase().includes(search.toLowerCase())
       );
       const matchStatus = statusFilter === "All" ||
-        (statusFilter === "Success" && a.auditOutcome === "SUCCESS") ||
-        (statusFilter === "Failed" && a.auditOutcome !== "SUCCESS");
+        (statusFilter === "Success" && auditOutcomeIsSuccess(a.auditOutcome)) ||
+        (statusFilter === "Failed" && !auditOutcomeIsSuccess(a.auditOutcome));
       return matchSearch && matchStatus;
     });
   }, [data?.content, search, statusFilter]);
@@ -116,13 +121,7 @@ export function ActivityLogPage() {
 
   return (
     <>
-      <div>
-        <h1 className="text-h2 font-semibold text-foreground">Activity Log</h1>
-        <p className="text-caption text-muted-foreground mt-1">
-          Served from GET /api/v1/audit-logs only (no client mock list). Includes seeded history and entries written when
-          the dev API records audited actions (e.g. login, logout, user and institution changes).
-        </p>
-      </div>
+      <h1 className="text-h2 font-semibold text-foreground">Activity Log</h1>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3 mt-5">
@@ -183,7 +182,7 @@ export function ActivityLogPage() {
                     </TableCell>
                   </TableRow>
                 ) : filtered.map((a) => {
-                  const isSuccess = a.auditOutcome === "SUCCESS";
+                  const isSuccess = auditOutcomeIsSuccess(a.auditOutcome);
                   const initials = getInitials(a.userEmail);
                   return (
                     <TableRow key={a.id}>

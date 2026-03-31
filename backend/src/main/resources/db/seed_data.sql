@@ -562,7 +562,7 @@ FROM consumers c
 WHERE NOT EXISTS (SELECT 1 FROM credit_profiles cp WHERE cp.consumer_id = c.id);
 
 -- ============================================================================
--- BATCH JOBS — Historical (30 days) + Future (30 days to 2026-04-28)
+-- BATCH JOBS — Historical (30 days) + small queued backlog (3 rows) + today/tomorrow
 -- ============================================================================
 INSERT OR IGNORE INTO batch_jobs
     (institution_id, uploaded_by_user_id, file_name, batch_job_status,
@@ -592,25 +592,95 @@ VALUES
 (4, 11, 'march_batch_20260320.csv',    'completed', 900,  897,  3,   99.7, 92,  '2026-03-20 09:00:00', '2026-03-20 09:01:32'),
 (1, 8,  'march_batch_20260325.csv',    'completed', 1500, 1492, 8,   99.5, 145, '2026-03-25 08:00:00', '2026-03-25 08:02:25'),
 (7, 4,  'march_batch_20260327.csv',    'queued',    900,  0,    0,   0.0,  0,   '2026-03-27 09:00:00', NULL),
--- Today (2026-03-28) + Future (pre-seeded through 2026-04-28)
+-- Today (2026-03-28) + small queued backlog (see below)
 (1, 8,  'batch_20260328_fnb.csv',      'completed', 1520, 1510, 10,  99.3, 142, '2026-03-28 08:00:00', '2026-03-28 08:02:22'),
 (2, 9,  'batch_20260328_metro.csv',    'processing',2100, 1800, 0,   85.7, 0,   '2026-03-28 09:30:00', NULL),
--- Future weeks
+-- Queued backlog (keep a small number for monitoring filters / KPIs)
 (1, 8,  'batch_20260329_fnb.csv',      'queued',    1400, 0,    0,   0.0,  0,   '2026-03-29 08:00:00', NULL),
-(4, 11, 'batch_20260330_stb.csv',      'queued',    950,  0,    0,   0.0,  0,   '2026-03-30 08:00:00', NULL),
-(7, 4,  'batch_20260331_alpine.csv',   'queued',    800,  0,    0,   0.0,  0,   '2026-03-31 09:00:00', NULL),
-(8, 4,  'batch_20260401_ucb.csv',      'queued',    1700, 0,    0,   0.0,  0,   '2026-04-01 08:00:00', NULL),
-(1, 8,  'batch_20260403_fnb.csv',      'queued',    1600, 0,    0,   0.0,  0,   '2026-04-03 08:00:00', NULL),
-(2, 9,  'batch_20260405_metro.csv',    'queued',    2200, 0,    0,   0.0,  0,   '2026-04-05 08:30:00', NULL),
-(4, 11, 'batch_20260407_stb.csv',      'queued',    1000, 0,    0,   0.0,  0,   '2026-04-07 09:00:00', NULL),
-(7, 4,  'batch_20260410_alpine.csv',   'queued',    850,  0,    0,   0.0,  0,   '2026-04-10 08:00:00', NULL),
-(1, 8,  'batch_20260414_fnb.csv',      'queued',    1550, 0,    0,   0.0,  0,   '2026-04-14 08:00:00', NULL),
-(8, 4,  'batch_20260415_ucb.csv',      'queued',    1750, 0,    0,   0.0,  0,   '2026-04-15 09:00:00', NULL),
-(2, 9,  'batch_20260420_metro.csv',    'queued',    2300, 0,    0,   0.0,  0,   '2026-04-20 08:30:00', NULL),
-(4, 11, 'batch_20260421_stb.csv',      'queued',    980,  0,    0,   0.0,  0,   '2026-04-21 09:00:00', NULL),
-(1, 8,  'batch_20260424_fnb.csv',      'queued',    1600, 0,    0,   0.0,  0,   '2026-04-24 08:00:00', NULL),
-(7, 4,  'batch_20260425_alpine.csv',   'queued',    900,  0,    0,   0.0,  0,   '2026-04-25 08:00:00', NULL),
-(8, 4,  'batch_20260428_ucb.csv',      'queued',    1800, 0,    0,   0.0,  0,   '2026-04-28 08:00:00', NULL);
+(4, 11, 'batch_20260330_stb.csv',      'queued',    950,  0,    0,   0.0,  0,   '2026-03-30 08:00:00', NULL);
+
+-- Rolling-window completed batches for dashboard "Mapping Accuracy Trend"
+-- (GET /dashboard/charts mappingAccuracy: weekly AVG(success_rate) on batch_jobs.uploaded_at).
+-- Uses datetime('now', …) so presets 30d / 90d stay populated regardless of wall-clock calendar.
+INSERT INTO batch_jobs
+    (institution_id, uploaded_by_user_id, file_name, batch_job_status,
+     total_records, success_count, failed_count, success_rate, duration_seconds,
+     uploaded_at, completed_at)
+VALUES
+(1, 8, 'schema_map_roll_w00_a.csv', 'completed', 1600, 1575, 25, 98.44, 118, datetime('now', '-2 days', '+8 hours'),  datetime('now', '-2 days', '+8 hours', '+2 minutes')),
+(2, 9, 'schema_map_roll_w00_b.csv', 'completed', 1400, 1379, 21, 98.50, 105, datetime('now', '-3 days', '+9 hours'),  datetime('now', '-3 days', '+9 hours', '+2 minutes')),
+(4, 11,'schema_map_roll_w01_a.csv', 'completed', 1700, 1666, 34, 98.00, 122, datetime('now', '-9 days', '+8 hours'),  datetime('now', '-9 days', '+8 hours', '+2 minutes')),
+(7, 4, 'schema_map_roll_w01_b.csv', 'completed', 1300, 1279, 21, 98.38, 99,  datetime('now', '-10 days', '+10 hours'), datetime('now', '-10 days', '+10 hours', '+2 minutes')),
+(1, 8, 'schema_map_roll_w02_a.csv', 'completed', 1900, 1862, 38, 98.00, 128, datetime('now', '-16 days', '+8 hours'), datetime('now', '-16 days', '+8 hours', '+2 minutes')),
+(8, 4, 'schema_map_roll_w02_b.csv', 'completed', 1500, 1470, 30, 98.00, 112, datetime('now', '-17 days', '+9 hours'), datetime('now', '-17 days', '+9 hours', '+2 minutes')),
+(2, 9, 'schema_map_roll_w03_a.csv', 'completed', 1650, 1617, 33, 98.00, 120, datetime('now', '-23 days', '+8 hours'), datetime('now', '-23 days', '+8 hours', '+2 minutes')),
+(4, 11,'schema_map_roll_w03_b.csv', 'completed', 1450, 1424, 26, 98.21, 108, datetime('now', '-24 days', '+11 hours'), datetime('now', '-24 days', '+11 hours', '+2 minutes')),
+(1, 8, 'schema_map_roll_w04_a.csv', 'completed', 1750, 1715, 35, 98.00, 125, datetime('now', '-30 days', '+8 hours'), datetime('now', '-30 days', '+8 hours', '+2 minutes')),
+(7, 4, 'schema_map_roll_w04_b.csv', 'completed', 1350, 1326, 24, 98.22, 102, datetime('now', '-31 days', '+9 hours'), datetime('now', '-31 days', '+9 hours', '+2 minutes')),
+(2, 9, 'schema_map_roll_w05_a.csv', 'completed', 1800, 1764, 36, 98.00, 131, datetime('now', '-37 days', '+8 hours'), datetime('now', '-37 days', '+8 hours', '+2 minutes')),
+(8, 4, 'schema_map_roll_w05_b.csv', 'completed', 1550, 1523, 27, 98.26, 115, datetime('now', '-38 days', '+10 hours'), datetime('now', '-38 days', '+10 hours', '+2 minutes')),
+(4, 11,'schema_map_roll_w06_a.csv', 'completed', 1680, 1646, 34, 97.98, 119, datetime('now', '-44 days', '+8 hours'), datetime('now', '-44 days', '+8 hours', '+2 minutes')),
+(1, 8, 'schema_map_roll_w06_b.csv', 'completed', 1420, 1394, 26, 98.17, 106, datetime('now', '-45 days', '+9 hours'), datetime('now', '-45 days', '+9 hours', '+2 minutes')),
+(7, 4, 'schema_map_roll_w07_a.csv', 'completed', 1720, 1686, 34, 98.02, 124, datetime('now', '-51 days', '+8 hours'), datetime('now', '-51 days', '+8 hours', '+2 minutes')),
+(2, 9, 'schema_map_roll_w07_b.csv', 'completed', 1380, 1355, 25, 98.19, 103, datetime('now', '-52 days', '+10 hours'), datetime('now', '-52 days', '+10 hours', '+2 minutes')),
+(1, 8, 'schema_map_roll_w08_a.csv', 'completed', 1850, 1813, 37, 98.00, 132, datetime('now', '-58 days', '+8 hours'), datetime('now', '-58 days', '+8 hours', '+2 minutes')),
+(4, 11,'schema_map_roll_w08_b.csv', 'completed', 1480, 1453, 27, 98.18, 110, datetime('now', '-59 days', '+9 hours'), datetime('now', '-59 days', '+9 hours', '+2 minutes')),
+(8, 4, 'schema_map_roll_w09_a.csv', 'completed', 1620, 1590, 30, 98.15, 121, datetime('now', '-65 days', '+8 hours'), datetime('now', '-65 days', '+8 hours', '+2 minutes')),
+(2, 9, 'schema_map_roll_w09_b.csv', 'completed', 1520, 1494, 26, 98.29, 114, datetime('now', '-66 days', '+11 hours'), datetime('now', '-66 days', '+11 hours', '+2 minutes')),
+(7, 4, 'schema_map_roll_w10_a.csv', 'completed', 1780, 1744, 36, 97.98, 127, datetime('now', '-72 days', '+8 hours'), datetime('now', '-72 days', '+8 hours', '+2 minutes')),
+(1, 8, 'schema_map_roll_w10_b.csv', 'completed', 1410, 1385, 25, 98.23, 104, datetime('now', '-73 days', '+9 hours'), datetime('now', '-73 days', '+9 hours', '+2 minutes')),
+(4, 11,'schema_map_roll_w11_a.csv', 'completed', 1690, 1658, 32, 98.11, 120, datetime('now', '-79 days', '+8 hours'), datetime('now', '-79 days', '+8 hours', '+2 minutes')),
+(2, 9, 'schema_map_roll_w11_b.csv', 'completed', 1460, 1433, 27, 98.15, 109, datetime('now', '-80 days', '+10 hours'), datetime('now', '-80 days', '+10 hours', '+2 minutes')),
+(8, 4, 'schema_map_roll_w12_a.csv', 'completed', 1760, 1725, 35, 98.01, 126, datetime('now', '-86 days', '+8 hours'), datetime('now', '-86 days', '+8 hours', '+2 minutes')),
+(1, 8, 'schema_map_roll_w12_b.csv', 'completed', 1530, 1502, 28, 98.17, 113, datetime('now', '-87 days', '+9 hours'), datetime('now', '-87 days', '+9 hours', '+2 minutes'));
+
+-- Demo processing batch for Data Submission monitoring (stable id; survives wall-clock drift).
+-- Full phase/stage tree for Batch Execution Console (matches multi-phase UI contract).
+DELETE FROM batch_error_samples WHERE batch_job_id = 999901;
+DELETE FROM batch_stage_logs WHERE batch_job_id = 999901;
+DELETE FROM batch_phase_logs WHERE batch_job_id = 999901;
+DELETE FROM batch_jobs WHERE id = 999901;
+INSERT INTO batch_jobs (id, institution_id, uploaded_by_user_id, file_name, batch_job_status,
+     total_records, success_count, failed_count, success_rate, duration_seconds,
+     uploaded_at, completed_at)
+VALUES (
+  999901,
+  1,
+  8,
+  'accounts_live_processing_demo.csv',
+  'processing',
+  3200,
+  2956,
+  244,
+  92.4,
+  NULL,
+  datetime('now'),
+  NULL
+);
+INSERT INTO batch_phase_logs (id, batch_job_id, phase_order, phase_key, display_name, phase_status, system_status, business_status, started_at, completed_at, flow_uid, phase_uid, version, to_be_processed, processing, system_ko, business_ko, business_ok, total_records)
+VALUES
+  (991001, 999901, 1, 'CB_CSDF_PRE', 'Pre-Processing', 'completed', 'ok', 'error', datetime('now', '-14 minutes'), datetime('now', '-14 minutes', '+8 seconds'), 'FLOW-999901-001', 'PHASE-PRE-001', 'v1.0', 3200, 0, 0, 2, 3198, 3200),
+  (991002, 999901, 2, 'CB_CSDF_CPS', 'Data Validation', 'completed', 'ok', 'error', datetime('now', '-13 minutes', '+50 seconds'), datetime('now', '-13 minutes', '+92 seconds'), 'FLOW-999901-001', 'PHASE-CPS-002', 'v1.2', 3198, 0, 0, 5, 3193, 3198),
+  (991003, 999901, 3, 'CB_CSDF_LPC', 'Load Processing', 'processing', 'ok', 'ok', datetime('now', '-12 minutes'), NULL, 'FLOW-999901-001', 'PHASE-LPC-003', 'v2.0', 3193, 3193, 0, 1, 3192, 3193),
+  (991004, 999901, 4, 'POST', 'Post-Processing', 'queued', 'ok', 'ok', NULL, NULL, 'FLOW-999901-001', 'PHASE-POST-004', NULL, 0, 0, 0, 0, 0, 0),
+  (991005, 999901, 5, 'COMMIT', 'Data Commit', 'queued', 'ok', 'ok', NULL, NULL, 'FLOW-999901-001', 'PHASE-COMMIT-005', NULL, 0, 0, 0, 0, 0, 0);
+INSERT INTO batch_stage_logs (id, batch_job_id, phase_log_id, stage_order, stage_key, stage_name, stage_status, message, started_at, completed_at, records_processed, error_count, skipped_count, system_return_code, business_return_code)
+VALUES
+  (991101, 999901, 991001, 1, 'STG-1', 'File Integrity Check', 'completed', 'MD5 checksum verified', datetime('now', '-14 minutes'), datetime('now', '-14 minutes', '+4 seconds'), 3200, 0, 0, NULL, NULL),
+  (991102, 999901, 991001, 2, 'STG-2', 'Schema Mapping', 'completed', 'Headers matched canonical layout', datetime('now', '-14 minutes', '+4 seconds'), datetime('now', '-14 minutes', '+8 seconds'), 3200, 2, 0, NULL, NULL),
+  (991103, 999901, 991002, 1, 'STG-3', 'File Validation', 'completed', 'Structural validation complete', datetime('now', '-13 minutes', '+50 seconds'), datetime('now', '-13 minutes', '+71 seconds'), 3198, 3, 0, NULL, NULL),
+  (991104, 999901, 991002, 2, 'STG-4', 'Business Rule Validation', 'completed', 'Business rules evaluated', datetime('now', '-13 minutes', '+71 seconds'), datetime('now', '-13 minutes', '+92 seconds'), 3195, 2, 0, NULL, NULL),
+  (991105, 999901, 991003, 1, 'STG-5', 'Load Processing', 'running', 'Applying field mappings (~92% of records)', datetime('now', '-12 minutes'), NULL, 3193, 1, 0, NULL, NULL);
+INSERT INTO batch_error_samples (batch_job_id, batch_stage_log_id, record_id, field_name, error_type, error_message, severity)
+VALUES
+  (999901, 991102, 'REC-MAP-01', 'customer_id', 'MAP-001', 'Column not found in source', 'error'),
+  (999901, 991102, 'REC-MAP-02', 'disbursement_date', 'MAP-002', 'Type mismatch: expected date', 'error'),
+  (999901, 991103, 'REC-101', 'account_id', 'VAL-001', 'Invalid format', 'error'),
+  (999901, 991103, 'REC-102', 'amount', 'VAL-002', 'Value out of range', 'error'),
+  (999901, 991103, 'REC-103', 'date_field', 'VAL-003', 'Required field missing', 'warning'),
+  (999901, 991104, 'REC-201', 'national_id', 'BR-001', 'Invalid format', 'error'),
+  (999901, 991104, 'REC-202', 'phone_number', 'BR-002', 'Required field missing', 'error'),
+  (999901, 991105, 'REC-77502', 'outstanding_balance', 'RANGE', 'Value exceeds sanctioned ceiling', 'error');
 
 -- ============================================================================
 -- TRADELINES — Generated from consumers
@@ -828,6 +898,19 @@ VALUES
  datetime('now'), datetime('now', '+7 days'), 0, '127.0.0.1'),
 (2, 'dev_token_hash_super_001_' || lower(hex(randomblob(16))),
  datetime('now'), datetime('now', '+7 days'), 0, '127.0.0.1');
+
+-- ============================================================================
+-- INGESTION DRIFT ALERTS (Data Quality Monitoring — mirrors data-governance.json)
+-- ============================================================================
+INSERT OR IGNORE INTO ingestion_drift_alerts (id, alert_type, source, message, severity, detected_at, source_type) VALUES
+('drift-1', 'schema', 'Jio Telecom', 'New optional field ''roaming_data_mb'' detected in ingest payload', 'low', '2026-03-26 08:15:00', 'Telecom'),
+('drift-2', 'mapping', 'HDFC Bank', 'Mapping confidence for ''accounts.dpd'' dropped 6% vs prior week', 'medium', '2026-03-25 11:20:00', 'Bank'),
+('drift-3', 'schema', 'Tata Power Utility', 'Enum expansion: payment_status gained value ''DISPUTED''', 'low', '2026-03-24 14:00:00', 'Utility'),
+('drift-4', 'mapping', 'GST Portal', 'Master field mismatch: GST ''turnover_band'' vs canonical ''annual_turnover''', 'high', '2026-03-22 09:45:00', 'Government'),
+('drift-5', 'schema', 'Airtel Telecom', 'Sample rate anomaly: 12% nulls on ''last_payment_status'' (threshold 5%)', 'medium', '2026-03-20 16:30:00', 'Telecom'),
+('drift-6', 'mapping', 'Mahanagar Gas Utility', 'Version drift: feed still on v1.0 while active schema is v1.1', 'low', '2026-03-18 10:00:00', 'Utility'),
+('drift-7', 'schema', 'BSNL Telecom', 'New nested path ''accounts.arrers'' (typo) observed — possible upstream defect', 'medium', '2026-03-15 13:40:00', 'Telecom'),
+('drift-8', 'mapping', 'Custom Micro-Finance', 'Archived mapping still referenced by batch job ''BATCH-9921''', 'low', '2026-03-10 07:00:00', 'NBFI');
 
 -- ============================================================================
 -- END OF SEED DATA

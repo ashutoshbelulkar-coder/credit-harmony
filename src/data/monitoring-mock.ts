@@ -9,7 +9,12 @@ import data from "./monitoring.json";
 import { buildApiSubmissionRequests } from "@/lib/generateApiSubmissionRequests";
 
 /* ── Data Submission API ── */
-export type ApiRequestStatus = "Success" | "Failed" | "Partial" | "Rate Limited";
+export type ApiRequestStatus =
+  | "Success"
+  | "Failed"
+  | "Partial"
+  | "Rate Limited"
+  | "Authentication Failed";
 
 export interface ApiSubmissionRequest {
   request_id: string;
@@ -762,7 +767,12 @@ export const batchConsoleByBatchId: Record<string, BatchConsoleData> = {
 };
 
 /* ── Inquiry API ── */
-export type EnquiryStatus = "Success" | "Failed";
+export type EnquiryStatus =
+  | "Success"
+  | "Failed"
+  | "Rate Limited"
+  | "Consent missing"
+  | "Subject not found";
 
 export interface EnquiryLogEntry {
   enquiry_id: string;

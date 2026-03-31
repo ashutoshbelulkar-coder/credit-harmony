@@ -116,10 +116,6 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-[10px] text-muted-foreground leading-tight">
-              From <span className="font-medium text-foreground">GET /api/v1/schema-mapper/wizard-metadata</span>
-              {wizardMetaLoading ? " (loading…)" : ""}.
-            </p>
             {wizardMetaError && (
               <p className="text-[10px] text-destructive" role="alert">
                 {wizardMetaErrorObj instanceof Error ? wizardMetaErrorObj.message : "Using offline defaults."}

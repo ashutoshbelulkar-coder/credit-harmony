@@ -3,9 +3,44 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { QueryClientProvider, QueryClient } from "@tanstack/react-query";
 import InstitutionList from "@/pages/InstitutionList";
+import type { InstitutionResponse } from "@/services/institutions.service";
 
 vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
+}));
+
+/** List page uses API-only fetch; tests run without Spring — stub hook data. */
+const stubInstitution: InstitutionResponse = {
+  id: 1,
+  name: "Test Bank",
+  institutionType: "Commercial Bank",
+  institutionLifecycleStatus: "active",
+  registrationNumber: "REG-1",
+  jurisdiction: "Kenya",
+  isDataSubmitter: true,
+  isSubscriber: true,
+  apisEnabledCount: 2,
+  createdAt: "2026-01-01",
+  updatedAt: "2026-01-02",
+};
+
+vi.mock("@/hooks/api/useInstitutions", () => ({
+  useInstitutions: vi.fn(() => ({
+    data: {
+      content: [stubInstitution],
+      totalElements: 1,
+      totalPages: 1,
+      page: 0,
+      size: 200,
+    },
+    isLoading: false,
+    error: null,
+    refetch: vi.fn(),
+  })),
+  useSuspendInstitution: vi.fn(() => ({
+    mutate: vi.fn(),
+    isPending: false,
+  })),
 }));
 
 vi.mock("@/components/layout/DashboardLayout", () => ({

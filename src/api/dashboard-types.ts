@@ -123,6 +123,8 @@ export type CommandCenterSnapshot = {
   batches: BatchPipelineRow[];
   anomalies: AnomalyItem[];
   memberQuality: MemberQualityPoint[];
+  /** Ordered row labels: active institutions with data-submitter role (from API). */
+  memberQualitySubmitters?: string[];
 };
 
 export function dashboardRangeKey(range: DashboardRange): string {

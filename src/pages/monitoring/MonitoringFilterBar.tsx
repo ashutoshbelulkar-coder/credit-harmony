@@ -77,8 +77,6 @@ export function MonitoringFilterBar({ filters, onFiltersChange, entityFilterMode
           mode="submitters"
           value={filters.dataSubmitterId}
           onValueChange={(v) => set({ dataSubmitterId: v })}
-          label="Institution"
-          allLabel="All data submission institutes"
           triggerClassName="h-9 min-w-[180px] max-w-[240px]"
         />
       )}
@@ -87,8 +85,6 @@ export function MonitoringFilterBar({ filters, onFiltersChange, entityFilterMode
           mode="subscribers"
           value={filters.subscriberId}
           onValueChange={(v) => set({ subscriberId: v })}
-          label="Institution"
-          allLabel="All subscribers"
           triggerClassName="h-9 min-w-[180px] max-w-[240px]"
         />
       )}

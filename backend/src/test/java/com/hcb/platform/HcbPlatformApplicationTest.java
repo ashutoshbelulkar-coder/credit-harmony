@@ -15,6 +15,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.transaction.annotation.Transactional;
+import jakarta.persistence.EntityManager;
 
 import java.time.LocalDateTime;
 import java.util.Iterator;
@@ -51,7 +53,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
         "spring.sql.init.mode=never",
         "management.health.db.enabled=false",
         "management.endpoints.web.exposure.include=health",
-        "management.endpoint.health.show-details=never"
+        "management.endpoint.health.show-details=never",
+        "hcb.schema-mapper.enabled=false"
     }
 )
 @AutoConfigureMockMvc
@@ -68,6 +71,9 @@ class HcbPlatformApplicationTest {
 
     @Autowired
     private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private EntityManager entityManager;
 
     @BeforeEach
     void seedAdminUser() {
@@ -90,10 +96,29 @@ class HcbPlatformApplicationTest {
     }
 
     @Test
+    @DisplayName("T01b - SQL seed bcrypt hashes must match Spring BCryptPasswordEncoder(12)")
+    void seedFileBcryptHashesMatchSpringEncoder() {
+        assertThat(passwordEncoder.matches("Admin@1234",
+            "$2b$12$XXkH89KDr2OEbRIYtTBNd.dwaKZdpDAtYkc98lncLpiZfqxuJGf0K")).isTrue();
+        assertThat(passwordEncoder.matches("Super@1234",
+            "$2b$12$d.P/nQYxO1UoKdvuc3wK8eZfIY/xdtKH16uZ03bfHqG17H1AflLre")).isTrue();
+        assertThat(passwordEncoder.matches("Viewer@1234",
+            "$2b$12$yAPgQNO8uqBIm42A7I7SuOaeE2dOVT2MC53EI/FAByai91OkOUvM.")).isTrue();
+    }
+
+    @Test
     @DisplayName("T02 - Health endpoint is publicly accessible")
     void healthEndpointIsPublic() throws Exception {
         mockMvc.perform(get("/actuator/health"))
             .andExpect(status().isOk());
+    }
+
+    @Test
+    @DisplayName("T02b - GET /api/v1/health matches SPA / Playwright probe")
+    void apiV1HealthIsPublic() throws Exception {
+        mockMvc.perform(get("/api/v1/health"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.status").value("ok"));
     }
 
     @Test
@@ -123,6 +148,32 @@ class HcbPlatformApplicationTest {
         String responseBody = result.getResponse().getContentAsString();
         assertThat(responseBody).doesNotContain("password");
         assertThat(responseBody).doesNotContain("password_hash");
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("T04b - Login after DB round-trip with SQL seed bcrypt string (not encoder.encode)")
+    void loginWithSqlSeedStyleBcryptHashAfterPersistenceClear() throws Exception {
+        final String seedEmail = "seed-bcrypt-roundtrip@hcb.com";
+        userRepository.findByEmailAndIsDeletedFalse(seedEmail).ifPresent(userRepository::delete);
+
+        User u = new User();
+        u.setEmail(seedEmail);
+        u.setDisplayName("Seed bcrypt round-trip");
+        u.setPasswordHash("$2b$12$XXkH89KDr2OEbRIYtTBNd.dwaKZdpDAtYkc98lncLpiZfqxuJGf0K");
+        u.setUserAccountStatus("active");
+        u.setDeleted(false);
+        u.setCreatedAt(LocalDateTime.now());
+        userRepository.saveAndFlush(u);
+        entityManager.clear();
+
+        mockMvc.perform(post("/api/v1/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(Map.of(
+                "email", seedEmail,
+                "password", "Admin@1234"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.accessToken").exists());
     }
 
     @Test
@@ -217,5 +268,15 @@ class HcbPlatformApplicationTest {
         assertThat(bcf).isNotNull();
         assertThat(bcf.path("derivedFields").isArray()).isTrue();
         assertThat(bcf.path("derivedFields").get(0).asText()).isEqualTo("weighted_cashflow_score");
+    }
+
+    @Test
+    @DisplayName("T11 - GET /api/v1/institutions/form-metadata returns registerForm sections")
+    @org.springframework.security.test.context.support.WithMockUser(roles = "SUPER_ADMIN")
+    void institutionFormMetadataReturnsRegisterForm() throws Exception {
+        mockMvc.perform(get("/api/v1/institutions/form-metadata").param("geography", "default"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.geographyId").value("default"))
+            .andExpect(jsonPath("$.registerForm.sections").isArray());
     }
 }

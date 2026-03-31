@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
     },
     proxy: {
       "/api": {
-        target: process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8091",
+        target: process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8090",
         changeOrigin: true,
         secure: false,
         // Fail faster when the API is down (http-proxy default is 120s with no response).

@@ -3,6 +3,8 @@ package com.hcb.platform.service;
 import com.hcb.platform.model.entity.AuditLog;
 import com.hcb.platform.model.entity.User;
 import com.hcb.platform.repository.AuditLogRepository;
+import com.hcb.platform.repository.UserRepository;
+import com.hcb.platform.security.AuthUserPrincipal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,7 @@ import java.time.LocalDateTime;
 public class AuditService {
 
     private final AuditLogRepository auditLogRepository;
+    private final UserRepository userRepository;
 
     /**
      * Log a business action to the immutable audit trail.
@@ -57,6 +60,18 @@ public class AuditService {
     public void log(User user, String actionType, String entityType,
                     String entityId, String description, String ipAddress) {
         log(user, actionType, entityType, entityId, description, ipAddress, "success");
+    }
+
+    /**
+     * Audit entry for the authenticated API principal (JDBC-loaded; avoids passing JPA {@link User} from controllers).
+     */
+    public void log(AuthUserPrincipal principal, String actionType, String entityType,
+                    String entityId, String description, String ipAddress) {
+        if (principal == null) {
+            logSystemEvent(actionType, entityType, entityId, description);
+            return;
+        }
+        log(userRepository.getReferenceById(principal.getId()), actionType, entityType, entityId, description, ipAddress);
     }
 
     public void logSystemEvent(String actionType, String entityType,

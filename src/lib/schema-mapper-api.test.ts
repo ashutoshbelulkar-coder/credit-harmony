@@ -51,6 +51,41 @@ describe("schema-mapper-api", () => {
     expect(out[0].sourcePath).toBe("subscriber_id");
     expect(out[0].canonicalPath).toBe("full_name");
     expect(out[0].canonicalFieldId).toBe("ms-2");
+    expect(out[0].containsPii).toBe(false);
+  });
+
+  it("llmRowsToFieldMappings persists containsPii and fieldMappingsToLlmRows reads it", () => {
+    const prev = [
+      {
+        sourcePath: "customer_name",
+        sourceFieldId: "tf-2",
+        canonicalPath: "full_name",
+        canonicalFieldId: "ms-2",
+        matchType: "semantic",
+        confidence: 0.9,
+        reviewStatus: "pending" as const,
+        llmRationale: "name",
+        containsPii: true,
+      },
+    ];
+    const uiRows: LLMFieldIntelligenceRow[] = [
+      {
+        id: "lli-2",
+        sourceFieldId: "tf-2",
+        sourceField: "customer_name",
+        sourceFieldType: "string",
+        llmMeaning: "name",
+        canonicalMatch: "full_name",
+        canonicalMatchId: "ms-2",
+        similarFieldsAcrossSystem: [],
+        confidence: 90,
+        pii: true,
+      },
+    ];
+    const api = llmRowsToFieldMappings(uiRows, masterSchemaTree, prev);
+    expect(api[0].containsPii).toBe(true);
+    const back = fieldMappingsToLlmRows(api);
+    expect(back[0].pii).toBe(true);
   });
 
   it("flattenMasterForApi includes nested paths", () => {

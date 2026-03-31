@@ -120,8 +120,6 @@ export function SlaBreachHistory({ filters }: { filters: MonitoringFilters }) {
                   mode="all"
                   value={institutionFilter}
                   onValueChange={setInstitutionFilter}
-                  label="Institution"
-                  allLabel="All institutions"
                   triggerClassName="h-8 w-full"
                 />
               </div>
@@ -158,8 +156,6 @@ export function SlaBreachHistory({ filters }: { filters: MonitoringFilters }) {
               mode="all"
               value={institutionFilter}
               onValueChange={setInstitutionFilter}
-              label="Institution"
-              allLabel="All institutions"
               triggerClassName="h-8 min-w-[180px] max-w-[220px]"
             />
           </div>

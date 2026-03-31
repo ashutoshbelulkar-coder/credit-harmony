@@ -30,6 +30,7 @@ import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import { ruleSets, validationRules } from "@/data/data-governance-mock";
 import { schemaRegistryEntries } from "@/data/schema-mapper-mock";
 import { useInstitutions } from "@/hooks/api/useInstitutions";
+import { InstitutionFilterSelect } from "@/components/shared/InstitutionFilterSelect";
 import { useSchemaRegistrySourceTypes, useSourceTypeFields } from "@/hooks/api/useSchemaMapper";
 import type { ValidationRule, RuleType, RuleSeverity, ExpressionBlock } from "@/types/data-governance";
 import { Plus, Play, BarChart3, Trash2 } from "lucide-react";
@@ -47,6 +48,8 @@ const SEVERITIES: { value: RuleSeverity; label: string }[] = [
   { value: "critical", label: "Critical" },
 ];
 
+const RULES_PAGE_SIZE = 10;
+
 const OPERATORS = [
   { value: "equals", label: "Equals" },
   { value: "in_range", label: "In range" },
@@ -61,11 +64,23 @@ function formatSourceTypeLabel(sourceType: string) {
 export default function ValidationRules() {
   const [ruleSetId, setRuleSetId] = useState(ruleSets[0]?.id ?? "");
   const [version, setVersion] = useState("v3.2");
+  const [rulesPage, setRulesPage] = useState(1);
   const [createOpen, setCreateOpen] = useState(false);
   const [testResult, setTestResult] = useState<{ passed: number; failed: number; total: number } | null>(null);
   const [impactPercent, setImpactPercent] = useState<number | null>(null);
 
   const rules = validationRules.filter((r) => r.ruleSetId === ruleSetId);
+
+  useEffect(() => {
+    setRulesPage(1);
+  }, [ruleSetId]);
+
+  const rulesTotalPages = Math.max(1, Math.ceil(rules.length / RULES_PAGE_SIZE));
+  const rulesPageSafe = Math.min(rulesPage, rulesTotalPages);
+  const paginatedRules = rules.slice(
+    (rulesPageSafe - 1) * RULES_PAGE_SIZE,
+    rulesPageSafe * RULES_PAGE_SIZE
+  );
 
   const { data: registrySourceTypesRes } = useSchemaRegistrySourceTypes();
   const sourceTypeOptions = useMemo(() => {
@@ -152,38 +167,80 @@ export default function ValidationRules() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {rules.map((rule) => (
-              <TableRow key={rule.id}>
-                <TableCell className="font-medium">{rule.name}</TableCell>
-                <TableCell className="text-body">{rule.type.replace(/_/g, " ")}</TableCell>
-                <TableCell>
-                  <Badge
-                    className={cn(
-                      badgeTextClasses,
-                      rule.severity === "critical" && "bg-destructive/15 text-destructive",
-                      rule.severity === "error" && "bg-danger/15 text-danger",
-                      rule.severity === "warning" && "bg-warning/15 text-warning"
-                    )}
-                  >
-                    {rule.severity}
-                  </Badge>
-                </TableCell>
-                <TableCell>
-                  <Badge variant={rule.status === "active" ? "default" : "secondary"} className={badgeTextClasses}>
-                    {rule.status}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-body">{rule.version}</TableCell>
-                <TableCell className="text-caption text-muted-foreground">{rule.lastModified}</TableCell>
-                <TableCell>
-                  <Button variant="ghost" size="icon" className="h-8 w-8">
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
+            {paginatedRules.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={7} className="text-center text-caption text-muted-foreground py-10">
+                  No rules in this rule set.
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              paginatedRules.map((rule) => (
+                <TableRow key={rule.id}>
+                  <TableCell className="font-medium">{rule.name}</TableCell>
+                  <TableCell className="text-body">{rule.type.replace(/_/g, " ")}</TableCell>
+                  <TableCell>
+                    <Badge
+                      className={cn(
+                        badgeTextClasses,
+                        rule.severity === "critical" && "bg-destructive/15 text-destructive",
+                        rule.severity === "error" && "bg-danger/15 text-danger",
+                        rule.severity === "warning" && "bg-warning/15 text-warning"
+                      )}
+                    >
+                      {rule.severity}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={rule.status === "active" ? "default" : "secondary"} className={badgeTextClasses}>
+                      {rule.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-body">{rule.version}</TableCell>
+                  <TableCell className="text-caption text-muted-foreground">{rule.lastModified}</TableCell>
+                  <TableCell>
+                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
+        {rules.length > 0 && (
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between px-4 py-3 border-t border-border">
+            <span className="text-caption text-muted-foreground">
+              {rules.length > RULES_PAGE_SIZE
+                ? `Showing ${(rulesPageSafe - 1) * RULES_PAGE_SIZE + 1}–${Math.min(rulesPageSafe * RULES_PAGE_SIZE, rules.length)} of ${rules.length} rules`
+                : `${rules.length} rule${rules.length === 1 ? "" : "s"}`}
+            </span>
+            {rules.length > RULES_PAGE_SIZE ? (
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={rulesPageSafe <= 1}
+                  onClick={() => setRulesPage((p) => Math.max(1, p - 1))}
+                >
+                  Previous
+                </Button>
+                <span className="text-caption text-muted-foreground px-2">
+                  {rulesPageSafe} / {rulesTotalPages}
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={rulesPageSafe >= rulesTotalPages}
+                  onClick={() => setRulesPage((p) => Math.min(rulesTotalPages, p + 1))}
+                >
+                  Next
+                </Button>
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
 
       {/* Impact Analysis section */}
@@ -224,12 +281,10 @@ function RuleForm({
   const [type, setType] = useState<RuleType>("format");
   const [severity, setSeverity] = useState<RuleSeverity>("error");
   const [applicableMemberId, setApplicableMemberId] = useState("all");
-  const {
-    data: dataSubmitterInstitutions,
-    isLoading: membersLoading,
-    isError: membersError,
-    error: membersErrorObj,
-  } = useInstitutions({ page: 0, size: 200, role: "dataSubmitter" });
+  const { data: dataSubmitterInstitutions } = useInstitutions(
+    { page: 0, size: 300, role: "dataSubmitter" },
+    { allowMockFallback: false }
+  );
 
   const dataSubmitterMembers = dataSubmitterInstitutions?.content ?? [];
 
@@ -297,33 +352,14 @@ function RuleForm({
         <Label>Rule name</Label>
         <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. PAN Format" className="h-9" />
       </div>
+      <InstitutionFilterSelect
+        mode="submitters"
+        value={applicableMemberId}
+        onValueChange={setApplicableMemberId}
+        triggerClassName="h-9"
+      />
       <div className="space-y-2">
-        <Label>Applicable members</Label>
-        <Select
-          value={applicableMemberId}
-          onValueChange={setApplicableMemberId}
-          disabled={membersLoading}
-        >
-          <SelectTrigger className="h-9">
-            <SelectValue placeholder={membersLoading ? "Loading members…" : "Select"} />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All data submitter members</SelectItem>
-            {dataSubmitterMembers.map((m) => (
-              <SelectItem key={m.id} value={String(m.id)}>
-                {m.tradingName?.trim() ? m.tradingName : m.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {membersError && (
-          <p className="text-caption text-destructive" role="alert">
-            {membersErrorObj instanceof Error ? membersErrorObj.message : "Could not load members."}
-          </p>
-        )}
-      </div>
-      <div className="space-y-2">
-        <Label>Applicable source type (Schema Mapper)</Label>
+        <Label>Source type</Label>
         <Select value={sourceType} onValueChange={setSourceType}>
           <SelectTrigger className="h-9">
             <SelectValue />
@@ -340,13 +376,6 @@ function RuleForm({
 
       <div className="space-y-2">
         <Label>Expression (logic blocks)</Label>
-        <p className="text-caption text-muted-foreground">
-          Structured conditions – no code. Field paths load from{" "}
-          <span className="font-medium text-foreground">
-            GET /api/v1/schema-mapper/schemas/source-type-fields?sourceType=…
-          </span>{" "}
-          (parsed variables for the selected Schema Mapper source type).
-        </p>
         {sourceFieldsError && (
           <p className="text-caption text-destructive" role="alert">
             {sourceFieldsErrorObj instanceof Error

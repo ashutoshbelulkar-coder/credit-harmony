@@ -1,16 +1,26 @@
 # Hybrid Credit Bureau (HCB) Admin Portal
 ## Complete Product Requirement Document (PRD) & Business Requirement Document (BRD)
 
-**Document Version:** 2.8
+**Document Version:** 2.14
 **Date:** 2026-03-31
-**Status:** Updated — Enterprise Edition; Data Products **single Configure per source-type row** + **PacketConfigModal** packet-group / in-modal **Packet** switcher (v2.8); Validation Rules + Schema Mapper **wizard-metadata** / **source-type-fields** (v2.7); Data Ingestion drift alerts API + Data Quality Monitoring (v2.6); Schema Mapper Agent Fastify API + SPA (v2.5); member registry and analytics aligned to Fastify contract
+**Status:** Updated — **v2.14:** **Spring list API contract** — JDBC-backed **GET** routes for **consortiums**, **products**, **reports**, **SLA configs**, **alert rules**, **users**, and **audit logs** aligned to **`create_tables.sql`**; **`AuthUserPrincipal`** on controllers; flat audit/user JSON for the SPA. **TDL-018**; **API-UI-Parity-Matrix** v1.7; **SPA-Service-Contract-Drift**; **Canonical-Backend**; **Testing-Plan** v3.0.6; **`RouteParitySqliteIntegrationTest`** extended. **v2.13:** **Institution display labels** (legal before trading); **API-UI-Parity-Matrix** v1.6, **TDL-017**. **v2.12:** **Spring–SPA route parity** — overview charts, drift alerts, member sub-resources, **API keys POST**, **user deactivate**; **TDL-016**. **v2.11:** **Developer Handbook** / **README** Spring-first; dashboard SQLite JDBC. **v2.10:** Schema Mapper **PII** on mappings. Earlier: v2.9–v2.5 as below.
 **Classification:** Internal – Confidential
 
+> **Change Summary v2.14 (2026-03-31) — Spring JDBC list APIs + auth principal:** High-traffic **GET** endpoints on Spring use **JdbcTemplate** SQL matching **`backend/src/main/resources/db/create_tables.sql`** (avoids **`500` / `ERR_INTERNAL`** from invalid columns). **`GET /api/v1/users`** returns maps with **`roles[]`** from role assignments; **`GET /api/v1/audit-logs`** returns flat **`userId`/`userEmail`** and honours **`entityType`** (and related filters). **`@AuthenticationPrincipal AuthUserPrincipal`** replaces JPA **`User`** on controllers; **`AuditService`** accepts principals for audit rows. **`SecurityConfig`:** **`VIEWER`** cannot call **`/api/v1/audit-logs/**`**. Integration test **`coreSchemaAlignedGetRoutesOk`** uses **`@WithMockUser(roles = "ANALYST")`**. Docs: [Technical-Decision-Log.md](./technical/Technical-Decision-Log.md) TDL-018, [SPA-Service-Contract-Drift.md](./technical/SPA-Service-Contract-Drift.md), [Canonical-Backend.md](./technical/Canonical-Backend.md), [Testing-Plan.md](./technical/Testing-Plan.md).
+>
+> **Change Summary v2.13 (2026-03-31) — Institution labels (legal name first):** Member pickers (**`InstitutionFilterSelect`**), monitoring tables that resolve institution ids, schema-mapper Step 1 **source name**, dashboard command-center **`member`** / **`memberQualitySubmitters`**, and related API-backed strings use **legal `name`** before optional **`tradingName`** (`src/lib/institutions-display.ts` **`institutionDisplayLabel`**). Spring **`DashboardController`** uses `COALESCE(NULLIF(TRIM(i.name), ''), i.trading_name)` for JDBC label columns. Legacy Fastify **`POST /institutions`** stores **`tradingName`** only when supplied (no copy from legal). Docs: [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md) § *Institution display labels*, [Technical-Decision-Log.md](./technical/Technical-Decision-Log.md) TDL-017.
+>
+> **Change Summary v2.11 (2026-03-31) — Documentation: Spring-first dev + dashboard SQLite:** **`docs/technical/Developer-Handbook.md` v2.0** — runbook for **Spring on 8090**, **`npm run spring:start`**, **`npm run spring:test`**, seeded accounts, curl examples, troubleshooting; **Fastify 8091** documented as legacy. **Spring** **`GET /api/v1/dashboard/command-center`** — JDBC SQL safe for SQLite (dynamic **`AND`** concatenation; no **`AS member`** alias). **`DashboardCommandCenterSqliteIntegrationTest`** in **`backend/`**. **Authentication** on Spring uses JDBC **`UserDetails`** for SQLite-compatible login (see [Canonical-Backend.md](./technical/Canonical-Backend.md)). **README** §11 testing aligned. [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md) appendix footnote: Spring authoritative for default SPA.
+>
+> **Change Summary v2.10 (2026-03-31) — Schema Mapper PII on field mappings:** **LLM Field Intelligence** (`LLMFieldIntelligenceStep`) **PII** column uses a **Yes/No** select per row (replacing read-only text). **`llmRowsToFieldMappings`** / **`fieldMappingsToLlmRows`** (`src/lib/schema-mapper-api.ts`) map UI **`pii`** ↔ API **`containsPii`**. Fastify stores the flag on each **`fieldMappings`** entry; mapping jobs initialise **`containsPii: false`**; optional LLM merge **preserves** the heuristic row’s flag. See [Canonical-Backend.md](./technical/Canonical-Backend.md), [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md).
+>
+> **Change Summary v2.9 (2026-03-31) — Schema Mapper Step 1 operator copy:** **Source Ingestion** (`SourceIngestionStep`) and **Source Definition** (`SourceDefinitionStep`) **removed** the inline microcopy that quoted **`GET /api/v1/schema-mapper/wizard-metadata`** under **Source Type**. **Source Type** and **Data Category** dropdowns **unchanged** functionally — still populated via **`useSchemaMapperWizardMetadata`** / **`fetchWizardMetadata`** with **`wizardMetadataFromSeed`** when the API is unavailable. Loading placeholder on the **Source Type** trigger and **error** copy when metadata fetch fails remain.
+>
 > **Change Summary v2.8 (2026-03-31) — Data Products packet row + modal; Register review typography:** **Product form — Data packets:** one **Configure** button per **source-type** row (badge = total selected raw+derived field count for all packets in that row). No secondary **packet title** lines under the row label. **`PacketConfigModal`** (`src/components/data-products/PacketConfigModal.tsx`) takes **`packetIds[]`** (catalogue order) and **`catalogOptions`** from the resolved **`packet-catalog`** response (or seed); when **length > 1**, a **Packet** switcher uses catalogue **labels**; **Save configuration** updates **`packetConfigs`** for **every** id in the group. **Derived** names come from each option’s **`derivedFields`**. **Register member — Step 3 Review** (`RegisterInstitution.tsx` **`Step3Review`**): value lines use **`text-body`** without losing the token to **`tailwind-merge`** (dynamic colours applied via template literal **`className`**, not **`cn("text-body", …)`**). See [Canonical-Backend.md](./technical/Canonical-Backend.md), [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md).
 >
 > **Change Summary v2.7 (2026-03-31) — Validation Rules + Schema Mapper field discovery + Data Products configure modal:** On **`/data-governance/validation-rules`**, the **Create Rule** sheet loads **Applicable members** from **`GET /api/v1/institutions?role=dataSubmitter`** (paged list of data-submitting member institutions). **Schema Mapper source types** for the rule use **`GET /api/v1/schema-mapper/schemas/source-types`** when the API is available (fallback: distinct types from registry mock JSON). After the user picks a source type, **expression block field paths** load from **`GET /api/v1/schema-mapper/schemas/source-type-fields?sourceType=`** via **`fetchSourceTypeFields`** / **`useSourceTypeFields`**; client mock fallback uses **`src/lib/schema-mapper-source-fields.ts`** aligned with the server. **Schema Mapper wizard Step 1** (**Source Ingestion** / **Source Definition**) loads **Source Type** and **Data Category** from **`GET /api/v1/schema-mapper/wizard-metadata`** (`fetchWizardMetadata`, **`useSchemaMapperWizardMetadata`**); options are **`wizardSourceTypeOptions`** / **`wizardDataCategoryOptions`** in **`schema-mapper.json`** (mock fallback **`wizardMetadataFromSeed`**). **Data Products (`/data-products/products/create` & `…/edit`):** packet rows show the **source-type label** only (no “Source types:” prefix); **catalogue descriptions** are not shown on the card. **PacketConfigModal:** **Raw data** uses **`useSourceTypeFields`** (same **`source-type-fields`** endpoint) merged with packet-only paths from the catalogue; **Sources** uses **`useSchemaRegistryList`** with **`GET /api/v1/schema-mapper/schemas?sourceType=`**; dialog **title** is **sr-only** (“Configure packet fields”); **Derived** tab lists each packet’s **`derivedFields`** from **`GET /api/v1/products/packet-catalog`** (form passes **`catalogOptions`** into the modal; seed JSON is the same shape). **`useSchemaRegistryList`** supports **`enabled`** / **`allowMockFallback`**; **`fetchSchemaRegistryPage`** accepts optional **`allowMockFallback`**. **Dev seed:** `src/data/schema-mapper.json` defines **reference `parsedFields`** per type: **`telecomParsedFields`**, **`utilityParsedFields`**, **`bankParsedFields`**, **`gstParsedFields`**, **`customParsedFields`** (plus `*FieldStatistics`); Fastify **`createSchemaMapperSlice`** and **`POST …/ingest`** (empty body fields) use the same template map. **Automated tests:** `server/src/api.integration.test.ts` covers **`source-type-fields`** and **`wizard-metadata`**; **`src/lib/schema-mapper-source-fields.test.ts`** and **`schema-mapper-wizard-metadata.test.ts`** cover normalisation helpers. See [Canonical-Backend.md](./technical/Canonical-Backend.md), [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md), [openapi-hcb-fastify-snapshot.yaml](./technical/openapi-hcb-fastify-snapshot.yaml).
 >
-> **Change Summary v2.6 (2026-03-31) — Data Quality Monitoring drift alerts (API-backed):** **Drift alerts** for `/data-governance/data-quality-monitoring` are served by **`GET /api/v1/data-ingestion/drift-alerts`** (JWT). The Fastify store **`state.ingestionDriftAlerts`** is seeded from **`src/data/data-governance.json`** `driftAlerts`. The **Data Ingestion Agent** path appends alerts on **`POST /api/v1/schema-mapper/ingest`** (schema) and when an async **mapping job** completes (mapping). Query params **`dateFrom`**, **`dateTo`**, **`sourceType`** mirror the page filters. The SPA uses **`data-ingestion.service.ts`** and **`useDriftAlerts`**; **`VITE_USE_MOCK_FALLBACK=true`** still allows client-side filtering of the JSON mock when the API is unreachable. **Schema Drift** / **Mapping Drift** KPI counts on that page derive from the filtered API response when data is loaded. See [Canonical-Backend.md](./technical/Canonical-Backend.md) (section *Data Ingestion Agent — drift alerts*).
+> **Change Summary v2.6 (2026-03-31) — Data Quality Monitoring drift alerts (API-backed):** **Drift alerts** for `/data-governance/data-quality-monitoring` are served by **`GET /api/v1/data-ingestion/drift-alerts`** (JWT). **Spring** persists rows in **`ingestion_drift_alerts`** (`seed_data.sql`, aligned with **`data-governance.json`**). **Legacy Fastify** uses **`state.ingestionDriftAlerts`**. The **Data Ingestion / Schema Mapper** pipeline may append alerts on ingest and mapping completion (see Spring **`DataIngestionController`** / **`SchemaMapperController`**). Query params **`dateFrom`**, **`dateTo`**, **`sourceType`** mirror the page filters. The SPA uses **`data-ingestion.service.ts`** and **`useDriftAlerts`**; **`VITE_USE_MOCK_FALLBACK=true`** still allows client-side filtering of the JSON mock when the API is unreachable. **Schema Drift** / **Mapping Drift** KPI counts on that page derive from the filtered API response when data is loaded. See [Canonical-Backend.md](./technical/Canonical-Backend.md) (section *Data Ingestion Agent — drift alerts*).
 >
 > **Change Summary v2.0:** Added Module 10 (Consortium Management), Module 11 (Data Products), Module 12 (Enquiry Simulation), Institution Detail extensions (Consortium Memberships tab, Product Subscriptions tab). Updated routing table, project structure, exception scenarios (with sample data), data models, API specs, and QA test suites. Typography system documented: compact 10px/12px scale with explicit pixel values to prevent browser-default overrides.
 
@@ -21,7 +31,7 @@
 > **Change Summary v2.3 (2026-03-28) — Documentation depth & mock alignment:**
 >
 > **A. Data Quality Monitoring (`/data-governance/data-quality-monitoring`)**  
-> - **Drift alerts (API):** **`GET /api/v1/data-ingestion/drift-alerts`** returns **`alerts`** from **`state.ingestionDriftAlerts`** (seeded from **`driftAlerts`** in `src/data/data-governance.json`). New rows are appended by the ingestion/mapping pipeline (**`POST /api/v1/schema-mapper/ingest`** and completed mapping jobs).  
+> - **Drift alerts (API):** **`GET /api/v1/data-ingestion/drift-alerts`** returns **`alerts`**. **Spring:** **`ingestion_drift_alerts`** table + **`DataIngestionController`**. **Fastify:** **`state.ingestionDriftAlerts`** (seeded from **`driftAlerts`** in `src/data/data-governance.json`). New rows may be appended by the ingestion/mapping pipeline on each stack.  
 > - **Query filters:** `dateFrom`, `dateTo`, `sourceType` — server-side, aligned with the page’s date range and **Source type** control (registry source names for that `sourceType`).  
 > - **Registry alignment:** Seed alert `source` strings match **Schema Mapper**-style submitter/source names so filtering by **telecom**, **bank**, etc. remains predictable as the live registry grows.  
 > - **Alert fields:** `id`, `type` (`schema` \| `mapping`), `source`, `message`, `timestamp`, `severity` (`low` \| `medium` \| `high`).  
@@ -233,17 +243,17 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 
 | Layer | Role | Notes |
 |-------|------|--------|
-| **SPA default API** | `server/` Fastify on port **8091** | In-memory state; matches `src/services/*` and Vitest integration tests. Vite proxies `/api` here unless `VITE_API_PROXY_TARGET` overrides. |
-| **Alternate API** | `backend/` Spring Boot on port **8090** | SQLite (dev) / PostgreSQL (prod); RBAC; **contract drift** vs the SPA (verbs, pagination, some routes) — see `docs/technical/SPA-Service-Contract-Drift.md`. |
-| **Mock / JSON** | `src/data/*`, page-level imports | Governance, agents, and parts of data-products remain mock-first; core admin modules (institutions, monitoring, reporting, users, approvals, dashboard, consortiums, products) are API-backed when the Fastify server runs. |
+| **SPA default API** | `backend/` Spring Boot on port **8090** | SQLite (dev) / PostgreSQL (prod); canonical contract for `src/services/*`. Vite proxies `/api` here by default. Remaining **contract drift** (closing over time) — see `docs/technical/SPA-Service-Contract-Drift.md`. |
+| **Legacy dev API** | `server/` Fastify on port **8091** | In-memory only; comparison / Node unit tests — not the default product backend. |
+| **Mock / JSON** | `src/data/*`, page-level imports | Governance, agents, and parts of data-products remain mock-first; core admin modules (institutions, monitoring, reporting, users, approvals, dashboard, consortiums, products) are API-backed when **Spring** runs (`npm run spring:start`) with **`VITE_USE_MOCK_FALLBACK=false`**. |
 
 Canonical backend documentation: `docs/technical/Canonical-Backend.md`.  
-UI ↔ API parity (Fastify): `docs/technical/API-UI-Parity-Matrix.md`.  
+UI ↔ API parity: `docs/technical/API-UI-Parity-Matrix.md` (**Spring** routes are authoritative for the default SPA; **Fastify** appendix for legacy comparison).  
 Page-level `@/data` import audit: `docs/technical/Page-Data-Imports-Audit.md`.
 
 ### 3.1.2 Member lifecycle, API metrics, and overview analytics (v2.4)
 
-This subsection is the **product-facing** companion to **BRD §3.4**. It is binding for **UX copy**, **QA expected results**, and **demo scripts** when the SPA uses the **Fastify** contract.
+This subsection is the **product-facing** companion to **BRD §3.4**. It is binding for **UX copy**, **QA expected results**, and **demo scripts** when the SPA uses the **live API** (default: **Spring** on **8090**; legacy **Fastify** on **8091** when explicitly proxied).
 
 **Elaboration — why operators may see “rejected” in the queue but the member still in the list**
 
@@ -1329,7 +1339,7 @@ flowchart TB
 | Control | Detail |
 |---------|--------|
 | **Date from / Date to** | ISO date strings; default **first day of current month** through **today** (`date-fns` + `yyyy-MM-dd`). Alerts must have `timestamp` within this inclusive range to appear. |
-| **Institution** | `InstitutionFilterSelect` (**submitters**): option list from **`GET /api/v1/institutions?size=300`**, client-filtered to `isDataSubmitter`. **All** = static top option. KPI/trend may still use mock-backed nudges when a specific submitter is selected. |
+| **Member institution** | `InstitutionFilterSelect` (**submitters**): **`GET /api/v1/institutions?page=0&size=300&role=dataSubmitter`** (`allowMockFallback: false`). Top option **All submitters**. KPI/trend may still use mock-backed nudges when a specific submitter is selected. |
 | **Compare to** | Optional second submitter; when set, trend chart shows **primary** vs **comparison** series (`compareValue`). |
 | **Source type** | Options = distinct `sourceType` values from `schemaRegistryEntries` plus **All**. Drift list keeps alerts whose `source` matches a name under the chosen type (substring match against registry names). |
 
@@ -1801,7 +1811,7 @@ Example:
 
 | Filter | Type | Default | Options | Behaviour |
 |--------|------|---------|---------|-----------|
-| Institution | Select | "All" | **Populated from** `GET /api/v1/institutions?size=300` only (`useInstitutions` with **`allowMockFallback: false`** in `InstitutionFilterSelect` — no mock list on failure). **Data Submission API:** client keeps `isDataSubmitter`. **Inquiry API:** client keeps `isSubscriber`. First option label is static (“All data submission institutes” / “All subscribers”). |
+| Member institution | Select | All submitters / All subscribers | **`InstitutionFilterSelect`** — **`GET /api/v1/institutions?page=0&size=300`** with **`role=dataSubmitter`** (Data Submission API) or **`role=subscriber`** (Inquiry API), **`allowMockFallback: false`**. Top options: **All submitters** / **All subscribers**. **Live Request Monitoring** (`DataSubmissionApiSection`) uses the same control (not `institutions-mock`). |
 | Time Range | Select | "Last 24h" | Last 1h, Last 24h, Last 7d, Last 30d | Filters request log and refreshes charts |
 | Request ID | Text Input | Empty | Free text | Exact match on request/enquiry ID |
 
@@ -1809,9 +1819,9 @@ Example:
 
 | Filter | Type | Default | Options | Behaviour |
 |--------|------|---------|---------|-----------|
-| Action Type | Select | "All" | mapping_approved, mapping_rejected, rule_created, rule_updated, rule_activated, merge_performed, override_performed, config_changed | Single-select |
-| User | Text Input | Empty | Free text | Filters by user name |
-| Date Range | Date Picker | All time | Custom range | Filters by timestamp |
+| Date from / Date to | Date picker | Empty | Custom | **`from` / `to`** on **`GET /api/v1/audit-logs`** |
+| Action type | Select | All | Mapping/rule/merge/override/config action types | **`actionType`** query param |
+| Member institution | Select | All institutions | **`InstitutionFilterSelect`** **`mode="all"`** + **`GET /api/v1/audit-logs?institutionId=`** when a specific member is chosen (digit-normalized match on optional row **`institutionId`**; seed governance rows may tag member **1** / **2**) |
 
 ### 10.7 Schema Registry
 
@@ -1854,7 +1864,7 @@ Example:
 | Filter | Type | Default | Options | Behaviour |
 |--------|------|---------|---------|-----------|
 | Date from / to | Date picker | Start of month → today | Custom | Filters **drift alert** rows by `timestamp` (inclusive day bounds) |
-| Institution | Select | All submitters | **All** + submitters from **`GET /api/v1/institutions?size=300`** (`InstitutionFilterSelect`, **API-only** list — same `allowMockFallback: false` as Monitoring); KPI/trend may still use mock-backed adjustments when institution ≠ All |
+| Member institution | Select | All submitters | **`InstitutionFilterSelect`** + **`role=dataSubmitter`** (**API-only**, **`allowMockFallback: false`**); KPI/trend may still use mock-backed adjustments when institution ≠ All |
 | Compare to | Select | None | None + submitters | Optional second series on trend chart |
 | Source type | Select | All | Distinct registry source types | Filters drift alerts by registry name ↔ type mapping |
 
@@ -2426,7 +2436,7 @@ Response (200) — representative:
 }
 ```
 
-#### GET /api/v1/institutions/:id/overview-charts *(Fastify; Spring not implemented — v2.4)*
+#### GET /api/v1/institutions/:id/overview-charts *(Spring + Fastify; member-scoped JDBC / in-memory aggregates — last 30 days)*
 
 ```json
 Response (200):
@@ -3211,26 +3221,26 @@ Legacy **`shareLoanData`**, **`shareRepaymentHistory`**, and **`allowAggregation
 
 ### 16.1 Current implementation (this repository — as-built)
 
-**Authoritative engineering references:** [Developer Handbook](technical/Developer-Handbook.md) (run/test/env), [Canonical Backend](technical/Canonical-Backend.md) (Fastify vs Spring), [API ↔ UI parity matrix](technical/API-UI-Parity-Matrix.md), [SPA contract drift](technical/SPA-Service-Contract-Drift.md).
+**Authoritative engineering references:** [Developer Handbook](technical/Developer-Handbook.md) (run/test/env), [Canonical Backend](technical/Canonical-Backend.md) (Spring vs legacy Fastify), [API ↔ UI parity matrix](technical/API-UI-Parity-Matrix.md), [SPA contract drift](technical/SPA-Service-Contract-Drift.md).
 
-#### 16.1.1 When the Fastify dev API is running (default local integration)
+#### 16.1.1 When Spring Boot is running (default local integration)
 
 | Aspect | Implementation |
 |--------|----------------|
-| Authentication | Email/password validated by **`POST /api/v1/auth/login`** on the in-repo **Fastify** server (`server/`, default port **8091**). Passwords are checked against seeded users (e.g. `admin@hcb.com` / `Admin@1234`); failed login is rejected with **401**. |
-| Tokens | **JWT access + refresh** returned on login; refresh via **`POST /api/v1/auth/refresh`**; logout via **`POST /api/v1/auth/logout`**. The SPA stores tokens per its client implementation (see `src/lib/api-client.ts`). |
-| Authorization (API) | Protected routes require a valid Bearer JWT (see OpenAPI / Fastify route hooks). The **dev API validates token presence/signature**; it does **not** fully enforce the PRD role matrix per route (see [Production Backend Roadmap](technical/Production-Backend-Roadmap.md)). |
+| Authentication | Email/password validated by **`POST /api/v1/auth/login`** on **Spring Boot** (`backend/`, default port **8090**). Passwords are checked against seeded users (e.g. `admin@hcb.com` / `Admin@1234`); failed login is rejected with **401**. Principals load via **JDBC** (`AuthAccountService`) for SQLite-compatible login. |
+| Tokens | **JWT access + refresh** returned on login; refresh via **`POST /api/v1/auth/refresh`** (rotation); logout via **`POST /api/v1/auth/logout`**. The SPA stores tokens per its client implementation (see `src/lib/api-client.ts`). |
+| Authorization (API) | Protected routes require a valid Bearer JWT; **Spring Security** (`JwtAuthenticationFilter`, **`@PreAuthorize`**) enforces roles on controllers. Fine-grained parity with the full PRD matrix may still evolve — see [Production Backend Roadmap](technical/Production-Backend-Roadmap.md). |
 | Authorization (UI) | **`ProtectedRoute`** gates SPA routes when no authenticated user context. **UI permission matrix** (nav / Roles & Permissions page) can hide actions; **this is not a substitute for server-side RBAC** in production. |
-| Session continuity | Access token expiry and refresh behaviour are defined by the Fastify auth implementation; reloading the SPA may lose in-memory client state depending on build/env — see Developer Handbook. |
+| Session continuity | Access token expiry and refresh behaviour follow **`hcb.jwt.*`** in Spring configuration; reloading the SPA may lose in-memory client state depending on build/env — see Developer Handbook. |
 | HTTPS | Local dev typically HTTP; **production** must terminate TLS at the edge (load balancer / gateway). |
 
 #### 16.1.2 Offline mode — mock auth and mock data only
 
-When **`VITE_USE_MOCK_FALLBACK=true`** (typical in `.env.development`) **and** the API is unreachable or errors, the SPA may fall back to **mock authentication** and **JSON fixtures** under `src/data/`. In that mode, behaviour is **demo-grade only**: do not use for security or compliance claims. For integration testing of real flows, run **`npm run server`** with **`VITE_USE_MOCK_FALLBACK=false`**.
+When **`VITE_USE_MOCK_FALLBACK=true`** (typical in `.env.development`) **and** the API is unreachable or errors, the SPA may fall back to **mock authentication** and **JSON fixtures** under `src/data/`. In that mode, behaviour is **demo-grade only**: do not use for security or compliance claims. For integration testing of real flows, run **`npm run spring:start`** with **`VITE_USE_MOCK_FALLBACK=false`**.
 
-#### 16.1.3 Alternate backend — Spring Boot (`backend/`)
+#### 16.1.3 Legacy Fastify (`server/` — port **8091**)
 
-Optional **Spring Boot** on port **8090** uses **different REST shapes and RBAC** than the SPA’s default Fastify contract. Pointing Vite at it requires **`VITE_API_PROXY_TARGET`** and client/server alignment — see [SPA-Service-Contract-Drift.md](technical/SPA-Service-Contract-Drift.md).
+**Fastify** is **in-memory** and **not** the default backend. Use only when explicitly proxying with **`VITE_API_PROXY_TARGET=http://127.0.0.1:8091`**. Remaining drift vs Spring is tracked in [SPA-Service-Contract-Drift.md](technical/SPA-Service-Contract-Drift.md).
 
 ### 16.2 Target Implementation (V2)
 
@@ -3838,7 +3848,7 @@ The HCB platform mandates a strict Single Source of Truth (SSoT) data architectu
 
 | Attribute | Owner Table | Access Pattern |
 |-----------|------------|----------------|
-| Institution name, trading name | `institutions` | FK join from all referencing tables |
+| Institution legal name (`name`), trading name (`tradingName`) | `institutions` | FK join from all referencing tables; **single-string UI/API labels** prefer legal name (see API-UI parity matrix) |
 | User email, display name, password hash | `users` | FK join; no copies anywhere |
 | Role names, descriptions | `roles` | FK via `user_role_assignments` |
 | Permission definitions | `permissions` | FK via `role_permissions` |
@@ -4216,13 +4226,14 @@ No API call. Client-side CSV from the currently loaded `users` array.
 | **Success** | Table rows update to match server-filtered results. Pagination totals reflect filter. |
 | **Error** | `ApiErrorCard` inside the table card with **Try again** button. |
 
-#### Institution dropdown — **“All data submission institutes”** (label)
+#### Member institution dropdown — **All submitters** (Data Submission API)
 
 | Field | Value |
 |-------|-------|
-| **Component** | `InstitutionFilterSelect` in `MonitoringFilterBar` (`mode="submitters"`) |
-| **Options source** | **Not static.** `GET /api/v1/institutions?page=0&size=300` via `useInstitutions({ size: 300 }, { allowMockFallback: false })`; the UI keeps only rows with `isDataSubmitter === true`. Each `SelectItem` uses `String(id)` and `tradingName ?? name`. |
-| **“All data submission institutes”** | Static **label** for `value="all"` (no institution id sent to monitoring APIs until a specific id is chosen). |
+| **Component** | `InstitutionFilterSelect` in `MonitoringFilterBar` and **`DataSubmissionApiSection`** (`mode="submitters"`) |
+| **Options source** | **`GET /api/v1/institutions?page=0&size=300&role=dataSubmitter`** via `useInstitutions(..., { allowMockFallback: false })`. Each `SelectItem` uses `String(id)` and **`institutionDisplayLabel`** (`src/lib/institutions-display.ts` — legal **`name`** first, then **`tradingName`**). |
+| **All submitters** | Top option for `value="all"` (no `institutionId` sent to monitoring APIs until a specific id is chosen). |
+| **UI label** | **Member institution** (shared component default). |
 | **Mock fallback** | **None** for this dropdown: `allowMockFallback: false` so the member list is never sourced from `institutions-mock.ts` (unlike other `fetchInstitutions` callers). On failure the query errors; trigger shows “Could not load institutions” and the list is empty aside from **All**. |
 | **Disabled when** | Loading (`isPending`) or no logged-in user (`enabled: !!user` on the query). |
 
@@ -4276,11 +4287,11 @@ No API call. Selected row data is passed as props to the drawer. All information
 | **Params sent to API** | `status=Failed&institutionId=inst_002` |
 | **Client-side only** | `timeRange`, `enquiryIdSearch` |
 
-#### Institution dropdown — **“All subscribers”** (Inquiry API)
+#### Member institution dropdown — **All subscribers** (Inquiry API)
 
-Same component and **same API-only contract** as G.8: `InstitutionFilterSelect` with `mode="subscribers"` uses **`GET /api/v1/institutions?page=0&size=300`** via `useInstitutions({ size: 300 }, { allowMockFallback: false })`, then keeps rows with **`isSubscriber === true`**. The **“All subscribers”** row is the static `value="all"` option. No `institutions-mock` fallback for options; on API failure the dropdown errors the same way as the submitter control.
+Same component and **same API-only contract** as G.8: `InstitutionFilterSelect` with `mode="subscribers"` uses **`GET /api/v1/institutions?page=0&size=300&role=subscriber`** via `useInstitutions(..., { allowMockFallback: false })`. The **All subscribers** row is the static `value="all"` option. No `institutions-mock` fallback for options; on API failure the dropdown errors the same way as the submitter control.
 
-**Detailed Enquiry Log card** (filters inside the table card): the **Institute** control is **also** `InstitutionFilterSelect` (`mode="subscribers"`) — not `institutions-mock`. Toolbar + in-card filters share the same API-backed subscriber list (React Query dedupes `useInstitutions`).
+**Detailed Enquiry Log card** (filters inside the table card): **`InstitutionFilterSelect`** (`mode="subscribers"`) — not `institutions-mock`. Toolbar + in-card filters share the same API-backed subscriber list (React Query dedupes `useInstitutions`).
 
 #### Action: **View** (row button → EnquiryDetailDrawer)
 
@@ -4316,7 +4327,7 @@ No API call. Console data comes from static `batch-console.json` mock. This is a
 | `useSlaConfigs` | `GET /api/v1/sla-configs` | SLA configuration cards (seeds local state) |
 | `useBreachHistory` | `GET /api/v1/sla-configs/breach-history` | SLA breach history table (seeds local state) |
 
-**SLA Breach History — Institution filter:** options from **`GET /api/v1/institutions?size=300`** via `InstitutionFilterSelect` (`mode="all"`, **`allowMockFallback: false`**), not `institutions-mock`. Filtering compares breach row `institution_id` to the selected member using digit-normalized ids.
+**SLA Breach History — Member institution filter:** options from **`GET /api/v1/institutions?page=0&size=300`** (unscoped list) via `InstitutionFilterSelect` (`mode="all"`, **`allowMockFallback: false`**), not `institutions-mock`. Top option **All institutions**. Filtering compares breach row `institution_id` to the selected member using digit-normalized ids.
 
 **Error**: Each section shows `ApiErrorCard` independently.
 
@@ -4638,11 +4649,11 @@ Added in Phase 6/7. All endpoints require `Bearer <access_token>` and any of the
 | Requirement | Implementation |
 |-------------|----------------|
 | CI / local verification | `npm run test` runs Vitest **client** (jsdom) and **server** (node) projects |
-| HTTP regression | `server/src/api.integration.test.ts` uses `buildServer()` + Fastify `inject` — **sequential** suite covering login, bad-password 401, **refresh rotation**, institutions 401/200, **POST institution → list + approvals (`type=institution`)**, **dashboard metrics**, **approvals list + approve**, **users list + PATCH**, **audit-logs** (seeded list, `actionType` / `GOVERNANCE`+date filters, entity filter, **PATCH institution → `INSTITUTION_UPDATE` audit count**), **alert-rule create/patch/delete**, **reports POST**, **products list**, **POST products (`approval_pending`) → approvals (`type=product`)**, **POST consortiums (`approval_pending`) → approvals (`type=consortium`)**, **batch retry + cancel**, **consortium members**, **institution consortium-memberships + product-subscriptions**, **roles CRUD** |
+| HTTP regression | **`npm run spring:test`** — `HcbPlatformApplicationTest` and related Spring tests (expand to cover the former Fastify sequential suite: login, institutions, approvals, audit, products, batch, roles, etc.) |
 | Shared test helpers | `server/src/test-helpers.ts` — `loginAsAdmin`, `authHeaders` |
 | Client coverage | Pure calcs (`src/test/calc/*`), `api-client`, feature flags, `AuthContext`, `InstitutionList`, `ApprovalQueuePage` |
 | UI ↔ route traceability | `docs/technical/API-UI-Parity-Matrix.md` (+ route appendix) |
-| Onboarding / ops narrative | `docs/technical/Developer-Handbook.md` — env vars, ports **8080/8091**, mock fallback, troubleshooting matrix |
+| Onboarding / ops narrative | `docs/technical/Developer-Handbook.md` — env vars, ports **8080/8090** (Spring), mock fallback, troubleshooting matrix |
 | Demo-only affordances | Login SSO / password-reset rows and agents “request access” messaging respect `VITE_SHOW_DEMO_AUTH_UI`; production builds default to non-misleading copy |
 | Hardening beyond prototype | `docs/technical/Production-Backend-Roadmap.md` |
 

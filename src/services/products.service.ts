@@ -7,6 +7,8 @@ const BASE = "/v1/products";
 
 export interface ProductResponse {
   id: string;
+  /** Business code (e.g. PRD_001); list/detail from Spring include this for display and catalogue merge. */
+  productCode?: string;
   name: string;
   type: string;
   status: string;

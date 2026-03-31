@@ -5,6 +5,9 @@ node-v24.11.1-win-x64.zip
 # Dependencies
 node_modules/
 
+# Local Apache Maven binary (optional; used when mvn is not on PATH)
+.tools/
+
 # Local Maven binary (optional dev download under backend/)
 backend/.maven/
 

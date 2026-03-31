@@ -17,7 +17,6 @@ import {
   fetchAlertCharts,
   fetchBreachHistory,
   type AlertRuleResponse,
-  type SlaConfigResponse,
 } from "@/services/alerts.service";
 
 export function useAlertRules() {
@@ -102,7 +101,8 @@ export function useSlaConfigs() {
 export function useUpdateSlaConfig() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: Partial<SlaConfigResponse> }) => updateSlaConfig(id, data),
+    mutationFn: ({ id, data }: { id: string; data: { thresholdValue: number | string } }) =>
+      updateSlaConfig(id, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: QK.alerts.slaConfigs() }); toast.success("SLA configuration updated"); },
     onError: (e: ApiError) => toast.error(e.message),
   });

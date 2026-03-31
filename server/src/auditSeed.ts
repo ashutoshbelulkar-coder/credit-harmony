@@ -14,6 +14,8 @@ export type AuditSeedRow = {
   entityId: string;
   description?: string;
   ipAddress?: string;
+  /** When set, governance audit logs can filter by member institution */
+  institutionId?: string;
 };
 
 function mapMockActionToType(action: string): string {
@@ -65,6 +67,7 @@ export function buildAuditLogSeed(um: any, users: { id: number; email: string }[
       entityId: "map-seed-1",
       description: "Approved schema mapping for member institution (seed)",
       ipAddress: "10.0.0.2",
+      institutionId: "1",
     },
     {
       occurredAt: "2026-03-07T15:30:00.000Z",
@@ -75,6 +78,7 @@ export function buildAuditLogSeed(um: any, users: { id: number; email: string }[
       entityId: "rule-seed-1",
       description: "Created validation rule CreditScoreRange (seed)",
       ipAddress: "10.0.0.2",
+      institutionId: "2",
     },
     {
       occurredAt: "2026-03-06T11:00:00.000Z",

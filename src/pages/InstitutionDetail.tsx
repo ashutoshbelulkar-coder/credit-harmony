@@ -47,7 +47,6 @@ import { useProducts } from "@/hooks/api/useProducts";
 import type { InstitutionComplianceDoc, InstitutionResponse } from "@/services/institutions.service";
 import { fetchInstitutionDocument } from "@/services/institutions.service";
 import { defaultInstitutionApiAccessPayload } from "@/services/institutions.service";
-import type { ApiKeyResponse } from "@/services/apiKeys.service";
 import type { ApiRequestRecord, EnquiryRecord } from "@/services/monitoring.service";
 import type { BatchJobResponse } from "@/services/batchJobs.service";
 import UsersTab from "./institution-tabs/UsersTab";
@@ -75,7 +74,7 @@ const InstitutionDetail = () => {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("Overview");
 
-  const { data: institution, isLoading } = useInstitution(id);
+  const { data: institution, isLoading } = useInstitution(id, { allowMockFallback: false });
 
   const allTabs = useMemo(() => {
     if (!institution) return [];
@@ -765,7 +764,6 @@ function ApiAccessTab({
   isDataSubmitter: boolean;
   isSubscriber: boolean;
 }) {
-  const [envTab, setEnvTab] = useState<"sandbox" | "uat" | "prod">("sandbox");
   const [editingKey, setEditingKey] = useState<ApiAccessCardKey | null>(null);
   const [editRate, setEditRate] = useState("");
 
@@ -777,15 +775,6 @@ function ApiAccessTab({
   const { mutate: createKey, isPending: creatingKey } = useCreateApiKey(institutionId);
   const { mutate: regenerate, isPending: regenerating } = useRegenerateApiKey();
   const { mutate: revoke, isPending: revoking } = useRevokeApiKey();
-
-  // Filter keys by environment tab (`production` matches prod tab)
-  const filteredKeys: ApiKeyResponse[] = apiKeys.filter((k) => {
-    const e = (k.environment ?? "").toLowerCase();
-    if (envTab === "prod") return e === "prod" || e === "production";
-    return e === envTab;
-  });
-
-  const displayedKeys = filteredKeys.length > 0 ? filteredKeys : apiKeys;
 
   const apiCards = useMemo(() => {
     const cards: Array<{
@@ -825,23 +814,6 @@ function ApiAccessTab({
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2">
-        {(["sandbox", "uat", "prod"] as const).map((env) => (
-          <button
-            key={env}
-            onClick={() => setEnvTab(env)}
-            className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors",
-              envTab === env
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            )}
-          >
-            {env === "prod" ? "Production" : env.toUpperCase()}
-          </button>
-        ))}
-      </div>
-
       {/* API Keys Table */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b border-border">
@@ -849,7 +821,7 @@ function ApiAccessTab({
           <button
             type="button"
             disabled={creatingKey}
-            onClick={() => createKey(envTab)}
+            onClick={() => createKey("sandbox")}
             className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             {creatingKey ? "Generating…" : "Generate New Key"}
@@ -858,12 +830,13 @@ function ApiAccessTab({
         <div className="min-w-0 overflow-x-auto">
           {keysLoading ? (
             <div className="py-8 text-center text-sm text-muted-foreground">Loading keys…</div>
-          ) : displayedKeys.length === 0 ? (
+          ) : apiKeys.length === 0 ? (
             <div className="py-8 text-center text-sm text-muted-foreground">No API keys found for this institution.</div>
           ) : (
             <table className="w-full min-w-max">
               <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
                 <tr className="border-b border-border">
+                  <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Environment</th>
                   <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Key Prefix</th>
                   <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Created</th>
                   <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Last Used</th>
@@ -872,8 +845,11 @@ function ApiAccessTab({
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {displayedKeys.map((k) => (
+                {apiKeys.map((k) => (
                   <tr key={k.id}>
+                    <td className="px-5 py-4 text-body text-muted-foreground capitalize">
+                      {k.environment ?? "—"}
+                    </td>
                     <td className="px-5 py-4">
                       <div className="flex min-w-0 max-w-[min(100%,20rem)] items-center gap-2">
                         <span className="truncate font-mono text-body text-foreground" title={`${k.keyPrefix} (prefix only)`}>

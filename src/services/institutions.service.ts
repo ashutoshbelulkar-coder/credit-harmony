@@ -94,6 +94,24 @@ export interface PagedResponse<T> {
   size: number;
 }
 
+/** Spring Data `Page` uses `number` for the page index; Fastify used `page`. */
+function normalizeSpringPage<T>(raw: Record<string, unknown>): PagedResponse<T> {
+  const page =
+    typeof raw.page === "number"
+      ? raw.page
+      : typeof raw.number === "number"
+        ? raw.number
+        : 0;
+  const content = Array.isArray(raw.content) ? (raw.content as T[]) : [];
+  return {
+    content,
+    totalElements: Number(raw.totalElements ?? 0),
+    totalPages: Number(raw.totalPages ?? 0),
+    page,
+    size: Number(raw.size ?? 20),
+  };
+}
+
 /** Register-member wizard options — from `GET /v1/institutions/form-metadata`. */
 export interface InstitutionFormMetadataConsortiumOption {
   id: string;
@@ -296,7 +314,8 @@ export async function fetchInstitutions(
 ): Promise<PagedResponse<InstitutionResponse>> {
   const allowMockFallback = options?.allowMockFallback !== false;
   try {
-    return await get<PagedResponse<InstitutionResponse>>(`${BASE}${buildQuery(params ?? {})}`);
+    const raw = await get<Record<string, unknown>>(`${BASE}${buildQuery(params ?? {})}`);
+    return normalizeSpringPage<InstitutionResponse>(raw);
   } catch (err) {
     if (allowMockFallback && clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       let list = mockInstitutions.map(normaliseMockInstitution);
@@ -349,11 +368,15 @@ export async function fetchInstitutionDocument(
   );
 }
 
-export async function fetchInstitutionById(id: string | number): Promise<InstitutionResponse> {
+export async function fetchInstitutionById(
+  id: string | number,
+  options?: FetchInstitutionsOptions
+): Promise<InstitutionResponse> {
+  const allowMockFallback = options?.allowMockFallback !== false;
   try {
     return await get<InstitutionResponse>(`${BASE}/${id}`);
   } catch (err) {
-    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
+    if (allowMockFallback && clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       const m = mockGetById(String(id));
       if (!m) throw new ApiError(404, "ERR_NOT_FOUND", `Institution ${id} not found`);
       return normaliseMockInstitution(m);

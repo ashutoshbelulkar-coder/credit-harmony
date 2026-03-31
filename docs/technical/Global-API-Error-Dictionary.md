@@ -59,13 +59,15 @@ This document defines the **target** error model for HCB platform APIs. The in-r
 
 \*Retry only for **idempotent** reads or POSTs with `Idempotency-Key` (see [Idempotency-And-Retries.md](./Idempotency-And-Retries.md)).
 
+**Spring note:** `com.hcb.platform.common.GlobalExceptionHandler` maps uncaught exceptions to **`500`** + **`ERR_INTERNAL`** without exposing SQL or stack traces. A common **local** cause (now guarded by tests) was **JdbcTemplate** queries referencing columns not present in **`backend/src/main/resources/db/create_tables.sql`**. If list **GET** routes still return **`500`**, run **`npm run spring:test`**, re-seed SQLite, and compare the controller SQL to DDL — see [Technical-Decision-Log.md](./Technical-Decision-Log.md) **TDL-018**.
+
 ### 2.1 Fastify dev API — observed codes (as of snapshot)
 
 The dev server uses a subset aligned with the table above, including: `ERR_UNAUTHORIZED`, `ERR_AUTH_FAILED`, `ERR_ACCOUNT_SUSPENDED`, `ERR_NO_REFRESH_TOKEN`, `ERR_REFRESH_FAILED`, `ERR_NOT_FOUND`, `ERR_VALIDATION`, `ERR_CONFLICT`, `ERR_INTERNAL`, and (for batch retry) `ERR_INSTITUTION_*` from §2.3. Extend this file when new codes ship; keep [openapi-hcb-fastify-snapshot.yaml](./openapi-hcb-fastify-snapshot.yaml) and integration tests in sync.
 
-### 2.2 Schema Mapper (`/api/v1/schema-mapper`) — Fastify envelope
+### 2.2 Schema Mapper (`/api/v1/schema-mapper`) — envelope
 
-Responses use `{ error: { code, message, details: [] }, requestId }` (see `server/src/schemaMapper.ts`).
+**Spring** and **legacy Fastify** use `{ error: { code, message, details: [] }, requestId }` for domain failures (Spring: `SchemaMapperApiException` → `GlobalExceptionHandler`).
 
 | Code | HTTP | Meaning |
 |------|------|---------|

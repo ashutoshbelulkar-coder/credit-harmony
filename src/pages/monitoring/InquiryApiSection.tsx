@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { cn } from "@/lib/utils";
-import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
+import { tableHeaderClasses } from "@/lib/typography";
+import { Badge } from "@/components/ui/badge";
 import {
   LineChart,
   Line,
@@ -59,6 +60,12 @@ import { EnquiryDetailDrawer } from "./EnquiryDetailDrawer";
 import { useEnquiries } from "@/hooks/api/useMonitoring";
 import type { EnquiryRecord } from "@/services/monitoring.service";
 import { SkeletonTable } from "@/components/ui/skeleton-table";
+import { institutionDisplayLabel } from "@/lib/institutions-display";
+import {
+  ENQUIRY_STATUS_FILTER_OPTIONS,
+  enquiryStatusBadgeClass,
+  enquiryStatusLabel,
+} from "@/lib/status-badges";
 
 const ENQUIRY_TIME_OPTIONS: { value: TimeRangeValue; label: string }[] = [
   { value: "5m", label: "Last 5 mins" },
@@ -74,7 +81,7 @@ function toMockEnquiry(r: EnquiryRecord): EnquiryLogEntry {
     api_key: "",
     product: r.productName ?? r.enquiryType ?? "Credit Report",
     product_id: r.productId ?? "",
-    status: r.status as EnquiryStatus,
+    status: enquiryStatusLabel(r.status) as EnquiryStatus,
     response_time_ms: r.responseTimeMs,
     consumer_id: r.consumerId ?? "—",
     alternate_data_used: r.alternateDataUsed ?? 0,
@@ -85,11 +92,6 @@ function toMockEnquiry(r: EnquiryRecord): EnquiryLogEntry {
 function isWithinEnquiryTimeRange(ts: string, timeRange: TimeRangeValue): boolean {
   return isWithinRelativeWindow(ts, WINDOW_MS[timeRange]);
 }
-
-const statusStyles: Record<EnquiryStatus, string> = {
-  Success: "bg-success/15 text-success",
-  Failed: "bg-destructive/15 text-destructive",
-};
 
 const PAGE_SIZE = 10;
 
@@ -185,7 +187,7 @@ export function InquiryApiSection({
     if (filters.subscriberId !== "all") {
       const sid = String(filters.subscriberId).replace(/\D/g, "");
       const inst = institutionsPage?.content.find((i) => String(i.id).replace(/\D/g, "") === sid);
-      if (inst) parts.push(`Subscriber: ${inst.tradingName ?? inst.name}`);
+      if (inst) parts.push(`Subscriber: ${institutionDisplayLabel(inst)}`);
     }
     if (filters.dateFrom?.trim() && filters.dateTo?.trim()) {
       parts.push(`Dates: ${filters.dateFrom} → ${filters.dateTo}`);
@@ -324,8 +326,11 @@ export function InquiryApiSection({
                     <SelectTrigger className="h-8 w-full text-caption"><SelectValue placeholder="Status" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all" className="text-caption">All statuses</SelectItem>
-                      <SelectItem value="Success" className="text-caption">Success</SelectItem>
-                      <SelectItem value="Failed" className="text-caption">Failed</SelectItem>
+                      {ENQUIRY_STATUS_FILTER_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value} className="text-caption">
+                          {o.label}
+                        </SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
@@ -336,8 +341,6 @@ export function InquiryApiSection({
                     set({ subscriberId: v });
                     setPage(1);
                   }}
-                  label="Institute"
-                  allLabel="All subscribers"
                   triggerClassName="h-8 w-full text-caption"
                 />
                 <div className="space-y-1.5">
@@ -366,8 +369,11 @@ export function InquiryApiSection({
                 <SelectTrigger className="h-8 w-[140px] text-caption"><SelectValue placeholder="Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-caption">All statuses</SelectItem>
-                  <SelectItem value="Success" className="text-caption">Success</SelectItem>
-                  <SelectItem value="Failed" className="text-caption">Failed</SelectItem>
+                  {ENQUIRY_STATUS_FILTER_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value} className="text-caption">
+                      {o.label}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -378,8 +384,6 @@ export function InquiryApiSection({
                 set({ subscriberId: v });
                 setPage(1);
               }}
-              label="Institute"
-              allLabel="All subscribers"
               triggerClassName="h-8 min-w-[180px] max-w-[220px] text-caption"
             />
             <div className="space-y-1.5 min-w-0">
@@ -426,9 +430,9 @@ export function InquiryApiSection({
                         {e.productName ?? e.enquiryType}
                       </td>
                       <td className="px-5 py-4">
-                        <span className={cn("px-2.5 py-1 rounded-full", badgeTextClasses, statusStyles[e.status as EnquiryStatus] ?? "bg-muted text-muted-foreground")}>
-                          {e.status}
-                        </span>
+                        <Badge className={enquiryStatusBadgeClass(e.status)}>
+                          {enquiryStatusLabel(e.status)}
+                        </Badge>
                       </td>
                       <td className="px-5 py-4 text-caption text-right tabular-nums">{e.responseTimeMs} ms</td>
                       <td className="px-5 py-4 text-caption text-muted-foreground whitespace-nowrap">{e.timestamp}</td>

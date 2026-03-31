@@ -23,7 +23,57 @@ import {
   productStatusFromApi,
   type ConfiguredProduct,
   type ProductLifecycleStatus,
+  type ProductPricingModel,
 } from "@/data/data-products-mock";
+import type { ProductResponse } from "@/services/products.service";
+
+/** Row in the table: API id drives routes; optional productCode is shown as “Product ID”. */
+type ProductListRow = ConfiguredProduct & { productCode?: string };
+
+function pricingModelFromApi(raw: string | undefined): ProductPricingModel {
+  if (raw?.toUpperCase() === "SUBSCRIPTION") return "subscription";
+  return "per_hit";
+}
+
+/** JDBC/SQLite sometimes returns snake_case or lowercase keys before backend normalization. */
+function readProductCode(api: ProductResponse): string {
+  const x = api as Record<string, unknown>;
+  const v = api.productCode ?? x.productcode ?? x.product_code;
+  if (typeof v === "string") return v.trim();
+  if (v != null) return String(v).trim();
+  return "";
+}
+
+function mergeApiProductWithCatalog(api: ProductResponse): ProductListRow {
+  const code = readProductCode(api);
+  const cfg = code ? configuredProducts.find((p) => p.id === code) : undefined;
+  const pm = pricingModelFromApi(api.pricingModel);
+
+  if (cfg) {
+    return {
+      ...cfg,
+      id: api.id,
+      name: api.name,
+      description: api.description ?? cfg.description,
+      status: productStatusFromApi(api.status),
+      lastUpdated: api.lastUpdated ?? cfg.lastUpdated,
+      pricingModel: pm,
+      productCode: readProductCode(api) || undefined,
+    };
+  }
+
+  return {
+    id: api.id,
+    name: api.name,
+    packetIds: [],
+    description: api.description ?? "",
+    status: productStatusFromApi(api.status),
+    pricingModel: pm,
+    price: 0,
+    lastUpdated: api.lastUpdated ?? new Date().toISOString(),
+    productCode: readProductCode(api) || undefined,
+  };
+}
 
 const statusStyles: Record<ProductLifecycleStatus, string> = {
   active: "bg-success/15 text-success",
@@ -39,22 +89,10 @@ const statusLabel: Record<ProductLifecycleStatus, string> = {
 
 export default function ProductListPage() {
   const navigate = useNavigate();
-  const { data: apiProducts, isLoading, isError, error, refetch } = useProducts({ size: 100 });
-  const products = useMemo((): ConfiguredProduct[] => {
+  const { data: apiProducts, isLoading, isError, error, refetch } = useProducts({ size: 200 });
+  const products = useMemo((): ProductListRow[] => {
     const apiList = apiProducts?.content ?? [];
-    const apiById = new Map(apiList.map((p) => [p.id, p]));
-    return configuredProducts.map((p) => {
-      const o = apiById.get(p.id);
-      if (!o) return p;
-      return {
-        ...p,
-        name: o.name,
-        description: o.description ?? p.description,
-        status: productStatusFromApi(o.status),
-        lastUpdated: o.lastUpdated ?? p.lastUpdated,
-        price: o.price ?? p.price,
-      };
-    });
+    return apiList.map((api) => mergeApiProductWithCatalog(api));
   }, [apiProducts]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
@@ -83,7 +121,7 @@ export default function ProductListPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-6 animate-fade-in pb-4 sm:pb-6">
       <PageBreadcrumb
         segments={[
           { label: "Dashboard", href: "/" },
@@ -92,32 +130,26 @@ export default function ProductListPage() {
         ]}
       />
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
-        <div className="min-w-0 flex-1">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-h2 font-semibold text-foreground">Products</h1>
-          <p className="text-caption text-muted-foreground mt-1">
+          <p className="mt-0.5 text-caption text-muted-foreground">
             Configure catalogue products from internal data packets, pricing, and enquiry settings.
           </p>
         </div>
-        <div className="grid w-full grid-cols-1 gap-2 sm:w-auto sm:min-w-[min(100%,22rem)] sm:max-w-xl sm:grid-cols-2 sm:gap-2 sm:shrink-0">
+        <div className="flex flex-wrap gap-2">
           <Button
             type="button"
             variant="outline"
-            size="sm"
-            className="h-8 min-h-8 w-full justify-center gap-1.5 px-3"
+            className="gap-1.5 shrink-0"
             onClick={() => navigate("/data-products/enquiry-simulation")}
           >
-            <FlaskConical className="h-4 w-4 shrink-0" />
-            <span className="text-center leading-tight">Enquiry simulation</span>
+            <FlaskConical className="h-3.5 w-3.5" />
+            Enquiry simulation
           </Button>
-          <Button
-            type="button"
-            size="sm"
-            className="h-8 min-h-8 w-full justify-center gap-1.5 px-3"
-            onClick={() => navigate("/data-products/products/create")}
-          >
-            <Plus className="h-4 w-4 shrink-0" />
-            <span className="text-center leading-tight">Create product</span>
+          <Button type="button" className="gap-1.5 shrink-0" onClick={() => navigate("/data-products/products/create")}>
+            <Plus className="h-3.5 w-3.5" />
+            Create product
           </Button>
         </div>
       </div>
@@ -167,7 +199,9 @@ export default function ProductListPage() {
                   {statusLabel[p.status]}
                 </Badge>
               </div>
-              <p className="text-caption text-muted-foreground">Product ID: {p.id}</p>
+              <p className="text-caption text-muted-foreground">
+                Product ID: {p.productCode ?? p.id}
+              </p>
               <p className="text-caption text-muted-foreground">
                 {p.packetIds.length} packets · {productPricingLabel[p.pricingModel]} · Updated{" "}
                 {formatUpdated(p.lastUpdated)}
@@ -240,7 +274,7 @@ export default function ProductListPage() {
                     className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
                   >
                     <td className="px-4 py-3 text-caption text-muted-foreground tabular-nums">
-                      {p.id}
+                      {p.productCode ?? p.id}
                     </td>
                     <td className="px-4 py-3 text-body text-foreground">{p.name}</td>
                     <td className="px-4 py-3 text-body text-muted-foreground tabular-nums">

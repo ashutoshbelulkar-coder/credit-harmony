@@ -13,10 +13,14 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "dev:e2e": "cross-env VITE_USE_MOCK_FALLBACK=false vite --port 4173 --strictPort",
+    "dev:e2e": "cross-env VITE_USE_MOCK_FALLBACK=false VITE_API_PROXY_TARGET=http://127.0.0.1:8090 vite --port 4173 --strictPort",
+    "spring:start": "node scripts/run-spring.mjs start",
+    "spring:test": "node scripts/run-spring.mjs test",
     "server": "tsx watch server/src/index.ts",
     "server:start": "tsx server/src/index.ts",
-    "openapi:validate": "swagger-cli validate docs/technical/openapi-hcb-fastify-snapshot.yaml"
+    "server:legacy": "tsx watch server/src/index.ts",
+    "openapi:validate": "swagger-cli validate docs/technical/openapi-hcb-fastify-snapshot.yaml",
+    "check:route-parity": "node scripts/route-parity-check.mjs"
   },
   "dependencies": {
     "@fastify/multipart": "^9.4.0",

@@ -20,15 +20,30 @@ export function useApprovals(params?: ApprovalListParams) {
 export function useApproveItem() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, comment }: { id: string; comment?: string }) => approveItem(id, comment),
-    onSuccess: () => {
+    mutationFn: ({
+      id,
+      comment,
+    }: {
+      id: string;
+      comment?: string;
+      /** When set, success copy explains domain-specific behaviour (e.g. institution leaves Pending filter). */
+      itemType?: string;
+    }) => approveItem(id, comment),
+    onSuccess: (_data, variables) => {
       qc.invalidateQueries({ queryKey: QK.approvals.all() });
       qc.invalidateQueries({ queryKey: QK.products.all() });
       qc.invalidateQueries({ queryKey: QK.consortiums.all() });
       qc.invalidateQueries({ queryKey: QK.institutions.all() });
       qc.invalidateQueries({ queryKey: QK.alerts.rules() });
       qc.invalidateQueries({ queryKey: QK.schemaMapper.all() });
-      toast.success("Item approved");
+      if (variables.itemType === "institution") {
+        toast.success("Member approved and activated", {
+          description:
+            "Status is now Active, so they no longer match a Pending filter on the member list. Choose “All Statuses” (or Active) to see them.",
+        });
+      } else {
+        toast.success("Item approved");
+      }
     },
     onError: (e: ApiError) => toast.error(e.message),
   });

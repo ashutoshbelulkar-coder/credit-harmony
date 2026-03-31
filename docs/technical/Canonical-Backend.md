@@ -1,12 +1,12 @@
 # Canonical backend for the HCB Admin Portal SPA
 
-**Date:** 2026-03-29
+**Date:** 2026-03-31 (approval queue Spring parity: metadata, 204 mutations, multi-type enqueue)
 
 ## Summary
 
-For local development, the React app is designed to talk to the **in-repo Fastify server** in `server/` on **port 8091**. That process is the **contract owner** for `src/services/*.service.ts` and `src/hooks/api/*` when you run `npm run server` and `npm run dev` with `VITE_USE_MOCK_FALLBACK=false`.
+For local development, the React app targets **Spring Boot** in `backend/` on **port 8090** (override with `SERVER_PORT`). That process is the **contract owner** for `src/services/*.service.ts` and `src/hooks/api/*` when you run `npm run spring:start` and `npm run dev` with `VITE_USE_MOCK_FALLBACK=false` (SQLite file under `backend/data/` by default).
 
-The **Spring Boot** application in `backend/` (default **port 8090**) is a separate track: normalized SQLite/PostgreSQL, RBAC, and overlapping but **not identical** REST shapes. Pointing the SPA at it requires `VITE_API_PROXY_TARGET=http://127.0.0.1:8090` (or your host) **when starting Vite**, plus client adapters for pagination and HTTP verbs — see [SPA-Service-Contract-Drift.md](./SPA-Service-Contract-Drift.md).
+The **Fastify** server in `server/` (**port 8091**) is **legacy** (in-memory); use `npm run server` only for comparison. Route-level parity work is tracked in [SPA-Service-Contract-Drift.md](./SPA-Service-Contract-Drift.md) and [Spring-SPA-Route-Inventory.md](./Spring-SPA-Route-Inventory.md).
 
 ## Vite proxy
 
@@ -15,7 +15,7 @@ The **Spring Boot** application in `backend/` (default **port 8090**) is a separ
 ```ts
 proxy: {
   "/api": {
-    target: process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8091",
+    target: process.env.VITE_API_PROXY_TARGET ?? "http://127.0.0.1:8090",
     ...
   },
 }
@@ -27,19 +27,21 @@ Set `VITE_API_PROXY_TARGET` in the environment (or `.env.development`) **before*
 
 | Goal | Command |
 |------|---------|
-| SPA + default Fastify API | Terminal 1: `npm run server` — Terminal 2: `VITE_USE_MOCK_FALLBACK=false npm run dev` |
-| SPA → Spring (experimental) | Run Spring on 8090, then `VITE_API_PROXY_TARGET=http://127.0.0.1:8090 VITE_USE_MOCK_FALLBACK=false npm run dev` |
-| E2E (live API, no mock fallback) | `npm run test:e2e` (starts Fastify + Vite on 4173) |
+| SPA + Spring (default) | Terminal 1: `npm run spring:start` — Terminal 2: `VITE_USE_MOCK_FALLBACK=false npm run dev` |
+| SPA + legacy Fastify | Terminal 1: `npm run server` — Terminal 2: `VITE_API_PROXY_TARGET=http://127.0.0.1:8091 VITE_USE_MOCK_FALLBACK=false npm run dev` |
+| E2E (live API, no mock fallback) | `npm run test:e2e` (starts Spring + Vite on 4173; requires Maven) |
 
 ## Health check
 
-Fastify exposes `GET /api/v1/health` (no auth) for probes and Playwright readiness.
+Spring exposes **`GET /api/v1/health`** (no auth) for probes and Playwright readiness, plus **`GET /actuator/health`**. Legacy Fastify also served `/api/v1/health` on port 8091.
 
 ## Audit log / User Management Activity Log
 
 On startup, Fastify fills `state.auditLog` from `user-management.json` `activityLog`, sample governance rows, and dev-user samples (`server/src/auditSeed.ts`). Mutating handlers in `server/src/index.ts` call **`pushAudit`** (~33 sites), including **login** (success/failure paths), **logout**, **approval** approve/reject/request-changes, **institutions** (create, upload, suspend, PATCH, reactivate, delete, consortium/product/billing/API access/consent), **users**, **roles** CRUD, **batch** retry/cancel, **alert-rule** create, **product** and **consortium** create. **`GET /api/v1/audit-logs`** supports `actionType`, `entityType`, `entityId`, `userId`, `from`, and `to`. The Activity Log page uses **`allowMockFallback: false`** so it never substitutes `mockActivity` when the API errors.
 
-`POST /api/v1/approvals/:id/approve` (and reject / request-changes) also append **`APPROVAL_*`** audit rows (`entityType: APPROVAL`).
+`POST /api/v1/approvals/:id/approve` (and reject / request-changes) also append **`APPROVAL_*`** audit rows (`entityType: APPROVAL`). **`ApprovalQueueController`** returns **204 No Content** for those three routes and updates **`products`**, **`consortiums`**, **`alert_rules`**, **`institutions`**, and schema-mapper JSON state according to **`approval_item_type`** and the decision (**`approved`** \| **`rejected`** \| **`changes_requested`**). **`GET /api/v1/approvals`** adds a **`metadata`** object per row (**`institutionId`**, **`mappingId`**, **`productId`**, **`consortiumId`**, **`alertRuleId`**) derived from **`entity_ref_id`**.
+
+**Spring (canonical SQLite / Postgres):** **`GET /api/v1/audit-logs`** is implemented in **`AuditLogController`** with **JdbcTemplate** — each row is a flat map (**`userId`**, **`userEmail`**, **`actionType`**, **`entityType`**, **`entityId`**, **`occurredAt`**, …). Query params include **`entityType`**, **`entityId`**, **`userId`**, **`actionType`**, **`from`**, **`to`**; response body **`{ content, totalElements, totalPages, page, size }`**. **`SecurityConfig`** allows **`GET /api/v1/audit-logs/**`** for **`SUPER_ADMIN`**, **`BUREAU_ADMIN`**, **`ANALYST`**, and **`API_USER`** only — not **`VIEWER`**. **`GET /api/v1/users`** (and invite/patch responses that return the user row) use **JdbcTemplate** projections with **`roles[]`** assembled from **`user_role_assignments`** / **`roles`**, avoiding Jackson serialization of JPA **`User`** + lazy **`roleAssignments`** / **`UserDetails.getAuthorities()`** on SQLite. **`ConsortiumController`**, **`ProductController`**, **`ReportController`**, **`SlaConfigController`**, and **`AlertRuleController`** list/detail/mutate SQL matches **`backend/src/main/resources/db/create_tables.sql`** (e.g. **`consortium_name`**, **`coverage_scope`** as product list **`type`**, report **`date_range_*`**, **`sla_configs.is_active`**, **`alert_rules.rule_name`** / **`alert_rule_status`**). Mutating handlers and **`AuthController`** **`/me`** + **`logout`** take **`@AuthenticationPrincipal AuthUserPrincipal`**; **`AuditService.log(AuthUserPrincipal, …)`** uses **`UserRepository.getReferenceById`** for the audit FK.
 
 ## Data products → approval queue (dev API)
 
@@ -55,7 +57,7 @@ When the SPA saves a new catalogue product with `status: approval_pending` (the 
 
 `POST /api/v1/approvals/:id/approve` sets the linked product’s `status` to **`active`** and records **`pushAudit`** (`APPROVAL_APPROVE`). Reject and request-changes update linked entities and record **`APPROVAL_REJECT`** / **`APPROVAL_REQUEST_CHANGES`**. The React app invalidates both **products** and **approvals** query keys after create/update and after queue actions so lists stay in sync.
 
-This behaviour is implemented in `server/src/index.ts` (not in the Spring Boot `backend/` track unless separately ported).
+**Spring:** **`ProductController`** maps SPA statuses **`approval_pending`**, **`pending`**, and **`pending_approval`** to DB **`pending_approval`** and calls **`ApprovalQueueService.enqueue("product", …)`** with **`entity_ref_id`** = stringified numeric product id. **`ApprovalQueueController`** sets **`product_status`** to **`active`** on approve and **`draft`** on reject or request-changes. **`POST`** response body includes **`id`**, **`name`**, **`type`**, **`status`**, **`lastUpdated`** for the SPA.
 
 ## Consortiums → approval queue (dev API)
 
@@ -70,13 +72,17 @@ Approval **approve** sets the linked consortium’s `status` to **`active`**. **
 
 The consortium wizard **Add member** control uses **`GET /api/v1/institutions`** with **`role=subscriber`** and **`size=200`** (and **`allowMockFallback: false`** in the SPA) so only subscriber institutions—including dual-role submitter+subscriber—appear in the picker.
 
-To create a consortium **without** an approval item (e.g. automation), send an explicit `status` other than `approval_pending` / `pending`, such as `active`.
+To create a consortium **without** an approval item (e.g. automation), send an explicit **`status: active`**. **`ConsortiumController`** inserts **`consortium_members`** from **`members[]`** and optional **`dataPolicy.dataVisibility`** into **`data_visibility`**.
+
+## Alert rules → approval queue (Spring)
+
+**Spring:** **`AlertRuleController`** inserts new rules with **`alert_rule_status = pending_approval`**, enqueues **`approval_queue`** with **`approval_item_type = alert_rule`**, and maps list/create JSON to the SPA (**`Pending approval`**, **`Enabled`**, **`Disabled`** display strings). **`POST /api/v1/alert-rules/:id/activate`** rejects **400** **`ERR_INVALID_STATE`** until the rule is approved in the queue (or already **`enabled`** / not pending). Approval actions flip **`enabled`** / **`disabled`** in SQL.
 
 ## Member registration → list + approval queue (dev API)
 
 `POST /api/v1/institutions` (used by **Register member**) creates the institution with `institutionLifecycleStatus` defaulting to **`pending`** when omitted, pushes it into `state.institutions`, and prepends an approval item with `type: "institution"` and `metadata: { institutionId: "<numeric id>" }`.
 
-**Register member form-metadata (geography configuration):** Register-member **Step 1** fields, validation rules, enums, and **single vs multi** selection are defined per **geography** (tenant / operating region). Dev loads **`src/data/institution-register-form.json`** (`defaultGeography`, **`geographies.<id>.sections`**) via **`server/src/institutionRegisterForm.ts`**. **`GET /api/v1/institutions/form-metadata?geography=<id>`** (authenticated) returns **`geographyId`**, **`geographyLabel`**, **`geographyDescription`**, **`registerForm`** (resolved sections with inline **`options`** or options merged from **`institutionTypes`** / **`activeConsortiums`**), plus **`institutionTypes`**, **`activeConsortiums`**, **`requiredComplianceDocuments`**. Unknown **`geography`** falls back to **`defaultGeography`**. **`POST /api/v1/institutions?geography=<id>`** runs **`validateRegisterInstitutionBody`** against that geography’s form before create. The SPA should use **`VITE_INSTITUTION_REGISTER_GEOGRAPHY`** so **`form-metadata`** and **`POST`** share the same **`geography`**. On load, `state.institutionTypes` and **`requiredComplianceDocuments`** still come from **`institutions.json`**; **`activeConsortiums`** is every consortium with **`status`** **`active`**. Compliance docs are **`null`** when disabled — the SPA skips the upload step. When `institutionTypes` is non-empty, **`POST`/`PATCH`** require **`institutionType`** in that allowlist when the field is present; empty allowlist accepts any string.
+**Register member form-metadata (geography configuration):** Register-member **Step 1** fields, validation rules, enums, and **single vs multi** selection are defined per **geography**. **Spring** serves the same JSON shape from **`backend/src/main/resources/config/institution-register-form.json`** (keep in sync with **`src/data/institution-register-form.json`**). **`GET /api/v1/institutions/form-metadata?geography=<id>`** returns resolved **`registerForm`**, **`institutionTypes`** (distinct from DB), **`activeConsortiums`**, and **`requiredComplianceDocuments`**. **Fastify** historically merged from `institutions.json` and `institutionRegisterForm.ts`; **`POST …?geography=`** validation on Spring may still be narrower until fully aligned. The SPA should use **`VITE_INSTITUTION_REGISTER_GEOGRAPHY`** so **`form-metadata`** and **`POST`** share the same **`geography`**.
 
 **Optional consortium join at registration:** **`POST /api/v1/institutions`** may include **`consortiumIds: string[]`** (the SPA sends them only when the registration payload indicates the member is a **subscriber**). Each id must exist and be **active**; duplicates are ignored. After the institution row is created, the API appends **`state.institutionConsortiumMemberships`** rows with **`memberRole`** **`Consumer`**, **`consortiumMemberStatus`** **`pending`**, and audit **`INSTITUTION_CONSORTIUM_JOIN`** per consortium.
 
@@ -90,35 +96,64 @@ After registration, the client invalidates **institutions** and **approvals** an
 
 **Fastify dev API:** `POST /api/v1/batch-jobs/:id/retry` calls **`institutionActiveForTrafficOrError`** (`server/src/institutionTrafficGate.ts`) when the job row includes **`institution_id`**; a **suspended** (or non-active) owner yields **403** and the codes above. **`POST …/batch-jobs/:id/cancel`** does **not** apply this check (operator cleanup). External **X-API-Key** tradeline/enquiry endpoints are not implemented in this repo; when added, they should use the same lifecycle gate after key resolution.
 
-## Schema Mapper Agent (dev API)
+### Batch execution console (Spring)
 
-Implementation: [`server/src/schemaMapper.ts`](../../server/src/schemaMapper.ts) (registered from `server/src/index.ts`). In-memory **NoSQL-shaped** documents under `state.schemaMapper` (raw payloads, schema versions, mapping jobs, validation rules, drift logs).
+**Tables:** **`batch_phase_logs`**, **`batch_stage_logs`**, and **`batch_error_samples`** (see `backend/src/main/resources/db/create_tables.sql`). **`batch_stage_logs.phase_log_id`** ties each stage to a phase; **`batch_error_samples.batch_stage_log_id`** optionally links error rows to a stage.
 
-| Area | Behaviour |
-|------|-----------|
-| **Ingest** | `POST /api/v1/schema-mapper/ingest` — creates registry row + schema version; returns `schemaVersionId` and parsed fields. |
-| **Mapping job** | `POST /api/v1/schema-mapper/mappings` — queues async job (`setTimeout`); worker runs heuristics + optional OpenAI (`OPENAI_API_KEY`, `OPENAI_SCHEMA_MODEL`; disable with `SCHEMA_MAPPER_LLM_ENABLED=false`). |
-| **Read / patch** | `GET` / `PATCH /api/v1/schema-mapper/mappings/:id` |
-| **Registry fields by type** | `GET /api/v1/schema-mapper/schemas/source-type-fields?sourceType=` — union of `parsedFields` paths (current schema version per registry row) for that Schema Mapper `sourceType`. Used by **Data Governance → Validation Rules** create-rule field picker after the user selects a source type, and by **Data Products → Configure packet → Raw data**. Returns **400** `ERR_VALIDATION` if `sourceType` is missing or `all`. |
-| **Sample ingest templates** | Reference **`parsedFields`** / **`fieldStatistics`** per `sourceType` are defined in **`src/data/schema-mapper.json`**: `telecomParsedFields`, `utilityParsedFields`, `bankParsedFields`, `gstParsedFields`, `customParsedFields` (and matching `*FieldStatistics`). **`createSchemaMapperSlice`** and **`POST …/ingest`** (when the body omits `parsedFields`) use the same template map in `server/src/schemaMapper.ts`. |
-| **Wizard dropdowns** | `GET /api/v1/schema-mapper/wizard-metadata` returns **`sourceTypeOptions`** and **`dataCategoryOptions`** as `{ value, label }[]`, loaded from **`wizardSourceTypeOptions`** / **`wizardDataCategoryOptions`** in **`schema-mapper.json`** (normalised at seed; SPA Step 1 uses **`fetchWizardMetadata`** / **`useSchemaMapperWizardMetadata`**). |
-| **Rules** | `GET/POST/PATCH/DELETE …/mappings/:id/rules` |
-| **Governance** | `POST …/mappings/:id/submit-approval` prepends `type: schema_mapping` with `metadata.mappingId`. Approval handlers call **`applySchemaMappingApprovalDecision`** so **approve** → mapping `active`, **reject** → `rejected`, **request-changes** → `needs_review`. |
-| **Observability** | `GET /api/v1/schema-mapper/metrics` — in-process counters (mapping jobs, LLM calls/failures, overrides). |
+**`GET /api/v1/batch-jobs/:id/detail`** (`BatchJobController`): If the job has **any** **`batch_phase_logs`** rows, the JSON body includes camelCase **`phases`**, **`stages`** (with **`phaseKey`**, **`stageLogId`**, counters, timestamps), **`flowSegments`**, **`logs`**, and **`errorSamples`**. Jobs with **no** phase rows keep the older behaviour: empty **`phases`** / **`flowSegments`** / **`logs`** and JDBC-backed flat **`stages`** plus **`errorSamples`** (for list rows that never received phase/stage seeding).
+
+**Dev seed:** `batch_jobs.id = 999901` in **`seed_data.sql`** carries a full multi-phase tree for UI demos. Legacy Fastify **`GET …/detail`** returns **`state.batchDetails[id]`** or **`{ batchId, stages: [] }`** — no SQL-backed phase graph.
+
+The SPA maps Spring responses with **`resolveBatchConsoleData`** in **`src/lib/batch-console-from-api.ts`** and **`useBatchDetail`** in **`src/hooks/api/useBatchJobs.ts`**.
+
+## Schema Mapper Agent (Spring — canonical)
+
+**Implementation:** `com.hcb.platform.controller.SchemaMapperController` + `com.hcb.platform.schemamapper.*` services. **Persistence:** SQLite/Postgres tables `schema_mapper_*` (JSON payloads per registry row, version, mapping, rule, drift, metrics) defined in `backend/src/main/resources/db/create_tables.sql`. **Bootstrap:** when `schema_mapper_registry` is empty, the server hydrates from **`backend/src/main/resources/config/schema-mapper.json`** (keep in sync with **`src/data/schema-mapper.json`**). **Auth:** JWT; **`@PreAuthorize`** mirrors other governance APIs (reads include `VIEWER`; writes `SUPER_ADMIN` / `BUREAU_ADMIN` / `ANALYST`). **Pagination:** list endpoints cap **`size` at 500** (SPA may request up to 500). **Errors:** `SchemaMapperApiException` → JSON `{ error: { code, message, details: [] }, requestId }` (see [Global-API-Error-Dictionary.md](./Global-API-Error-Dictionary.md) §2.2).
+
+| Method | Path | Notes |
+|--------|------|--------|
+| GET | `/api/v1/schema-mapper/metrics` | Counters + `requestId` |
+| GET | `/api/v1/schema-mapper/canonical` | Master tree + versions (from seed JSON at runtime) |
+| GET | `/api/v1/schema-mapper/wizard-metadata` | `sourceTypeOptions`, `dataCategoryOptions` |
+| GET | `/api/v1/schema-mapper/schemas` | `sourceType`, `status`, `page`, `size` |
+| GET | `/api/v1/schema-mapper/schemas/source-types` | Distinct types |
+| GET | `/api/v1/schema-mapper/schemas/source-type-fields` | **400** if `sourceType` missing or `all` |
+| POST | `/api/v1/schema-mapper/ingest` | **201** |
+| POST | `/api/v1/schema-mapper/mappings` | **202**; `@Async` worker ~400ms then heuristic + optional LLM |
+| GET/PATCH | `/api/v1/schema-mapper/mappings/:id` | **422** `MAPPING_LOCKED` / `CANONICAL_PATH_INVALID` |
+| CRUD | `/api/v1/schema-mapper/mappings/:id/rules` | Nested validation rules |
+| POST | `/api/v1/schema-mapper/mappings/:id/submit-approval` | **202**; inserts `approval_queue` (`approval_item_type=schema_mapping`, `entity_ref_id=mappingId`); numeric `approvalId` returned as string |
+| POST | `/api/v1/schema-mapper/schemas/:versionId/drift-scan` | **202** stub |
+| GET | `/api/v1/schema-mapper/drift` | Paged drift logs |
+
+**Config (`application.yml`):** `hcb.schema-mapper.enabled` (default **true**; set **`false`** in tests without `schema_mapper_*` DDL), `hcb.schema-mapper.llm-enabled`, `OPENAI_API_KEY`, `hcb.schema-mapper.openai-model` (`OPENAI_SCHEMA_MODEL`).
+
+**Approvals:** `GET /api/v1/approvals` uses columns **`approval_item_type`**, **`approval_workflow_status`**, **`entity_name_snapshot`** (fixed in Spring). Approve/reject/request-changes updates **`schema_mapping`** JSON rows when the queue item is **`schema_mapping`**.
+
+**Legacy Fastify:** [`server/src/schemaMapper.ts`](../../server/src/schemaMapper.ts) remains a reference in-memory implementation (**port 8091**).
 
 The SPA uses `src/services/schema-mapper.service.ts` and `src/hooks/api/useSchemaMapper.ts` when **`VITE_USE_MOCK_FALLBACK=false`**.
 
-## Data Ingestion Agent — drift alerts (dev API)
+## Data Ingestion Agent — drift alerts
 
-Implementation: [`server/src/ingestionDriftAlerts.ts`](../../server/src/ingestionDriftAlerts.ts) (registered from `server/src/index.ts`). Alerts are stored in **`state.ingestionDriftAlerts`**, seeded from **`src/data/data-governance.json`** `driftAlerts`.
+### Spring (canonical)
 
-| Item | Behaviour |
-|------|-----------|
-| **List (UI)** | `GET /api/v1/data-ingestion/drift-alerts?dateFrom=&dateTo=&sourceType=` — JWT required. Filters use shared **`isWithinDateRange`** (`src/lib/calc/dateFilter.ts`) and Schema Mapper registry rows to resolve **source type** → source names (same semantics as the former client-only filter). |
-| **New schema alert** | `POST /api/v1/schema-mapper/ingest` prepends a **schema** row after a successful ingest. |
-| **New mapping alert** | When the async mapping job in `schemaMapper.ts` finishes, a **mapping** row is prepended (severity **medium** if coverage is below 70%). |
+- **Controller:** `DataIngestionController` — **`GET /api/v1/data-ingestion/drift-alerts`** (`dateFrom`, `dateTo`, `sourceType`).
+- **Persistence:** table **`ingestion_drift_alerts`** (`create_tables.sql`); seed rows in **`seed_data.sql`** (aligned with **`src/data/data-governance.json`** drift samples).
+- **Filtering:** date window logic mirrors SPA **`isWithinDateRange`** semantics; **`sourceType`** (when not `all`) uses **`schema_mapper_registry`** JSON payloads to match **source names** to **sourceType**, same idea as legacy Fastify.
 
-The SPA Data Quality Monitoring route loads alerts via **`src/services/data-ingestion.service.ts`** and **`src/hooks/api/useDataIngestion.ts`** (`useDriftAlerts`).
+### Legacy Fastify (`server/`)
+
+Implementation: [`server/src/ingestionDriftAlerts.ts`](../../server/src/ingestionDriftAlerts.ts). Alerts live in **`state.ingestionDriftAlerts`**, seeded from **`data-governance.json`**. **`POST /api/v1/schema-mapper/ingest`** and the mapping worker can prepend rows in memory — compare with Spring Schema Mapper if you need identical append behaviour on Java.
+
+The SPA loads alerts via **`src/services/data-ingestion.service.ts`** and **`src/hooks/api/useDataIngestion.ts`** (`useDriftAlerts`).
+
+## Spring Boot — authentication and dashboard (SQLite dev)
+
+- **Login / JWT filter:** Principals are loaded with **`AuthAccountService`** (**JDBC** `UserDetailsService`) into **`AuthUserPrincipal`**, avoiding Hibernate 6 + SQLite join issues when resolving JPA `User` role graphs during `DaoAuthenticationProvider` authentication. **After login,** the security context holds **`AuthUserPrincipal`** end-to-end — controllers use **`@AuthenticationPrincipal AuthUserPrincipal`**, not the JPA **`User`** entity (see audit-log paragraph above). Refresh tokens still persist via JPA as needed; **`AuthService.refresh`** resolves **`user_id` from the loaded `RefreshToken` entity before rotation** so revocation does not break the lookup.
+- **Dev passwords:** **`DevAuthDataBootstrap`** (`@Profile("dev")`) can re-sync known seed passwords with the live **`PasswordEncoder`** (`hcb.dev.sync-seed-passwords`, env **`HCB_DEV_SYNC_SEED_PASSWORDS`**).
+- **Dashboard command center:** **`DashboardController.queryMemberQualityGrid`** builds SQL with a dynamic date predicate — there must be a **separator** between the literal `AND` and the `batchWhere` fragment (e.g. `+ " " + batchWhere`) or SQLite parses **`ANDbj`** as a single token. Avoid SQL column aliases **`member`** on SQLite 3.39+ (**`MEMBER`** is reserved for JSON); use e.g. **`institution_label`** and map to JSON **`member`**. **`pendingOnboarding`** counts institutions with **`institution_lifecycle_status = 'pending'`** to match **`create_tables.sql`** CHECK values. **Institution display strings** in command-center JDBC (batch pipeline **`member`**, member-quality **`institution_label`**, anomaly institution suffix, **`memberQualitySubmitters`**) use **`COALESCE(NULLIF(TRIM(i.name), ''), i.trading_name)`** so **legal name** is preferred over **trading name** when both exist.
+- **Regression:** **`DashboardCommandCenterSqliteIntegrationTest`** exercises **`GET /api/v1/dashboard/command-center`** on SQLite + seed DDL.
 
 ## Related (target contracts)
 

@@ -156,15 +156,15 @@ export function NewReportRequestPage() {
               name="institution"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-caption">Institution (Optional)</FormLabel>
+                  <FormLabel className="text-caption">Member institution (Optional)</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value ?? "all"}>
                     <FormControl>
                       <SelectTrigger className="h-9 text-caption">
-                        <SelectValue placeholder="All Institutions" />
+                        <SelectValue placeholder="All institutions" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="all" className="text-caption">All Institutions</SelectItem>
+                      <SelectItem value="all" className="text-caption">All institutions</SelectItem>
                       {institutionList.map((inst) => (
                         <SelectItem key={inst.id} value={String(inst.id)} className="text-caption">
                           {inst.name}

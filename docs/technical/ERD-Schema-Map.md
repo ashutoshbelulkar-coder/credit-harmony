@@ -1,6 +1,8 @@
 # HCB Platform — Entity Relationship Diagram & Schema Map
 
-**Version:** 3.0.0 | **Date:** 2026-03-28 | **Standard:** 3NF Strict · Zero Duplication
+**Version:** 3.0.1 | **Date:** 2026-03-31 | **Standard:** 3NF Strict · Zero Duplication
+
+**Institution names:** Column **`name`** is the **legal** entity name; **`trading_name`** is optional. APIs and the SPA use **legal first** when collapsing to a single display string (dashboard command-center, pickers); see [API-UI-Parity-Matrix.md](./API-UI-Parity-Matrix.md) § *Institution display labels*.
 
 ---
 
@@ -248,6 +250,57 @@ erDiagram
         datetime completed_at
     }
 
+    batch_phase_logs {
+        int id PK
+        int batch_job_id FK
+        int phase_order
+        varchar phase_key
+        varchar display_name
+        varchar phase_status
+        varchar system_status
+        varchar business_status
+        datetime started_at
+        datetime completed_at
+        varchar flow_uid
+        varchar phase_uid
+        varchar version
+        int to_be_processed
+        int processing
+        int system_ko
+        int business_ko
+        int business_ok
+        int total_records
+    }
+
+    batch_stage_logs {
+        int id PK
+        int batch_job_id FK
+        int phase_log_id FK
+        int stage_order
+        varchar stage_key
+        varchar stage_name
+        varchar stage_status
+        varchar message
+        datetime started_at
+        datetime completed_at
+        int records_processed
+        int error_count
+        int skipped_count
+        int system_return_code
+        int business_return_code
+    }
+
+    batch_error_samples {
+        int id PK
+        int batch_job_id FK
+        int batch_stage_log_id FK
+        varchar record_id
+        varchar field_name
+        varchar error_type
+        text error_message
+        varchar severity
+    }
+
     batch_records {
         int id PK
         int batch_job_id FK
@@ -430,6 +483,10 @@ erDiagram
     consortiums ||--o{ consortium_members : "has members"
 
     batch_jobs ||--o{ batch_records : "has records"
+    batch_jobs ||--o{ batch_phase_logs : "execution phases"
+    batch_phase_logs ||--o{ batch_stage_logs : "stages"
+    batch_jobs ||--o{ batch_error_samples : "error samples"
+    batch_stage_logs ||--o{ batch_error_samples : "stage-linked samples"
     batch_jobs ||--o{ tradelines : "source of"
 
     sla_configs ||--o{ sla_breaches : "triggers"

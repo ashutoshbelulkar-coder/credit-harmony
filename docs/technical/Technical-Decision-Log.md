@@ -1,6 +1,74 @@
 # HCB Platform — Technical Decision Log
 
-**Version:** 3.0.0 | **Date:** 2026-03-28
+**Version:** 3.0.5 | **Date:** 2026-03-31
+
+---
+
+## TDL-018: JDBC alignment for list APIs + flat users/audit JSON + `AuthUserPrincipal` in controllers
+
+| Field | Value |
+|-------|-------|
+| **Decision** | (1) Align **JdbcTemplate** SQL in **`ConsortiumController`**, **`ProductController`**, **`ReportController`**, **`SlaConfigController`**, and **`AlertRuleController`** with **`create_tables.sql`** / **`seed_data.sql`** so SQLite does not throw **no such column** (which surfaced as **`500` / `ERR_INTERNAL`**). (2) Serve **`GET /api/v1/users`** (and related user JSON) via **JdbcTemplate** maps with **`roles[]`**, avoiding Hibernate + Jackson on JPA **`User`**. (3) Serve **`GET /api/v1/audit-logs`** via **JdbcTemplate** with flat **`userId` / `userEmail`** and filters including **`entityType`**. (4) Use **`@AuthenticationPrincipal AuthUserPrincipal`** on mutating controllers and **`AuthController`** **`/me`** + **`logout`**; add **`AuditService.log(AuthUserPrincipal, …)`** delegating to **`UserRepository.getReferenceById`**. (5) Extend **`RouteParitySqliteIntegrationTest`** with **`coreSchemaAlignedGetRoutesOk`** (**`@WithMockUser(roles = "ANALYST")`** — **`VIEWER`** cannot access **`/api/v1/audit-logs`** per **`SecurityConfig`**). |
+| **Date** | 2026-03-31 |
+| **Status** | Accepted |
+| **Alternatives Considered** | Alter SQLite DDL to match legacy stub column names; DTOs only without JDBC |
+| **Rationale** | Canonical schema in repo is **`create_tables.sql`**; controllers must query real columns. **`AuthUserPrincipal`** is what the JWT filter installs; JPA **`User`** in **`@AuthenticationPrincipal`** was **`null`**, breaking audits and **`/me`**. |
+| **Trade-offs** | Spring report **cancel** maps to **`failed`** (schema CHECK has no **`cancelled`**). Product list **`type`** maps from **`coverage_scope`**, not legacy **`product_type`**. |
+| **References** | [SPA-Service-Contract-Drift.md](./SPA-Service-Contract-Drift.md), [Canonical-Backend.md](./Canonical-Backend.md), [Testing-Plan.md](./Testing-Plan.md), `RouteParitySqliteIntegrationTest` |
+
+---
+
+## TDL-017: Institution display labels — legal name before trading name
+
+| Field | Value |
+|-------|-------|
+| **Decision** | When the product shows **one** string for a member institution (pickers, monitoring resolution, schema-mapper source name, dashboard command-center axes), use **legal `name`** first and **`tradingName`** only as fallback if legal is empty (after trim). **Spring:** `DashboardController` JDBC `COALESCE(NULLIF(TRIM(i.name), ''), i.trading_name)`. **SPA:** `institutionDisplayLabel` in `src/lib/institutions-display.ts`. **Legacy Fastify:** same helper for approval descriptions; **`POST /institutions`** does not copy legal into **`tradingName`**. |
+| **Date** | 2026-03-31 |
+| **Status** | Accepted |
+| **Alternatives Considered** | Prefer trading name (legacy); add new API field `displayName` |
+| **Rationale** | Regulatory and operator clarity: the registered legal entity should headline lists and dashboard aggregates; trading name remains optional metadata. |
+| **Trade-offs** | Operators who relied on short trading names in command-center rows will see legal names; detail screens still show both where designed. |
+| **References** | [API-UI-Parity-Matrix.md](./API-UI-Parity-Matrix.md) § *Institution display labels*, [Canonical-Backend.md](./Canonical-Backend.md), `InstitutionFilterSelect`, `DashboardController` |
+
+---
+
+## TDL-016: Spring–SPA HTTP parity — institution sub-resources, API keys POST, user deactivate, drift list
+
+| Field | Value |
+|-------|-------|
+| **Decision** | Close high-traffic **404/405** gaps between **`src/services/*.ts`** and **`backend/`** by implementing on Spring: **institution** consortium memberships / product subscriptions / billing / api-access / consent (plus camelCase JDBC where needed); **`POST /api/v1/api-keys`**; **`POST /api/v1/users/:id/deactivate`** with **`user_account_status=deactivated`**; **`GET /api/v1/data-ingestion/drift-alerts`** backed by **`ingestion_drift_alerts`**. Narrow **`SecurityConfig`** **`/api/v1/users/**`** matchers to **GET/PATCH/POST** so **`@PreAuthorize`** controls fine-grained roles (global **DELETE** still **SUPER_ADMIN**). Add **`scripts/route-parity-check.mjs`** (`npm run check:route-parity`) and **`RouteParitySqliteIntegrationTest`**. |
+| **Date** | 2026-03-31 |
+| **Status** | Accepted |
+| **Alternatives Considered** | Point SPA at legacy Fastify only; generate OpenAPI-first contract before coding |
+| **Rationale** | Default Vite proxy targets **8090**; operators must not see “route only on Fastify” failures when **`VITE_USE_MOCK_FALLBACK=false`**. |
+| **Trade-offs** | Heuristic route script is noisy (`:id` vs `:param`); some user statuses are **lowercase** in DB — UI may need label normalisation. |
+| **References** | [Spring-SPA-Route-Inventory.md](./Spring-SPA-Route-Inventory.md), [SPA-Service-Contract-Drift.md](./SPA-Service-Contract-Drift.md), `ApiKeyController`, `DataIngestionController`, `UserController`, `SecurityConfig` |
+
+---
+
+## TDL-015: Schema Mapper on Spring — JSON document tables
+
+| Field | Value |
+|-------|-------|
+| **Decision** | Implement **`/api/v1/schema-mapper/*`** on Spring with **SQLite/Postgres tables** (`schema_mapper_registry`, `schema_mapper_schema_version`, `schema_mapper_mapping`, etc.) storing **JSON payloads** per row (Fastify-shaped documents), rather than normalising immediately into fine-grained relational `source_schemas` / mapping-pair tables. |
+| **Date** | 2026-03-31 |
+| **Status** | Accepted |
+| **Alternatives Considered** | Full relational normalisation first; BFF-only delegating to Fastify |
+| **Rationale** | **Parity speed:** port behaviour and shapes from `server/src/schemaMapper.ts` with minimal translation. **Single-writer JSON** per aggregate matches how the SPA and legacy API think about registry rows, versions, and mapping jobs. |
+| **Trade-offs** | Weaker ad hoc SQL over nested fields; future reporting may need views or extract. Easier to drift document shape vs strict columns — mitigate with integration tests and shared seed JSON. |
+| **References** | `SchemaMapperController`, `com.hcb.platform.schemamapper`, `create_tables.sql`, `config/schema-mapper.json`, [Canonical-Backend.md](./Canonical-Backend.md) |
+
+---
+
+## TDL-014: Spring-first developer handbook + SQLite-safe dashboard SQL + JDBC login principal
+
+| Field | Value |
+|-------|-------|
+| **Decision** | (1) **`Developer-Handbook.md` v2.0** describes **Spring Boot 8090** as the default local API; Fastify **8091** as legacy. (2) **`DashboardController`** member-quality SQL must separate static `AND` from dynamic `batchWhere` (`+ " " + batchWhere`); avoid SQLite reserved alias **`member`** (use **`institution_label`** → JSON **`member`**). (3) **`DashboardCommandCenterSqliteIntegrationTest`** runs **`GET /api/v1/dashboard/command-center`** on SQLite + `create_tables.sql` / `seed_data.sql`. (4) **Login** uses **`AuthAccountService`** / **`AuthUserPrincipal`** (JDBC `UserDetails`) to avoid Hibernate/SQLite role-graph bugs; **refresh** reads **`user_id` before token rotation**. |
+| **Date** | 2026-03-31 |
+| **Status** | Accepted |
+| **Rationale** | Removes “Fastify is canonical” drift in ops docs; prevents **`ANDbj`** parse errors and reserved-word failures on modern SQLite; gives CI a faithful SQLite path for dashboard JDBC. |
+| **References** | [Developer-Handbook.md](./Developer-Handbook.md), [Canonical-Backend.md](./Canonical-Backend.md), [Testing-Plan.md](./Testing-Plan.md) |
 
 ---
 
@@ -136,7 +204,7 @@
 | **Decision** | Ship a `server/` Fastify app on port **8091** (configurable via `PORT`) exposing `/api/v1/*` routes aligned with `src/services/*.ts`; seed data loaded from `src/data/*.json`; in-memory state only (no SQLite/Postgres in this process). |
 | **Date** | 2026-03-28 |
 | **Status** | Accepted (dev harness) |
-| **Rationale** | Unblocks end-to-end UI testing without a separate Spring repo; Vite proxies `/api` to `127.0.0.1:8091` (`VITE_API_PROXY_TARGET` override). |
+| **Rationale** | Unblocks end-to-end UI testing without waiting on Java; historically Vite proxied `/api` to **8091**; **default proxy is now Spring 8090** — use **`VITE_API_PROXY_TARGET=http://127.0.0.1:8091`** only for legacy Fastify. |
 | **Trade-offs** | Data resets on server restart; not suitable for production. Replace with TDL-001 PostgreSQL stack when hardening. |
 | **Security** | Default `JWT_SECRET` must be overridden outside local dev. |
 
@@ -163,3 +231,5 @@
 | **Status** | Accepted |
 | **Rationale** | BRD/PRD QA sections must point to **executable** regression gates and **foolproof** onboarding; a single handbook reduces confusion between Spring-target docs and the shipped Fastify prototype. |
 | **References** | [Developer-Handbook.md](./Developer-Handbook.md), [Testing-Plan.md](./Testing-Plan.md) |
+
+*Subsequent update (2026-03-31):* **`server/src/api.integration.test.ts`** was **removed**; use **`npm run spring:test`**. **Developer Handbook v2.0** + **TDL-014** set **Spring 8090** as the default ops narrative.

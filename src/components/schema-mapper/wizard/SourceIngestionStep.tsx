@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { Upload, FileJson, Code, Globe, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { InstitutionFilterSelect } from "@/components/shared/InstitutionFilterSelect";
 import { Input } from "@/components/ui/input";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
@@ -28,10 +29,13 @@ import {
 import type { IngestedSourceMetadata, ParsedSourceField, SourceFieldStatistics, SourceType } from "@/types/schema-mapper";
 import simulationDefaults from "@/data/simulation-defaults.json";
 import { useSchemaMapperWizardMetadata } from "@/hooks/api/useSchemaMapper";
+import { useAuth } from "@/contexts/AuthContext";
+import { useInstitutions } from "@/hooks/api/useInstitutions";
 import {
   FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS,
   FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS,
 } from "@/lib/schema-mapper-wizard-metadata";
+import { institutionDisplayLabel } from "@/lib/institutions-display";
 
 const similarityChartConfig = {
   similarity: { label: "Similarity %", color: "hsl(var(--primary))" },
@@ -59,7 +63,13 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
   const sourceTypeOptions = wizardMeta?.sourceTypeOptions ?? FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS;
   const dataCategoryOptions = wizardMeta?.dataCategoryOptions ?? FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS;
 
-  const [sourceName, setSourceName] = useState(initialMetadata?.sourceName ?? "");
+  const { user } = useAuth();
+  const { data: submittersPage } = useInstitutions(
+    { page: 0, size: 300, role: "dataSubmitter" },
+    { enabled: !!user, allowMockFallback: false }
+  );
+  const submitterList = submittersPage?.content ?? [];
+  const [sourceMemberId, setSourceMemberId] = useState<string>("all");
   const [sourceType, setSourceType] = useState<SourceType>(initialMetadata?.sourceType ?? "telecom");
   const [packetCategory, setPacketCategory] = useState(
     () => FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS.find((o) => o.value === "Behavioral Data")?.value ?? "Behavioral Data"
@@ -80,6 +90,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
       return dataCategoryOptions[0]?.value ?? prev;
     });
   }, [dataCategoryOptions]);
+
   const [effectiveDate, setEffectiveDate] = useState(initialMetadata?.effectiveDate ?? "2026-03-01");
   const [versionNumber, setVersionNumber] = useState(initialMetadata?.versionNumber ?? "v1.0");
   const [schemaInput, setSchemaInput] = useState<"upload_json" | "upload_csv" | "paste_json" | "select_previous">("paste_json");
@@ -95,19 +106,38 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
     if (selectedPreviousId) setIsParsed(true);
   }, [selectedPreviousId]);
 
+  const resolvedSourceName = useMemo(() => {
+    if (sourceMemberId === "all") return "All submitters";
+    const row = submitterList.find((i) => String(i.id) === sourceMemberId);
+    const label = row ? institutionDisplayLabel(row) : "";
+    return label || "All submitters";
+  }, [sourceMemberId, submitterList]);
+
   const handleProceed = useCallback(async () => {
     const baseMeta = initialMetadata ?? ingestedSourceMetadataTelecom;
     const meta: IngestedSourceMetadata = {
       ...baseMeta,
-      sourceName: sourceName.trim() || baseMeta.sourceName,
+      sourceName: resolvedSourceName || baseMeta.sourceName,
       sourceType,
+      dataCategory: packetCategory,
       effectiveDate,
       versionNumber,
+      similarSchemas: [],
     };
     const fields = getParsedSourceFieldsForIngestionScenario(sourceType, schemaInput, selectedPreviousId);
     const stats = getSourceFieldStatisticsForIngestionScenario(sourceType, schemaInput, selectedPreviousId);
     await Promise.resolve(onComplete(meta, fields, stats));
-  }, [initialMetadata, sourceName, sourceType, effectiveDate, versionNumber, schemaInput, selectedPreviousId, onComplete]);
+  }, [
+    initialMetadata,
+    resolvedSourceName,
+    sourceType,
+    packetCategory,
+    effectiveDate,
+    versionNumber,
+    schemaInput,
+    selectedPreviousId,
+    onComplete,
+  ]);
 
   const parsedFields = useMemo(
     () => getParsedSourceFieldsForIngestionScenario(sourceType, schemaInput, selectedPreviousId),
@@ -117,7 +147,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
   const similarSchemas = Array.isArray(metadata.similarSchemas) ? metadata.similarSchemas : [];
   const similarityData = similarityRankingForBarChart;
 
-  const isFormValid = isParsed && sourceName.trim().length > 0;
+  const isFormValid = isParsed && resolvedSourceName.length > 0;
 
   return (
     <div className="space-y-6">
@@ -125,15 +155,12 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
       <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <h3 className="text-h4 font-semibold text-foreground mb-4">Source Metadata</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-1.5">
-            <Label className="text-caption text-muted-foreground">Source Name *</Label>
-            <Input
-              placeholder="e.g. Jio Telecom"
-              value={sourceName}
-              onChange={(e) => setSourceName(e.target.value)}
-              className="h-8"
-            />
-          </div>
+          <InstitutionFilterSelect
+            mode="submitters"
+            value={sourceMemberId}
+            onValueChange={setSourceMemberId}
+            triggerClassName="h-8"
+          />
           <div className="space-y-1.5">
             <Label className="text-caption text-muted-foreground">Source Type *</Label>
             <Select value={sourceType} onValueChange={(v) => setSourceType(v as SourceType)}>
@@ -148,10 +175,6 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-[10px] text-muted-foreground leading-tight">
-              Options from <span className="font-medium text-foreground">GET /api/v1/schema-mapper/wizard-metadata</span>
-              {wizardMetaLoading ? " (loading…)" : ""}.
-            </p>
             {wizardMetaError && (
               <p className="text-[10px] text-destructive" role="alert">
                 {wizardMetaErrorObj instanceof Error ? wizardMetaErrorObj.message : "Using offline defaults."}

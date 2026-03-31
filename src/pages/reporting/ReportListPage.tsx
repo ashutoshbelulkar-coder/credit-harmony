@@ -1,8 +1,9 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
+import { tableHeaderClasses } from "@/lib/typography";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,17 +14,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { getReportTypesForFilter, type ReportStatus } from "./reporting-store";
+import { getReportTypesForFilter } from "./reporting-store";
+import {
+  reportStatusBadgeClass,
+  reportStatusLabel,
+  reportStatusesEqual,
+} from "@/lib/status-badges";
 import { ChevronDown, ChevronUp, Download, Filter, Loader2, Plus, RotateCcw, X } from "lucide-react";
 import { useReports, useCancelReport, useRetryReport } from "@/hooks/api/useReports";
 import type { ReportResponse } from "@/services/reports.service";
-
-const statusStyles: Record<ReportStatus, string> = {
-  Queued: "bg-muted text-muted-foreground",
-  Processing: "bg-primary/15 text-primary",
-  Completed: "bg-success/15 text-success",
-  Failed: "bg-destructive/15 text-destructive",
-};
 
 const STATUS_OPTIONS = [
   { value: "all", label: "All" },
@@ -55,7 +54,7 @@ function applyFilters(rows: ReportResponse[], applied: FilterState): ReportRespo
     if (applied.reportId && !r.id.toLowerCase().includes(applied.reportId.toLowerCase()))
       return false;
     if (applied.reportType !== "all" && r.type !== applied.reportType) return false;
-    if (applied.status !== "all" && r.status !== applied.status) return false;
+    if (applied.status !== "all" && !reportStatusesEqual(r.status, applied.status)) return false;
     if (applied.dateFrom && r.dateTo < applied.dateFrom) return false;
     if (applied.dateTo && r.dateFrom > applied.dateTo) return false;
     return true;
@@ -238,13 +237,11 @@ export function ReportListPage() {
                   </td>
                   <td className="px-5 py-4 text-body text-muted-foreground">{r.requestedBy}</td>
                   <td className="px-5 py-4">
-                    <span className={cn("px-2.5 py-1 rounded-full", badgeTextClasses, statusStyles[r.status as ReportStatus] ?? "bg-muted text-muted-foreground")}>
-                      {r.status}
-                    </span>
+                    <Badge className={reportStatusBadgeClass(r.status)}>{reportStatusLabel(r.status)}</Badge>
                   </td>
                   <td className="px-5 py-4 text-right">
                     <div className="flex items-center justify-end gap-2">
-                      {(r.status === "Queued" || r.status === "Processing") && (
+                      {(reportStatusesEqual(r.status, "Queued") || reportStatusesEqual(r.status, "Processing")) && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -255,7 +252,7 @@ export function ReportListPage() {
                           <X className="w-3.5 h-3.5" /> Cancel
                         </Button>
                       )}
-                      {r.status === "Failed" && (
+                      {reportStatusesEqual(r.status, "Failed") && (
                         <Button
                           variant="outline"
                           size="sm"
@@ -270,8 +267,10 @@ export function ReportListPage() {
                         variant="outline"
                         size="sm"
                         className="gap-1.5 h-8"
-                        disabled={r.status !== "Completed"}
-                        onClick={() => r.status === "Completed" && handleDownload(r.id)}
+                        disabled={!reportStatusesEqual(r.status, "Completed")}
+                        onClick={() =>
+                          reportStatusesEqual(r.status, "Completed") && handleDownload(r.id)
+                        }
                       >
                         <Download className="w-3.5 h-3.5" /> Download
                       </Button>

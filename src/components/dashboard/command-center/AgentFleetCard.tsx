@@ -25,8 +25,8 @@ export function AgentFleetCard({
   const activeCount = agents.filter((a) => a.status === "active").length;
 
   return (
-    <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-      <CardHeader className="flex-row items-start justify-between gap-4">
+    <Card className="flex h-full min-h-0 w-full flex-col border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <CardHeader className="shrink-0 flex-row items-start justify-between gap-4">
         <div className="min-w-0">
           <CardTitle className="text-h4 font-semibold text-foreground">AI Agent Fleet</CardTitle>
           <p className="mt-1 text-caption text-muted-foreground">
@@ -37,8 +37,8 @@ export function AgentFleetCard({
           {loading ? "—" : `${activeCount} Active`}
         </div>
       </CardHeader>
-      <CardContent className="min-h-0">
-        <div className="min-h-[12rem] max-h-[min(38vh,22rem)] sm:max-h-[min(48vh,26rem)] overflow-y-auto pr-1">
+      <CardContent className="flex min-h-0 flex-1 flex-col pt-0">
+        <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           {(loading ? [] : agents).map((a) => (
             <div
               key={a.id}

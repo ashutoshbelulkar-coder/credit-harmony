@@ -161,35 +161,50 @@ INSERT OR IGNORE INTO compliance_documents (institution_id, document_name, docum
 -- suspended@hcb.com      → Suspended@1234
 -- sarah.chen@fnb.co.za   → Sarah@1234
 -- james.mthembu@fnb.co.za → James@1234
+-- david.kim@pacificfin.com → David@1234
 -- ============================================================================
 INSERT OR IGNORE INTO users
     (id, email, password_hash, display_name, given_name, family_name,
      user_account_status, mfa_enabled, institution_id, created_at)
 VALUES
-(1,  'admin@hcb.com',           '$2a$12$KIXqJ5vg7wT8X1oMzN9pRONyf3kzxHjRuPyB3MCqD8nZ1Z2lQFvhe',
+(1,  'admin@hcb.com',           '$2b$12$XXkH89KDr2OEbRIYtTBNd.dwaKZdpDAtYkc98lncLpiZfqxuJGf0K',
  'HCB Admin',         'HCB',     'Admin',    'active',    1, NULL,        '2024-01-10 00:00:00'),
-(2,  'super@hcb.com',           '$2a$12$YbNx9K3pWfHm1TlQ4dA7eOZrg5xMjVsNcPqD2IuB8nK3Y1ZvQGwhe',
+(2,  'super@hcb.com',           '$2b$12$d.P/nQYxO1UoKdvuc3wK8eZfIY/xdtKH16uZ03bfHqG17H1AflLre',
  'Super Admin',       'Super',   'Admin',    'active',    1, NULL,        '2024-01-10 00:00:00'),
-(3,  'bureau.admin@hcb.com',    '$2a$12$DmPq8L4rXgIn2UmR5eB8fPWsh6yNkWtOdQrE3JvC9oL4Z2AuRHxie',
+(3,  'bureau.admin@hcb.com',    '$2b$12$.UseXJQpziQH0G3Zc0Vf9O5p/JyyOusUjcYmBsNmvlLF.1UFAkV7G',
  'Bureau Admin',      'Bureau',  'Admin',    'active',    0, NULL,        '2024-02-01 00:00:00'),
-(4,  'analyst@hcb.com',         '$2a$12$FnQt9M5sYhJo3VnS6fC9gQXti7zOlXuPeRsF4KwD0pM5A3BvSIyje',
+(4,  'analyst@hcb.com',         '$2b$12$WdOcJXxxymk6xc4v9IORH.CW08ohmXOehU/6CTXq2yvgYZ.2S5I0O',
  'HCB Analyst',       'HCB',     'Analyst',  'active',    0, NULL,        '2024-03-01 00:00:00'),
-(5,  'viewer@hcb.com',          '$2a$12$GpRu0N6tZiKp4WoT7gD0hRYuj8APmYvQfStG5LxE1qN6B4CwTJzke',
+(5,  'viewer@hcb.com',          '$2b$12$yAPgQNO8uqBIm42A7I7SuOaeE2dOVT2MC53EI/FAByai91OkOUvM.',
  'Dashboard Viewer',  'Dash',    'Viewer',   'active',    0, NULL,        '2024-04-01 00:00:00'),
-(6,  'apiuser@hcb.com',         '$2a$12$HqSv1O7uAjLq5XpU8hE1iSZvk9BQnZwRgTuH6MyF2rO7C5DxUKale',
+(6,  'apiuser@hcb.com',         '$2b$12$uB/dkhJELC/H/XQY3Pk/EuvT76s7tvb0bMXfAAwc1ggCLnt/CvNt6',
  'API Integration',   'API',     'User',     'active',    0, NULL,        '2024-05-01 00:00:00'),
-(7,  'inst.admin@fnb.co.ke',    '$2a$12$IrTw2P8vBkMr6YqV9iF2jTAwl0CRoAxShUvI7NzG3sP8D6EyVLbme',
+(7,  'inst.admin@fnb.co.ke',    '$2b$12$Dd9KL0zRAHgKbIupFC53debqKL3YPW/6yKIlcWHp69.tAwSQIYgAu',
  'FNB Admin',         'FNB',     'Admin',    'active',    1, 1,           '2024-01-15 00:00:00'),
-(8,  'compliance@fnb.co.ke',    '$2a$12$JsUx3Q9wClNs7ZrW0jG3kUBxm1DSoBytIVwJ8OAH4tQ9E7FzWMcne',
+(8,  'compliance@fnb.co.ke',    '$2b$12$H9eJ1B1VI1gQTpxU2C7D5u6UwAmwqnTBlKmXNsyv36Nv52LCtrMWK',
  'Sarah Chen',        'Sarah',   'Chen',     'active',    1, 1,           '2024-01-15 00:00:00'),
-(9,  'ops@metrocu.co.ke',       '$2a$12$KtVy4R0xDmOt8AsX1kH4lVCyn2ETPcZuJWxK9PBI5uR0F8GAXNdoe',
+(9,  'ops@metrocu.co.ke',       '$2b$12$9fOs3X/cPh33YwfCRAQskummA4NpyPGAYoWFkdD823n5Lo3tkeQCW',
  'Priya Naidoo',      'Priya',   'Naidoo',   'active',    1, 2,           '2024-03-01 00:00:00'),
-(10, 'suspended@hcb.com',       '$2a$12$LuWz5S1yEnPu9BtY2lI5mWDzo3FUQdAvKXyL0QCJ6vS1G9HBYOpfe',
+(10, 'suspended@hcb.com',       '$2b$12$aaNpYk/TirDe0lYOz87BvuG2mDoSenuEmkWJxC6MXYyGClQWAQl5O',
  'Suspended User',    'Suspended','User',    'suspended', 0, NULL,        '2024-06-01 00:00:00'),
-(11, 'james.mthembu@fnb.co.za', '$2a$12$MvXA6T2zFoQv0CuZ3mJ6nXEAp4GVReBwLYzM1RDK7wT2H0ICZPqge',
+(11, 'james.mthembu@fnb.co.za', '$2b$12$BP7qwA.NKmXKVHvluAE5M.z3m5rY3mPW0gVXeLs7dtPj/Jv9qAWtC',
  'James Mthembu',     'James',   'Mthembu',  'active',    1, 1,           '2024-02-10 00:00:00'),
-(12, 'david.kim@pacificfin.com','$2a$12$NwYB7U3AGpRw1DvA4nK7oYFBq5HWSfCxMZAN2SEL8xU3I1JDAQrhe',
+(12, 'david.kim@pacificfin.com','$2b$12$DroxkL/KnJEP3kyH9wj0TOFN6A105m3XJGs7J9MlskDzC9AJXCwla',
  'David Kim',         'David',   'Kim',      'active',    0, 3,           '2024-03-20 00:00:00');
+
+-- Ensure password hashes match README (INSERT OR IGNORE leaves stale rows on re-seed)
+UPDATE users SET password_hash = '$2b$12$XXkH89KDr2OEbRIYtTBNd.dwaKZdpDAtYkc98lncLpiZfqxuJGf0K' WHERE email = 'admin@hcb.com';
+UPDATE users SET password_hash = '$2b$12$d.P/nQYxO1UoKdvuc3wK8eZfIY/xdtKH16uZ03bfHqG17H1AflLre' WHERE email = 'super@hcb.com';
+UPDATE users SET password_hash = '$2b$12$.UseXJQpziQH0G3Zc0Vf9O5p/JyyOusUjcYmBsNmvlLF.1UFAkV7G' WHERE email = 'bureau.admin@hcb.com';
+UPDATE users SET password_hash = '$2b$12$WdOcJXxxymk6xc4v9IORH.CW08ohmXOehU/6CTXq2yvgYZ.2S5I0O' WHERE email = 'analyst@hcb.com';
+UPDATE users SET password_hash = '$2b$12$yAPgQNO8uqBIm42A7I7SuOaeE2dOVT2MC53EI/FAByai91OkOUvM.' WHERE email = 'viewer@hcb.com';
+UPDATE users SET password_hash = '$2b$12$uB/dkhJELC/H/XQY3Pk/EuvT76s7tvb0bMXfAAwc1ggCLnt/CvNt6' WHERE email = 'apiuser@hcb.com';
+UPDATE users SET password_hash = '$2b$12$Dd9KL0zRAHgKbIupFC53debqKL3YPW/6yKIlcWHp69.tAwSQIYgAu' WHERE email = 'inst.admin@fnb.co.ke';
+UPDATE users SET password_hash = '$2b$12$H9eJ1B1VI1gQTpxU2C7D5u6UwAmwqnTBlKmXNsyv36Nv52LCtrMWK' WHERE email = 'compliance@fnb.co.ke';
+UPDATE users SET password_hash = '$2b$12$9fOs3X/cPh33YwfCRAQskummA4NpyPGAYoWFkdD823n5Lo3tkeQCW' WHERE email = 'ops@metrocu.co.ke';
+UPDATE users SET password_hash = '$2b$12$aaNpYk/TirDe0lYOz87BvuG2mDoSenuEmkWJxC6MXYyGClQWAQl5O' WHERE email = 'suspended@hcb.com';
+UPDATE users SET password_hash = '$2b$12$BP7qwA.NKmXKVHvluAE5M.z3m5rY3mPW0gVXeLs7dtPj/Jv9qAWtC' WHERE email = 'james.mthembu@fnb.co.za';
+UPDATE users SET password_hash = '$2b$12$DroxkL/KnJEP3kyH9wj0TOFN6A105m3XJGs7J9MlskDzC9AJXCwla' WHERE email = 'david.kim@pacificfin.com';
 
 -- ============================================================================
 -- USER ROLE ASSIGNMENTS
@@ -547,7 +562,7 @@ FROM consumers c
 WHERE NOT EXISTS (SELECT 1 FROM credit_profiles cp WHERE cp.consumer_id = c.id);
 
 -- ============================================================================
--- BATCH JOBS — Historical (30 days) + Future (30 days to 2026-04-28)
+-- BATCH JOBS — Historical (30 days) + small queued backlog (3 rows) + today/tomorrow
 -- ============================================================================
 INSERT OR IGNORE INTO batch_jobs
     (institution_id, uploaded_by_user_id, file_name, batch_job_status,
@@ -577,25 +592,95 @@ VALUES
 (4, 11, 'march_batch_20260320.csv',    'completed', 900,  897,  3,   99.7, 92,  '2026-03-20 09:00:00', '2026-03-20 09:01:32'),
 (1, 8,  'march_batch_20260325.csv',    'completed', 1500, 1492, 8,   99.5, 145, '2026-03-25 08:00:00', '2026-03-25 08:02:25'),
 (7, 4,  'march_batch_20260327.csv',    'queued',    900,  0,    0,   0.0,  0,   '2026-03-27 09:00:00', NULL),
--- Today (2026-03-28) + Future (pre-seeded through 2026-04-28)
+-- Today (2026-03-28) + small queued backlog (see below)
 (1, 8,  'batch_20260328_fnb.csv',      'completed', 1520, 1510, 10,  99.3, 142, '2026-03-28 08:00:00', '2026-03-28 08:02:22'),
 (2, 9,  'batch_20260328_metro.csv',    'processing',2100, 1800, 0,   85.7, 0,   '2026-03-28 09:30:00', NULL),
--- Future weeks
+-- Queued backlog (keep a small number for monitoring filters / KPIs)
 (1, 8,  'batch_20260329_fnb.csv',      'queued',    1400, 0,    0,   0.0,  0,   '2026-03-29 08:00:00', NULL),
-(4, 11, 'batch_20260330_stb.csv',      'queued',    950,  0,    0,   0.0,  0,   '2026-03-30 08:00:00', NULL),
-(7, 4,  'batch_20260331_alpine.csv',   'queued',    800,  0,    0,   0.0,  0,   '2026-03-31 09:00:00', NULL),
-(8, 4,  'batch_20260401_ucb.csv',      'queued',    1700, 0,    0,   0.0,  0,   '2026-04-01 08:00:00', NULL),
-(1, 8,  'batch_20260403_fnb.csv',      'queued',    1600, 0,    0,   0.0,  0,   '2026-04-03 08:00:00', NULL),
-(2, 9,  'batch_20260405_metro.csv',    'queued',    2200, 0,    0,   0.0,  0,   '2026-04-05 08:30:00', NULL),
-(4, 11, 'batch_20260407_stb.csv',      'queued',    1000, 0,    0,   0.0,  0,   '2026-04-07 09:00:00', NULL),
-(7, 4,  'batch_20260410_alpine.csv',   'queued',    850,  0,    0,   0.0,  0,   '2026-04-10 08:00:00', NULL),
-(1, 8,  'batch_20260414_fnb.csv',      'queued',    1550, 0,    0,   0.0,  0,   '2026-04-14 08:00:00', NULL),
-(8, 4,  'batch_20260415_ucb.csv',      'queued',    1750, 0,    0,   0.0,  0,   '2026-04-15 09:00:00', NULL),
-(2, 9,  'batch_20260420_metro.csv',    'queued',    2300, 0,    0,   0.0,  0,   '2026-04-20 08:30:00', NULL),
-(4, 11, 'batch_20260421_stb.csv',      'queued',    980,  0,    0,   0.0,  0,   '2026-04-21 09:00:00', NULL),
-(1, 8,  'batch_20260424_fnb.csv',      'queued',    1600, 0,    0,   0.0,  0,   '2026-04-24 08:00:00', NULL),
-(7, 4,  'batch_20260425_alpine.csv',   'queued',    900,  0,    0,   0.0,  0,   '2026-04-25 08:00:00', NULL),
-(8, 4,  'batch_20260428_ucb.csv',      'queued',    1800, 0,    0,   0.0,  0,   '2026-04-28 08:00:00', NULL);
+(4, 11, 'batch_20260330_stb.csv',      'queued',    950,  0,    0,   0.0,  0,   '2026-03-30 08:00:00', NULL);
+
+-- Rolling-window completed batches for dashboard "Mapping Accuracy Trend"
+-- (GET /dashboard/charts mappingAccuracy: weekly AVG(success_rate) on batch_jobs.uploaded_at).
+-- Uses datetime('now', …) so presets 30d / 90d stay populated regardless of wall-clock calendar.
+INSERT INTO batch_jobs
+    (institution_id, uploaded_by_user_id, file_name, batch_job_status,
+     total_records, success_count, failed_count, success_rate, duration_seconds,
+     uploaded_at, completed_at)
+VALUES
+(1, 8, 'schema_map_roll_w00_a.csv', 'completed', 1600, 1575, 25, 98.44, 118, datetime('now', '-2 days', '+8 hours'),  datetime('now', '-2 days', '+8 hours', '+2 minutes')),
+(2, 9, 'schema_map_roll_w00_b.csv', 'completed', 1400, 1379, 21, 98.50, 105, datetime('now', '-3 days', '+9 hours'),  datetime('now', '-3 days', '+9 hours', '+2 minutes')),
+(4, 11,'schema_map_roll_w01_a.csv', 'completed', 1700, 1666, 34, 98.00, 122, datetime('now', '-9 days', '+8 hours'),  datetime('now', '-9 days', '+8 hours', '+2 minutes')),
+(7, 4, 'schema_map_roll_w01_b.csv', 'completed', 1300, 1279, 21, 98.38, 99,  datetime('now', '-10 days', '+10 hours'), datetime('now', '-10 days', '+10 hours', '+2 minutes')),
+(1, 8, 'schema_map_roll_w02_a.csv', 'completed', 1900, 1862, 38, 98.00, 128, datetime('now', '-16 days', '+8 hours'), datetime('now', '-16 days', '+8 hours', '+2 minutes')),
+(8, 4, 'schema_map_roll_w02_b.csv', 'completed', 1500, 1470, 30, 98.00, 112, datetime('now', '-17 days', '+9 hours'), datetime('now', '-17 days', '+9 hours', '+2 minutes')),
+(2, 9, 'schema_map_roll_w03_a.csv', 'completed', 1650, 1617, 33, 98.00, 120, datetime('now', '-23 days', '+8 hours'), datetime('now', '-23 days', '+8 hours', '+2 minutes')),
+(4, 11,'schema_map_roll_w03_b.csv', 'completed', 1450, 1424, 26, 98.21, 108, datetime('now', '-24 days', '+11 hours'), datetime('now', '-24 days', '+11 hours', '+2 minutes')),
+(1, 8, 'schema_map_roll_w04_a.csv', 'completed', 1750, 1715, 35, 98.00, 125, datetime('now', '-30 days', '+8 hours'), datetime('now', '-30 days', '+8 hours', '+2 minutes')),
+(7, 4, 'schema_map_roll_w04_b.csv', 'completed', 1350, 1326, 24, 98.22, 102, datetime('now', '-31 days', '+9 hours'), datetime('now', '-31 days', '+9 hours', '+2 minutes')),
+(2, 9, 'schema_map_roll_w05_a.csv', 'completed', 1800, 1764, 36, 98.00, 131, datetime('now', '-37 days', '+8 hours'), datetime('now', '-37 days', '+8 hours', '+2 minutes')),
+(8, 4, 'schema_map_roll_w05_b.csv', 'completed', 1550, 1523, 27, 98.26, 115, datetime('now', '-38 days', '+10 hours'), datetime('now', '-38 days', '+10 hours', '+2 minutes')),
+(4, 11,'schema_map_roll_w06_a.csv', 'completed', 1680, 1646, 34, 97.98, 119, datetime('now', '-44 days', '+8 hours'), datetime('now', '-44 days', '+8 hours', '+2 minutes')),
+(1, 8, 'schema_map_roll_w06_b.csv', 'completed', 1420, 1394, 26, 98.17, 106, datetime('now', '-45 days', '+9 hours'), datetime('now', '-45 days', '+9 hours', '+2 minutes')),
+(7, 4, 'schema_map_roll_w07_a.csv', 'completed', 1720, 1686, 34, 98.02, 124, datetime('now', '-51 days', '+8 hours'), datetime('now', '-51 days', '+8 hours', '+2 minutes')),
+(2, 9, 'schema_map_roll_w07_b.csv', 'completed', 1380, 1355, 25, 98.19, 103, datetime('now', '-52 days', '+10 hours'), datetime('now', '-52 days', '+10 hours', '+2 minutes')),
+(1, 8, 'schema_map_roll_w08_a.csv', 'completed', 1850, 1813, 37, 98.00, 132, datetime('now', '-58 days', '+8 hours'), datetime('now', '-58 days', '+8 hours', '+2 minutes')),
+(4, 11,'schema_map_roll_w08_b.csv', 'completed', 1480, 1453, 27, 98.18, 110, datetime('now', '-59 days', '+9 hours'), datetime('now', '-59 days', '+9 hours', '+2 minutes')),
+(8, 4, 'schema_map_roll_w09_a.csv', 'completed', 1620, 1590, 30, 98.15, 121, datetime('now', '-65 days', '+8 hours'), datetime('now', '-65 days', '+8 hours', '+2 minutes')),
+(2, 9, 'schema_map_roll_w09_b.csv', 'completed', 1520, 1494, 26, 98.29, 114, datetime('now', '-66 days', '+11 hours'), datetime('now', '-66 days', '+11 hours', '+2 minutes')),
+(7, 4, 'schema_map_roll_w10_a.csv', 'completed', 1780, 1744, 36, 97.98, 127, datetime('now', '-72 days', '+8 hours'), datetime('now', '-72 days', '+8 hours', '+2 minutes')),
+(1, 8, 'schema_map_roll_w10_b.csv', 'completed', 1410, 1385, 25, 98.23, 104, datetime('now', '-73 days', '+9 hours'), datetime('now', '-73 days', '+9 hours', '+2 minutes')),
+(4, 11,'schema_map_roll_w11_a.csv', 'completed', 1690, 1658, 32, 98.11, 120, datetime('now', '-79 days', '+8 hours'), datetime('now', '-79 days', '+8 hours', '+2 minutes')),
+(2, 9, 'schema_map_roll_w11_b.csv', 'completed', 1460, 1433, 27, 98.15, 109, datetime('now', '-80 days', '+10 hours'), datetime('now', '-80 days', '+10 hours', '+2 minutes')),
+(8, 4, 'schema_map_roll_w12_a.csv', 'completed', 1760, 1725, 35, 98.01, 126, datetime('now', '-86 days', '+8 hours'), datetime('now', '-86 days', '+8 hours', '+2 minutes')),
+(1, 8, 'schema_map_roll_w12_b.csv', 'completed', 1530, 1502, 28, 98.17, 113, datetime('now', '-87 days', '+9 hours'), datetime('now', '-87 days', '+9 hours', '+2 minutes'));
+
+-- Demo processing batch for Data Submission monitoring (stable id; survives wall-clock drift).
+-- Full phase/stage tree for Batch Execution Console (matches multi-phase UI contract).
+DELETE FROM batch_error_samples WHERE batch_job_id = 999901;
+DELETE FROM batch_stage_logs WHERE batch_job_id = 999901;
+DELETE FROM batch_phase_logs WHERE batch_job_id = 999901;
+DELETE FROM batch_jobs WHERE id = 999901;
+INSERT INTO batch_jobs (id, institution_id, uploaded_by_user_id, file_name, batch_job_status,
+     total_records, success_count, failed_count, success_rate, duration_seconds,
+     uploaded_at, completed_at)
+VALUES (
+  999901,
+  1,
+  8,
+  'accounts_live_processing_demo.csv',
+  'processing',
+  3200,
+  2956,
+  244,
+  92.4,
+  NULL,
+  datetime('now'),
+  NULL
+);
+INSERT INTO batch_phase_logs (id, batch_job_id, phase_order, phase_key, display_name, phase_status, system_status, business_status, started_at, completed_at, flow_uid, phase_uid, version, to_be_processed, processing, system_ko, business_ko, business_ok, total_records)
+VALUES
+  (991001, 999901, 1, 'CB_CSDF_PRE', 'Pre-Processing', 'completed', 'ok', 'error', datetime('now', '-14 minutes'), datetime('now', '-14 minutes', '+8 seconds'), 'FLOW-999901-001', 'PHASE-PRE-001', 'v1.0', 3200, 0, 0, 2, 3198, 3200),
+  (991002, 999901, 2, 'CB_CSDF_CPS', 'Data Validation', 'completed', 'ok', 'error', datetime('now', '-13 minutes', '+50 seconds'), datetime('now', '-13 minutes', '+92 seconds'), 'FLOW-999901-001', 'PHASE-CPS-002', 'v1.2', 3198, 0, 0, 5, 3193, 3198),
+  (991003, 999901, 3, 'CB_CSDF_LPC', 'Load Processing', 'processing', 'ok', 'ok', datetime('now', '-12 minutes'), NULL, 'FLOW-999901-001', 'PHASE-LPC-003', 'v2.0', 3193, 3193, 0, 1, 3192, 3193),
+  (991004, 999901, 4, 'POST', 'Post-Processing', 'queued', 'ok', 'ok', NULL, NULL, 'FLOW-999901-001', 'PHASE-POST-004', NULL, 0, 0, 0, 0, 0, 0),
+  (991005, 999901, 5, 'COMMIT', 'Data Commit', 'queued', 'ok', 'ok', NULL, NULL, 'FLOW-999901-001', 'PHASE-COMMIT-005', NULL, 0, 0, 0, 0, 0, 0);
+INSERT INTO batch_stage_logs (id, batch_job_id, phase_log_id, stage_order, stage_key, stage_name, stage_status, message, started_at, completed_at, records_processed, error_count, skipped_count, system_return_code, business_return_code)
+VALUES
+  (991101, 999901, 991001, 1, 'STG-1', 'File Integrity Check', 'completed', 'MD5 checksum verified', datetime('now', '-14 minutes'), datetime('now', '-14 minutes', '+4 seconds'), 3200, 0, 0, NULL, NULL),
+  (991102, 999901, 991001, 2, 'STG-2', 'Schema Mapping', 'completed', 'Headers matched canonical layout', datetime('now', '-14 minutes', '+4 seconds'), datetime('now', '-14 minutes', '+8 seconds'), 3200, 2, 0, NULL, NULL),
+  (991103, 999901, 991002, 1, 'STG-3', 'File Validation', 'completed', 'Structural validation complete', datetime('now', '-13 minutes', '+50 seconds'), datetime('now', '-13 minutes', '+71 seconds'), 3198, 3, 0, NULL, NULL),
+  (991104, 999901, 991002, 2, 'STG-4', 'Business Rule Validation', 'completed', 'Business rules evaluated', datetime('now', '-13 minutes', '+71 seconds'), datetime('now', '-13 minutes', '+92 seconds'), 3195, 2, 0, NULL, NULL),
+  (991105, 999901, 991003, 1, 'STG-5', 'Load Processing', 'running', 'Applying field mappings (~92% of records)', datetime('now', '-12 minutes'), NULL, 3193, 1, 0, NULL, NULL);
+INSERT INTO batch_error_samples (batch_job_id, batch_stage_log_id, record_id, field_name, error_type, error_message, severity)
+VALUES
+  (999901, 991102, 'REC-MAP-01', 'customer_id', 'MAP-001', 'Column not found in source', 'error'),
+  (999901, 991102, 'REC-MAP-02', 'disbursement_date', 'MAP-002', 'Type mismatch: expected date', 'error'),
+  (999901, 991103, 'REC-101', 'account_id', 'VAL-001', 'Invalid format', 'error'),
+  (999901, 991103, 'REC-102', 'amount', 'VAL-002', 'Value out of range', 'error'),
+  (999901, 991103, 'REC-103', 'date_field', 'VAL-003', 'Required field missing', 'warning'),
+  (999901, 991104, 'REC-201', 'national_id', 'BR-001', 'Invalid format', 'error'),
+  (999901, 991104, 'REC-202', 'phone_number', 'BR-002', 'Required field missing', 'error'),
+  (999901, 991105, 'REC-77502', 'outstanding_balance', 'RANGE', 'Value exceeds sanctioned ceiling', 'error');
 
 -- ============================================================================
 -- TRADELINES — Generated from consumers
@@ -767,9 +852,9 @@ VALUES
 (2, 1, 'P95 Latency',  '850ms',   '<= 800ms', 'resolved',     '2026-02-24 14:30:00', '2026-02-24 14:32:00', '2026-02-24 15:00:00'),
 (5, 4, 'P95 Latency',  '430ms',   '<= 400ms', 'resolved',     '2026-02-23 16:45:00', '2026-02-23 16:50:00', '2026-02-23 17:30:00'),
 (6, NULL,'Schema Drift', 'Critical','Critical', 'resolved',    '2026-02-22 11:00:00', '2026-02-22 11:05:00', '2026-02-22 12:00:00'),
--- Future incidents
-(1, 1, 'Success Rate', '97.2%',   '>= 99%',  'open',          '2026-04-02 10:00:00', NULL,                   NULL),
-(3, 2, 'Batch Success Rate','93.0%','>= 95%', 'open',          '2026-04-07 09:30:00', NULL,                   NULL);
+-- Future incidents (status must satisfy alert_incidents CHECK)
+(1, 1, 'Success Rate', '97.2%',   '>= 99%',  'active',        '2026-04-02 10:00:00', NULL,                   NULL),
+(3, 2, 'Batch Success Rate','93.0%','>= 95%', 'active',        '2026-04-07 09:30:00', NULL,                   NULL);
 
 -- ============================================================================
 -- AUDIT LOGS (seed from activity-log.json)
@@ -813,6 +898,19 @@ VALUES
  datetime('now'), datetime('now', '+7 days'), 0, '127.0.0.1'),
 (2, 'dev_token_hash_super_001_' || lower(hex(randomblob(16))),
  datetime('now'), datetime('now', '+7 days'), 0, '127.0.0.1');
+
+-- ============================================================================
+-- INGESTION DRIFT ALERTS (Data Quality Monitoring — mirrors data-governance.json)
+-- ============================================================================
+INSERT OR IGNORE INTO ingestion_drift_alerts (id, alert_type, source, message, severity, detected_at, source_type) VALUES
+('drift-1', 'schema', 'Jio Telecom', 'New optional field ''roaming_data_mb'' detected in ingest payload', 'low', '2026-03-26 08:15:00', 'Telecom'),
+('drift-2', 'mapping', 'HDFC Bank', 'Mapping confidence for ''accounts.dpd'' dropped 6% vs prior week', 'medium', '2026-03-25 11:20:00', 'Bank'),
+('drift-3', 'schema', 'Tata Power Utility', 'Enum expansion: payment_status gained value ''DISPUTED''', 'low', '2026-03-24 14:00:00', 'Utility'),
+('drift-4', 'mapping', 'GST Portal', 'Master field mismatch: GST ''turnover_band'' vs canonical ''annual_turnover''', 'high', '2026-03-22 09:45:00', 'Government'),
+('drift-5', 'schema', 'Airtel Telecom', 'Sample rate anomaly: 12% nulls on ''last_payment_status'' (threshold 5%)', 'medium', '2026-03-20 16:30:00', 'Telecom'),
+('drift-6', 'mapping', 'Mahanagar Gas Utility', 'Version drift: feed still on v1.0 while active schema is v1.1', 'low', '2026-03-18 10:00:00', 'Utility'),
+('drift-7', 'schema', 'BSNL Telecom', 'New nested path ''accounts.arrers'' (typo) observed — possible upstream defect', 'medium', '2026-03-15 13:40:00', 'Telecom'),
+('drift-8', 'mapping', 'Custom Micro-Finance', 'Archived mapping still referenced by batch job ''BATCH-9921''', 'low', '2026-03-10 07:00:00', 'NBFI');
 
 -- ============================================================================
 -- END OF SEED DATA

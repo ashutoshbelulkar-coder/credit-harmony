@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   LineChart,
   Line,
@@ -39,6 +39,7 @@ const trendConfig = {
 } satisfies ChartConfig;
 
 const THRESHOLD = 94;
+const DRIFT_PAGE_SIZE = 10;
 
 function formatSourceTypeLabel(sourceType: string) {
   return sourceType.charAt(0).toUpperCase() + sourceType.slice(1);
@@ -54,6 +55,7 @@ export default function DataQualityMonitoring() {
   const [dateTo, setDateTo] = useState(format(now, "yyyy-MM-dd"));
   const [institutionId, setInstitutionId] = useState("all");
   const [sourceType, setSourceType] = useState<string>("all");
+  const [driftPage, setDriftPage] = useState(1);
 
   const {
     data: sourceTypesPayload,
@@ -69,6 +71,17 @@ export default function DataQualityMonitoring() {
   } = useDriftAlerts({ dateFrom, dateTo, sourceType });
 
   const filteredDrift = driftData?.alerts ?? [];
+
+  useEffect(() => {
+    setDriftPage(1);
+  }, [dateFrom, dateTo, sourceType, institutionId]);
+
+  const driftTotalPages = Math.max(1, Math.ceil(filteredDrift.length / DRIFT_PAGE_SIZE));
+  const driftPageSafe = Math.min(driftPage, driftTotalPages);
+  const pagedDrift = filteredDrift.slice(
+    (driftPageSafe - 1) * DRIFT_PAGE_SIZE,
+    driftPageSafe * DRIFT_PAGE_SIZE
+  );
 
   const adjustedMetrics = useMemo(() => {
     const h = institutionId === "all" ? 0 : hashId(institutionId);
@@ -135,8 +148,6 @@ export default function DataQualityMonitoring() {
             mode="submitters"
             value={institutionId}
             onValueChange={setInstitutionId}
-            label="Member institution"
-            allLabel="All submitters"
             triggerClassName="h-9 min-w-[200px]"
           />
           <div className="space-y-1.5">
@@ -248,7 +259,7 @@ export default function DataQualityMonitoring() {
           ) : filteredDrift.length === 0 ? (
             <li className="text-caption text-muted-foreground">No drift alerts for the current filters.</li>
           ) : (
-            filteredDrift.map((d) => (
+            pagedDrift.map((d) => (
               <li
                 key={d.id}
                 className={cn(
@@ -279,6 +290,37 @@ export default function DataQualityMonitoring() {
             ))
           )}
         </ul>
+        {!driftLoading && !driftError && filteredDrift.length > DRIFT_PAGE_SIZE ? (
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-border pt-4">
+            <span className="text-caption text-muted-foreground">
+              Showing {(driftPageSafe - 1) * DRIFT_PAGE_SIZE + 1}–
+              {Math.min(driftPageSafe * DRIFT_PAGE_SIZE, filteredDrift.length)} of {filteredDrift.length} alerts
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={driftPageSafe <= 1}
+                onClick={() => setDriftPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <span className="text-caption text-muted-foreground px-2">
+                {driftPageSafe} / {driftTotalPages}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={driftPageSafe >= driftTotalPages}
+                onClick={() => setDriftPage((p) => Math.min(driftTotalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

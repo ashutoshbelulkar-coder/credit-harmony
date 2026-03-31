@@ -52,6 +52,7 @@ import {
 import { ArrowUpCircle, CheckCircle2, MoreHorizontal, Search } from "lucide-react";
 import { useAlertIncidents, useResolveIncident, useAcknowledgeIncident, useAlertCharts } from "@/hooks/api/useAlerts";
 import { useInstitutions } from "@/hooks/api/useInstitutions";
+import { institutionDisplayLabel } from "@/lib/institutions-display";
 import type { AlertIncidentResponse } from "@/services/alerts.service";
 
 /** Map API AlertIncidentResponse → mock ActiveAlert shape (UI uses snake_case fields) */
@@ -137,10 +138,10 @@ export function AlertMonitoringDashboard() {
   });
 
   const institutionOptions = [
-    { value: "all", label: "All Institutions" },
+    { value: "all", label: "All institutions" },
     ...(institutionsPage?.content ?? []).slice(0, 8).map((i) => ({
       value: String(i.id),
-      label: i.tradingName ?? i.name,
+      label: institutionDisplayLabel(i),
     })),
   ];
 
@@ -151,7 +152,7 @@ export function AlertMonitoringDashboard() {
         <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3">
           <Select value={institution} onValueChange={setInstitution}>
             <SelectTrigger className="h-9 w-full sm:w-[200px] text-body" id="alert-institution">
-              <SelectValue placeholder="Institution" />
+              <SelectValue placeholder="Member institution" />
             </SelectTrigger>
             <SelectContent>
               {institutionOptions.map((o) => (

@@ -25,6 +25,7 @@ import {
   type RegisterDetailsValues,
 } from "@/lib/institution-register-form";
 import { QK } from "@/lib/query-keys";
+import { ApiError } from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -221,13 +222,17 @@ const RegisterInstitution = () => {
       const body = mapRegisterDetailsToCreateBody(data, rf);
       const inst = await submitNewInstitution(body as CreateInstitutionBody);
       let uploadFailed = false;
+      let uploadFailureDetail: string | undefined;
       if (applicableDocRows.length > 0) {
         for (const d of uploadedDocs) {
           if (!d.file) continue;
           try {
             await uploadInstitutionDocument(inst.id, d.name, d.file);
-          } catch {
+          } catch (e) {
             uploadFailed = true;
+            if (e instanceof ApiError && uploadFailureDetail === undefined) {
+              uploadFailureDetail = e.message;
+            }
           }
         }
       }
@@ -236,7 +241,9 @@ const RegisterInstitution = () => {
       await queryClient.invalidateQueries({ queryKey: QK.institutions.detail(String(inst.id)) });
       if (uploadFailed) {
         toast.error(
-          "Institution was created, but one or more document uploads failed. Retry uploads from the member record when available."
+          uploadFailureDetail
+            ? `Institution was created, but a document upload failed: ${uploadFailureDetail}. You can retry from the member record when upload is available there.`
+            : "Institution was created, but one or more document uploads failed. Retry uploads from the member record when available."
         );
       } else {
         toast.success(

@@ -15,6 +15,8 @@ export interface AuditLogEntry {
   ipAddressHash?: string;
   auditOutcome: string;
   occurredAt: string;
+  /** Present on some rows (e.g. governance actions tied to a member institution) */
+  institutionId?: string;
 }
 
 export interface AuditLogParams {
@@ -22,6 +24,7 @@ export interface AuditLogParams {
   actionType?: string;
   entityType?: string;
   entityId?: string;
+  institutionId?: string;
   from?: string;
   to?: string;
   page?: number;
@@ -49,7 +52,7 @@ export async function fetchAuditLogs(
     if (allowMock && clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       // Fall back to user-management mock activity logs
       const { mockActivity } = await import("@/data/user-management-mock");
-      const list = (mockActivity ?? []).map((a, i) => ({
+      let list = (mockActivity ?? []).map((a, i) => ({
         id: i + 1,
         userEmail: a.userEmail ?? a.user,
         actionType: a.action ?? a.actionType ?? "UNKNOWN",
@@ -59,6 +62,14 @@ export async function fetchAuditLogs(
         auditOutcome: a.outcome ?? "SUCCESS",
         occurredAt: a.timestamp ?? a.time ?? new Date().toISOString(),
       })) as AuditLogEntry[];
+      const inst = params?.institutionId;
+      if (inst && inst !== "all") {
+        const want = String(inst).replace(/\D/g, "");
+        list = list.filter((row) => {
+          const rowId = row.institutionId != null ? String(row.institutionId).replace(/\D/g, "") : "";
+          return rowId !== "" && rowId === want;
+        });
+      }
       const page = params?.page ?? 0;
       const size = params?.size ?? 20;
       return { content: list.slice(page * size, (page + 1) * size), totalElements: list.length, totalPages: Math.max(1, Math.ceil(list.length / size)), page, size };

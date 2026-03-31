@@ -293,8 +293,11 @@ function SlaCard({ config, onSaveMetric }: { config: SlaConfig; onSaveMetric: (c
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {config.metrics.map((row) => (
-                <tr key={row.metric} className="hover:bg-muted/30 transition-colors">
+              {(config.metrics ?? []).map((row) => (
+                <tr
+                  key={row.configRowId ? `${row.configRowId}-${row.metric}` : row.metric}
+                  className="hover:bg-muted/30 transition-colors"
+                >
                   <td className="px-4 py-3 text-body text-foreground">{row.metric}</td>
                   <td className="px-4 py-3 text-caption text-muted-foreground">{row.threshold}</td>
                   <td className="px-4 py-3 text-caption tabular-nums">{row.current}</td>
@@ -330,7 +333,8 @@ function SlaCard({ config, onSaveMetric }: { config: SlaConfig; onSaveMetric: (c
         metricRow={editingMetric}
         slaName={config.name}
         onSave={(payload) => {
-          onSaveMetric(config.id, payload);
+          const rowId = editingMetric?.configRowId ?? "";
+          onSaveMetric(rowId, payload);
           setDrawerOpen(false);
         }}
       />
@@ -349,10 +353,13 @@ export function SlaConfigurationPanel() {
   })();
 
   const handleSaveMetric = (
-    configId: string,
+    configRowId: string,
     payload: { threshold: string; operator: string; timeWindow: TimeWindow; severity: SeverityLevel }
   ) => {
-    updateConfig({ id: configId, data: { metrics: [{ metric: "", threshold: payload.threshold, current: "", status: "" }] } });
+    const numeric = String(payload.threshold).replace(/[^\d.]/g, "").match(/^\d*\.?\d+/);
+    const thresholdValue = numeric ? parseFloat(numeric[0]) : NaN;
+    if (!/^\d+$/.test(configRowId) || Number.isNaN(thresholdValue)) return;
+    updateConfig({ id: configRowId, data: { thresholdValue } });
   };
 
   return (

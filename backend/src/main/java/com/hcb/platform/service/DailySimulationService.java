@@ -60,7 +60,7 @@ public class DailySimulationService {
      */
     private void generateApiRequests(LocalDate date) {
         List<Long> institutionIds = jdbcTemplate.queryForList(
-            "SELECT id FROM institutions WHERE institution_lifecycle_status = 'active' AND is_deleted = 0",
+            "SELECT id FROM institutions WHERE institution_lifecycle_status = 'active' AND NOT is_deleted",
             Long.class
         );
         if (institutionIds.isEmpty()) return;
@@ -93,7 +93,7 @@ public class DailySimulationService {
      */
     private void generateBatchJobs(LocalDate date) {
         List<Long> institutionIds = jdbcTemplate.queryForList(
-            "SELECT id FROM institutions WHERE is_data_submitter = 1 AND institution_lifecycle_status = 'active' AND is_deleted = 0",
+            "SELECT id FROM institutions WHERE is_data_submitter = 1 AND institution_lifecycle_status = 'active' AND NOT is_deleted",
             Long.class
         );
 
@@ -174,7 +174,7 @@ public class DailySimulationService {
     private void evaluateAlerts(LocalDate date) {
         // Simulate 10% chance of alert incident per enabled rule
         List<Long> enabledRuleIds = jdbcTemplate.queryForList(
-            "SELECT id FROM alert_rules WHERE alert_rule_status = 'enabled' AND is_deleted = 0",
+            "SELECT id FROM alert_rules WHERE alert_rule_status = 'enabled' AND NOT is_deleted",
             Long.class
         );
 

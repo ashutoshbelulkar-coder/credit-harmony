@@ -11,17 +11,19 @@ import {
 } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses } from "@/lib/typography";
-import { similarSchemasForTelecom } from "@/data/schema-mapper-mock";
 import type { SimilarSchemaEntry } from "@/types/schema-mapper";
 
 interface MultiSchemaMatchingStepProps {
   similarSchemas: SimilarSchemaEntry[];
+  /** Registry + source-type-field union queries still resolving. */
+  isLoading?: boolean;
   selectedSchemaId: string | null;
   onComplete: (selectedSchemaId: string | null, createNewDerived: boolean) => void | Promise<void>;
 }
 
 export function MultiSchemaMatchingStep({
   similarSchemas,
+  isLoading = false,
   selectedSchemaId,
   onComplete,
 }: MultiSchemaMatchingStepProps) {
@@ -43,10 +45,15 @@ export function MultiSchemaMatchingStep({
       <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <h3 className="text-h4 font-semibold text-foreground mb-4">Global Schema Similarity Analysis</h3>
         <p className="text-caption text-muted-foreground mb-3">
-          Incoming schema is ranked against registered Source Types in Schema Mapper (similarity to each type&apos;s reference mapping).
+          Incoming schema is ranked against each Source Type from tenant configuration. Data categories shown are those stored on registered schemas for that type.
         </p>
 
-        <div className="min-w-0 overflow-x-auto rounded-lg border border-border">
+        <div className="relative min-w-0 overflow-x-auto rounded-lg border border-border">
+          {isLoading ? (
+            <div className="absolute inset-0 z-[1] flex items-center justify-center rounded-lg bg-background/60 text-caption text-muted-foreground backdrop-blur-[2px]">
+              Loading registry…
+            </div>
+          ) : null}
           <Table>
             <TableHeader>
               <TableRow className="hover:bg-transparent">
@@ -80,7 +87,11 @@ export function MultiSchemaMatchingStep({
                     />
                   </TableCell>
                   <TableCell className="text-body font-medium">{row.label}</TableCell>
-                  <TableCell className="text-caption capitalize">{row.category}</TableCell>
+                  <TableCell className="text-caption text-foreground">
+                    {row.dataCategories.length > 0 ? row.dataCategories.join(", ") : (
+                      <span className="text-muted-foreground">—</span>
+                    )}
+                  </TableCell>
                   <TableCell className="tabular-nums">{row.similarityPercent}%</TableCell>
                   <TableCell className="tabular-nums">{row.sharedFieldsCount}</TableCell>
                   <TableCell>

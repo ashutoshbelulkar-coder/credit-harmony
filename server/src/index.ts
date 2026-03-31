@@ -40,6 +40,13 @@ function err(reply: any, code: number, error: string, message: string) {
   return reply.code(code).send({ error, message });
 }
 
+/** Prefer legal `name`, else optional `tradingName` (aligns with Spring / SPA institution labels). */
+function institutionDisplayLabel(row: { name?: string; tradingName?: string }): string {
+  const legal = String(row.name ?? "").trim();
+  if (legal.length > 0) return legal;
+  return String(row.tradingName ?? "").trim();
+}
+
 /** Defaults merged with GET/PATCH institution api-access (must match routes below). */
 function defaultInstitutionApiAccess() {
   return {
@@ -634,7 +641,7 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     const row = {
       id,
       name: String(b.name ?? ""),
-      tradingName: String(b.tradingName ?? b.name ?? ""),
+      tradingName: String(b.tradingName ?? ""),
       institutionType: institutionTypeRaw || "Unknown",
       institutionLifecycleStatus: String(b.institutionLifecycleStatus ?? "pending"),
       registrationNumber: String(b.registrationNumber ?? ""),
@@ -671,7 +678,7 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       id: apId,
       type: "institution",
       name: row.name,
-      description: `New institution registration: ${row.tradingName}`,
+      description: `New institution registration: ${institutionDisplayLabel(row)}`,
       submittedBy: req.user!.email,
       submittedAt: new Date().toISOString(),
       status: "pending",
@@ -1554,9 +1561,17 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
       auditOutcome: a.auditOutcome ?? "SUCCESS",
       occurredAt: a.occurredAt,
       ipAddressHash: a.ipAddressHash ?? a.ipAddress,
+      institutionId: a.institutionId != null ? String(a.institutionId) : undefined,
     }));
     if (q.entityType) list = list.filter((a) => a.entityType === q.entityType);
     if (q.entityId) list = list.filter((a) => a.entityId === q.entityId);
+    if (q.institutionId && q.institutionId !== "all") {
+      const want = String(q.institutionId).replace(/\D/g, "");
+      list = list.filter((a) => {
+        const rowId = a.institutionId != null ? String(a.institutionId).replace(/\D/g, "") : "";
+        return rowId !== "" && rowId === want;
+      });
+    }
     if (q.userId) list = list.filter((a) => a.entityType === "USER" && String(a.entityId) === String(q.userId));
     if (q.actionType) list = list.filter((a) => a.actionType === q.actionType);
     if (q.from) {

@@ -124,6 +124,7 @@ export async function fetchSchemaRegistryPage(
 export interface IngestBody {
   sourceName: string;
   sourceType: string;
+  dataCategory?: string;
   versionNumber?: string;
   effectiveDate?: string;
   institutionId?: string;

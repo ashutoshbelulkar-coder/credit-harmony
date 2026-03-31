@@ -62,7 +62,7 @@ export default function Login() {
     setIsSubmitting(true);
     setErrors({});
     try {
-      await login(email, password, rememberMe);
+      await login(email.trim(), password, rememberMe);
       navigate("/", { replace: true });
     } catch (err) {
       if (err instanceof ApiError) {

@@ -23,6 +23,9 @@ PRAGMA synchronous = NORMAL;
 -- DROP ORDER (reverse FK dependency)
 -- ============================================================================
 DROP TABLE IF EXISTS batch_records;
+DROP TABLE IF EXISTS batch_error_samples;
+DROP TABLE IF EXISTS batch_stage_logs;
+DROP TABLE IF EXISTS batch_phase_logs;
 DROP TABLE IF EXISTS batch_jobs;
 DROP TABLE IF EXISTS sla_breaches;
 DROP TABLE IF EXISTS sla_configs;
@@ -33,6 +36,13 @@ DROP TABLE IF EXISTS enquiries;
 DROP TABLE IF EXISTS tradelines;
 DROP TABLE IF EXISTS credit_profiles;
 DROP TABLE IF EXISTS consumers;
+DROP TABLE IF EXISTS schema_mapper_validation_rule;
+DROP TABLE IF EXISTS schema_mapper_drift_log;
+DROP TABLE IF EXISTS schema_mapper_mapping;
+DROP TABLE IF EXISTS schema_mapper_schema_version;
+DROP TABLE IF EXISTS schema_mapper_raw_data;
+DROP TABLE IF EXISTS schema_mapper_registry;
+DROP TABLE IF EXISTS schema_mapper_metrics;
 DROP TABLE IF EXISTS mapping_pairs;
 DROP TABLE IF EXISTS mapping_versions;
 DROP TABLE IF EXISTS source_schema_fields;
@@ -47,6 +57,7 @@ DROP TABLE IF EXISTS consortiums;
 DROP TABLE IF EXISTS product_subscriptions;
 DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS compliance_documents;
+DROP TABLE IF EXISTS ingestion_drift_alerts;
 DROP TABLE IF EXISTS refresh_tokens;
 DROP TABLE IF EXISTS api_keys;
 DROP TABLE IF EXISTS user_role_assignments;
@@ -100,6 +111,11 @@ CREATE TABLE institutions (
     is_deleted                  INTEGER      NOT NULL DEFAULT 0
                                     CHECK (is_deleted IN (0,1)),
     deleted_at                  DATETIME,
+    low_credit_alert_threshold  DECIMAL(15,2) DEFAULT 5000,
+    member_rate_overrides       TEXT,
+    api_access_json             TEXT,
+    consent_config_json         TEXT,
+    consent_failure_metrics_json TEXT,
     CONSTRAINT uq_institutions_registration UNIQUE (registration_number)
 );
 
@@ -217,20 +233,23 @@ CREATE INDEX idx_refresh_tokens_token_hash ON refresh_tokens (token_hash);
 -- NEVER stored in log rows; logs use api_key_id (FK integer)
 -- ----------------------------------------------------------------------------
 CREATE TABLE api_keys (
-    id             INTEGER PRIMARY KEY AUTOINCREMENT,
-    institution_id INTEGER      REFERENCES institutions(id) ON DELETE CASCADE,
-    user_id        INTEGER      REFERENCES users(id)        ON DELETE SET NULL,
-    key_name       VARCHAR(100) NOT NULL,
-    key_prefix     VARCHAR(20)  NOT NULL,
-    key_hash       VARCHAR(512) NOT NULL,
-    api_key_status VARCHAR(20)  NOT NULL DEFAULT 'active'
-                       CHECK (api_key_status IN ('active','revoked','expired')),
-    created_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    last_used_at   DATETIME,
-    revoked_at     DATETIME,
-    is_deleted     INTEGER      NOT NULL DEFAULT 0
-                       CHECK (is_deleted IN (0,1)),
-    deleted_at     DATETIME,
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    institution_id          INTEGER      REFERENCES institutions(id) ON DELETE CASCADE,
+    user_id                 INTEGER      REFERENCES users(id)        ON DELETE SET NULL,
+    key_name                VARCHAR(100) NOT NULL,
+    key_prefix              VARCHAR(80)  NOT NULL,
+    key_hash                VARCHAR(512) NOT NULL,
+    api_key_status          VARCHAR(20)  NOT NULL DEFAULT 'active'
+                                CHECK (api_key_status IN ('active','revoked','expired')),
+    environment             VARCHAR(20)  NOT NULL DEFAULT 'sandbox',
+    rate_limit_per_minute   INTEGER      NOT NULL DEFAULT 1000,
+    created_at              DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at              DATETIME,
+    last_used_at            DATETIME,
+    revoked_at              DATETIME,
+    is_deleted              INTEGER      NOT NULL DEFAULT 0
+                                CHECK (is_deleted IN (0,1)),
+    deleted_at              DATETIME,
     CONSTRAINT uq_api_keys_hash UNIQUE (key_hash)
 );
 
@@ -241,16 +260,34 @@ CREATE INDEX idx_api_keys_key_hash       ON api_keys (key_hash);
 -- compliance_documents
 -- ----------------------------------------------------------------------------
 CREATE TABLE compliance_documents (
-    id              INTEGER PRIMARY KEY AUTOINCREMENT,
-    institution_id  INTEGER      NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
-    document_name   VARCHAR(255) NOT NULL,
-    document_status VARCHAR(20)  NOT NULL DEFAULT 'pending'
-                        CHECK (document_status IN ('pending','verified','rejected')),
-    uploaded_at     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    verified_at     DATETIME
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    institution_id      INTEGER      NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
+    document_name       VARCHAR(255) NOT NULL,
+    document_status     VARCHAR(20)  NOT NULL DEFAULT 'pending'
+                            CHECK (document_status IN ('pending','verified','rejected')),
+    uploaded_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    verified_at         DATETIME,
+    original_file_name  VARCHAR(512),
+    mime_type           VARCHAR(128),
+    content_blob        BLOB
 );
 
 CREATE INDEX idx_compliance_docs_institution_id ON compliance_documents (institution_id);
+
+-- ----------------------------------------------------------------------------
+-- ingestion_drift_alerts (Data Quality Monitoring — SPA GET /data-ingestion/drift-alerts)
+-- ----------------------------------------------------------------------------
+CREATE TABLE ingestion_drift_alerts (
+    id           TEXT PRIMARY KEY NOT NULL,
+    alert_type   VARCHAR(20)  NOT NULL CHECK (alert_type IN ('schema','mapping')),
+    source       VARCHAR(255) NOT NULL,
+    message      TEXT         NOT NULL,
+    severity     VARCHAR(20)  NOT NULL CHECK (severity IN ('low','medium','high')),
+    detected_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    source_type  VARCHAR(100)
+);
+
+CREATE INDEX idx_ingestion_drift_detected ON ingestion_drift_alerts (detected_at);
 
 -- ============================================================================
 -- GROUP: CATALOG
@@ -292,7 +329,7 @@ CREATE TABLE product_subscriptions (
     institution_id      INTEGER      NOT NULL REFERENCES institutions(id) ON DELETE CASCADE,
     product_id          INTEGER      NOT NULL REFERENCES products(id)     ON DELETE CASCADE,
     subscription_status VARCHAR(20)  NOT NULL DEFAULT 'active'
-                            CHECK (subscription_status IN ('active','suspended','expired')),
+                            CHECK (subscription_status IN ('active','suspended','expired','trial')),
     subscribed_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     expires_at          DATETIME,
     CONSTRAINT uq_product_subscriptions UNIQUE (institution_id, product_id)
@@ -408,7 +445,7 @@ CREATE TABLE batch_jobs (
     file_name           VARCHAR(255) NOT NULL,
     batch_job_status    VARCHAR(20)  NOT NULL DEFAULT 'queued'
                             CHECK (batch_job_status IN (
-                                'queued','processing','completed','failed','partial')),
+                                'queued','processing','completed','failed','partial','cancelled')),
     total_records       INTEGER      NOT NULL DEFAULT 0,
     success_count       INTEGER      NOT NULL DEFAULT 0,
     failed_count        INTEGER      NOT NULL DEFAULT 0,
@@ -421,6 +458,68 @@ CREATE TABLE batch_jobs (
 CREATE INDEX idx_batch_jobs_institution_id ON batch_jobs (institution_id);
 CREATE INDEX idx_batch_jobs_uploaded_at    ON batch_jobs (uploaded_at);
 CREATE INDEX idx_batch_jobs_status         ON batch_jobs (batch_job_status);
+
+-- ----------------------------------------------------------------------------
+-- batch_phase_logs / batch_stage_logs / batch_error_samples (batch execution console)
+-- ----------------------------------------------------------------------------
+CREATE TABLE batch_phase_logs (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_job_id        INTEGER      NOT NULL REFERENCES batch_jobs(id) ON DELETE CASCADE,
+    phase_order         INTEGER      NOT NULL DEFAULT 0,
+    phase_key           VARCHAR(64)  NOT NULL,
+    display_name        VARCHAR(128),
+    phase_status        VARCHAR(32),
+    system_status       VARCHAR(16),
+    business_status     VARCHAR(16),
+    started_at          DATETIME,
+    completed_at        DATETIME,
+    flow_uid            VARCHAR(64),
+    phase_uid           VARCHAR(64),
+    version             VARCHAR(32),
+    to_be_processed     INTEGER      NOT NULL DEFAULT 0,
+    processing          INTEGER      NOT NULL DEFAULT 0,
+    system_ko           INTEGER      NOT NULL DEFAULT 0,
+    business_ko         INTEGER      NOT NULL DEFAULT 0,
+    business_ok         INTEGER      NOT NULL DEFAULT 0,
+    total_records       INTEGER      NOT NULL DEFAULT 0
+);
+
+CREATE INDEX idx_batch_phase_logs_job ON batch_phase_logs (batch_job_id);
+
+CREATE TABLE batch_stage_logs (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_job_id        INTEGER      NOT NULL REFERENCES batch_jobs(id) ON DELETE CASCADE,
+    phase_log_id        INTEGER      NOT NULL REFERENCES batch_phase_logs(id) ON DELETE CASCADE,
+    stage_order         INTEGER      NOT NULL DEFAULT 0,
+    stage_key           VARCHAR(32),
+    stage_name          VARCHAR(128),
+    stage_status        VARCHAR(32),
+    message             VARCHAR(512),
+    started_at          DATETIME,
+    completed_at        DATETIME,
+    records_processed   INTEGER      NOT NULL DEFAULT 0,
+    error_count         INTEGER      NOT NULL DEFAULT 0,
+    skipped_count       INTEGER      NOT NULL DEFAULT 0,
+    system_return_code  INTEGER,
+    business_return_code INTEGER
+);
+
+CREATE INDEX idx_batch_stage_logs_job ON batch_stage_logs (batch_job_id);
+CREATE INDEX idx_batch_stage_logs_phase ON batch_stage_logs (phase_log_id);
+
+CREATE TABLE batch_error_samples (
+    id                      INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_job_id            INTEGER      NOT NULL REFERENCES batch_jobs(id) ON DELETE CASCADE,
+    batch_stage_log_id      INTEGER      REFERENCES batch_stage_logs(id) ON DELETE SET NULL,
+    record_id               VARCHAR(64),
+    field_name              VARCHAR(128),
+    error_type              VARCHAR(128),
+    error_message           TEXT,
+    severity                VARCHAR(32)
+);
+
+CREATE INDEX idx_batch_error_samples_job ON batch_error_samples (batch_job_id);
+CREATE INDEX idx_batch_error_samples_stage ON batch_error_samples (batch_stage_log_id);
 
 -- ----------------------------------------------------------------------------
 -- tradelines (append-only credit account records)
@@ -582,7 +681,7 @@ CREATE TABLE alert_rules (
     severity_level       VARCHAR(10)  NOT NULL
                              CHECK (severity_level IN ('INFO','WARNING','CRITICAL')),
     alert_rule_status    VARCHAR(20)  NOT NULL DEFAULT 'enabled'
-                             CHECK (alert_rule_status IN ('enabled','disabled')),
+                             CHECK (alert_rule_status IN ('enabled','disabled','pending_approval')),
     last_triggered_at    DATETIME,
     created_at           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at           DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -643,7 +742,7 @@ CREATE TABLE approval_queue (
     id                       INTEGER PRIMARY KEY AUTOINCREMENT,
     approval_item_type       VARCHAR(50)  NOT NULL
                                  CHECK (approval_item_type IN (
-                                     'institution','schema_mapping','consortium','product')),
+                                     'institution','schema_mapping','consortium','consortium_membership','product','alert_rule')),
     entity_ref_id            VARCHAR(100),
     entity_name_snapshot     VARCHAR(255),
     description              TEXT,
@@ -797,6 +896,50 @@ CREATE TABLE mapping_pairs (
 );
 
 CREATE INDEX idx_mapping_pairs_mapping_version_id ON mapping_pairs (mapping_version_id);
+
+-- ----------------------------------------------------------------------------
+-- schema_mapper_* (JSON document store — mirrors legacy Fastify in-memory model)
+-- ----------------------------------------------------------------------------
+CREATE TABLE schema_mapper_metrics (
+    id       INTEGER PRIMARY KEY CHECK (id = 1),
+    payload  TEXT NOT NULL
+);
+
+CREATE TABLE schema_mapper_registry (
+    registry_id TEXT PRIMARY KEY NOT NULL,
+    payload     TEXT NOT NULL
+);
+
+CREATE TABLE schema_mapper_raw_data (
+    raw_id  TEXT PRIMARY KEY NOT NULL,
+    payload TEXT NOT NULL
+);
+
+CREATE TABLE schema_mapper_schema_version (
+    version_id  TEXT PRIMARY KEY NOT NULL,
+    registry_id TEXT NOT NULL,
+    payload     TEXT NOT NULL
+);
+
+CREATE INDEX idx_schema_mapper_version_registry ON schema_mapper_schema_version (registry_id);
+
+CREATE TABLE schema_mapper_mapping (
+    mapping_id TEXT PRIMARY KEY NOT NULL,
+    payload    TEXT NOT NULL
+);
+
+CREATE TABLE schema_mapper_validation_rule (
+    rule_id    TEXT PRIMARY KEY NOT NULL,
+    mapping_id TEXT NOT NULL,
+    payload    TEXT NOT NULL
+);
+
+CREATE INDEX idx_schema_mapper_rule_mapping ON schema_mapper_validation_rule (mapping_id);
+
+CREATE TABLE schema_mapper_drift_log (
+    drift_id TEXT PRIMARY KEY NOT NULL,
+    payload  TEXT NOT NULL
+);
 
 -- ============================================================================
 -- END OF SCHEMA

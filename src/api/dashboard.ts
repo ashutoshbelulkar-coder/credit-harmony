@@ -165,6 +165,12 @@ function parseMemberQualityRow(row: Record<string, unknown>): MemberQualityPoint
   };
 }
 
+function parseMemberQualitySubmitters(raw: unknown): string[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out = raw.map((x) => String(x).trim()).filter(Boolean);
+  return out.length ? out : undefined;
+}
+
 function mergeCommandCenterSnapshot(
   base: CommandCenterSnapshot,
   cc: DashboardCommandCenterPayload
@@ -190,7 +196,10 @@ function mergeCommandCenterSnapshot(
         .filter((x): x is MemberQualityPoint => x != null)
     : base.memberQuality;
 
-  return { agents, batches, anomalies, memberQuality };
+  const memberQualitySubmitters =
+    parseMemberQualitySubmitters(cc.memberQualitySubmitters) ?? base.memberQualitySubmitters;
+
+  return { agents, batches, anomalies, memberQuality, memberQualitySubmitters };
 }
 
 function normalizeDashboardCharts(charts: DashboardCharts): DashboardCharts {
@@ -237,6 +246,7 @@ const EMPTY_COMMAND_CENTER: CommandCenterSnapshot = {
   batches: [],
   anomalies: [],
   memberQuality: [],
+  memberQualitySubmitters: undefined,
 };
 
 /** When dev mock fallback is on: use seeded dashboard JSON if the API is down or we have no JWT (mock login). */

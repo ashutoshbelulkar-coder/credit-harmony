@@ -87,6 +87,8 @@ export interface DashboardCommandCenterPayload {
   batches?: unknown[];
   anomalies?: unknown[];
   memberQuality?: unknown[];
+  /** Active data-submitter institution display names (command-center). */
+  memberQualitySubmitters?: unknown[];
 }
 
 function commandCenterQueryParams(range: DashboardRange): Record<string, string> {

@@ -60,8 +60,32 @@ interface AuthContextValue {
   hasAnyRole: (...roles: string[]) => boolean;
 }
 
-// ─── Mock Fallback ────────────────────────────────────────────────────────────
+// ─── Spring JWT roles → SPA display names (AuthResponse uses ROLE_* authorities) ─
 
+const SPRING_ROLE_TO_DISPLAY: Record<string, string> = {
+  ROLE_SUPER_ADMIN: "Super Admin",
+  ROLE_BUREAU_ADMIN: "Bureau Admin",
+  ROLE_ANALYST: "Analyst",
+  ROLE_VIEWER: "Viewer",
+  ROLE_API_USER: "API User",
+};
+
+function normalizeUserFromApi(user: AuthUser): AuthUser {
+  const roles = (user.roles ?? []).map((r) => {
+    if (SPRING_ROLE_TO_DISPLAY[r]) return SPRING_ROLE_TO_DISPLAY[r];
+    if (r.startsWith("ROLE_")) {
+      return r
+        .slice("ROLE_".length)
+        .split("_")
+        .map((w) => w.charAt(0) + w.slice(1).toLowerCase())
+        .join(" ");
+    }
+    return r;
+  });
+  return { ...user, roles };
+}
+
+// ─── Mock Fallback ────────────────────────────────────────────────────────────
 
 function mockUserFromEmail(email: string): AuthUser {
   const lower = email.toLowerCase();
@@ -108,7 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         });
         setAccessToken(res.accessToken);
         setRefreshToken(res.refreshToken);
-        setUser(res.user);
+        setUser(normalizeUserFromApi(res.user));
       } catch {
         clearTokens();
       } finally {
@@ -138,7 +162,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setAccessToken(res.accessToken);
         // Store refresh token regardless of rememberMe (cleared on tab close anyway)
         setRefreshToken(res.refreshToken);
-        setUser(res.user);
+        setUser(normalizeUserFromApi(res.user));
       } catch (err) {
         // Graceful mock fallback for development/demo when backend is offline
         if (clientMockFallbackEnabled && err instanceof ApiError && err.isServerError) {

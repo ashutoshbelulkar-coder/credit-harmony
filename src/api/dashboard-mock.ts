@@ -16,6 +16,7 @@ import { mockAgents } from "@/data/agents-mock";
 import dashboardData from "@/data/dashboard.json";
 import { batchJobs, type BatchJob, type BatchStatus as MonitoringBatchStatus } from "@/data/monitoring-mock";
 import { institutions } from "@/data/institutions-mock";
+import { institutionDisplayLabel } from "@/lib/institutions-display";
 import { formatDistanceToNow } from "date-fns";
 
 function formatFromFileName(fileName: string): BatchPipelineRow["format"] {
@@ -46,7 +47,7 @@ function mapMonitoringStatusToPipeline(s: MonitoringBatchStatus): BatchPipelineR
 
 function memberNameForInstitution(institutionId: string): string {
   const inst = institutions.find((i) => i.id === institutionId);
-  return inst ? (inst.tradingName ?? inst.name) : institutionId;
+  return inst ? institutionDisplayLabel(inst) : institutionId;
 }
 
 function parseUploaded(uploaded: string): Date {
@@ -293,9 +294,9 @@ export function createMockDashboardSnapshot(range: DashboardRange): DashboardSna
 
   const agents: AgentFleetItem[] = [...pipelineAgents, ...catalogAgents];
 
-  /** In-flight batches only — same records as Monitoring → Batch, filtered to `Processing` status. */
+  /** Queued + processing only — matches dashboard command-center batch pipeline API. */
   const batches: BatchPipelineRow[] = batchJobsToPipelineRows(
-    batchJobs.filter((j) => j.status === "Processing")
+    batchJobs.filter((j) => j.status === "Processing" || j.status === "Queued")
   );
 
   const anomalies: AnomalyItem[] = dashboardData.anomalies.map((a) => ({
@@ -313,13 +314,17 @@ export function createMockDashboardSnapshot(range: DashboardRange): DashboardSna
     href: a.href,
   }));
 
-  const members = dashboardData.members;
+  const memberQualitySubmitters = institutions
+    .filter((i) => i.status === "active" && i.isDataSubmitter)
+    .map((i) => institutionDisplayLabel(i))
+    .sort((a, b) => a.localeCompare(b));
+
   const periods = range.kind === "preset" && range.preset === "7d"
     ? ["D-6", "D-5", "D-4", "D-3", "D-2", "D-1", "Today"]
     : ["00h", "04h", "08h", "12h", "16h", "20h"];
 
   const memberQuality: MemberQualityPoint[] = [];
-  members.forEach((m) => {
+  memberQualitySubmitters.forEach((m) => {
     periods.forEach((p) => {
       const score = parseFloat(clamp(dataQualityScore - 4 + rand() * 8, 85, 100).toFixed(1));
       const recordCount = Math.round(10_000 + rand() * 120_000);
@@ -333,7 +338,13 @@ export function createMockDashboardSnapshot(range: DashboardRange): DashboardSna
     });
   });
 
-  const commandCenter: CommandCenterSnapshot = { agents, batches, anomalies, memberQuality };
+  const commandCenter: CommandCenterSnapshot = {
+    agents,
+    batches,
+    anomalies,
+    memberQuality,
+    memberQualitySubmitters,
+  };
 
   return { range, metrics, charts, activity, commandCenter };
 }

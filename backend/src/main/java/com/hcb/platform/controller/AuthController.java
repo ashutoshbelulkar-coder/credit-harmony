@@ -2,12 +2,13 @@ package com.hcb.platform.controller;
 
 import com.hcb.platform.model.dto.AuthResponse;
 import com.hcb.platform.model.dto.LoginRequest;
-import com.hcb.platform.model.entity.User;
+import com.hcb.platform.security.AuthUserPrincipal;
 import com.hcb.platform.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
@@ -54,7 +55,7 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(
         @RequestBody Map<String, String> body,
-        @AuthenticationPrincipal User user,
+        @AuthenticationPrincipal AuthUserPrincipal user,
         HttpServletRequest httpRequest
     ) {
         String refreshToken = body.get("refresh_token");
@@ -65,17 +66,18 @@ public class AuthController {
     }
 
     @GetMapping("/me")
-    public ResponseEntity<AuthResponse.UserSummary> me(@AuthenticationPrincipal User user) {
+    public ResponseEntity<AuthResponse.UserSummary> me(@AuthenticationPrincipal AuthUserPrincipal user) {
         if (user == null) return ResponseEntity.status(401).build();
         var roles = user.getAuthorities().stream()
-            .map(a -> a.getAuthority()).toList();
+            .map(GrantedAuthority::getAuthority)
+            .toList();
         AuthResponse.UserSummary summary = AuthResponse.UserSummary.builder()
             .id(user.getId())
             .email(user.getEmail())
             .displayName(user.getDisplayName())
             .roles(roles)
-            .institutionId(user.getInstitution() != null ? user.getInstitution().getId() : null)
-            .institutionName(user.getInstitution() != null ? user.getInstitution().getName() : null)
+            .institutionId(user.getInstitutionId())
+            .institutionName(user.getInstitutionName())
             .build();
         return ResponseEntity.ok(summary);
     }

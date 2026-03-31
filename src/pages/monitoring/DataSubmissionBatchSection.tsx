@@ -58,16 +58,18 @@ import {
   type BatchDetail,
 } from "@/data/monitoring-mock";
 import { institutions } from "@/data/institutions-mock";
-import { useBatchJobs, useBatchKpis } from "@/hooks/api/useBatchJobs";
+import { useBatchJobs, useBatchKpis, useBatchCharts, useBatchDetail } from "@/hooks/api/useBatchJobs";
+import { resolveBatchConsoleData } from "@/lib/batch-console-from-api";
 import type { BatchJobResponse } from "@/services/batchJobs.service";
 import { InstitutionFilterSelect } from "@/components/shared/InstitutionFilterSelect";
+import { institutionDisplayLabel } from "@/lib/institutions-display";
 import { ProcessingTimeline } from "./ProcessingTimeline";
 import { BatchExecutionConsole } from "./BatchExecutionConsole";
 import type { MonitoringFilters } from "./MonitoringFilterBar";
 
 function getInstitutionName(id: string): string {
   const inst = institutions.find((i) => i.id === id);
-  return inst ? (inst.tradingName ?? inst.name) : "—";
+  return inst ? institutionDisplayLabel(inst) || "—" : "—";
 }
 
 const statusStyles: Record<BatchStatus, string> = {
@@ -160,25 +162,72 @@ const batchVolumeConfig = {
 const durationConfig = { avgSec: { label: "Avg (s)", color: "hsl(var(--primary))" } } satisfies ChartConfig;
 const errorCategoriesConfig = { count: { label: "Count", color: "hsl(var(--warning))" } } satisfies ChartConfig;
 
+function chartDayLabel(dayKey: string): string {
+  if (!dayKey?.trim()) return "";
+  const d = new Date(`${dayKey.trim()}T12:00:00`);
+  return Number.isNaN(d.getTime()) ? dayKey : d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+function normalizeBatchKpis(api: unknown): typeof mockBatchKpis {
+  if (!api || typeof api !== "object") return mockBatchKpis;
+  const o = api as Record<string, unknown>;
+  const num = (k: string, fallback: number) => {
+    const v = o[k];
+    if (typeof v === "number" && !Number.isNaN(v)) return v;
+    if (typeof v === "string") {
+      const p = parseFloat(v);
+      if (!Number.isNaN(p)) return p;
+    }
+    return fallback;
+  };
+  const int = (k: string, fallback: number) => Math.round(num(k, fallback));
+  return {
+    totalBatchesToday: int("totalBatchesToday", mockBatchKpis.totalBatchesToday),
+    totalRecordsProcessed: int("totalRecordsProcessed", mockBatchKpis.totalRecordsProcessed),
+    avgBatchSuccessRate: num("avgBatchSuccessRate", mockBatchKpis.avgBatchSuccessRate),
+    failedBatchesCount: int("failedBatchesCount", mockBatchKpis.failedBatchesCount),
+    avgProcessingDurationSec: int("avgProcessingDurationSec", mockBatchKpis.avgProcessingDurationSec),
+    queueBacklogCount: int("queueBacklogCount", mockBatchKpis.queueBacklogCount),
+  };
+}
+
 /** `fetchBatchJobs` returns a paged object `{ content }`, not a raw array — map into mock `BatchJob` row shape. */
 function batchJobsFromQuery(data: unknown): BatchJob[] | null {
   if (data == null) return null;
   if (Array.isArray(data)) return data as BatchJob[];
   const content = (data as { content?: unknown }).content;
   if (!Array.isArray(content)) return null;
-  return (content as BatchJobResponse[]).map((r) => ({
-    batch_id: r.batchId,
-    file_name: r.fileName,
-    status: r.status as BatchStatus,
-    total_records: r.totalRecords,
-    success: r.successRecords,
-    failed: r.failedRecords,
-    success_rate: r.successRate,
-    duration_seconds: r.durationSeconds,
-    uploaded: r.uploadedAt,
-    uploaded_by: r.uploadedBy,
-    institution_id: r.institutionId ?? "",
-  }));
+  return (content as BatchJobResponse[]).map((r) => {
+    const raw = r as Record<string, unknown>;
+    const str = (camel: string, snake: string) => {
+      const a = raw[camel];
+      if (a != null && a !== "") return String(a);
+      const b = raw[snake];
+      return b != null && b !== "" ? String(b) : "";
+    };
+    const num = (camel: string, snake: string, fallback: number) => {
+      const v = raw[camel] ?? raw[snake];
+      if (typeof v === "number" && !Number.isNaN(v)) return v;
+      if (typeof v === "string") {
+        const p = parseFloat(v);
+        if (!Number.isNaN(p)) return p;
+      }
+      return fallback;
+    };
+    return {
+      batch_id: str("batchId", "batch_id"),
+      file_name: str("fileName", "file_name"),
+      status: (String(raw.status ?? "Queued") || "Queued") as BatchStatus,
+      total_records: Math.round(num("totalRecords", "total_records", 0)),
+      success: Math.round(num("successRecords", "success_records", 0)),
+      failed: Math.round(num("failedRecords", "failed_records", 0)),
+      success_rate: num("successRate", "success_rate", 0),
+      duration_seconds: Math.round(num("durationSeconds", "duration_seconds", 0)),
+      uploaded: str("uploadedAt", "uploaded_at") || str("uploaded", "uploaded"),
+      uploaded_by: str("uploadedBy", "uploaded_by"),
+      institution_id: str("institutionId", "institution_id"),
+    };
+  });
 }
 
 function exportFailuresCSV(failures: BatchDetail["record_failures"]) {
@@ -194,14 +243,47 @@ function exportFailuresCSV(failures: BatchDetail["record_failures"]) {
   URL.revokeObjectURL(url);
 }
 
-export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFilters }) {
-  const { data: apiBatchJobs } = useBatchJobs();
+export function DataSubmissionBatchSection({ filters: _filters }: { filters: MonitoringFilters }) {
+  const { data: apiBatchJobs } = useBatchJobs({ page: 0, size: 200 });
   const { data: apiBatchKpis } = useBatchKpis();
+  const { data: batchCharts, isSuccess: batchChartsOk } = useBatchCharts();
   const batchJobs: BatchJob[] = useMemo(
     () => batchJobsFromQuery(apiBatchJobs) ?? mockBatchJobs,
     [apiBatchJobs]
   );
-  const batchKpis = (apiBatchKpis as unknown as typeof mockBatchKpis) ?? mockBatchKpis;
+  const batchKpis = useMemo(
+    () => (apiBatchKpis !== undefined ? normalizeBatchKpis(apiBatchKpis) : mockBatchKpis),
+    [apiBatchKpis]
+  );
+
+  const volumeChartData = useMemo(() => {
+    if (!batchChartsOk) return batchVolumeTrendData;
+    const rows = batchCharts?.volumeTrend ?? [];
+    if (rows.length === 0) return [];
+    return rows.map((r) => ({
+      day: chartDayLabel(r.dayKey),
+      batches: r.batches,
+      success: r.success,
+      failed: r.failed,
+    }));
+  }, [batchChartsOk, batchCharts?.volumeTrend]);
+
+  const durationChartData = useMemo(() => {
+    if (!batchChartsOk) return processingDurationTrendData;
+    const rows = batchCharts?.durationTrend ?? [];
+    if (rows.length === 0) return [];
+    return rows.map((r) => ({
+      day: chartDayLabel(r.dayKey),
+      avgSec: typeof r.avgSec === "number" ? r.avgSec : parseFloat(String(r.avgSec)) || 0,
+    }));
+  }, [batchChartsOk, batchCharts?.durationTrend]);
+
+  const errorCategoriesChartData = useMemo(() => {
+    if (!batchChartsOk) return topBatchErrorCategoriesData;
+    const rows = batchCharts?.topErrorCategories ?? [];
+    if (rows.length === 0) return [];
+    return rows.map((r) => ({ category: r.category, count: r.count }));
+  }, [batchChartsOk, batchCharts?.topErrorCategories]);
 
   const [searchParams] = useSearchParams();
   const [page, setPage] = useState(1);
@@ -215,6 +297,12 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
   const [statusMultiFilter, setStatusMultiFilter] = useState<BatchStatus[] | null>(null);
   const [timePeriod, setTimePeriod] = useState<BatchTimePeriod>("all");
   const [filtersOpen, setFiltersOpen] = useState(false);
+
+  const skipBatchDetailApi =
+    !!selectedBatchId && Boolean(batchConsoleByBatchId[selectedBatchId]);
+  const { data: apiBatchDetail } = useBatchDetail(selectedBatchId ?? undefined, {
+    enabled: !skipBatchDetailApi,
+  });
 
   const statusQueryParam = searchParams.get("status");
   const urlStatusParsed = useMemo(
@@ -248,7 +336,8 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
   ].filter(Boolean).length;
 
   const filtered = batchJobs.filter((b) => {
-    if (batchIdSearch.trim() && !b.batch_id.toLowerCase().includes(batchIdSearch.trim().toLowerCase())) return false;
+    const bid = (b.batch_id ?? "").toLowerCase();
+    if (batchIdSearch.trim() && !bid.includes(batchIdSearch.trim().toLowerCase())) return false;
     if (institutionFilter !== "all" && b.institution_id !== institutionFilter) return false;
     if (statusMultiFilter?.length) {
       if (!statusMultiFilter.includes(b.status)) return false;
@@ -307,7 +396,7 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
   }, [selectedBatchId]);
 
   if (detail) {
-    const consoleData = batchConsoleByBatchId[detail.batch_id];
+    const consoleData = resolveBatchConsoleData(detail, selectedJob, apiBatchDetail, batchConsoleByBatchId);
     const institutionName = selectedJob ? getInstitutionName(selectedJob.institution_id) : "—";
     const batchStatus = (selectedJob?.status ?? "Queued") as import("@/data/monitoring-mock").BatchStatus;
     return (
@@ -333,6 +422,10 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <p className="text-caption text-muted-foreground -mt-2">
+        KPI cards and the jobs table use live batch data from the API. Volume, duration, and error-category charts use
+        database aggregates (last 90 days) when available; otherwise the static monitoring preview series is shown.
+      </p>
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         {kpis.map((k) => (
           <KpiCard key={k.label} {...k} />
@@ -343,7 +436,7 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Batch Volume Trend</h4>
           <ChartContainer config={batchVolumeConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-            <ComposedChart data={batchVolumeTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
+            <ComposedChart data={volumeChartData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
@@ -357,7 +450,7 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
         <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
           <h4 className="text-body font-semibold text-foreground mb-4">Processing Duration Trend</h4>
           <ChartContainer config={durationConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-            <LineChart data={processingDurationTrendData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
+            <LineChart data={durationChartData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
               <XAxis dataKey="day" tick={{ fontSize: 10 }} />
               <YAxis tick={{ fontSize: 10 }} />
@@ -371,7 +464,7 @@ export function DataSubmissionBatchSection({ filters }: { filters: MonitoringFil
       <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
         <h4 className="text-body font-semibold text-foreground mb-4">Top Batch Error Categories</h4>
         <ChartContainer config={errorCategoriesConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
-          <BarChart data={topBatchErrorCategoriesData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
+          <BarChart data={errorCategoriesChartData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-border" />
             <XAxis dataKey="category" tick={{ fontSize: 10 }} />
             <YAxis tick={{ fontSize: 10 }} />

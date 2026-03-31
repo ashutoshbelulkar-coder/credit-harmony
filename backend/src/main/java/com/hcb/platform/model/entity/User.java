@@ -22,6 +22,7 @@ import java.util.stream.Collectors;
  */
 @Entity
 @Table(name = "users")
+@Access(AccessType.FIELD)
 @Getter
 @Setter
 @Builder

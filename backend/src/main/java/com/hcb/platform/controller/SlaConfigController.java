@@ -1,6 +1,6 @@
 package com.hcb.platform.controller;
 
-import com.hcb.platform.model.entity.User;
+import com.hcb.platform.security.AuthUserPrincipal;
 import com.hcb.platform.service.AuditService;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
@@ -28,7 +28,9 @@ public class SlaConfigController {
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','BUREAU_ADMIN','ANALYST','VIEWER')")
     public ResponseEntity<List<Map<String, Object>>> list() {
-        return ResponseEntity.ok(jdbc.queryForList("SELECT * FROM sla_configs WHERE is_deleted=0 ORDER BY name"));
+        return ResponseEntity.ok(jdbc.queryForList(
+            "SELECT * FROM sla_configs WHERE is_active=1 ORDER BY sla_domain, metric_name"
+        ));
     }
 
     @PatchMapping("/{id}")
@@ -36,16 +38,15 @@ public class SlaConfigController {
     public ResponseEntity<Void> update(
         @PathVariable Long id,
         @RequestBody Map<String, Object> body,
-        @AuthenticationPrincipal User currentUser,
+        @AuthenticationPrincipal AuthUserPrincipal currentUser,
         HttpServletRequest req
     ) {
         if (body.containsKey("thresholdValue")) {
-            jdbc.update("UPDATE sla_configs SET threshold_value=? WHERE id=?",
-                body.get("thresholdValue"), id);
-        }
-        if (body.containsKey("notificationChannel")) {
-            jdbc.update("UPDATE sla_configs SET notification_channel=? WHERE id=?",
-                body.get("notificationChannel"), id);
+            jdbc.update(
+                "UPDATE sla_configs SET threshold_value=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                body.get("thresholdValue"),
+                id
+            );
         }
         auditService.log(currentUser, "SLA_CONFIG_UPDATED", "sla_config", String.valueOf(id), "SLA config updated", getIp(req));
         return ResponseEntity.ok().build();

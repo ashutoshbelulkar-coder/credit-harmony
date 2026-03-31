@@ -4,13 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -20,18 +13,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { ReasonInputDialog } from "@/components/data-governance/ReasonInputDialog";
 import { matchClusters, reasonCodes, approvalConfig } from "@/data/data-governance-mock";
 import type { MatchCluster } from "@/types/data-governance";
-import { useInstitutions } from "@/hooks/api/useInstitutions";
+import { InstitutionFilterSelect } from "@/components/shared/InstitutionFilterSelect";
 import { AlertTriangle, Merge, RotateCcw, X, Flag } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function MatchReview() {
   const [confidenceRange, setConfidenceRange] = useState([60, 100]);
   const [memberId, setMemberId] = useState("all");
-  const { data: membersPage, isLoading: membersLoading, isError: membersError } = useInstitutions(
-    { page: 0, size: 200, role: "dataSubmitter" },
-    { allowMockFallback: false }
-  );
-  const dataSubmitters = membersPage?.content ?? [];
   const [selectedCluster, setSelectedCluster] = useState<MatchCluster | null>(null);
   const [actionDialog, setActionDialog] = useState<{
     clusterId: string;
@@ -74,29 +62,12 @@ export default function MatchReview() {
               </span>
             </div>
           </div>
-          <div className="space-y-2">
-            <Label className="text-caption">Members</Label>
-            <Select
-              value={memberId}
-              onValueChange={setMemberId}
-              disabled={membersLoading || membersError}
-            >
-              <SelectTrigger className="h-9">
-                <SelectValue placeholder={membersLoading ? "Loading…" : "All"} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All</SelectItem>
-                {dataSubmitters.map((m) => (
-                  <SelectItem key={m.id} value={String(m.id)}>
-                    {m.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {membersError && (
-              <p className="text-caption text-destructive">Could not load members. Is the API running?</p>
-            )}
-          </div>
+          <InstitutionFilterSelect
+            mode="submitters"
+            value={memberId}
+            onValueChange={setMemberId}
+            triggerClassName="h-9 min-w-[200px]"
+          />
         </div>
       </div>
 

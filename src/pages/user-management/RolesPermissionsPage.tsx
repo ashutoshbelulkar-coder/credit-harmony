@@ -244,9 +244,9 @@ export function RolesPermissionsPage() {
       <Card className="mt-6">
         <CardHeader>
           <CardTitle className="text-base">Permission matrix</CardTitle>
-          <CardDescription className="text-caption text-muted-foreground mt-1">
+          <p className="text-caption text-muted-foreground mt-1">
             Enabled actions per navigation section and role
-          </CardDescription>
+          </p>
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <Table>

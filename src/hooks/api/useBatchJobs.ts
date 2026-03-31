@@ -7,6 +7,7 @@ import {
   fetchBatchJobById,
   fetchBatchDetail,
   fetchBatchKpis,
+  fetchBatchCharts,
   retryBatchJob,
   cancelBatchJob,
   type BatchJobParams,
@@ -29,11 +30,15 @@ export function useBatchJob(id: string | undefined) {
   });
 }
 
-export function useBatchDetail(id: string | undefined) {
+export function useBatchDetail(
+  id: string | undefined,
+  options?: { enabled?: boolean },
+) {
+  const enabled = options?.enabled ?? !!id;
   return useQuery({
     queryKey: [...QK.monitoring.batchJob(id ?? ""), "detail"] as const,
     queryFn: () => fetchBatchDetail(id!),
-    enabled: !!id,
+    enabled: !!id && enabled,
   });
 }
 
@@ -42,6 +47,14 @@ export function useBatchKpis() {
     queryKey: ["monitoring", "batch-kpis"] as const,
     queryFn: fetchBatchKpis,
     staleTime: 30_000,
+  });
+}
+
+export function useBatchCharts() {
+  return useQuery({
+    queryKey: ["monitoring", "batch-charts"] as const,
+    queryFn: fetchBatchCharts,
+    staleTime: 60_000,
   });
 }
 

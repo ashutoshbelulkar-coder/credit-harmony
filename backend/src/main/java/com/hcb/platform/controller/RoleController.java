@@ -1,7 +1,7 @@
 package com.hcb.platform.controller;
 
 import com.hcb.platform.model.entity.Role;
-import com.hcb.platform.model.entity.User;
+import com.hcb.platform.security.AuthUserPrincipal;
 import com.hcb.platform.repository.RoleRepository;
 import com.hcb.platform.service.AuditService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -38,7 +38,7 @@ public class RoleController {
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Role> create(
         @RequestBody Role role,
-        @AuthenticationPrincipal User currentUser,
+        @AuthenticationPrincipal AuthUserPrincipal currentUser,
         HttpServletRequest req
     ) {
         Role saved = roleRepository.save(role);
@@ -52,7 +52,7 @@ public class RoleController {
     public ResponseEntity<Role> update(
         @PathVariable Long id,
         @RequestBody Role updates,
-        @AuthenticationPrincipal User currentUser,
+        @AuthenticationPrincipal AuthUserPrincipal currentUser,
         HttpServletRequest req
     ) {
         return roleRepository.findById(id).map(r -> {
@@ -68,7 +68,7 @@ public class RoleController {
     @PreAuthorize("hasRole('SUPER_ADMIN')")
     public ResponseEntity<Void> delete(
         @PathVariable Long id,
-        @AuthenticationPrincipal User currentUser,
+        @AuthenticationPrincipal AuthUserPrincipal currentUser,
         HttpServletRequest req
     ) {
         roleRepository.deleteById(id);

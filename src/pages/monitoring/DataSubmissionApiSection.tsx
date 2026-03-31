@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
+import { tableHeaderClasses } from "@/lib/typography";
+import { Badge } from "@/components/ui/badge";
 import {
   LineChart,
   Line,
@@ -54,28 +55,26 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Search } from "lucide-react";
-
-const statusStyles: Record<ApiRequestStatus, string> = {
-  Success: "bg-success/15 text-success",
-  Failed: "bg-destructive/15 text-destructive",
-  Partial: "bg-warning/15 text-warning",
-  "Rate Limited": "bg-warning/15 text-warning",
-};
-
-const dataSubmitters = institutions.filter((i) => i.isDataSubmitter);
+import { InstitutionFilterSelect } from "@/components/shared/InstitutionFilterSelect";
+import { institutionDisplayLabel } from "@/lib/institutions-display";
+import {
+  API_REQUEST_STATUS_FILTER_OPTIONS,
+  apiRequestStatusBadgeClass,
+  apiRequestStatusLabel,
+} from "@/lib/status-badges";
 
 function getInstituteName(apiKey: string): string {
   const id = dataSubmitterIdByApiKey[apiKey];
   if (!id) return "—";
   const inst = institutions.find((i) => i.id === id);
-  return inst ? (inst.tradingName ?? inst.name) : "—";
+  return inst ? institutionDisplayLabel(inst) || "—" : "—";
 }
 
 /** Display institution name for an API record — prefers the institutionId field if present. */
 function getInstituteDisplay(r: ApiRequestRecord): string {
   if (r.institutionId) {
     const inst = institutions.find((i) => i.id === r.institutionId);
-    if (inst) return inst.tradingName ?? inst.name;
+    if (inst) return institutionDisplayLabel(inst) || "—";
   }
   return getInstituteName(r.apiKey);
 }
@@ -86,7 +85,7 @@ function toMockRequest(r: ApiRequestRecord): ApiSubmissionRequest {
     request_id: r.requestId,
     api_key: r.apiKey,
     endpoint: r.endpoint,
-    status: r.status as ApiRequestStatus,
+    status: apiRequestStatusLabel(r.status) as ApiRequestStatus,
     response_time_ms: r.responseTimeMs,
     records: r.records,
     error_code: r.errorCode ?? null,
@@ -394,26 +393,23 @@ export function DataSubmissionApiSection({
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all" className="text-caption">All statuses</SelectItem>
-                      {(["Success", "Failed", "Partial", "Rate Limited"] as const).map((s) => (
-                        <SelectItem key={s} value={s} className="text-caption">{s}</SelectItem>
+                      {API_REQUEST_STATUS_FILTER_OPTIONS.map((o) => (
+                        <SelectItem key={o.value} value={o.value} className="text-caption">
+                          {o.label}
+                        </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-1.5">
-                  <Label className="text-caption text-muted-foreground">Institute</Label>
-                  <Select value={filters.dataSubmitterId} onValueChange={(v) => { set({ dataSubmitterId: v }); setPage(1); }}>
-                    <SelectTrigger className="h-8 w-full text-caption">
-                      <SelectValue placeholder="Institute" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all" className="text-caption">All data submission institutes</SelectItem>
-                      {dataSubmitters.map((i) => (
-                        <SelectItem key={i.id} value={i.id} className="text-caption">{i.tradingName ?? i.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+                <InstitutionFilterSelect
+                  mode="submitters"
+                  value={filters.dataSubmitterId}
+                  onValueChange={(v) => {
+                    set({ dataSubmitterId: v });
+                    setPage(1);
+                  }}
+                  triggerClassName="h-8 w-full text-caption"
+                />
                 <div className="space-y-1.5">
                   <Label className="text-caption text-muted-foreground">Time</Label>
                   <Select value={filters.timeRange} onValueChange={(v) => set({ timeRange: v as TimeRangeValue })}>
@@ -452,26 +448,23 @@ export function DataSubmissionApiSection({
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all" className="text-caption">All statuses</SelectItem>
-                  {(["Success", "Failed", "Partial", "Rate Limited"] as const).map((s) => (
-                    <SelectItem key={s} value={s} className="text-caption">{s}</SelectItem>
+                  {API_REQUEST_STATUS_FILTER_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value} className="text-caption">
+                      {o.label}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-caption text-muted-foreground">Institute</Label>
-              <Select value={filters.dataSubmitterId} onValueChange={(v) => { set({ dataSubmitterId: v }); setPage(1); }}>
-                <SelectTrigger className="h-8 min-w-[180px] max-w-[220px] text-caption">
-                  <SelectValue placeholder="Institute" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all" className="text-caption">All data submission institutes</SelectItem>
-                  {dataSubmitters.map((i) => (
-                    <SelectItem key={i.id} value={i.id} className="text-caption">{i.tradingName ?? i.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            <InstitutionFilterSelect
+              mode="submitters"
+              value={filters.dataSubmitterId}
+              onValueChange={(v) => {
+                set({ dataSubmitterId: v });
+                setPage(1);
+              }}
+              triggerClassName="h-8 min-w-[180px] max-w-[220px] text-caption"
+            />
             <div className="space-y-1.5">
               <Label className="text-caption text-muted-foreground">Time</Label>
               <Select value={filters.timeRange} onValueChange={(v) => set({ timeRange: v as TimeRangeValue })}>
@@ -501,7 +494,7 @@ export function DataSubmissionApiSection({
                 <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
                   <tr className="border-b border-border">
                     <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("requestId")}>Request ID</th>
-                    <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Institute</th>
+                    <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Member institution</th>
                     <th className={cn("text-left px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("status")}>Status</th>
                     <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Error reason</th>
                     <th className={cn("text-right px-5 py-3 cursor-pointer", tableHeaderClasses)} onClick={() => toggleSort("responseTimeMs")}>Response Time</th>
@@ -522,9 +515,9 @@ export function DataSubmissionApiSection({
                       <td className="px-5 py-4 text-caption font-medium text-foreground">{r.requestId}</td>
                       <td className="px-5 py-4 text-caption text-muted-foreground">{getInstituteDisplay(r)}</td>
                       <td className="px-5 py-4">
-                        <span className={cn("px-2.5 py-1 rounded-full", badgeTextClasses, statusStyles[r.status as ApiRequestStatus] ?? "bg-muted text-muted-foreground")}>
-                          {r.status}
-                        </span>
+                        <Badge className={apiRequestStatusBadgeClass(r.status)}>
+                          {apiRequestStatusLabel(r.status)}
+                        </Badge>
                       </td>
                       <td className="px-5 py-4 text-caption text-muted-foreground">{r.errorCode ?? "—"}</td>
                       <td className="px-5 py-4 text-caption text-right tabular-nums">{r.responseTimeMs} ms</td>

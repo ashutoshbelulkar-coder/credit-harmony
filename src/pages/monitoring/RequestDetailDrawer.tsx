@@ -9,6 +9,13 @@ import {
 import { Button } from "@/components/ui/button";
 import type { ApiSubmissionRequest } from "@/data/monitoring-mock";
 import { RotateCcw } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  apiRequestIsFailedForRetry,
+  apiRequestShowsValidationFailures,
+  apiRequestStatusLabel,
+  apiRequestStatusTextClass,
+} from "@/lib/status-badges";
 
 interface RequestDetailDrawerProps {
   request: ApiSubmissionRequest | null;
@@ -51,7 +58,9 @@ export function RequestDetailDrawer({ request, onClose }: RequestDetailDrawerPro
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Status</dt>
-                <dd className="font-medium">{request.status}</dd>
+                <dd className={cn(apiRequestStatusTextClass(request.status))}>
+                  {apiRequestStatusLabel(request.status)}
+                </dd>
               </div>
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Response Time</dt>
@@ -86,7 +95,7 @@ export function RequestDetailDrawer({ request, onClose }: RequestDetailDrawerPro
           <div>
             <h4 className="text-body font-semibold text-foreground mb-2">Validation Failures</h4>
             <p className="text-caption text-muted-foreground">
-              {request.status === "Failed" || request.status === "Partial"
+              {apiRequestShowsValidationFailures(request.status)
                 ? "See error code and payload for details."
                 : "No validation failures."}
             </p>
@@ -94,7 +103,7 @@ export function RequestDetailDrawer({ request, onClose }: RequestDetailDrawerPro
         </div>
 
         <SheetFooter className="mt-6">
-          {request.status === "Failed" && (
+          {apiRequestIsFailedForRetry(request.status) && (
             <Button variant="default" size="sm" className="gap-2" onClick={handleRetry}>
               <RotateCcw className="w-3.5 h-3.5" />
               Retry

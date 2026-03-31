@@ -1,1 +1,6 @@
+com\hcb\platform\RouteParitySqliteIntegrationTest.class
+com\hcb\platform\SchemaMapperSqliteIntegrationTest.class
 com\hcb\platform\HcbPlatformApplicationTest.class
+com\hcb\platform\MonitoringAlertSqliteIntegrationTest.class
+com\hcb\platform\DashboardCommandCenterSqliteIntegrationTest.class
+com\hcb\platform\ApprovalQueueSqliteIntegrationTest.class

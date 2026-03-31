@@ -28,6 +28,79 @@ export interface BatchJobParams {
   size?: number;
 }
 
+/** Spring {@code GET /v1/batch-jobs/{id}/detail} — structured console (phases present) or legacy flat {@code stages} only. */
+export interface BatchJobDetailPhaseDto {
+  phaseId: string;
+  name: string;
+  status: string;
+  systemStatus: string;
+  businessStatus: string;
+  start: string;
+  end?: string;
+  elapsedMs?: number;
+  flowUid?: string;
+  phaseUid?: string;
+  version?: string;
+  counters: {
+    to_be_processed: number;
+    processing: number;
+    system_ko: number;
+    business_ko: number;
+    business_ok: number;
+    total_records: number;
+  };
+}
+
+export interface BatchJobDetailStageDto {
+  stageId: string;
+  stageLogId?: number;
+  phaseKey: string;
+  name: string;
+  status: string;
+  start?: string;
+  end?: string;
+  recordsProcessed: number;
+  errors: number;
+  skipped: number;
+  systemReturnCode?: number | null;
+  businessReturnCode?: number | null;
+  message?: string;
+}
+
+export interface BatchJobDetailFlowSegmentDto {
+  phaseId: string;
+  label: string;
+  status: string;
+  elapsedTime?: string | null;
+  recordCount: number;
+  start?: string;
+  end?: string;
+}
+
+export interface BatchJobDetailLogDto {
+  timestamp: string;
+  component: string;
+  severity: string;
+  message: string;
+}
+
+export interface BatchJobDetailErrorSampleDto {
+  recordId: string;
+  fieldName: string;
+  errorType: string;
+  errorMessage: string;
+  severity: string;
+  batchStageLogId?: number;
+}
+
+export interface BatchJobDetailResponse {
+  phases?: BatchJobDetailPhaseDto[];
+  stages?: BatchJobDetailStageDto[];
+  flowSegments?: BatchJobDetailFlowSegmentDto[];
+  logs?: BatchJobDetailLogDto[];
+  errorSamples?: BatchJobDetailErrorSampleDto[];
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function normaliseMockBatchJob(m: any): BatchJobResponse {
   return {
@@ -77,12 +150,12 @@ export async function fetchBatchJobById(id: string): Promise<BatchJobResponse> {
   }
 }
 
-export async function fetchBatchDetail(id: string) {
+export async function fetchBatchDetail(id: string): Promise<BatchJobDetailResponse | Record<string, unknown> | null> {
   try {
-    return await get(`${BASE}/${id}/detail`);
+    return await get<BatchJobDetailResponse>(`${BASE}/${id}/detail`);
   } catch (err) {
     if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
-      return mockBatchDetails[id] ?? null;
+      return (mockBatchDetails[id] as Record<string, unknown> | undefined) ?? null;
     }
     throw err;
   }
@@ -93,6 +166,44 @@ export async function fetchBatchKpis() {
     return await get(`${BASE}/kpis`);
   } catch (err) {
     if (clientMockFallbackEnabled && isNetworkOrServerError(err)) return mockBatchKpis;
+    throw err;
+  }
+}
+
+export interface BatchVolumeTrendRow {
+  dayKey: string;
+  batches: number;
+  success: number;
+  failed: number;
+}
+
+export interface BatchDurationTrendRow {
+  dayKey: string;
+  avgSec: number;
+}
+
+export interface BatchErrorCategoryRow {
+  category: string;
+  count: number;
+}
+
+export interface BatchChartsResponse {
+  volumeTrend: BatchVolumeTrendRow[];
+  durationTrend: BatchDurationTrendRow[];
+  topErrorCategories: BatchErrorCategoryRow[];
+}
+
+export async function fetchBatchCharts(): Promise<BatchChartsResponse> {
+  try {
+    return await get<BatchChartsResponse>(`${BASE}/charts`);
+  } catch (err) {
+    if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
+      return {
+        volumeTrend: [],
+        durationTrend: [],
+        topErrorCategories: [],
+      };
+    }
     throw err;
   }
 }

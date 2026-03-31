@@ -2,7 +2,7 @@
 
 ## Confirmation (Entity, Regulatory, Contact)
 
-When the SPA uses the canonical Fastify API (`VITE_USE_MOCK_FALLBACK=false`, `npm run server`), **Step 1** fieldsets and every field are driven only by **`GET /api/v1/institutions/form-metadata?geography=<id>`**:
+When the SPA uses the **Spring Boot** API (`VITE_USE_MOCK_FALLBACK=false`, **`npm run spring:start`** on **8090** by default), **Step 1** fieldsets and every field are driven by **`GET /api/v1/institutions/form-metadata?geography=<id>`** (same path on **legacy Fastify** if you proxy to **8091**):
 
 | Concern | Source |
 |--------|--------|
@@ -13,6 +13,8 @@ When the SPA uses the canonical Fastify API (`VITE_USE_MOCK_FALLBACK=false`, `np
 | Closed-list values | `options` on the response (enum literals in JSON config, or `institutionTypes` / active consortiums resolved server-side from in-memory state) |
 
 The SPA renders `RegisterSection` / `RegisterField` from that payload; it does not hard-code those three blocks.
+
+**Legal vs trading name:** Step 1 still collects both where the geography config includes them; **`legalName`** maps to API body **`name`** (legal entity), **`tradingName`** is optional. Elsewhere in the portal, **single-label** pickers and dashboard strings prefer **legal `name`** first — see [API-UI-Parity-Matrix.md](./API-UI-Parity-Matrix.md) § *Institution display labels*.
 
 **Dev implementation note:** the API builds `registerForm` from `src/data/institution-register-form.json` plus live `state.institutionTypes` and active consortiums (`server/src/institutionRegisterForm.ts`, route in `server/src/index.ts`). That JSON is configuration data on the server, not UI strings embedded in React.
 
@@ -32,7 +34,7 @@ Read-only values in the section grid use the **`text-body`** token (same compact
 
 ## Related tests
 
-- `server/src/api.integration.test.ts` — `form-metadata` default geography: legends, `institutionType` `selectionMode`, contact labels, resolved options count vs `institutionTypes`.
+- `backend` `HcbPlatformApplicationTest` — `GET /api/v1/institutions/form-metadata` (default geography) — extend assertions for legends, `selectionMode`, etc., as needed.
 - `server/src/institutionRegisterForm.test.ts` — payload legends, labels, `selectionMode` for select/multiselect.
 - `src/services/institutions.form-metadata-source.test.ts` — compliance seed alignment with `institutions.json`.
 - `src/lib/institution-register-form.test.ts` — client resolver and Zod mapping.

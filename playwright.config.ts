@@ -1,8 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
 /**
- * E2E against real Fastify API + Vite (no mock fallback).
- * Requires: npm install && npx playwright install chromium
+ * E2E against Spring Boot API (8090) + Vite on 4173 (no mock fallback).
+ * Requires: Maven on PATH (`mvn`), npm install, npx playwright install chromium
  */
 export default defineConfig({
   testDir: "./e2e",
@@ -17,10 +17,10 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: "npm run server:start",
-      url: "http://127.0.0.1:8091/api/v1/health",
+      command: "npm run spring:start",
+      url: "http://127.0.0.1:8090/api/v1/health",
       reuseExistingServer: !process.env.CI,
-      timeout: 90_000,
+      timeout: 180_000,
     },
     {
       command: "npm run dev:e2e",
@@ -30,6 +30,7 @@ export default defineConfig({
       env: {
         ...process.env,
         VITE_USE_MOCK_FALLBACK: "false",
+        VITE_API_PROXY_TARGET: "http://127.0.0.1:8090",
       },
     },
   ],

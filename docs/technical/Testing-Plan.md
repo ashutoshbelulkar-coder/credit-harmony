@@ -1,6 +1,6 @@
 # HCB Platform — Testing Plan
 
-**Version:** 3.0.4 | **Date:** 2026-03-31
+**Version:** 3.0.7 | **Date:** 2026-03-31
 
 ---
 
@@ -10,20 +10,25 @@ Run from repo root: **`npm run test`**. Vitest loads **two projects** (`vitest.c
 
 | Suite | File(s) | Count (approx.) | What is proven |
 |-------|---------|-----------------|----------------|
-| Server integration | `server/src/api.integration.test.ts` | 60+ cases | Real Fastify app via `buildServer()` + `inject`; shared in-memory state — tests run **`describe.sequential`** to avoid cross-test races; includes **Register member** `form-metadata` / `?geography=` / `registerForm`, **Schema Mapper** ingest → job → submit-approval → approve, **`GET …/schema-mapper/wizard-metadata`** (labeled source type + data category options), **`GET …/schema-mapper/schemas/source-type-fields`** (required param **400**, per-type sample paths) |
+| Server integration | `backend` — `HcbPlatformApplicationTest` (MockMvc) | Growing suite | **Spring Boot** HTTP tests (`@SpringBootTest`, H2); **`hcb.schema-mapper.enabled=false`** because H2 test DB has no `schema_mapper_*` tables. Replaces removed **`server/src/api.integration.test.ts`** (legacy Fastify). |
+| Server dashboard + SQLite | `backend` — `DashboardCommandCenterSqliteIntegrationTest` | 1 | **`GET /api/v1/dashboard/command-center`** against **SQLite** + `create_tables.sql` / `seed_data.sql` (shared in-memory DB). Guards JDBC SQL that H2-only tests do not exercise (e.g. reserved identifiers, dynamic `WHERE` fragments). |
+| Server schema-mapper + SQLite | `backend` — `SchemaMapperSqliteIntegrationTest` | 2 | **`/api/v1/schema-mapper/*`**: login + JWT, wizard-metadata, schemas, source-type-fields validation (**400** without `sourceType`), **ingest**, **mapping** job poll until **`needs_review`**. Uses in-memory SQLite + full DDL; **`hcb.schema-mapper.enabled=true`**, **`hcb.schema-mapper.llm-enabled=false`** (no `OPENAI_API_KEY` in CI). Run: **`npm run spring:test`** (or `mvn -f backend/pom.xml test -Dtest=SchemaMapperSqliteIntegrationTest`). |
+| Spring–SPA route parity + SQLite | `backend` — `RouteParitySqliteIntegrationTest` | 4 | **`GET /api/v1/data-ingestion/drift-alerts`**, **`POST /api/v1/api-keys`**, **`POST /api/v1/users/:id/deactivate`**, and **`coreSchemaAlignedGetRoutesOk`** (**`GET`** **`/consortiums`**, **`/products`**, **`/reports`**, **`/sla-configs`**, **`/alert-rules`**, **`/users`**, **`/audit-logs`**) with **`@WithMockUser`** (**`ANALYST`** for the bundle including audit logs — **`VIEWER`** is denied **`/audit-logs`** by **`SecurityConfig`**). Companion heuristic: **`npm run check:route-parity`**. |
+| Spring approval queue + SQLite | `backend` — `ApprovalQueueSqliteIntegrationTest` | 3 | JWT login; **`POST /api/v1/products`** with **`approval_pending`** → **`GET /api/v1/approvals`** includes **`metadata.productId`** → **`POST …/approve`** **204** → product **`active`**; **`POST /api/v1/alert-rules`** → pending **`alert_rule`** queue row with **`metadata.alertRuleId`**; **`POST …/reject`** **204**. **`hcb.schema-mapper.enabled=false`**. |
 | Server institution traffic gate | `server/src/institutionTrafficGate.test.ts` | 6 cases | Lifecycle checks for Data Submission / batch retry / Enquiry target contract (`ERR_INSTITUTION_*`) |
 | Server register-form unit | `server/src/institutionRegisterForm.test.ts` | 12 cases | `resolveRegisterGeographyId`, `buildRegisterFormPayload` option resolution, `validateRegisterInstitutionBody` (enums, participation, consortium rules) — no HTTP |
 | Client register-form unit | `src/lib/institution-register-form.test.ts` | 8+ cases | Client-side `resolveRegisterFormClientSide`, Zod `buildRegisterDetailsSchema`, `mapRegisterDetailsToCreateBody` (parallels server rules for Step 1) |
 | Client schema-mapper helpers | `src/lib/schema-mapper-api.test.ts` | 3 | `fieldMappingsToLlmRows` / `llmRowsToFieldMappings` / master flatten |
 | Client schema-mapper source fields | `src/lib/schema-mapper-source-fields.test.ts` | 9 | `flattenParsedSourceFields` (nested paths); `sourceTypeFieldsFromMockCatalog` per **telecom** / **utility** / **bank** / **gst** / **custom**; unknown type **[]**; sorted paths |
 | Client schema-mapper wizard metadata | `src/lib/schema-mapper-wizard-metadata.test.ts` | 4 | `normaliseWizardLabeledOptions` (fallback, aliases, empty) |
+| Client schema-mapper API mapping shape | `src/lib/schema-mapper-api.test.ts` | 4+ | `fieldMappingsToLlmRows` / `llmRowsToFieldMappings`; **`containsPii`** round-trip |
 | Server helpers | `server/src/test-helpers.ts` | — | DRY login + auth headers for integration tests |
-| API client | `src/test/lib/api-client.test.ts` | 19 | Error types, refresh behaviour, request shaping |
+| API client | `src/test/lib/api-client.test.ts` | 19 | Error types, refresh behaviour, request shaping; **204** / **empty success body** parses as **`undefined`** (no **`res.json()`** on empty) |
 | Feature flags | `src/test/lib/feature-flags.test.ts` | 2 | Demo UI toggles stay internally consistent |
 | Calculations | `src/test/calc/*.test.ts` | 84+ | KPI, batch, date filters — deterministic |
 | React | `src/test/components/*.tsx`, `src/test/auth/*.tsx` | 26+ | Critical queues/lists and auth provider |
 
-**Foolproof ops:** For clone-to-green steps, env vars, ports, seeded passwords, and troubleshooting, use **`docs/technical/Developer-Handbook.md`**.
+**Foolproof ops:** For clone-to-green steps, env vars, ports, seeded passwords, and troubleshooting, use **`docs/technical/Developer-Handbook.md`** (Spring on **8090** default; `npm run spring:test` for Java suites).
 
 ---
 
@@ -35,11 +40,11 @@ The HCB Platform testing strategy covers four layers:
 3. **Security Tests** — Authentication, authorization, data leakage
 4. **Frontend Component Tests** — React component rendering and interaction
 
-### Local Fastify dev API (this repository)
+### Local Spring API (canonical) and legacy Fastify
 
 | Layer | Tooling | Location / command |
 |-------|---------|-------------------|
-| HTTP integration (no port) | Vitest + `app.inject()` | `server/src/api.integration.test.ts` |
+| HTTP integration (no port) | **Removed** — was Vitest + Fastify `inject()` (`server/src/api.integration.test.ts`, deleted). Use **`npm run spring:test`** (`HcbPlatformApplicationTest`) instead. |
 | Client unit + component | Vitest + Testing Library + jsdom | `src/**/*.test.ts(x)` |
 | Run all | `npm run test` | `vitest.config.ts` uses **projects**: `client` and `server` |
 
@@ -59,7 +64,7 @@ See also: [API-UI-Parity-Matrix.md](./API-UI-Parity-Matrix.md) for which UI acti
 npm run test
 # Or only these suites:
 npx vitest run server/src/institutionRegisterForm.test.ts
-npx vitest run server/src/api.integration.test.ts -t "form-metadata"
+mvn -f backend/pom.xml test -Dtest=HcbPlatformApplicationTest#institutionFormMetadataReturnsRegisterForm
 npx vitest run src/lib/institution-register-form.test.ts
 ```
 
@@ -80,7 +85,7 @@ npx vitest run src/lib/institution-register-form.test.ts
 | **FM-REG-CLI-001** | Client Zod rejects bad jurisdiction for kenya | None | `buildRegisterDetailsSchema` + `safeParse` with kenya form + `jurisdiction: "Rwanda"` | `success === false` | `kenya: rejects jurisdiction not in enum` |
 | **FM-REG-CLI-002** | `legalName` maps to `name` on POST body | Resolved default form | `mapRegisterDetailsToCreateBody` | `body.name` set; no `legalName` key | `maps legalName to name via apiKey` |
 
-**Manual / E2E (optional):** With `npm run server` and `VITE_USE_MOCK_FALLBACK=false`, open **`/institutions/register`**, confirm Step 1 sections match **`form-metadata`** for **`VITE_INSTITUTION_REGISTER_GEOGRAPHY`**; set env to **`kenya`** and confirm jurisdiction control is a single-select with three countries only.
+**Manual / E2E (optional):** With **`npm run spring:start`** (or legacy **`npm run server`**) and **`VITE_USE_MOCK_FALLBACK=false`**, open **`/institutions/register`**, confirm Step 1 sections match **`form-metadata`** for **`VITE_INSTITUTION_REGISTER_GEOGRAPHY`**; set env to **`kenya`** and confirm jurisdiction control is a single-select with three countries only.
 
 ---
 
@@ -153,7 +158,7 @@ npx vitest run src/lib/institution-register-form.test.ts
 | Test ID | Test Name | Scenario | Expected Result |
 |---------|-----------|----------|-----------------|
 | NORM-001 | Institution name not in consortium_members | SELECT from consortium_members | No institution_name column |
-| NORM-002 | User roles via join only | GET /api/v1/users | Roles assembled via JOIN to user_role_assignments |
+| NORM-002 | User roles via join only | GET /api/v1/users | **Spring:** **`UserController`** returns **JdbcTemplate** rows with **`roles[]`** from **`user_role_assignments`** + **`roles`** (not JPA entity graphs) |
 | NORM-003 | Soft delete preserves FK integrity | Delete institution | Related records set to NULL or remain with SET NULL FK |
 | NORM-004 | Status enums enforced | INSERT invalid status | SQLite CHECK constraint violation |
 | NORM-005 | Unique email enforced | Insert duplicate email | UNIQUE constraint violation |
@@ -434,6 +439,16 @@ All calculation utilities in `src/lib/calc/` are fully covered by Vitest unit te
 
 ### Component Integration Tests
 
+#### `src/test/components/InstitutionFilterSelect.test.tsx`
+
+| Test ID | Component | Scenario | Expected |
+|---------|-----------|----------|----------|
+| IFS-001 | InstitutionFilterSelect | Submitters mode | Label **Member institution**; combobox shows **All submitters** |
+| IFS-002 | InstitutionFilterSelect | Subscribers mode | Combobox shows **All subscribers** |
+| IFS-003 | InstitutionFilterSelect | All mode | Combobox shows **All institutions** |
+| IFS-004 | InstitutionFilterSelect | Query error | **`role="alert"`** shows error message |
+| IFS-005 | InstitutionFilterSelect | Selected institution shows legal name | With `value` set to an id that has both **`name`** and **`tradingName`**, combobox text is **legal `name`** (not trading) |
+
 #### `src/test/components/InstitutionList.test.tsx`
 
 | Test ID | Component | Scenario | Expected |
@@ -501,8 +516,8 @@ All calculation utilities in `src/lib/calc/` are fully covered by Vitest unit te
 npm run test
 
 # Expected output
-# Test Files  8 passed (8)
-#      Tests  130 passed (130)
+# Test Files  21 passed (21)
+#      Tests  250+ passed (includes InstitutionFilterSelect + integration)
 ```
 
 ---
@@ -511,12 +526,13 @@ npm run test
 
 | Category | Result |
 |----------|--------|
-| Frontend tests (Vitest) | ✅ 130/130 PASS (8 test files) |
+| Frontend tests (Vitest) | ✅ 250+ PASS (includes `InstitutionFilterSelect.test.tsx` + server integration in same run) |
 | Frontend linter | ✅ No new errors (pre-existing only per AGENTS.md) |
 | Calc layer — date filtering | ✅ 19+ tests, all filters use centralised utilities |
 | Calc layer — KPI computation | ✅ 10+ tests, all KPIs computed from filtered dataset |
 | Calc layer — batch metrics | ✅ 8+ tests, progress/quality/elapsed all verified |
 | API client | ✅ 19 tests, token security verified (no access token in localStorage) |
+| Component tests — InstitutionFilterSelect | ✅ 5 tests (labels, mode defaults, legal-first selected label, error alert); plus **`institutions-display.test.ts`** for **`institutionDisplayLabel`** |
 | Component tests — InstitutionList | ✅ 9 tests including search/filter/empty-state |
 | Component tests — ApprovalQueuePage | ✅ 12 tests, KPI values match calc utilities |
 | Auth context tests | ✅ 5 tests covering init/login/logout/role/restore |
@@ -578,7 +594,7 @@ npm run test
 - **Create / edit / delete** call `POST` / `PATCH` / `DELETE` via `useCreateRole`, `useUpdateRole`, `useDeleteRole` (persisted in Fastify in-memory state)
 - `mergeRolePermissionsFromApi` + normalized `fetchRoles` rows: built-in role matrices display even when the backend omits or only partially sends `permissions` (e.g. Spring `Role` DTO)
 
-**`ActivityLogPage.tsx`** — `useAuditLogs(..., { allowMockFallback: false })`: rows only from **`GET /api/v1/audit-logs`** (seeded in Fastify + `pushAudit` on auth, **approval queue**, **institution** and sub-resource mutations, users, roles, batch, alert-rule create, product/consortium create). **Regression:** `api.integration.test.ts` includes **PATCH `/api/v1/institutions/:id`** → **`INSTITUTION_UPDATE`** audit count increases.
+**`ActivityLogPage.tsx`** — `useAuditLogs(..., { allowMockFallback: false })`: rows only from **`GET /api/v1/audit-logs`** (seeded in Fastify + `pushAudit` on auth, **approval queue**, **institution** and sub-resource mutations, users, roles, batch, alert-rule create, product/consortium create). **Regression:** extend **`HcbPlatformApplicationTest`** (or service tests) for **PATCH `/api/v1/institutions/:id`** audit behaviour on Spring.
 - Mock fallback catalog uses ids `local-*`; those rows edit/delete locally only; create still POSTs
 
 ### Summary: Phase 11 Verdict (Remaining Page Wiring)
@@ -586,6 +602,7 @@ npm run test
 | Page | Hook | Fallback | Notes |
 |------|------|----------|-------|
 | `DataSubmissionApiSection` | `useApiRequests` + `useMonitoringKpis` + `useMonitoringCharts` | Mock via service layer | Server-side pagination + filter |
+| `DataSubmissionBatchSection` | `useBatchJobs` + `useBatchKpis` + `useBatchCharts` + **`useBatchDetail`** | Mock via service layer | **`GET /v1/batch-jobs/:id/detail`** → **`resolveBatchConsoleData`** when phases exist; mock **`batchConsoleByBatchId`** for **`BATCH-*`** ids |
 | `InquiryApiSection` | `useEnquiries` | Mock via service layer | Charts/KPIs still from mock (no endpoint yet) |
 | `ActivityLogPage` | `useAuditLogs` | Mock via service layer | Server pagination, client search |
 | `GovernanceAuditLogs` | `useAuditLogs` (entityType=GOVERNANCE) | Mock via service layer | Date + action filters |
@@ -659,10 +676,10 @@ Added to `src/api/dashboard.ts`:
 
 | Gate | Command / check | Expected |
 |------|-----------------|----------|
-| API boot | `npm run server:start` (default **127.0.0.1:8091**) | Server logs “HCB API listening” |
+| API boot | `npm run spring:start` (default **127.0.0.1:8090**) | Spring logs “Started HcbPlatformApplication” (or similar) |
 | Auth smoke | `POST /api/v1/auth/login` with `admin@hcb.com` / `Admin@1234` | 200 + `accessToken`, `refreshToken`, `user` |
 | Institutions smoke | `GET /api/v1/institutions` with `Authorization: Bearer <access>` | 200 + paged `content` |
 | Frontend regression | `npm run test` | All Vitest tests pass |
 | Production bundle | `npm run build` | Vite build succeeds |
 
-**Note:** If port 8091 is blocked, set `PORT` and `VITE_API_PROXY_TARGET` to a free port and restart Vite.
+**Note:** If port **8090** is blocked, set `SERVER_PORT` and matching `VITE_API_PROXY_TARGET`, then restart Vite. Legacy Fastify on **8091** uses `PORT` + `npm run server:start`.

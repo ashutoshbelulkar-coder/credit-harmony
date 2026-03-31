@@ -23,7 +23,7 @@ export default defineConfig({
       },
       {
         test: {
-          name: "server",
+          name: "server-unit",
           environment: "node",
           globals: true,
           include: ["server/**/*.test.ts"],

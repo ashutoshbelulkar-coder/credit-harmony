@@ -9,6 +9,8 @@ export interface ApiFieldMapping {
   confidence?: number | null;
   reviewStatus?: string;
   llmRationale?: string;
+  /** Operator override: source field carries personally identifiable information. */
+  containsPii?: boolean;
 }
 
 function walkMaster(
@@ -42,7 +44,7 @@ export function fieldMappingsToLlmRows(mappings: ApiFieldMapping[]): LLMFieldInt
       canonicalMatchId: fm.canonicalFieldId ?? null,
       similarFieldsAcrossSystem: [],
       confidence: fm.confidence != null ? Math.round(Number(fm.confidence) * 100) : 0,
-      pii: false,
+      pii: Boolean(fm.containsPii),
       action: fm.canonicalPath ? undefined : ("create_new" as const),
     };
   });
@@ -73,6 +75,7 @@ export function llmRowsToFieldMappings(
       confidence: r.confidence > 0 ? r.confidence / 100 : null,
       reviewStatus: prev?.reviewStatus ?? "pending",
       llmRationale: prev?.llmRationale ?? r.llmMeaning,
+      containsPii: r.pii,
     };
   });
 }

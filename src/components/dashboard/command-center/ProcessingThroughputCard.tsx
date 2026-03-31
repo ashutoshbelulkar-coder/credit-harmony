@@ -59,8 +59,8 @@ export function ProcessingThroughputCard({
   const { multiplier } = dashboardData.throughputConfig;
 
   return (
-    <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-      <CardHeader className="flex-row items-start justify-between gap-4">
+    <Card className="flex h-full min-h-0 w-full flex-col border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <CardHeader className="shrink-0 flex-row items-start justify-between gap-4">
         <div className="min-w-0">
           <CardTitle className="text-h4 font-semibold text-foreground">Processing Throughput</CardTitle>
           <p className="mt-1 text-caption text-muted-foreground">
@@ -88,8 +88,11 @@ export function ProcessingThroughputCard({
           </Button>
         </div>
       </CardHeader>
-      <CardContent>
-        <ChartContainer config={config} className="h-[240px] w-full">
+      <CardContent className="flex min-h-0 flex-1 flex-col">
+        <ChartContainer
+          config={config}
+          className="aspect-auto h-full min-h-[240px] w-full flex-1"
+        >
           <LineChart data={loading ? [] : data} margin={{ top: 8, right: 8, left: 0, bottom: 8 }}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} />
             <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />

@@ -72,6 +72,7 @@ public class SecurityConfig {
                 auth.requestMatchers("/api/v1/auth/login").permitAll();
                 auth.requestMatchers("/api/v1/auth/refresh").permitAll();
                 auth.requestMatchers("/actuator/health").permitAll();
+                auth.requestMatchers("/api/v1/health").permitAll();
 
                 // H2 console: dev only
                 if ("dev".equalsIgnoreCase(activeProfile)) {
@@ -81,9 +82,11 @@ public class SecurityConfig {
                 // Role-based access
                 auth.requestMatchers(HttpMethod.DELETE, "/api/v1/**")
                     .hasAnyRole("SUPER_ADMIN");
-                auth.requestMatchers("/api/v1/users/**")
-                    .hasAnyRole("SUPER_ADMIN");
-                auth.requestMatchers("/api/v1/institutions/**")
+                auth.requestMatchers(HttpMethod.GET, "/api/v1/users/**")
+                    .hasAnyRole("SUPER_ADMIN", "BUREAU_ADMIN", "ANALYST", "VIEWER");
+                auth.requestMatchers(HttpMethod.PATCH, "/api/v1/users/**")
+                    .hasAnyRole("SUPER_ADMIN", "BUREAU_ADMIN");
+                auth.requestMatchers(HttpMethod.POST, "/api/v1/users/**")
                     .hasAnyRole("SUPER_ADMIN", "BUREAU_ADMIN");
                 auth.requestMatchers(HttpMethod.GET, "/api/v1/monitoring/**")
                     .hasAnyRole("SUPER_ADMIN", "BUREAU_ADMIN", "ANALYST");
@@ -150,7 +153,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(Arrays.asList(corsAllowedOrigins.split(",")));
-        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("Authorization", "Content-Type", "X-API-Key", "X-Request-ID"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);

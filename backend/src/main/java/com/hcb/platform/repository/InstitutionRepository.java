@@ -18,11 +18,15 @@ public interface InstitutionRepository extends JpaRepository<Institution, Long> 
     @Query("SELECT i FROM Institution i WHERE i.isDeleted = false " +
            "AND (:status IS NULL OR i.institutionLifecycleStatus = :status) " +
            "AND (:type IS NULL OR i.institutionType = :type) " +
-           "AND (:jurisdiction IS NULL OR i.jurisdiction = :jurisdiction)")
+           "AND (:jurisdiction IS NULL OR i.jurisdiction = :jurisdiction) " +
+           "AND (:roleParam IS NULL OR :roleParam = '' OR " +
+           "     (:roleParam = 'dataSubmitter' AND i.isDataSubmitter = true) OR " +
+           "     (:roleParam = 'subscriber' AND i.isSubscriber = true))")
     Page<Institution> findAllActive(
         @Param("status") String status,
         @Param("type") String type,
         @Param("jurisdiction") String jurisdiction,
+        @Param("roleParam") String roleParam,
         Pageable pageable
     );
 

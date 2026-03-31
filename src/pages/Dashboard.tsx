@@ -103,14 +103,14 @@ const Dashboard = () => {
         <DashboardActivity data={snapshot.data?.activity} loading={loading} />
 
         {/* Command Center panels */}
-        <div className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-12">
-          <div className="lg:col-span-5">
+        <div className="grid grid-cols-1 items-stretch gap-4 laptop:gap-3 lg:grid-cols-12">
+          <div className="flex h-full min-h-0 lg:col-span-5">
             <AgentFleetCard
               agents={snapshot.data?.commandCenter?.agents ?? []}
               loading={loading}
             />
           </div>
-          <div className="lg:col-span-7">
+          <div className="flex h-full min-h-0 lg:col-span-7">
             <ProcessingThroughputCard
               seedApiUsageTrend={snapshot.data?.charts.apiUsageTrend ?? []}
               loading={loading}
@@ -146,6 +146,7 @@ const Dashboard = () => {
           points={snapshot.data?.commandCenter?.memberQuality ?? []}
           loading={loading}
           dateRange={range}
+          memberRowLabels={snapshot.data?.commandCenter?.memberQualitySubmitters}
           onOpenQualityCenter={() => navigate("/data-governance/data-quality-monitoring")}
         />
       </div>

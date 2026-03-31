@@ -1,8 +1,11 @@
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import type { BatchPipelineRow } from "@/api/dashboard-types";
 import { cn } from "@/lib/utils";
+
+const PAGE_SIZE = 10;
 
 /** Match Member Data Quality: strictly greater than 90% reads as on-track (green). */
 function qualityClass(q: number) {
@@ -40,13 +43,30 @@ export function ActiveBatchPipelineTable({
   /** Navigate when a row is clicked (e.g. deep-link to batch jobs with filters). */
   onRowNavigate?: (row: BatchPipelineRow) => void;
 }) {
+  const [page, setPage] = useState(1);
+  const total = rows.length;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  useEffect(() => {
+    setPage((p) => Math.min(p, totalPages));
+  }, [totalPages]);
+
+  const pageRows = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return rows.slice(start, start + PAGE_SIZE);
+  }, [rows, page]);
+
+  const showPagination = !loading && total > PAGE_SIZE;
+  const rangeFrom = total === 0 ? 0 : (page - 1) * PAGE_SIZE + 1;
+  const rangeTo = Math.min(page * PAGE_SIZE, total);
+
   return (
     <Card className="min-w-0 border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <CardTitle className="text-h4 font-semibold text-foreground">Active Batch Pipeline</CardTitle>
           <p className="mt-1 text-caption text-muted-foreground">
-            Batches currently in Processing status (same source as Monitoring → Data Submission → Batch). Progress and quality follow each job&apos;s records and success rate.
+            Batches in queued or processing status only (same source as Monitoring → Data Submission → Batch). Progress and quality follow each job&apos;s records and success rate.
           </p>
         </div>
         <div className="flex shrink-0 sm:items-start">
@@ -92,7 +112,7 @@ export function ActiveBatchPipelineTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {(loading ? [] : rows).map((r) => (
+              {(loading ? [] : pageRows).map((r) => (
                 <tr
                   key={r.id}
                   role={onRowNavigate ? "link" : undefined}
@@ -189,6 +209,38 @@ export function ActiveBatchPipelineTable({
             </tbody>
           </table>
         </div>
+        {showPagination && (
+          <div className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-caption text-muted-foreground">
+              Showing {rangeFrom}–{rangeTo} of {total}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <span className="min-w-[5.5rem] text-center text-caption text-muted-foreground tabular-nums">
+                Page {page} of {totalPages}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

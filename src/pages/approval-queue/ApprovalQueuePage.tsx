@@ -55,7 +55,13 @@ export function ApprovalQueuePage() {
   };
 
   const filtered = items.filter((item) => {
-    if (tab !== "all" && item.type !== tabTypeMap[tab]) return false;
+    if (tab !== "all") {
+      if (tab === "consortiums") {
+        if (item.type !== "consortium" && item.type !== "consortium_membership") return false;
+      } else if (item.type !== tabTypeMap[tab]) {
+        return false;
+      }
+    }
     if (statusFilter !== "all" && item.status !== statusFilter) return false;
     return true;
   });
@@ -65,7 +71,7 @@ export function ApprovalQueuePage() {
   const changesCount = calcChangesRequestedCount(items);
 
   const handleApprove = (item: ApprovalItem) => {
-    approveItem.mutate({ id: item.id, comment: "Approved via portal" });
+    approveItem.mutate({ id: item.id, comment: "Approved via portal", itemType: item.type });
     setDetailItem(null);
   };
 
@@ -176,7 +182,9 @@ export function ApprovalQueuePage() {
                         <div className="flex items-center gap-1.5">
                           {item.type === "institution" && <Building2 className="w-3.5 h-3.5 text-muted-foreground" />}
                           {item.type === "schema_mapping" && <ScrollText className="w-3.5 h-3.5 text-muted-foreground" />}
-                          {item.type === "consortium" && <Users className="w-3.5 h-3.5 text-muted-foreground" />}
+                          {(item.type === "consortium" || item.type === "consortium_membership") && (
+                            <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                          )}
                           {item.type === "product" && <Package className="w-3.5 h-3.5 text-muted-foreground" />}
                           {item.type === "alert_rule" && <Bell className="w-3.5 h-3.5 text-muted-foreground" />}
                           <span className="text-caption font-medium text-muted-foreground">
@@ -186,9 +194,11 @@ export function ApprovalQueuePage() {
                                 ? "Mapping"
                                 : item.type === "consortium"
                                   ? "Consortium"
-                                  : item.type === "alert_rule"
-                                    ? "Alert rule"
-                                    : "Product"}
+                                  : item.type === "consortium_membership"
+                                    ? "Consortium membership"
+                                    : item.type === "alert_rule"
+                                      ? "Alert rule"
+                                      : "Product"}
                           </span>
                         </div>
                       </TableCell>
@@ -238,9 +248,11 @@ export function ApprovalQueuePage() {
                       ? "Schema Mapping"
                       : detailItem.type === "consortium"
                         ? "Consortium"
-                        : detailItem.type === "alert_rule"
-                          ? "Alert rule"
-                          : "Product"}
+                        : detailItem.type === "consortium_membership"
+                          ? "Consortium membership"
+                          : detailItem.type === "alert_rule"
+                            ? "Alert rule"
+                            : "Product"}
                 </Badge>
               </div>
 
@@ -304,6 +316,19 @@ export function ApprovalQueuePage() {
                         to={`/data-governance/auto-mapping-review?mapping=${encodeURIComponent((detailItem.metadata as Record<string, string>).mappingId)}`}
                       >
                         Open in Schema Mapper
+                      </Link>
+                    </Button>
+                  </>
+                )}
+
+              {detailItem.type === "consortium_membership" &&
+                detailItem.metadata &&
+                typeof (detailItem.metadata as Record<string, string>).institutionId === "string" && (
+                  <>
+                    <Separator />
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to={`/institutions/${encodeURIComponent((detailItem.metadata as Record<string, string>).institutionId)}`}>
+                        View member
                       </Link>
                     </Button>
                   </>

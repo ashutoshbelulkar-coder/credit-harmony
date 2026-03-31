@@ -59,10 +59,14 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
   const [page, setPage] = useState(1);
   const [suspendTarget, setSuspendTarget] = useState<{ id: number | string; name: string } | null>(null);
 
-  const { data: pagedData, isLoading, error, refetch } = useInstitutions({
-    page: 0,
-    size: INSTITUTIONS_FETCH_PAGE_SIZE,
-  });
+  const { data: pagedData, isLoading, error, refetch } = useInstitutions(
+    {
+      page: 0,
+      size: INSTITUTIONS_FETCH_PAGE_SIZE,
+    },
+    /** Real members only — mock catalogue has no user-registered rows (e.g. BSNL would “vanish”). */
+    { allowMockFallback: false }
+  );
   const suspendMutation = useSuspendInstitution();
 
   const institutions = pagedData?.content ?? [];
