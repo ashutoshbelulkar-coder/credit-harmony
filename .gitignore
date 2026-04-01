@@ -42,3 +42,6 @@ test-results/
 # SQLite WAL/SHM side-car files (never commit these)
 *.db-shm
 *.db-wal
+
+# Maven build artifacts
+backend/target/
