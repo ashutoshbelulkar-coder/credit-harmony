@@ -12,7 +12,7 @@
 Provide a secure, role-aware authentication and session management layer for all HCB Admin Portal users. Every portal interaction depends on a valid, scoped JWT access token. The authentication system enforces role-based access control (RBAC) that gates every Spring endpoint via `@PreAuthorize`.
 
 ### Business Value
-- Prevents unauthorized access to sensitive credit bureau data
+- Prevents unauthorized access to sensitive data
 - Enables role-scoped UX — viewers see read-only controls, admins see mutation controls
 - Provides token refresh without forcing re-login, improving user productivity
 - Produces an audit trail of every login/logout event for compliance
