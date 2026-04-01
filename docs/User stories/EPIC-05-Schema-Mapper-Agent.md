@@ -9,7 +9,7 @@
 ## 1. Executive Summary
 
 ### Purpose
-The Schema Mapper Agent is the data normalization backbone of the HCB platform. Every member institution submits credit data in their own proprietary schema; the Schema Mapper Agent translates these heterogeneous schemas into the HCB canonical model using a combination of heuristic matching and optional LLM (OpenAI) intelligence. Mappings go through versioning, validation rule attachment, and governance approval before they are used in production ingestion.
+The Schema Mapper Agent is the data normalization backbone of the HCB platform. Every member institution submits credit data in their own proprietary schema; the Schema Mapper Agent translates these heterogeneous schemas into the HCB canonical model using AI Hybrid Core intelligence. Mappings go through versioning, validation rule attachment, and governance approval before they are used in production ingestion.
 
 ### Business Value
 - Eliminates the need for custom ETL per institution — one wizard handles all schemas
