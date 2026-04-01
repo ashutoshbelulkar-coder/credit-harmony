@@ -11,6 +11,7 @@ import com.hcb.platform.security.AuthUserPrincipal;
 import com.hcb.platform.service.ApprovalQueueService;
 import com.hcb.platform.service.AuditService;
 import com.hcb.platform.service.InstitutionRegisterFormService;
+import com.hcb.platform.service.InstitutionRegistrationNumberGenerator;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -22,6 +23,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -229,6 +231,7 @@ public class InstitutionController {
 
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','BUREAU_ADMIN')")
+    @Transactional
     public ResponseEntity<Institution> create(
         @RequestBody Institution institution,
         @AuthenticationPrincipal AuthUserPrincipal currentUser,
@@ -237,7 +240,27 @@ public class InstitutionController {
         institution.setInstitutionLifecycleStatus("pending");
         institution.setDeleted(false);
         validateParticipationRoles(institution);
+
+        // Non-blank registrationNumber from client is kept; omit/null/blank → assign after first save (uses id).
+        boolean autoReg = InstitutionRegistrationNumberGenerator.shouldAutoAssign(institution.getRegistrationNumber());
+        if (autoReg) {
+            institution.setRegistrationNumber(InstitutionRegistrationNumberGenerator.placeholderRegistrationNumber());
+        }
+
         Institution saved = institutionRepository.save(institution);
+
+        if (autoReg) {
+            String finalReg = InstitutionRegistrationNumberGenerator.buildFinalRegistrationNumber(
+                saved.getInstitutionType(),
+                saved.getName(),
+                saved.getId()
+            );
+            if (!finalReg.equals(saved.getRegistrationNumber())) {
+                saved.setRegistrationNumber(finalReg);
+                saved = institutionRepository.save(saved);
+            }
+        }
+
         approvalQueueService.enqueue(
             "institution",
             String.valueOf(saved.getId()),

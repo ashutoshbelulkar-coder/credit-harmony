@@ -32,6 +32,13 @@ import {
   ApiError,
 } from "@/lib/api-client";
 import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
+import {
+  type AuthLoginApiResponse,
+  interpretPasswordLoginResponse,
+  type PasswordLoginResult,
+} from "@/lib/auth-login-types";
+
+export type { PasswordLoginResult } from "@/lib/auth-login-types";
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -54,7 +61,14 @@ interface AuthResponse {
 interface AuthContextValue {
   user: AuthUser | null;
   isLoading: boolean;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+    rememberMe?: boolean,
+    captchaToken?: string | null
+  ) => Promise<PasswordLoginResult>;
+  verifyMfaLogin: (mfaChallengeId: string, code: string) => Promise<void>;
+  resendMfaOtp: (mfaChallengeId: string) => Promise<void>;
   logout: () => Promise<void>;
   hasRole: (role: string) => boolean;
   hasAnyRole: (...roles: string[]) => boolean;
@@ -154,31 +168,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // ── Login ─────────────────────────────────────────────────────────────────
   const login = useCallback(
-    async (email: string, password: string, rememberMe = false) => {
+    async (email: string, password: string, rememberMe = false, captchaToken?: string | null) => {
       if (!email || !password) throw new Error("Email and password are required");
 
       try {
-        const res = await postAnon<AuthResponse>("/v1/auth/login", { email, password });
+        const res = await postAnon<AuthLoginApiResponse>("/v1/auth/login", {
+          email,
+          password,
+          ...(captchaToken ? { captchaToken } : {}),
+        });
+        const step = interpretPasswordLoginResponse(res);
+        if (step.kind === "mfa_required") {
+          return step;
+        }
+        if (!res.accessToken || !res.refreshToken || !res.user) {
+          throw new ApiError(502, "ERR_AUTH_INCOMPLETE", "Login response missing session data", "/v1/auth/login");
+        }
         setAccessToken(res.accessToken);
-        // Store refresh token regardless of rememberMe (cleared on tab close anyway)
         setRefreshToken(res.refreshToken);
-        setUser(normalizeUserFromApi(res.user));
+        setUser(normalizeUserFromApi(res.user as AuthUser));
+        return { kind: "session" } as const;
       } catch (err) {
-        // Graceful mock fallback for development/demo when backend is offline
         if (clientMockFallbackEnabled && err instanceof ApiError && err.isServerError) {
           setUser(mockUserFromEmail(email));
-          return;
+          return { kind: "session" } as const;
         }
         if (clientMockFallbackEnabled && !(err instanceof ApiError)) {
-          // Network error (backend not running)
           setUser(mockUserFromEmail(email));
-          return;
+          return { kind: "session" } as const;
         }
         throw err;
       }
     },
     []
   );
+
+  const verifyMfaLogin = useCallback(async (mfaChallengeId: string, code: string) => {
+    const res = await postAnon<AuthResponse>("/v1/auth/mfa/verify", { mfaChallengeId, code });
+    setAccessToken(res.accessToken);
+    setRefreshToken(res.refreshToken);
+    setUser(normalizeUserFromApi(res.user));
+  }, []);
+
+  const resendMfaOtp = useCallback(async (mfaChallengeId: string) => {
+    await postAnon<void>("/v1/auth/mfa/resend", { mfaChallengeId });
+  }, []);
 
   // ── Logout ────────────────────────────────────────────────────────────────
   const logout = useCallback(async () => {
@@ -207,7 +241,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, logout, hasRole, hasAnyRole }}>
+    <AuthContext.Provider
+      value={{ user, isLoading, login, verifyMfaLogin, resendMfaOtp, logout, hasRole, hasAnyRole }}
+    >
       {children}
     </AuthContext.Provider>
   );

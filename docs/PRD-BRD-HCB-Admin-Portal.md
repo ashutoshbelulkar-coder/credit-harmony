@@ -1,11 +1,15 @@
 # Hybrid Credit Bureau (HCB) Admin Portal
 ## Complete Product Requirement Document (PRD) & Business Requirement Document (BRD)
 
-**Document Version:** 2.14
-**Date:** 2026-03-31
-**Status:** Updated — **v2.14:** **Spring list API contract** — JDBC-backed **GET** routes for **consortiums**, **products**, **reports**, **SLA configs**, **alert rules**, **users**, and **audit logs** aligned to **`create_tables.sql`**; **`AuthUserPrincipal`** on controllers; flat audit/user JSON for the SPA. **TDL-018**; **API-UI-Parity-Matrix** v1.7; **SPA-Service-Contract-Drift**; **Canonical-Backend**; **Testing-Plan** v3.0.6; **`RouteParitySqliteIntegrationTest`** extended. **v2.13:** **Institution display labels** (legal before trading); **API-UI-Parity-Matrix** v1.6, **TDL-017**. **v2.12:** **Spring–SPA route parity** — overview charts, drift alerts, member sub-resources, **API keys POST**, **user deactivate**; **TDL-016**. **v2.11:** **Developer Handbook** / **README** Spring-first; dashboard SQLite JDBC. **v2.10:** Schema Mapper **PII** on mappings. Earlier: v2.9–v2.5 as below.
+**Document Version:** 2.16
+**Date:** 2026-04-02
+**Status:** Updated — **v2.16:** **Auto registration number** — Register wizard **Registration Number** is **read-only**; **`POST /api/v1/institutions`** may omit **`registrationNumber`**; **Spring** assigns **`{TypePrefix}-{NameSlug3}-{UTC-year}-{id}`** when blank (non-blank override allowed). **`InstitutionRegistrationNumberGenerator`**; integration tests. Docs: **EPIC-02**, **Register-Member-Form-Metadata-Source**, **API-UI-Parity-Matrix**, **Testing-Plan**, **AGENTS.md**. **v2.15:** **Register member navigation** — **Register member** (`/institutions/register`) is reached from **Member Management** sidebar sub-nav (with Member Institutions and Consortiums); removed duplicate primary CTA from the Member Institutions list header. **`nav-config`** / RBAC catalogue include the path; **Roles & Permissions** matrix stays **section-scoped** (`members`). **v2.14:** **Spring list API contract** — JDBC-backed **GET** routes for **consortiums**, **products**, **reports**, **SLA configs**, **alert rules**, **users**, and **audit logs** aligned to **`create_tables.sql`**; **`AuthUserPrincipal`** on controllers; flat audit/user JSON for the SPA. **TDL-018**; **API-UI-Parity-Matrix** v1.7; **SPA-Service-Contract-Drift**; **Canonical-Backend**; **Testing-Plan** v3.0.6; **`RouteParitySqliteIntegrationTest`** extended. **v2.13:** **Institution display labels** (legal before trading); **API-UI-Parity-Matrix** v1.6, **TDL-017**. **v2.12:** **Spring–SPA route parity** — overview charts, drift alerts, member sub-resources, **API keys POST**, **user deactivate**; **TDL-016**. **v2.11:** **Developer Handbook** / **README** Spring-first; dashboard SQLite JDBC. **v2.10:** Schema Mapper **PII** on mappings. Earlier: v2.9–v2.5 as below.
 **Classification:** Internal – Confidential
 
+> **Change Summary v2.16 (2026-04-02) — Registration number system-assigned:** **Member registration** wizard Step 1 shows **Registration Number** as **non-editable** (`readOnly` in **`institution-register-form.json`** SPA + Spring classpath; **`InstitutionRegisterFormService`** passes **`readOnly`** / **`description`**). **SPA** omits empty **`registrationNumber`** from create body. **Spring** **`InstitutionController.create`**: placeholder **`AUTO-{uuid}`** first insert, then final **`PREFIX-Slug3-YYYY-id`** from **`InstitutionRegistrationNumberGenerator`** before approval enqueue. **`InstitutionRegistrationNumberSqliteIntegrationTest`**, **`InstitutionRegistrationNumberGeneratorTest`**. See [Register-Member-Form-Metadata-Source.md](./technical/Register-Member-Form-Metadata-Source.md), [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md).
+>
+> **Change Summary v2.15 (2026-04-02) — Register member in sidebar:** **Register member** opens from **AppSidebar** under **Member Management** (sub-item **`/institutions/register`**). The **Member Institutions** page (`/institutions`) retains search, filters, **Export CSV**, and row actions only—no **Register member** button in the header. **`src/lib/nav-config.ts`** lists **Register member** under the **Member Management** section items for sidebar and documentation parity; **`RolesPermissionsPage`** still grants **View / Create / Edit / Delete / Export** per **navigation section** (`members`), not per sub-route. **Command Palette** still offers **Register Institution** → **`/institutions/register`**.
+>
 > **Change Summary v2.14 (2026-03-31) — Spring JDBC list APIs + auth principal:** High-traffic **GET** endpoints on Spring use **JdbcTemplate** SQL matching **`backend/src/main/resources/db/create_tables.sql`** (avoids **`500` / `ERR_INTERNAL`** from invalid columns). **`GET /api/v1/users`** returns maps with **`roles[]`** from role assignments; **`GET /api/v1/audit-logs`** returns flat **`userId`/`userEmail`** and honours **`entityType`** (and related filters). **`@AuthenticationPrincipal AuthUserPrincipal`** replaces JPA **`User`** on controllers; **`AuditService`** accepts principals for audit rows. **`SecurityConfig`:** **`VIEWER`** cannot call **`/api/v1/audit-logs/**`**. Integration test **`coreSchemaAlignedGetRoutesOk`** uses **`@WithMockUser(roles = "ANALYST")`**. Docs: [Technical-Decision-Log.md](./technical/Technical-Decision-Log.md) TDL-018, [SPA-Service-Contract-Drift.md](./technical/SPA-Service-Contract-Drift.md), [Canonical-Backend.md](./technical/Canonical-Backend.md), [Testing-Plan.md](./technical/Testing-Plan.md).
 >
 > **Change Summary v2.13 (2026-03-31) — Institution labels (legal name first):** Member pickers (**`InstitutionFilterSelect`**), monitoring tables that resolve institution ids, schema-mapper Step 1 **source name**, dashboard command-center **`member`** / **`memberQualitySubmitters`**, and related API-backed strings use **legal `name`** before optional **`tradingName`** (`src/lib/institutions-display.ts` **`institutionDisplayLabel`**). Spring **`DashboardController`** uses `COALESCE(NULLIF(TRIM(i.name), ''), i.trading_name)` for JDBC label columns. Legacy Fastify **`POST /institutions`** stores **`tradingName`** only when supplied (no copy from legal). Docs: [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md) § *Institution display labels*, [Technical-Decision-Log.md](./technical/Technical-Decision-Log.md) TDL-017.
@@ -49,7 +53,7 @@
 > - Charts match implementation: **Mapping Accuracy Trend** (30/60/90-day toggle at page top); **Validation Errors by Institution** (vertical bar, `institution` key); **Match Confidence Distribution**; **Data Quality Score Trend**; **Rejection Reasons Breakdown** (donut). The **Override vs Auto-Accept** stacked chart is **not** present in the current build (removed per v2.2).
 >
 > **D. Member Management routing**  
-> - Canonical list: **`/institutions`** (“Member Institutions”). **`/institutions/data-submitters`** and **`/institutions/subscribers`** redirect to **`/institutions`**. Sidebar: **Member Management** ▶ Member Institutions, Consortiums.
+> - Canonical list: **`/institutions`** (“Member Institutions”). **`/institutions/data-submitters`** and **`/institutions/subscribers`** redirect to **`/institutions`**. Sidebar: **Member Management** ▶ Member Institutions, **Register member** (`/institutions/register`), Consortiums.
 >
 > **E. Data models (Section 15)**  
 > - Added **DriftAlert** entity; extended **DataProduct** with optional `packetConfigs` and `enquiryConfig`; noted **ManagedUser** may omit institution in bureau-only mock.
@@ -356,7 +360,7 @@ flowchart LR
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Member / institution lifecycle |
-| **Description** | **Member Institutions** registry at **`/institutions`** (unified list; legacy `/institutions/data-submitters` and `/institutions/subscribers` **redirect** here). **Member Management** sidebar group: **Member Institutions**, **Consortiums**. Registration wizard: **Corporate Details** → optional **Compliance Documents** (driven by **`GET /api/v1/institutions/form-metadata`** `requiredComplianceDocuments`; omitted or **`null`** ⇒ two-step flow, **Review** immediately after details) → **Review**. On submit, **Fastify** **creates the member row immediately** and **enqueues** an **institution** approval (**reject does not delete** the row; see **§3.1.2** / BRD **§3.4**). **APIs enabled** column = **`apisEnabledCount/slots`** derived from **API & Access** toggles. **Overview** tab charts = **`GET …/overview-charts`** (member-scoped **30d**). Institution detail includes Consortium Memberships and Product Subscriptions tabs. |
+| **Description** | **Member Institutions** registry at **`/institutions`** (unified list; legacy `/institutions/data-submitters` and `/institutions/subscribers` **redirect** here). **Member Management** sidebar group: **Member Institutions**, **Register member** (`/institutions/register`), **Consortiums**. Registration wizard: **Corporate Details** → optional **Compliance Documents** (driven by **`GET /api/v1/institutions/form-metadata`** `requiredComplianceDocuments`; omitted or **`null`** ⇒ two-step flow, **Review** immediately after details) → **Review**. On submit, **Fastify** **creates the member row immediately** and **enqueues** an **institution** approval (**reject does not delete** the row; see **§3.1.2** / BRD **§3.4**). **APIs enabled** column = **`apisEnabledCount/slots`** derived from **API & Access** toggles. **Overview** tab charts = **`GET …/overview-charts`** (member-scoped **30d**). Institution detail includes Consortium Memberships and Product Subscriptions tabs. |
 | **Business Value** | Standardized onboarding and a single place to manage members and consortium entry points |
 | **User Benefit** | Guided wizard; unified list and clear navigation labels |
 
@@ -534,12 +538,12 @@ Step 5: Session active
 ### 5.2 Institution Registration Wizard
 
 ```
-Step 1: User clicks "Register New Institution" on Institution List
+Step 1: User opens **Register member** from **Member Management** sidebar (or Command Palette → Register Institution)
   → Navigate to /institutions/register
   → System loads **`GET /api/v1/institutions/form-metadata?geography=<id>`** (SPA: **`VITE_INSTITUTION_REGISTER_GEOGRAPHY`**) and renders Step 1 from **`registerForm.sections`** (labels, control types, required rules, enums, single vs multi-select). Renders either a 2-step wizard (Details → Review) or a 3-step wizard (Details → Compliance Documents → Review) depending on **`requiredComplianceDocuments`** (**`null`** ⇒ skip the compliance step)
 
 Step 2: Corporate Details (first step)
-  → Field set is **geography configuration** (dev: **`src/data/institution-register-form.json`**); e.g. default geography may include Legal Name, Trading Name, Registration Number, Institution Type (select from resolved options), Jurisdiction (text or closed enum per geography), License Number, contact fields, participation checkboxes, optional consortium multi-select when Subscriber
+  → Field set is **geography configuration** (dev: **`src/data/institution-register-form.json`**); e.g. default geography may include Legal Name, Trading Name, **Registration Number** (read-only; assigned on submit — **v2.16**), Institution Type (select from resolved options), Jurisdiction (text or closed enum per geography), License Number, contact fields, participation checkboxes, optional consortium multi-select when Subscriber
   → Decision: At least one participation type selected when configured? → Proceed | Neither → Error
   → Frontend builds Zod from metadata; server **`POST /api/v1/institutions?geography=<id>`** validates the same rules
   → User clicks "Next"
@@ -884,7 +888,7 @@ Step 5: Reviewed items remain in queue with updated status
 | Element | Type | Location | Description | Data Source | Behaviour |
 |---------|------|----------|-------------|-------------|-----------|
 | Page Title | H1 | Top left | **"Member Institutions"** (unified list). If `roleFilter` is ever set: "Data Submission Institutions" or "Subscriber Institutions". | Route / prop | Default route **`/institutions`** shows unified title. |
-| Register Button | Primary Button | Top right | "Register New Institution" | N/A | Navigates to `/institutions/register` |
+| Register member entry | Sidebar sub-nav | **Member Management** ▶ **Register member** | Same label as wizard; path **`/institutions/register`** | N/A | **v2.15:** Not a button on this list page; use sidebar or Command Palette |
 | Search Input | Text Input | Above table | Filter by institution name | User input | Real-time filtering of table rows |
 | Status Filter | Select Dropdown | Above table | Filter by status (All, Active, Pending, Suspended, Draft) | Static options | Filters table rows |
 | Institution Table | Data Table | Main content | Columns: Name, Type, Status, **APIs Enabled** (`apisEnabledCount` / role **slots** — e.g. `2/2`), SLA Health, Last Updated, Actions | `GET /api/v1/institutions` | Sortable columns; row click navigates to `/institutions/:id`; **v2.4:** count **derived** from API & Access toggles, not static seed |
@@ -1368,7 +1372,7 @@ flowchart TB
 |---------|------|-------------|
 | Logo | Image + Text | "H" logo mark + "Hybrid Credit Bureau" text |
 | Dashboard | Nav Link | `/` |
-| Member Management | Nav Group | Sub-items: **Member Institutions** (`/institutions`), **Consortiums** (`/consortiums`) |
+| Member Management | Nav Group | Sub-items: **Member Institutions** (`/institutions`), **Register member** (`/institutions/register`), **Consortiums** (`/consortiums`) |
 | Data Products | Nav Group | Sub-items: Product Configurator (`/data-products/products`), Enquiry simulation (`/data-products/enquiry-simulation`) |
 | Agents | Nav Link | `/agents` |
 | Data Governance | Nav Group | Sub-items: Dashboard, Schema Mapper Agent, Validation Rules, Identity Resolution Agent, Data Quality Monitoring, Governance Audit Logs |
@@ -3026,7 +3030,7 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | slaHealthPercent | number | No | SLA compliance percentage |
 | updatedAt | string (date) | Yes | Last modification date |
 | apiAccess | object | No | **Fastify:** persisted partial overrides for `dataSubmission` / `enquiry` (merged with server defaults on read) |
-| registrationNumber | string | No | Government registration ID |
+| registrationNumber | string | No on **POST** (Spring assigns when omitted); Yes on persisted row | Bureau member ID; **v2.16:** wizard read-only; **Spring** format **`PREFIX-Slug3-YYYY-id`** when auto-assigned |
 | jurisdiction | string | No | Operating country |
 | licenseType | string | No | License category |
 | licenseNumber | string | No | License identifier |
@@ -4008,9 +4012,9 @@ No API call. Client-side navigation to the respective module route.
 | **API** | `PATCH /api/v1/institutions/:id/api-access` |
 | **Success** | Toast; invalidates **institutions** (all list queries), **detail**, and **api-access** — **APIs enabled** updates on list without hard refresh (**v2.4**). |
 
-#### Action: **Register Member** (button top-right)
+#### Action: **Register member** (sidebar / command palette)
 
-No API call on button click. Navigates to `/institutions/register`.
+No API call on navigation. User chooses **Member Management** ▶ **Register member** in **`AppSidebar`**, or **Register Institution** in the Command Palette (**⌘K**). Both navigate to **`/institutions/register`**.
 
 #### Action: **Suspend** (row action)
 

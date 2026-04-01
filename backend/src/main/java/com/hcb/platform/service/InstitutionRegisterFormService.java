@@ -187,6 +187,12 @@ public class InstitutionRegisterFormService {
         }
 
         out.put("required", f.path("required").asBoolean(false));
+        if (f.has("readOnly") && f.get("readOnly").isBoolean()) {
+            out.put("readOnly", f.get("readOnly").asBoolean());
+        }
+        if (f.hasNonNull("description")) {
+            out.put("description", f.get("description").asText());
+        }
         if (f.has("maxLength") && f.get("maxLength").isNumber()) {
             out.put("maxLength", f.get("maxLength").asInt());
         }

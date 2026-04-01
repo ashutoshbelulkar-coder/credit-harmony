@@ -208,7 +208,7 @@ class ApprovalQueueSqliteIntegrationTest {
     private String loginAccessToken() throws Exception {
         MvcResult r = mockMvc.perform(post("/api/v1/auth/login")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"email\":\"admin@hcb.com\",\"password\":\"Admin@1234\"}"))
+                .content("{\"email\":\"super@hcb.com\",\"password\":\"Super@1234\"}"))
             .andExpect(status().isOk())
             .andExpect(jsonPath("$.accessToken").exists())
             .andReturn();

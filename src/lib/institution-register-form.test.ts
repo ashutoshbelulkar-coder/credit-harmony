@@ -22,6 +22,11 @@ describe("institution-register-form (client)", () => {
         .find((s) => s.id === "entity")
         ?.fields.find((f) => f.name === "institutionType");
       expect(inst?.options.map((o) => o.value)).toEqual(mockTypes);
+      const reg = rf.sections
+        .find((s) => s.id === "entity")
+        ?.fields.find((f) => f.name === "registrationNumber");
+      expect(reg?.readOnly).toBe(true);
+      expect(reg?.required).toBe(false);
     });
 
     it("falls back to defaultGeography for unknown geography id", () => {
@@ -55,7 +60,7 @@ describe("institution-register-form (client)", () => {
       const parsed = schema.safeParse({
         legalName: "Acme Bank Ltd",
         tradingName: "Acme",
-        registrationNumber: "REG-1",
+        registrationNumber: "",
         institutionType: "Commercial Bank",
         jurisdiction: "Kenya",
         licenseNumber: "LIC-1",
@@ -74,7 +79,7 @@ describe("institution-register-form (client)", () => {
       const parsed = schema.safeParse({
         legalName: "Acme Bank Ltd",
         tradingName: "Acme",
-        registrationNumber: "REG-1",
+        registrationNumber: "",
         institutionType: "Commercial Bank",
         jurisdiction: "Rwanda",
         licenseNumber: "LIC-1",
@@ -95,7 +100,7 @@ describe("institution-register-form (client)", () => {
         {
           legalName: "Full Legal Name",
           tradingName: "T",
-          registrationNumber: "R",
+          registrationNumber: "",
           institutionType: "MFI",
           jurisdiction: "Kenya",
           licenseNumber: "L",
@@ -109,6 +114,46 @@ describe("institution-register-form (client)", () => {
       );
       expect(body.name).toBe("Full Legal Name");
       expect(body.legalName).toBeUndefined();
+      expect(body.registrationNumber).toBeUndefined();
+    });
+
+    it("omits readOnly empty registrationNumber; still sends explicit override when non-empty", () => {
+      const rf = resolveRegisterFormClientSide("default", mockTypes, mockConsortia);
+      const emptyReg = mapRegisterDetailsToCreateBody(
+        {
+          legalName: "L",
+          tradingName: "T",
+          registrationNumber: "",
+          institutionType: "MFI",
+          jurisdiction: "Kenya",
+          licenseNumber: "L",
+          contactEmail: "x@y.z",
+          contactPhone: "+1",
+          isDataSubmitter: true,
+          isSubscriber: false,
+          consortiumIds: [],
+        },
+        rf
+      );
+      expect(emptyReg.registrationNumber).toBeUndefined();
+
+      const withReg = mapRegisterDetailsToCreateBody(
+        {
+          legalName: "L",
+          tradingName: "T",
+          registrationNumber: "MANUAL-99",
+          institutionType: "MFI",
+          jurisdiction: "Kenya",
+          licenseNumber: "L",
+          contactEmail: "x@y.z",
+          contactPhone: "+1",
+          isDataSubmitter: true,
+          isSubscriber: false,
+          consortiumIds: [],
+        },
+        rf
+      );
+      expect(withReg.registrationNumber).toBe("MANUAL-99");
     });
 
     it("includes consortiumIds only when subscriber and list non-empty", () => {
@@ -117,7 +162,7 @@ describe("institution-register-form (client)", () => {
         {
           legalName: "L",
           tradingName: "T",
-          registrationNumber: "R",
+          registrationNumber: "",
           institutionType: "MFI",
           jurisdiction: "Kenya",
           licenseNumber: "L",
@@ -135,7 +180,7 @@ describe("institution-register-form (client)", () => {
         {
           legalName: "L",
           tradingName: "T",
-          registrationNumber: "R",
+          registrationNumber: "",
           institutionType: "MFI",
           jurisdiction: "Kenya",
           licenseNumber: "L",

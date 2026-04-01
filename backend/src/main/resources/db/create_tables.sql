@@ -58,6 +58,7 @@ DROP TABLE IF EXISTS product_subscriptions;
 DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS compliance_documents;
 DROP TABLE IF EXISTS ingestion_drift_alerts;
+DROP TABLE IF EXISTS mfa_login_challenges;
 DROP TABLE IF EXISTS refresh_tokens;
 DROP TABLE IF EXISTS api_keys;
 DROP TABLE IF EXISTS user_role_assignments;
@@ -188,6 +189,24 @@ CREATE TABLE users (
 CREATE INDEX idx_users_email          ON users (email);
 CREATE INDEX idx_users_institution_id ON users (institution_id);
 CREATE INDEX idx_users_status         ON users (user_account_status);
+
+-- ----------------------------------------------------------------------------
+-- mfa_login_challenges
+-- Ephemeral rows between password verification and OTP verification (portal MFA).
+-- ----------------------------------------------------------------------------
+CREATE TABLE mfa_login_challenges (
+    id                 VARCHAR(64)  NOT NULL PRIMARY KEY,
+    user_id            INTEGER      NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    otp_hash           VARCHAR(255) NOT NULL,
+    expires_at         DATETIME     NOT NULL,
+    resend_not_before  DATETIME     NOT NULL,
+    created_at         DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    attempt_count      INTEGER      NOT NULL DEFAULT 0
+                             CHECK (attempt_count >= 0 AND attempt_count <= 20)
+);
+
+CREATE INDEX idx_mfa_challenges_user_id ON mfa_login_challenges (user_id);
+CREATE INDEX idx_mfa_challenges_expires  ON mfa_login_challenges (expires_at);
 
 -- ----------------------------------------------------------------------------
 -- user_role_assignments (mapping; supports institution-scoped role grants)

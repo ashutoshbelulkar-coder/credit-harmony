@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   Activity,
   FileBarChart,
-  ScrollText,
   Users,
   ChevronLeft,
   ChevronRight,
@@ -33,13 +32,13 @@ const navItems = [
   { title: "Data Governance", path: "/data-governance", icon: ShieldCheck },
   { title: "Monitoring", path: "/monitoring", icon: Activity },
   { title: "Reporting", path: "/reporting", icon: FileBarChart },
-  { title: "Audit Logs", path: "/audit-logs", icon: ScrollText },
   { title: "Approval Queue", path: "/approval-queue", icon: ClipboardCheck },
   { title: "User Management", path: "/user-management/users", icon: Users },
 ];
 
 const institutionSubItems = [
   { title: "Member Institutions", path: "/institutions" },
+  { title: "Register member", path: "/institutions/register" },
   { title: "Consortiums", path: "/consortiums" },
 ];
 
@@ -77,6 +76,14 @@ type SidebarSectionId =
   | "data-governance"
   | "monitoring"
   | "user-management";
+
+/** Sub-routes like `/institutions/register` should not mark the list item "Member Institutions" active. */
+function isInstitutionSubNavActive(pathname: string, subPath: string): boolean {
+  if (pathname === subPath) return true;
+  if (!pathname.startsWith(subPath + "/")) return false;
+  if (subPath === "/institutions" && pathname.startsWith("/institutions/register")) return false;
+  return true;
+}
 
 function sectionIdFromPathname(pathname: string): SidebarSectionId | null {
   if (pathname.startsWith("/data-products")) return "data-products";
@@ -356,9 +363,10 @@ export function AppSidebar() {
               {showSubNav && subItems && (
                 <div className="mt-1 ml-4 pl-3 border-l border-sidebar-border space-y-0.5 min-w-0">
                   {subItems.map((sub) => {
-                    const isSubActive =
-                      location.pathname === sub.path ||
-                      location.pathname.startsWith(sub.path + "/");
+                    const isSubActive = isInstitutions
+                      ? isInstitutionSubNavActive(location.pathname, sub.path)
+                      : location.pathname === sub.path ||
+                        location.pathname.startsWith(sub.path + "/");
                     return (
                       <NavLink
                         key={sub.path}

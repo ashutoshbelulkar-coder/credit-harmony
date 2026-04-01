@@ -1,6 +1,6 @@
 # HCB Platform — Epic & User Story Master Index
 
-> **Version:** 1.0.0 | **Last Updated:** 2026-03-31 | **Status:** Living Document
+> **Version:** 1.0.1 | **Last Updated:** 2026-04-02 | **Status:** Living Document
 >
 > This index is the single source of truth for all epics and user stories in the HCB (Hybrid Credit Bureau) Admin Portal. Use it as a sprint-planning input, QA coverage checklist, and compliance audit reference.
 
@@ -12,7 +12,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 
 | Epic | Purpose in One Sentence |
 |------|------------------------|
-| EPIC-01 Authentication | Secure JWT-based login, token refresh, and role-gated access for all portal users. |
+| EPIC-01 Authentication | Secure JWT-based login (optional Turnstile + email OTP MFA), token refresh, and role-gated access for all portal users. |
 | EPIC-02 Institution Management | Full lifecycle management of member financial institutions from draft through active, including geography-driven registration, compliance documents, API keys, and billing. |
 | EPIC-03 Consortium Management | Create and govern data-sharing consortiums, manage institutional membership roles, and control data visibility policy. |
 | EPIC-04 Data Products & Enquiry Simulation | Define, configure, and publish credit data products with packet-level field configuration, manage subscriptions, and simulate enquiry scoring against live products. |
@@ -71,6 +71,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 | AUTH-US-003 | Logout and Session Termination | As a user, I want to log out so that my session is securely terminated and refresh token revoked. | `POST /api/v1/auth/logout` | `refresh_tokens` | P0 | ✅ Implemented |
 | AUTH-US-004 | Get Current User Profile | As a logged-in user, I want to retrieve my profile and roles so that the UI can personalize my experience. | `GET /api/v1/auth/me` | `users`, `user_role_assignments` | P0 | ✅ Implemented |
 | AUTH-US-005 | Role-Based Access Control Gate | As a bureau admin, I want unauthorized users to be blocked from restricted pages so that data security is enforced. | All protected endpoints | `roles`, `permissions`, `role_permissions` | P0 | ✅ Implemented |
+| AUTH-US-006 | CAPTCHA + Email OTP (MFA) | As a security-conscious operator, I want bot resistance and a second factor for high-privilege accounts so that portal access is harder to abuse. | `POST /api/v1/auth/login`, `POST …/mfa/verify`, `POST …/mfa/resend` | `users.mfa_enabled`, `mfa_login_challenges` | P0 | ✅ Implemented (dummy OTP + log stub in dev) |
 
 ---
 
@@ -428,4 +429,12 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 
 ---
 
-*This index is auto-generated from codebase analysis. Update story status as implementation progresses.*
+### Documentation notes (2026-04-02)
+
+- **EPIC-02 / PRD / BRD:** **Register member** is a **Member Management** sidebar sub-item; Member Institutions list no longer shows a header **Register member** button.
+- **EPIC-12:** **Roles & Permissions** remains **section-scoped**; **`nav-config`** lists **`/institutions/register`** under Member Management for navigation/RBAC catalogue alignment only.
+- **EPIC-02 — Registration number:** Register wizard **Registration Number** is **read-only**; **Spring** assigns **`registrationNumber`** on **`POST /api/v1/institutions`** when omitted (**`PREFIX-Slug3-YYYY-id`**). See **Register-Member-Form-Metadata-Source.md**, **API-UI-Parity-Matrix**, **Testing-Plan**.
+
+---
+
+*This index is maintained alongside the codebase. Update story status as implementation progresses.*

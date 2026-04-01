@@ -7,7 +7,7 @@
 
 | SPA service (domain) | Representative paths | Spring controller | Priority |
 |----------------------|------------------------|-------------------|----------|
-| Auth | `/v1/auth/login`, `refresh`, `logout`, `me` | `AuthController` | P0 |
+| Auth | `/v1/auth/login`, `mfa/verify`, `mfa/resend`, `refresh`, `logout`, `me` | `AuthController` | P0 |
 | Institutions list/detail/CRUD | `/v1/institutions` | `InstitutionController` | P0 |
 | Institution PATCH | `/v1/institutions/:id` | `InstitutionController` | P0 |
 | Institution `role` query | `?role=dataSubmitter\|subscriber` | `InstitutionRepository` | P0 |

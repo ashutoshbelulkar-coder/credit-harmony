@@ -2,7 +2,7 @@
 
 > **Epic Code:** AUTH | **Story Range:** AUTH-US-001–005
 > **Owner:** Platform Engineering | **Priority:** P0 (All stories)
-> **Implementation Status:** ✅ Fully Implemented
+> **Implementation Status:** ✅ Implemented (JWT + refresh + RBAC + optional Turnstile + email OTP MFA for `mfa_enabled` users)
 
 ---
 
@@ -23,6 +23,8 @@ Provide a secure, role-aware authentication and session management layer for all
 3. Secure logout with refresh token revocation
 4. Current user profile retrieval (`/me`) for personalization
 5. Role-based page and API access gating (SUPER_ADMIN, BUREAU_ADMIN, ANALYST, VIEWER, API_USER)
+6. Optional Cloudflare Turnstile on the credential step (`captchaToken` on `POST /auth/login` when enabled server-side)
+7. Email OTP MFA after successful password for users with `mfa_enabled=1` (`mfa_login_challenges`, verify/resend endpoints)
 
 ---
 
@@ -39,7 +41,7 @@ Provide a secure, role-aware authentication and session management layer for all
 
 ### Out of Scope
 - Social OAuth (Google, Microsoft) — not implemented
-- Multi-Factor Authentication (MFA) — DB column exists (`mfa_enabled`), UI not built
+- Production SMTP / transactional email delivery for OTP — **stub only** (log line); wire provider in a follow-up
 - Password reset / forgot password flow — not implemented
 - SSO / SAML — not in current scope
 
@@ -67,7 +69,8 @@ Provide a secure, role-aware authentication and session management layer for all
 | Current User Profile | Return user info + roles from token | ✅ Implemented |
 | RBAC Gate | Block unauthorized access by role | ✅ Implemented |
 | Rate Limiting on Login | 5 attempts/min per IP | ✅ Implemented |
-| MFA | Second factor authentication | ❌ Not Implemented |
+| MFA (email OTP) | Second factor after password for `mfa_enabled` users | ✅ Implemented (dev dummy code `123456`) |
+| CAPTCHA (Turnstile) | Bot resistance on credential step | ✅ Implemented (off unless `HCB_CAPTCHA_ENABLED=true`) |
 | Password Reset | Email-based reset flow | ❌ Not Implemented |
 
 ---
@@ -78,7 +81,7 @@ Provide a secure, role-aware authentication and session management layer for all
 
 | Screen | Path | Description |
 |--------|------|-------------|
-| Login Page | `/login` | Credential entry form |
+| Login Page | `/login` | Credential entry + optional Turnstile; OTP step when API returns `mfaRequired` |
 | Redirect on Auth Failure | Any protected route | Redirect to `/login` on 401 |
 
 ### Navigation Structure
@@ -235,13 +238,17 @@ Feature: Login
 ```json
 {
   "email": "admin@hcb.com",
-  "password": "Admin@1234"
+  "password": "Admin@1234",
+  "captchaToken": "<optional; required when Turnstile enabled server-side>"
 }
 ```
 
-**Response Schema (200 OK):**
+**Response (200 OK)** — discriminated by `mfaRequired`:
+
+*Completed login (`mfaRequired: false` or omitted):*
 ```json
 {
+  "mfaRequired": false,
   "accessToken": "eyJhbGci...",
   "refreshToken": "eyJhbGci...",
   "expiresIn": 900,
@@ -256,6 +263,16 @@ Feature: Login
 }
 ```
 
+*MFA required (`mfaRequired: true`):* no JWTs until `POST /api/v1/auth/mfa/verify`.
+```json
+{
+  "mfaRequired": true,
+  "mfaChallengeId": "<uuid>",
+  "emailMasked": "a***@hcb.com",
+  "resendAvailableInSeconds": 60
+}
+```
+
 **Error Codes:**
 | HTTP Status | Error Code | Description |
 |-------------|------------|-------------|
@@ -263,10 +280,13 @@ Feature: Login
 | 401 | `ERR_ACCOUNT_DEACTIVATED` | Account is deactivated |
 | 429 | `ERR_RATE_LIMITED` | Too many login attempts |
 | 400 | `ERR_VALIDATION` | Missing/invalid fields |
+| 400 | `ERR_CAPTCHA_REQUIRED` / `ERR_CAPTCHA_INVALID` | Turnstile enabled: missing/failed verification |
+| 401 | `ERR_MFA_INVALID` / `ERR_MFA_CHALLENGE_EXPIRED` | Bad OTP or expired challenge (`POST …/mfa/verify`) |
+| 429 | `ERR_MFA_RESEND_COOLDOWN` | Resend before cooldown (`retryAfterSeconds` in body) |
 
 #### 8. Database Requirements
 
-**Tables:** `users`, `refresh_tokens`
+**Tables:** `users`, `refresh_tokens`, `mfa_login_challenges` (challenge row after password success when `users.mfa_enabled = 1`)
 
 ```sql
 -- users: key fields for login
@@ -294,7 +314,7 @@ WHERE u.email = 'admin@hcb.com';
 - Access token TTL: **15 minutes** (`JWT_EXPIRATION` env var)
 - Refresh token TTL: **7 days**
 - Refresh token is stored as SHA-256 hash (never raw)
-- Login event is written to `audit_logs` with `action_type='LOGIN'`, `audit_outcome='success'|'failure'`
+- Login success audit and `last_login_at` update occur **after** full session establishment: immediately for non-MFA users, **after successful OTP** for MFA users (password-only success does not complete the session)
 
 #### 10. Data Mapping
 
@@ -308,19 +328,14 @@ WHERE u.email = 'admin@hcb.com';
 #### 11. Data Flow
 
 ```
-1. User enters email + password on /login
+1. User enters email + password (+ optional Turnstile token) on /login
 2. Frontend calls POST /api/v1/auth/login
-3. AuthController receives LoginRequest (validated by @Valid)
-4. AuthService looks up user by email in users table
-5. AuthService checks user_account_status = 'active'
-6. AuthService verifies password against password_hash (bcrypt)
-7. AuthService loads user roles from user_role_assignments JOIN roles
-8. JwtService generates accessToken (15min) and refreshToken (7 days)
-9. refreshToken hash stored in refresh_tokens table
-10. AuditService writes LOGIN audit log entry
-11. AuthResponse returned to frontend
-12. Frontend stores accessToken in memory, refreshToken in sessionStorage
-13. User redirected to Dashboard
+3. If captcha enabled: verify Turnstile token; else skip
+4. AuthService looks up user by email, checks active, verifies bcrypt password
+5a. If user.mfa_enabled: create mfa_login_challenges row, return mfaRequired + challengeId (no JWT)
+5b. Else: load roles, issue JWT pair, store refresh hash, audit LOGIN success, update last_login_at
+6. If MFA: user enters OTP; POST /api/v1/auth/mfa/verify → on success issue JWTs, audit, last_login_at
+7. Frontend stores tokens; redirect to Dashboard
 ```
 
 #### 12. Flowchart
@@ -328,13 +343,23 @@ WHERE u.email = 'admin@hcb.com';
 ```mermaid
 flowchart TD
     A[User enters credentials] --> B[POST /api/v1/auth/login]
-    B --> C{User exists?}
+    B --> B0{Captcha enabled?}
+    B0 -->|Yes invalid| B1[400 ERR_CAPTCHA]
+    B0 -->|No / OK| C{User exists?}
     C -->|No| D[Return 401 ERR_INVALID_CREDENTIALS]
     C -->|Yes| E{Account active?}
     E -->|No| F[Return 401 ERR_ACCOUNT_DEACTIVATED]
     E -->|Yes| G{Password matches bcrypt?}
     G -->|No| H[Return 401 ERR_INVALID_CREDENTIALS]
-    G -->|Yes| I[Load roles from user_role_assignments]
+    G -->|Yes| Mfa{mfa_enabled?}
+    Mfa -->|Yes| M1[Create MFA challenge]
+    M1 --> M2[200 mfaRequired + challengeId]
+    M2 --> M3[User enters OTP]
+    M3 --> M4[POST /auth/mfa/verify]
+    M4 --> M5{OTP valid?}
+    M5 -->|No| M6[401 ERR_MFA_INVALID]
+    M5 -->|Yes| I[Load roles]
+    Mfa -->|No| I
     I --> J[Generate JWT access token - 15min]
     J --> K[Generate refresh token - 7 days]
     K --> L[Store refresh token hash in DB]
@@ -354,13 +379,23 @@ sequenceDiagram
     participant DB as SQLite DB
     participant AUD as Audit Service
 
-    U->>FE: Enter email + password
+    U->>FE: Enter email + password (+ captcha if configured)
     FE->>API: POST /api/v1/auth/login
     API->>DB: SELECT user WHERE email=?
     DB-->>API: User record
     API->>DB: Verify bcrypt hash
-    API->>DB: SELECT roles for user
-    DB-->>API: Role list
+    alt MFA user
+        API->>DB: INSERT mfa_login_challenges
+        API-->>FE: 200 {mfaRequired, mfaChallengeId, emailMasked}
+        U->>FE: Enter OTP
+        FE->>API: POST /api/v1/auth/mfa/verify
+        API->>DB: Validate challenge + OTP
+        API->>DB: SELECT roles for user
+        DB-->>API: Role list
+    else No MFA
+        API->>DB: SELECT roles for user
+        DB-->>API: Role list
+    end
     API->>DB: INSERT refresh_token
     API->>AUD: Write LOGIN audit log
     API-->>FE: 200 AuthResponse {accessToken, refreshToken, user}
@@ -378,13 +413,16 @@ sequenceDiagram
 | bcrypt compare timeout | Return 500, log error |
 | Concurrent logins from same user | Allowed; multiple refresh tokens issued |
 | Login from new device | New refresh_token row; old ones remain valid until expiry |
+| MFA resend during cooldown | **429** `ERR_MFA_RESEND_COOLDOWN` with `retryAfterSeconds` |
+| Expired MFA challenge | **401**; user must sign in with password again |
 
 #### 15. Functional Test Cases
 
 | Test ID | Scenario | Steps | Expected Result |
 |---------|----------|-------|----------------|
-| AUTH-US-001-FTC-01 | Valid admin login | POST with admin@hcb.com / Admin@1234 | 200, accessToken + refreshToken in response |
-| AUTH-US-001-FTC-02 | Valid viewer login | POST with viewer@hcb.com / Admin@1234 | 200, roles contains ROLE_VIEWER |
+| AUTH-US-001-FTC-01 | Valid admin login (MFA) | POST login admin@hcb.com / Admin@1234 | 200, `mfaRequired=true`, `mfaChallengeId`, no tokens |
+| AUTH-US-001-FTC-01b | Admin completes MFA | POST /mfa/verify with challenge + `123456` (dev dummy OTP) | 200, accessToken + refreshToken |
+| AUTH-US-001-FTC-02 | Valid viewer login | POST with viewer@hcb.com / Admin@1234 | 200, `mfaRequired=false`, roles contains ROLE_VIEWER |
 | AUTH-US-001-FTC-03 | Wrong password | POST with wrong password | 401 ERR_INVALID_CREDENTIALS |
 | AUTH-US-001-FTC-04 | Non-existent email | POST with unknown@test.com | 401 ERR_INVALID_CREDENTIALS |
 | AUTH-US-001-FTC-05 | Suspended user | POST with suspended user credentials | 401 or 403 |
@@ -687,7 +725,9 @@ Different user roles have different levels of access. The portal must enforce bo
 
 | Endpoint | Method | Auth | Description | Status |
 |----------|--------|------|-------------|--------|
-| `/api/v1/auth/login` | POST | None | Authenticate and issue JWT pair | ✅ |
+| `/api/v1/auth/login` | POST | None | Password (+ optional `captchaToken`); returns JWT **or** MFA challenge metadata | ✅ |
+| `/api/v1/auth/mfa/verify` | POST | None | Exchange `mfaChallengeId` + `code` for JWT pair | ✅ |
+| `/api/v1/auth/mfa/resend` | POST | None | Resend OTP (60s cooldown; **429** + `retryAfterSeconds` if early) | ✅ |
 | `/api/v1/auth/refresh` | POST | None | Exchange refresh token for new access token | ✅ |
 | `/api/v1/auth/logout` | POST | Bearer | Revoke refresh token | ✅ |
 | `/api/v1/auth/me` | GET | Bearer | Get current user profile and roles | ✅ |
@@ -704,9 +744,10 @@ Different user roles have different levels of access. The portal must enforce bo
 | `permissions` | `permission_key` | Fine-grained permissions |
 | `role_permissions` | `role_id`, `permission_id` | Role → permission mapping |
 | `user_role_assignments` | `user_id`, `role_id`, `institution_id` | User → role assignments (institution-scoped) |
+| `mfa_login_challenges` | `id`, `user_id`, `otp_hash`, `expires_at`, `resend_not_before` | Pending email OTP after password success |
 
 **Seeded roles:** Super Admin, Bureau Admin, Analyst, Viewer, API User
-**Seeded users:** admin@hcb.com, super-admin@hcb.com, viewer@hcb.com (all with password `Admin@1234`)
+**Seeded users:** admin@hcb.com (MFA on), super@hcb.com, viewer@hcb.com, etc. — use **`super@hcb.com` / `Super@1234`** (or viewer) for single-step API tests; admin requires OTP **`123456`** in dev dummy mode.
 
 ---
 
@@ -715,7 +756,8 @@ Different user roles have different levels of access. The portal must enforce bo
 ### Workflow 1: Full Login → Session → Logout
 ```
 Open portal → Redirect to /login
-→ Enter credentials → POST /login
+→ Enter credentials (+ Turnstile if configured) → POST /login
+→ If mfaRequired: OTP step → POST /auth/mfa/verify (optional POST /auth/mfa/resend after cooldown)
 → Receive JWT pair → Store tokens
 → GET /auth/me → Populate AuthContext
 → Access protected pages (token refreshed silently as needed)
@@ -750,7 +792,7 @@ Access token expires → Next API call returns 401
 | JWT secret rotation in production | Medium | High | Implement graceful key rotation with overlapping validity windows |
 | Refresh token theft from sessionStorage | Low | High | sessionStorage cleared on tab close; short TTL limits exposure |
 | Brute force on login | Medium | High | Rate limiting (5/min) + account lockout (future) |
-| MFA bypass (MFA not yet built) | Medium | High | Implement MFA before production go-live |
+| Dummy OTP or log-only email in dev | Low | Medium | Disable dummy OTP and wire real OTP delivery before production |
 
 ---
 
@@ -758,7 +800,7 @@ Access token expires → Next API call returns 401
 
 | Gap | Story | Severity | Description |
 |-----|-------|----------|-------------|
-| MFA not implemented | AUTH-US-001 | High | `mfa_enabled` column exists in DB but MFA flow not built |
+| Real email delivery for MFA OTP | AUTH-US-006 | Medium | OTP dispatch is logged only; integrate SMTP/provider for production |
 | Password reset missing | AUTH-US-001 | Medium | No forgot-password or email-based reset flow |
 | Account lockout missing | AUTH-US-001 | Medium | Rate limiting exists but no progressive account lockout |
 | Token rotation not confirmed | AUTH-US-002 | Low | Refresh token rotation implemented in service but needs verification |
@@ -770,6 +812,6 @@ Access token expires → Next API call returns 401
 | Phase | Stories | Description |
 |-------|---------|-------------|
 | Phase 1 — Core | AUTH-US-001, 002, 003, 004, 005 | All implemented — production-ready with JWT_SECRET set |
-| Phase 2 — Security Hardening | AUTH-US-001 | Add MFA, password reset, account lockout after N failures |
+| Phase 2 — Security Hardening | AUTH-US-001, AUTH-US-006 | MFA + CAPTCHA implemented; add production OTP email, password reset, account lockout after N failures |
 | Phase 3 — Enterprise | AUTH-US-001 | SSO/SAML integration for enterprise bureau operators |
 | Phase 4 — Compliance | AUTH-US-001 | Full access certification reports, session audit trails |

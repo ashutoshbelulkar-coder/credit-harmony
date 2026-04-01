@@ -71,11 +71,6 @@ describe("InstitutionList — heading", () => {
 });
 
 describe("InstitutionList — controls", () => {
-  it("renders the Register member button", async () => {
-    renderList();
-    await waitFor(() => expect(screen.getByRole("button", { name: /register member/i })).toBeInTheDocument(), { timeout: 5000 });
-  });
-
   it("renders search input with correct placeholder", async () => {
     renderList();
     await waitFor(() => expect(screen.getByPlaceholderText("Search institutions...")).toBeInTheDocument(), { timeout: 5000 });

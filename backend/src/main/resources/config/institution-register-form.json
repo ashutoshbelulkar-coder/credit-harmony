@@ -31,9 +31,11 @@
               "name": "registrationNumber",
               "label": "Registration Number",
               "inputType": "text",
-              "required": true,
+              "required": false,
+              "readOnly": true,
               "maxLength": 50,
-              "placeholder": "e.g. BK-2024-00142"
+              "description": "Assigned automatically when you submit.",
+              "placeholder": "Assigned on submit"
             },
             {
               "name": "institutionType",
@@ -163,9 +165,11 @@
               "name": "registrationNumber",
               "label": "Registration Number",
               "inputType": "text",
-              "required": true,
+              "required": false,
+              "readOnly": true,
               "maxLength": 50,
-              "placeholder": "e.g. BK-2024-00142"
+              "description": "Assigned automatically when you submit.",
+              "placeholder": "Assigned on submit"
             },
             {
               "name": "institutionType",

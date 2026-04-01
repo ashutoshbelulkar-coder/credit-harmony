@@ -3,7 +3,6 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
-  Plus,
   Eye,
   Pencil,
   Ban,
@@ -157,14 +156,6 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
             >
               <Download className="w-4 h-4" />
               Export CSV
-            </Button>
-            <Button
-              size="sm"
-              onClick={() => navigate("/institutions/register")}
-              className="w-full sm:w-auto"
-            >
-              <Plus className="h-4 w-4" />
-              Register member
             </Button>
           </div>
         </div>

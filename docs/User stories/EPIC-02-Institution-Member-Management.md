@@ -105,7 +105,7 @@ Institution Management is the foundational module of the HCB platform. It govern
 | Billing Tab | `/institutions/:id?tab=billing` | Credit balance, billing model (stub) |
 
 ### Navigation Structure
-- **Sidebar:** "Institutions" menu item with sub-items: "All Members", "Register Member"
+- **Sidebar:** **Member Management** with sub-items: **Member Institutions** (`/institutions`), **Register member** (`/institutions/register`), **Consortiums** (`/consortiums`). The Member Institutions list header does not include a **Register member** button (use sidebar or Command Palette → **Register Institution**).
 - **List → Detail:** Click institution row to navigate to `/institutions/:id`
 - **Detail tabs:** Horizontal tab bar below institution header
 
@@ -211,7 +211,7 @@ Registering a new institution is the entry point for all member activity. The re
 | Legal Name | text | `registerForm.sections[].fields[name=name]` | Yes |
 | Trading Name | text | Form config | No |
 | Institution Type | select | `institutionTypes` from form-metadata | Yes |
-| Registration Number | text | Form config | Yes |
+| Registration Number | text (read-only in UI) | Form config: `readOnly`, `required: false`; **Spring** assigns on `POST` when omitted | No (Step 1 input); persisted after create |
 | Jurisdiction | select | Form config | Yes |
 | License Type | text | Form config | No |
 | Contact Email | email | Form config | Yes |
@@ -226,7 +226,7 @@ Registering a new institution is the entry point for all member activity. The re
 - Required when `requiredWhen` matches selected participation role (`data_submitter` / `subscriber`)
 
 **Step 3 — Review**
-- Read-only display of all fields entered in Steps 1 and 2
+- Read-only display of all fields entered in Steps 1 and 2; **Registration Number** shows **“Assigned when you submit”** until the API returns the final value after create
 - Field values rendered with `text-body text-foreground` typography (template literal, not `cn()`)
 - "Go Back" and "Submit" CTAs
 
@@ -240,6 +240,7 @@ Registering a new institution is the entry point for all member activity. The re
 | INST-US-001-TC-04 | No compliance docs | Config has empty docs | Step 2 skipped |
 | INST-US-001-TC-05 | Review step accuracy | Fill Step 1, reach Step 3 | All Step 1 values visible in review |
 | INST-US-001-TC-06 | Back navigation | Click Back on Step 2 | Returns to Step 1 with data preserved |
+| INST-US-001-TC-07 | Auto registration number | Complete wizard without typing Registration Number | Step 1 field is read-only; **POST** omits `registrationNumber`; **201** body includes assigned `registrationNumber` |
 
 #### 6. Status / State Management
 
@@ -265,7 +266,6 @@ Registering a new institution is the entry point for all member activity. The re
   "name": "First National Bank",
   "tradingName": "FNB",
   "institutionType": "Commercial Bank",
-  "registrationNumber": "REG-001-2024",
   "jurisdiction": "Kenya",
   "licenseType": "Commercial Banking License",
   "contactEmail": "contact@fnb.com",
@@ -275,6 +275,8 @@ Registering a new institution is the entry point for all member activity. The re
   "consortiumIds": [1, 2]
 }
 ```
+
+`registrationNumber` may be **omitted** (wizard default); the API assigns **`{TypePrefix}-{Slug3}-{YYYY}-{id}`**. You may still send a non-blank value to override.
 
 **Response (201 Created):**
 ```json
@@ -335,7 +337,7 @@ VALUES ('institution', '6', 'First National Bank', 1, 'pending');
 #### 11. Data Flow
 
 ```
-1. Admin navigates to /institutions/register
+1. Admin navigates to /institutions/register (sidebar Member Management → Register member, or Command Palette)
 2. GET /api/v1/institutions/form-metadata?geography=<id> called
 3. Form renders fields based on registerForm.sections response
 4. Admin completes Step 1 (entity/regulatory/contact/participation)

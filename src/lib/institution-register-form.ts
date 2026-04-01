@@ -12,6 +12,8 @@ export type RegisterFormFieldResolved = {
   inputType: "text" | "email" | "tel" | "select" | "multiselect" | "checkbox";
   selectionMode?: "single" | "multiple";
   required: boolean;
+  /** When true, value is display-only (e.g. server-assigned registration number). */
+  readOnly?: boolean;
   maxLength?: number;
   minLength?: number;
   pattern?: string;
@@ -71,6 +73,7 @@ function normaliseClientField(field: any, institutionTypes: string[], activeCons
     inputType,
     selectionMode,
     required: !!field.required,
+    readOnly: !!field.readOnly,
     maxLength: field.maxLength,
     minLength: field.minLength,
     pattern: field.pattern,
@@ -116,6 +119,11 @@ function fieldZod(f: RegisterFormFieldResolved): z.ZodTypeAny {
   }
   const allowed = f.options.map((o) => o.value);
   if (f.inputType === "text" || f.inputType === "tel") {
+    if (f.readOnly && !f.required) {
+      let s = z.string();
+      if (f.maxLength != null) s = s.max(f.maxLength);
+      return s;
+    }
     let s = z.string().trim();
     if (f.required) s = s.min(1, `${f.label} is required`);
     if (f.maxLength != null) s = s.max(f.maxLength);
@@ -209,6 +217,14 @@ export function mapRegisterDetailsToCreateBody(
       if (f.name === "consortiumIds") continue;
       const v = values[f.name];
       const key = f.apiKey ?? f.name;
+      if (
+        f.readOnly &&
+        (v === "" ||
+          v === undefined ||
+          (typeof v === "string" && !v.trim()))
+      ) {
+        continue;
+      }
       body[key] = v;
     }
   }

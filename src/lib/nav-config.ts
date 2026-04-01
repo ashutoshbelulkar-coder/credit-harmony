@@ -21,6 +21,7 @@ export const permissionSections: PermissionSection[] = [
     title: "Member Management",
     items: [
       { label: "Member Institutions", path: "/institutions" },
+      { label: "Register member", path: "/institutions/register" },
       { label: "Consortiums", path: "/consortiums" },
     ],
   },
@@ -64,11 +65,6 @@ export const permissionSections: PermissionSection[] = [
     id: "reporting",
     title: "Reporting",
     items: [{ label: "Reporting", path: "/reporting" }],
-  },
-  {
-    id: "audit-logs",
-    title: "Audit Logs",
-    items: [{ label: "Audit Logs", path: "/audit-logs" }],
   },
   {
     id: "approval-queue",

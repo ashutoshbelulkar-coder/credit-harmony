@@ -1,7 +1,10 @@
 package com.hcb.platform.controller;
 
+import com.hcb.platform.model.dto.AuthLoginResponse;
 import com.hcb.platform.model.dto.AuthResponse;
 import com.hcb.platform.model.dto.LoginRequest;
+import com.hcb.platform.model.dto.MfaResendRequest;
+import com.hcb.platform.model.dto.MfaVerifyRequest;
 import com.hcb.platform.security.AuthUserPrincipal;
 import com.hcb.platform.service.AuthService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -30,13 +33,32 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(
+    public ResponseEntity<AuthLoginResponse> login(
         @Valid @RequestBody LoginRequest request,
         HttpServletRequest httpRequest
     ) {
         String ipAddress = getClientIp(httpRequest);
-        AuthResponse response = authService.login(request, ipAddress);
+        AuthLoginResponse response = authService.login(request, ipAddress);
         return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/mfa/verify")
+    public ResponseEntity<AuthResponse> verifyMfa(
+        @Valid @RequestBody MfaVerifyRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        String ipAddress = getClientIp(httpRequest);
+        AuthResponse response = authService.verifyMfaLogin(request, ipAddress);
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/mfa/resend")
+    public ResponseEntity<Void> resendMfa(
+        @Valid @RequestBody MfaResendRequest request,
+        HttpServletRequest httpRequest
+    ) {
+        authService.resendMfaOtp(request.getMfaChallengeId());
+        return ResponseEntity.noContent().build();
     }
 
     @PostMapping("/refresh")

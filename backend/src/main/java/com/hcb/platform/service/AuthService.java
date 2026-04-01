@@ -1,7 +1,9 @@
 package com.hcb.platform.service;
 
+import com.hcb.platform.model.dto.AuthLoginResponse;
 import com.hcb.platform.model.dto.AuthResponse;
 import com.hcb.platform.model.dto.LoginRequest;
+import com.hcb.platform.model.dto.MfaVerifyRequest;
 import com.hcb.platform.model.entity.RefreshToken;
 import com.hcb.platform.model.entity.User;
 import com.hcb.platform.repository.RefreshTokenRepository;
@@ -11,6 +13,7 @@ import com.hcb.platform.security.JwtService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.dao.IncorrectResultSizeDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -49,6 +52,8 @@ public class AuthService {
     private final AuditService auditService;
     private final JdbcTemplate jdbc;
     private final AuthAccountService authAccountService;
+    private final TurnstileVerificationService turnstileVerificationService;
+    private final MfaLoginChallengeService mfaLoginChallengeService;
 
     @Value("${hcb.jwt.refresh-token-expiry-seconds:604800}")
     private long refreshTokenExpirySeconds;
@@ -57,7 +62,9 @@ public class AuthService {
     private long accessTokenExpirySeconds;
 
     @Transactional
-    public AuthResponse login(LoginRequest request, String ipAddress) {
+    public AuthLoginResponse login(LoginRequest request, String ipAddress) {
+        turnstileVerificationService.verifyIfRequired(request.getCaptchaToken());
+
         // Match Fastify / typical UX: emails are case-insensitive; trim accidental whitespace.
         String email = request.getEmail() == null
             ? ""
@@ -70,33 +77,92 @@ public class AuthService {
 
             AuthUserPrincipal principal = (AuthUserPrincipal) authentication.getPrincipal();
 
-            jdbc.update("UPDATE users SET last_login_at = ? WHERE id = ?",
-                LocalDateTime.now(), principal.getId());
+            // Use JDBC for mfa + email to avoid JPA hydrating User (SQLite timestamp / dialect edge cases in some test DBs).
+            MfaGate mfaGate = loadMfaGate(principal.getId());
+            if (mfaGate == null) {
+                throw new BadCredentialsException("Invalid credentials");
+            }
 
-            String accessToken = jwtService.generateAccessToken(principal);
-            String rawRefreshToken = generateSecureToken();
-            String refreshTokenHash = hashToken(rawRefreshToken);
+            if (mfaGate.mfaEnabled()) {
+                MfaLoginChallengeService.IssuedChallenge issued = mfaLoginChallengeService.createChallenge(
+                    principal.getId(),
+                    mfaGate.email()
+                );
+                User userRef = userRepository.getReferenceById(principal.getId());
+                auditService.log(userRef, "AUTH_MFA_CHALLENGE_ISSUED", "user",
+                    String.valueOf(principal.getId()), "MFA challenge issued after password verification", ipAddress);
 
-            User userRef = userRepository.getReferenceById(principal.getId());
-            RefreshToken refreshToken = RefreshToken.builder()
-                .user(userRef)
-                .tokenHash(refreshTokenHash)
-                .issuedAt(LocalDateTime.now())
-                .expiresAt(LocalDateTime.now().plusSeconds(refreshTokenExpirySeconds))
-                .isRevoked(false)
-                .ipAddress(ipAddress)
-                .build();
-            refreshTokenRepository.save(refreshToken);
+                return AuthLoginResponse.builder()
+                    .mfaRequired(true)
+                    .mfaChallengeId(issued.id())
+                    .emailMasked(issued.emailMasked())
+                    .resendAvailableInSeconds(issued.resendAvailableInSeconds())
+                    .build();
+            }
 
-            auditService.log(userRef, "AUTH_LOGIN", "user",
-                String.valueOf(principal.getId()), "Successful login", ipAddress);
-
-            return buildAuthResponse(principal, accessToken, rawRefreshToken);
+            AuthResponse session = issueSessionAfterAuth(principal, ipAddress);
+            return toLoginResponse(session);
 
         } catch (BadCredentialsException e) {
             logFailedLoginAudit(email, ipAddress);
             throw new BadCredentialsException("Invalid credentials");
         }
+    }
+
+    @Transactional
+    public AuthResponse verifyMfaLogin(MfaVerifyRequest request, String ipAddress) {
+        long userId = mfaLoginChallengeService.verifyCodeAndConsume(
+            request.getMfaChallengeId(),
+            request.getCode()
+        );
+        AuthUserPrincipal principal = authAccountService.loadPrincipalByUserId(userId);
+        return issueSessionAfterAuth(principal, ipAddress);
+    }
+
+    @Transactional
+    public void resendMfaOtp(String mfaChallengeId) {
+        mfaLoginChallengeService.resend(mfaChallengeId);
+    }
+
+    private AuthLoginResponse toLoginResponse(AuthResponse session) {
+        return AuthLoginResponse.builder()
+            .mfaRequired(false)
+            .accessToken(session.getAccessToken())
+            .refreshToken(session.getRefreshToken())
+            .expiresIn(session.getExpiresIn())
+            .user(session.getUser())
+            .build();
+    }
+
+    /**
+     * Issues refresh + access tokens, updates last_login_at, writes successful login audit.
+     */
+    private AuthResponse issueSessionAfterAuth(AuthUserPrincipal principal, String ipAddress) {
+        // SQLite + Hibernate: avoid sub-millisecond precision in stored datetimes (parse errors on re-read).
+        LocalDateTime loginStamp = LocalDateTime.now().withNano(0);
+        jdbc.update("UPDATE users SET last_login_at = ? WHERE id = ?",
+            loginStamp, principal.getId());
+
+        String accessToken = jwtService.generateAccessToken(principal);
+        String rawRefreshToken = generateSecureToken();
+        String refreshTokenHash = hashToken(rawRefreshToken);
+
+        User userRef = userRepository.getReferenceById(principal.getId());
+        LocalDateTime issued = LocalDateTime.now().withNano(0);
+        RefreshToken refreshToken = RefreshToken.builder()
+            .user(userRef)
+            .tokenHash(refreshTokenHash)
+            .issuedAt(issued)
+            .expiresAt(issued.plusSeconds(refreshTokenExpirySeconds))
+            .isRevoked(false)
+            .ipAddress(ipAddress)
+            .build();
+        refreshTokenRepository.save(refreshToken);
+
+        auditService.log(userRef, "AUTH_LOGIN", "user",
+            String.valueOf(principal.getId()), "Successful login", ipAddress);
+
+        return buildAuthResponse(principal, accessToken, rawRefreshToken);
     }
 
     @Transactional
@@ -122,11 +188,12 @@ public class AuthService {
         String newRawRefreshToken = generateSecureToken();
         String newRefreshTokenHash = hashToken(newRawRefreshToken);
 
+        LocalDateTime rotated = LocalDateTime.now().withNano(0);
         RefreshToken newRefreshToken = RefreshToken.builder()
             .user(userRef)
             .tokenHash(newRefreshTokenHash)
-            .issuedAt(LocalDateTime.now())
-            .expiresAt(LocalDateTime.now().plusSeconds(refreshTokenExpirySeconds))
+            .issuedAt(rotated)
+            .expiresAt(rotated.plusSeconds(refreshTokenExpirySeconds))
             .isRevoked(false)
             .ipAddress(ipAddress)
             .build();
@@ -201,6 +268,20 @@ public class AuthService {
             return hex.toString();
         } catch (Exception e) {
             throw new RuntimeException("Token hashing failed", e);
+        }
+    }
+
+    private record MfaGate(boolean mfaEnabled, String email) {}
+
+    private MfaGate loadMfaGate(long userId) {
+        try {
+            return jdbc.queryForObject(
+                "SELECT mfa_enabled, email FROM users WHERE id = ? AND NOT is_deleted",
+                (rs, rowNum) -> new MfaGate(rs.getInt("mfa_enabled") != 0, rs.getString("email")),
+                userId
+            );
+        } catch (IncorrectResultSizeDataAccessException e) {
+            return null;
         }
     }
 }

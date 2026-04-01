@@ -71,6 +71,8 @@ public class SecurityConfig {
                 // Public endpoints
                 auth.requestMatchers("/api/v1/auth/login").permitAll();
                 auth.requestMatchers("/api/v1/auth/refresh").permitAll();
+                auth.requestMatchers("/api/v1/auth/mfa/verify").permitAll();
+                auth.requestMatchers("/api/v1/auth/mfa/resend").permitAll();
                 auth.requestMatchers("/actuator/health").permitAll();
                 auth.requestMatchers("/api/v1/health").permitAll();
 

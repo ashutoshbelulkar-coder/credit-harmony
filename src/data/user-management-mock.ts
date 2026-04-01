@@ -90,7 +90,6 @@ const builtInRoleSectionMatrices: Record<string, SectionPermissionMatrix> = {
     "data-governance": { View: true, Create: false, Edit: false, Delete: false, Export: true },
     monitoring: { View: true, Create: false, Edit: false, Delete: false, Export: true },
     reporting: { View: true, Create: true, Edit: false, Delete: false, Export: true },
-    "audit-logs": { View: true, Create: false, Edit: false, Delete: false, Export: true },
     "approval-queue": { View: true, Create: false, Edit: false, Delete: false, Export: false },
     "user-management": { View: false, Create: false, Edit: false, Delete: false, Export: false },
   }),
@@ -102,7 +101,6 @@ const builtInRoleSectionMatrices: Record<string, SectionPermissionMatrix> = {
     agents: { View: true, Create: false, Edit: false, Delete: false, Export: true },
     monitoring: { View: true, Create: false, Edit: false, Delete: false, Export: false },
     reporting: { View: false, Create: false, Edit: false, Delete: false, Export: true },
-    "audit-logs": { View: true, Create: false, Edit: false, Delete: false, Export: false },
     "data-products": { View: true, Create: false, Edit: false, Delete: false, Export: false },
   }),
 };

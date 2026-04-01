@@ -170,7 +170,7 @@ VALUES
 (1,  'admin@hcb.com',           '$2b$12$XXkH89KDr2OEbRIYtTBNd.dwaKZdpDAtYkc98lncLpiZfqxuJGf0K',
  'HCB Admin',         'HCB',     'Admin',    'active',    1, NULL,        '2024-01-10 00:00:00'),
 (2,  'super@hcb.com',           '$2b$12$d.P/nQYxO1UoKdvuc3wK8eZfIY/xdtKH16uZ03bfHqG17H1AflLre',
- 'Super Admin',       'Super',   'Admin',    'active',    1, NULL,        '2024-01-10 00:00:00'),
+ 'Super Admin',       'Super',   'Admin',    'active',    0, NULL,        '2024-01-10 00:00:00'),
 (3,  'bureau.admin@hcb.com',    '$2b$12$.UseXJQpziQH0G3Zc0Vf9O5p/JyyOusUjcYmBsNmvlLF.1UFAkV7G',
  'Bureau Admin',      'Bureau',  'Admin',    'active',    0, NULL,        '2024-02-01 00:00:00'),
 (4,  'analyst@hcb.com',         '$2b$12$WdOcJXxxymk6xc4v9IORH.CW08ohmXOehU/6CTXq2yvgYZ.2S5I0O',
@@ -180,15 +180,15 @@ VALUES
 (6,  'apiuser@hcb.com',         '$2b$12$uB/dkhJELC/H/XQY3Pk/EuvT76s7tvb0bMXfAAwc1ggCLnt/CvNt6',
  'API Integration',   'API',     'User',     'active',    0, NULL,        '2024-05-01 00:00:00'),
 (7,  'inst.admin@fnb.co.ke',    '$2b$12$Dd9KL0zRAHgKbIupFC53debqKL3YPW/6yKIlcWHp69.tAwSQIYgAu',
- 'FNB Admin',         'FNB',     'Admin',    'active',    1, 1,           '2024-01-15 00:00:00'),
+ 'FNB Admin',         'FNB',     'Admin',    'active',    0, 1,           '2024-01-15 00:00:00'),
 (8,  'compliance@fnb.co.ke',    '$2b$12$H9eJ1B1VI1gQTpxU2C7D5u6UwAmwqnTBlKmXNsyv36Nv52LCtrMWK',
- 'Sarah Chen',        'Sarah',   'Chen',     'active',    1, 1,           '2024-01-15 00:00:00'),
+ 'Sarah Chen',        'Sarah',   'Chen',     'active',    0, 1,           '2024-01-15 00:00:00'),
 (9,  'ops@metrocu.co.ke',       '$2b$12$9fOs3X/cPh33YwfCRAQskummA4NpyPGAYoWFkdD823n5Lo3tkeQCW',
- 'Priya Naidoo',      'Priya',   'Naidoo',   'active',    1, 2,           '2024-03-01 00:00:00'),
+ 'Priya Naidoo',      'Priya',   'Naidoo',   'active',    0, 2,           '2024-03-01 00:00:00'),
 (10, 'suspended@hcb.com',       '$2b$12$aaNpYk/TirDe0lYOz87BvuG2mDoSenuEmkWJxC6MXYyGClQWAQl5O',
  'Suspended User',    'Suspended','User',    'suspended', 0, NULL,        '2024-06-01 00:00:00'),
 (11, 'james.mthembu@fnb.co.za', '$2b$12$BP7qwA.NKmXKVHvluAE5M.z3m5rY3mPW0gVXeLs7dtPj/Jv9qAWtC',
- 'James Mthembu',     'James',   'Mthembu',  'active',    1, 1,           '2024-02-10 00:00:00'),
+ 'James Mthembu',     'James',   'Mthembu',  'active',    0, 1,           '2024-02-10 00:00:00'),
 (12, 'david.kim@pacificfin.com','$2b$12$DroxkL/KnJEP3kyH9wj0TOFN6A105m3XJGs7J9MlskDzC9AJXCwla',
  'David Kim',         'David',   'Kim',      'active',    0, 3,           '2024-03-20 00:00:00');
 
@@ -205,6 +205,10 @@ UPDATE users SET password_hash = '$2b$12$9fOs3X/cPh33YwfCRAQskummA4NpyPGAYoWFkdD
 UPDATE users SET password_hash = '$2b$12$aaNpYk/TirDe0lYOz87BvuG2mDoSenuEmkWJxC6MXYyGClQWAQl5O' WHERE email = 'suspended@hcb.com';
 UPDATE users SET password_hash = '$2b$12$BP7qwA.NKmXKVHvluAE5M.z3m5rY3mPW0gVXeLs7dtPj/Jv9qAWtC' WHERE email = 'james.mthembu@fnb.co.za';
 UPDATE users SET password_hash = '$2b$12$DroxkL/KnJEP3kyH9wj0TOFN6A105m3XJGs7J9MlskDzC9AJXCwla' WHERE email = 'david.kim@pacificfin.com';
+
+-- MFA: only portal demo admin uses email OTP challenge; all others off
+UPDATE users SET mfa_enabled = 0 WHERE LOWER(email) != 'admin@hcb.com';
+UPDATE users SET mfa_enabled = 1 WHERE email = 'admin@hcb.com';
 
 -- ============================================================================
 -- USER ROLE ASSIGNMENTS

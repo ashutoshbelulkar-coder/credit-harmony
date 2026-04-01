@@ -48,7 +48,9 @@ export class ApiError extends Error {
     public readonly status: number,
     public readonly code: string,
     message: string,
-    public readonly path?: string
+    public readonly path?: string,
+    /** From API (e.g. ERR_MFA_RESEND_COOLDOWN). */
+    public readonly retryAfterSeconds?: number
   ) {
     super(message);
     this.name = "ApiError";
@@ -329,11 +331,17 @@ async function parseResponse<T>(res: Response, path: string): Promise<T> {
 
   let code = `ERR_HTTP_${res.status}`;
   let message = res.statusText || `Request failed with status ${res.status}`;
+  let retryAfterSeconds: number | undefined;
 
   try {
-    const err = await readJsonBody<{ error?: string; message?: string }>(res);
+    const err = await readJsonBody<{
+      error?: string;
+      message?: string;
+      retryAfterSeconds?: number;
+    }>(res);
     if (err.error) code = err.error;
     if (err.message) message = err.message;
+    if (typeof err.retryAfterSeconds === "number") retryAfterSeconds = err.retryAfterSeconds;
   } catch (e) {
     if (isAbortOrTimeout(e)) {
       throw new ApiError(
@@ -346,7 +354,7 @@ async function parseResponse<T>(res: Response, path: string): Promise<T> {
     // response body is not JSON or other parse issue — use statusText
   }
 
-  throw new ApiError(res.status, code, message, path);
+  throw new ApiError(res.status, code, message, path, retryAfterSeconds);
 }
 
 async function fetchMultipart<T>(

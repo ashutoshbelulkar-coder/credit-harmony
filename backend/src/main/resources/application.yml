@@ -82,6 +82,15 @@ hcb:
     h2-console-username: ${HCB_H2_USER:admin}
     h2-console-password: ${HCB_H2_PASS:admin123}
     cors-allowed-origins: ${HCB_CORS_ORIGINS:http://localhost:5173,http://localhost:8080,http://127.0.0.1:8080,http://localhost:4173,http://127.0.0.1:4173}
+    captcha:
+      enabled: ${HCB_CAPTCHA_ENABLED:false}
+      turnstile:
+        secret-key: ${HCB_TURNSTILE_SECRET_KEY:}
+
+  auth:
+    mfa:
+      dummy-otp-enabled: ${HCB_MFA_DUMMY_OTP_ENABLED:true}
+      dummy-otp-code: ${HCB_MFA_DUMMY_OTP_CODE:123456}
 
   encryption:
     pii-key: ${HCB_PII_KEY:hcb-pii-encryption-key-32-chars!!}
@@ -153,13 +162,22 @@ hcb:
     access-token-expiry-seconds: 900
     refresh-token-expiry-seconds: 604800
 
+  security:
+    cors-allowed-origins: ${HCB_CORS_ORIGINS}
+    captcha:
+      enabled: ${HCB_CAPTCHA_ENABLED:false}
+      turnstile:
+        secret-key: ${HCB_TURNSTILE_SECRET_KEY:}
+
+  auth:
+    mfa:
+      dummy-otp-enabled: ${HCB_MFA_DUMMY_OTP_ENABLED:false}
+      dummy-otp-code: ${HCB_MFA_DUMMY_OTP_CODE:}
+
   schema-mapper:
     enabled: ${HCB_SCHEMA_MAPPER_ENABLED:true}
     llm-enabled: ${SCHEMA_MAPPER_LLM_ENABLED:true}
     openai-model: ${OPENAI_SCHEMA_MODEL:gpt-4o-mini}
-
-  security:
-    cors-allowed-origins: ${HCB_CORS_ORIGINS}
 
 logging:
   level:

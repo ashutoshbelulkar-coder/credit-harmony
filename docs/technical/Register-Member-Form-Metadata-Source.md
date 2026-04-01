@@ -7,7 +7,7 @@ When the SPA uses the **Spring Boot** API (`VITE_USE_MOCK_FALLBACK=false`, **`np
 | Concern | Source |
 |--------|--------|
 | Section category (fieldset legend), e.g. “Entity Information” | `registerForm.sections[].legend` from API |
-| Field label, placeholder, required | `registerForm.sections[].fields[]` from API |
+| Field label, placeholder, required, optional **`readOnly`** / **`description`** | `registerForm.sections[].fields[]` from API (Spring **`InstitutionRegisterFormService.normaliseField`** passes through **`readOnly`** and **`description`** when present in classpath JSON) |
 | Control kind (text, email, tel, select, multiselect, checkbox) | `inputType` from API |
 | Single vs multiple selection | `selectionMode` and/or `inputType` (`select` → single, `multiselect` → multiple); resolved on the server |
 | Closed-list values | `options` on the response (enum literals in JSON config, or `institutionTypes` / active consortiums resolved server-side from in-memory state) |
@@ -24,6 +24,11 @@ If the request fails and `VITE_USE_MOCK_FALLBACK=true`, the client resolves the 
 
 **Compliance documents** in that fallback now use **`src/data/institutions.json`** `requiredComplianceDocuments` (via `normaliseRequiredComplianceDocuments`), matching what the Fastify server seeds into `state.requiredComplianceDocuments` — no duplicated inline list in `institutions.service.ts`.
 
+## Registration number (system-assigned)
+
+- **Step 1:** `registrationNumber` is configured **`readOnly: true`**, **`required: false`** in **`institution-register-form.json`** (SPA + Spring classpath). The operator does not enter it; the SPA omits it from **`POST /api/v1/institutions`** when empty.
+- **Spring:** If `registrationNumber` is null, missing, or blank, **`InstitutionController.create`** assigns **`{TypePrefix}-{NameSlug3}-{UTC-year}-{id}`** (temporary **`AUTO-{uuid}`** insert, then update after `id` is known). Non-blank client values are still accepted (override).
+
 ## Review step labels
 
 The review step uses `registerForm` for the main detail blocks (`section.legend` / field labels). Participation and consortium summary headings use legends and field labels from the **participation** and **consortium** sections in the same payload when present.
@@ -37,7 +42,9 @@ Read-only values in the section grid use the **`text-body`** token (same compact
 - `backend` `HcbPlatformApplicationTest` — `GET /api/v1/institutions/form-metadata` (default geography) — extend assertions for legends, `selectionMode`, etc., as needed.
 - `server/src/institutionRegisterForm.test.ts` — payload legends, labels, `selectionMode` for select/multiselect.
 - `src/services/institutions.form-metadata-source.test.ts` — compliance seed alignment with `institutions.json`.
-- `src/lib/institution-register-form.test.ts` — client resolver and Zod mapping.
+- `src/lib/institution-register-form.test.ts` — client resolver and Zod mapping; read-only empty `registrationNumber` omitted from create body.
+- `src/test/pages/RegisterInstitution.test.tsx` — Registration Number read-only + hint.
+- `backend` **`InstitutionRegistrationNumberSqliteIntegrationTest`**, **`InstitutionRegistrationNumberGeneratorTest`** — POST without / with manual `registrationNumber`.
 
 ## Changes in this pass
 

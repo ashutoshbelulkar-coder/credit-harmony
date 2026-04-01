@@ -35,6 +35,14 @@ public class GlobalExceptionHandler {
             .body(ApiError.of("ERR_AUTH_FAILED", "Invalid credentials", req.getRequestURI()));
     }
 
+    @ExceptionHandler(AuthOperationException.class)
+    public ResponseEntity<ApiError> handleAuthOperation(AuthOperationException ex, HttpServletRequest req) {
+        ApiError body = ex.getRetryAfterSeconds() != null
+            ? ApiError.of(ex.getErrorCode(), ex.getMessage(), req.getRequestURI(), ex.getRetryAfterSeconds())
+            : ApiError.of(ex.getErrorCode(), ex.getMessage(), req.getRequestURI());
+        return ResponseEntity.status(ex.getStatus()).body(body);
+    }
+
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiError> handleAccessDenied(HttpServletRequest req) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN)

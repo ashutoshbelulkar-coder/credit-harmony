@@ -1,6 +1,7 @@
 package com.hcb.platform;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import org.springframework.transaction.annotation.Transactional;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hcb.platform.model.entity.User;
 import com.hcb.platform.repository.UserRepository;
@@ -148,6 +149,67 @@ class HcbPlatformApplicationTest {
         String responseBody = result.getResponse().getContentAsString();
         assertThat(responseBody).doesNotContain("password");
         assertThat(responseBody).doesNotContain("password_hash");
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("T04c - MFA-enabled user gets challenge; verify with dummy OTP issues JWT")
+    void mfaLoginChallengeThenVerify() throws Exception {
+        User u = userRepository.findByEmailAndIsDeletedFalse("admin@hcb.com").orElseThrow();
+        u.setMfaEnabled(true);
+        userRepository.saveAndFlush(u);
+        entityManager.flush();
+
+        MvcResult login = mockMvc.perform(post("/api/v1/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(Map.of(
+                "email", "admin@hcb.com",
+                "password", "Admin@1234"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.mfaRequired").value(true))
+            .andExpect(jsonPath("$.mfaChallengeId").exists())
+            .andReturn();
+
+        JsonNode body = objectMapper.readTree(login.getResponse().getContentAsString());
+        String challengeId = body.get("mfaChallengeId").asText();
+
+        mockMvc.perform(post("/api/v1/auth/mfa/verify")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(Map.of(
+                "mfaChallengeId", challengeId,
+                "code", "123456"))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.accessToken").exists())
+            .andExpect(jsonPath("$.user.email").value("admin@hcb.com"));
+    }
+
+    @Test
+    @Transactional
+    @DisplayName("T04d - MFA verify with wrong code returns 401")
+    void mfaVerifyWrongCode() throws Exception {
+        User u = userRepository.findByEmailAndIsDeletedFalse("admin@hcb.com").orElseThrow();
+        u.setMfaEnabled(true);
+        userRepository.saveAndFlush(u);
+        entityManager.flush();
+
+        MvcResult login = mockMvc.perform(post("/api/v1/auth/login")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(Map.of(
+                "email", "admin@hcb.com",
+                "password", "Admin@1234"))))
+            .andExpect(status().isOk())
+            .andReturn();
+
+        String challengeId = objectMapper.readTree(login.getResponse().getContentAsString())
+            .get("mfaChallengeId").asText();
+
+        mockMvc.perform(post("/api/v1/auth/mfa/verify")
+            .contentType(MediaType.APPLICATION_JSON)
+            .content(objectMapper.writeValueAsString(Map.of(
+                "mfaChallengeId", challengeId,
+                "code", "000000"))))
+            .andExpect(status().isUnauthorized())
+            .andExpect(jsonPath("$.error").value("ERR_MFA_INVALID"));
     }
 
     @Test

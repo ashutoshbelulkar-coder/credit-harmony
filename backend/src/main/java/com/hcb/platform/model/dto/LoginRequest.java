@@ -13,4 +13,7 @@ public class LoginRequest {
 
     @NotBlank(message = "Password is required")
     private String password;
+
+    /** Cloudflare Turnstile token; required when {@code hcb.security.captcha.enabled=true}. */
+    private String captchaToken;
 }

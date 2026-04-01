@@ -704,14 +704,23 @@ function RegisterField({
             <Input
               type={inputType}
               placeholder={field.placeholder}
-              className="h-10"
+              className={cn(
+                "h-10",
+                field.readOnly && "bg-muted/50 text-muted-foreground cursor-not-allowed",
+              )}
               value={typeof ff.value === "string" ? ff.value : ""}
               onChange={ff.onChange}
               onBlur={ff.onBlur}
               name={ff.name}
               ref={ff.ref}
+              readOnly={field.readOnly}
+              tabIndex={field.readOnly ? 0 : undefined}
+              aria-readonly={field.readOnly ? true : undefined}
             />
           </FormControl>
+          {field.description && (
+            <p className="text-[10px] text-muted-foreground">{field.description}</p>
+          )}
           <FormMessage />
         </FormItem>
       )}
@@ -817,8 +826,11 @@ function Step3Review({
         .filter((f) => f.inputType !== "checkbox" && f.inputType !== "multiselect")
         .map((f) => {
           const v = values[f.name];
-          const display = typeof v === "string" ? v : "";
-          return [f.label, display || "—"] as [string, string];
+          let display = typeof v === "string" ? v : "";
+          if (!display.trim() && f.readOnly && f.name === "registrationNumber") {
+            display = "Assigned when you submit";
+          }
+          return [f.label, display.trim() || "—"] as [string, string];
         }),
     }));
 
@@ -843,7 +855,11 @@ function Step3Review({
             {section.fields.map(([label, value]) => (
               <div key={label}>
                 <p className="text-[10px] text-muted-foreground">{label}</p>
-                <p className={cn("text-body font-medium", value && value !== "—" ? "text-foreground" : "text-muted-foreground")}>{value}</p>
+                <p
+                  className={`text-body font-medium ${value && value !== "—" ? "text-foreground" : "text-muted-foreground"}`}
+                >
+                  {value}
+                </p>
               </div>
             ))}
           </div>

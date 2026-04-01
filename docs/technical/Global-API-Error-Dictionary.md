@@ -40,6 +40,14 @@ This document defines the **target** error model for HCB platform APIs. The in-r
 |------|------|-----------|---------|------------------------|
 | `ERR_UNAUTHORIZED` | 401 | No | Missing or invalid Bearer token | Refresh token or re-login |
 | `ERR_AUTH_FAILED` | 401 | No | Wrong credentials | Fix credentials |
+| `ERR_CAPTCHA_REQUIRED` | 400 | No | Turnstile enabled but `captchaToken` missing on login | Complete widget and retry |
+| `ERR_CAPTCHA_INVALID` | 400 | No | Turnstile siteverify reported failure | Retry captcha |
+| `ERR_CAPTCHA_VERIFY_FAILED` | 502 | Yes* | Could not reach Turnstile verify endpoint | Retry; check egress |
+| `ERR_MFA_INVALID` | 401 | No | Wrong OTP for MFA challenge | Re-enter code or resend |
+| `ERR_MFA_CHALLENGE_INVALID` | 401 | No | Unknown or consumed MFA challenge id | Start login again |
+| `ERR_MFA_CHALLENGE_EXPIRED` | 401 | No | MFA challenge TTL elapsed | Start login again |
+| `ERR_MFA_LOCKED` | 401 | No | Too many bad OTP attempts | Start login again |
+| `ERR_MFA_RESEND_COOLDOWN` | 429 | Yes | Resend before cooldown; body may include `retryAfterSeconds` | Wait and retry |
 | `ERR_ACCOUNT_SUSPENDED` | 403 | No | User or institution not active | Contact admin |
 | `ERR_ACCESS_DENIED` | 403 | No | Authenticated but RBAC/ABAC denies | Escalate permissions |
 | `ERR_NO_REFRESH_TOKEN` | 401 | No | Refresh body invalid | Re-login |
@@ -63,7 +71,7 @@ This document defines the **target** error model for HCB platform APIs. The in-r
 
 ### 2.1 Fastify dev API — observed codes (as of snapshot)
 
-The dev server uses a subset aligned with the table above, including: `ERR_UNAUTHORIZED`, `ERR_AUTH_FAILED`, `ERR_ACCOUNT_SUSPENDED`, `ERR_NO_REFRESH_TOKEN`, `ERR_REFRESH_FAILED`, `ERR_NOT_FOUND`, `ERR_VALIDATION`, `ERR_CONFLICT`, `ERR_INTERNAL`, and (for batch retry) `ERR_INSTITUTION_*` from §2.3. Extend this file when new codes ship; keep [openapi-hcb-fastify-snapshot.yaml](./openapi-hcb-fastify-snapshot.yaml) and integration tests in sync.
+The dev server uses a subset aligned with the table above, including: `ERR_UNAUTHORIZED`, `ERR_AUTH_FAILED`, `ERR_CAPTCHA_*`, `ERR_MFA_*`, `ERR_ACCOUNT_SUSPENDED`, `ERR_NO_REFRESH_TOKEN`, `ERR_REFRESH_FAILED`, `ERR_NOT_FOUND`, `ERR_VALIDATION`, `ERR_CONFLICT`, `ERR_INTERNAL`, and (for batch retry) `ERR_INSTITUTION_*` from §2.3. **Spring** login/MFA also returns `AuthOperationException` codes in the same flat `{ error, message, retryAfterSeconds? }` shape. Extend this file when new codes ship; keep [openapi-hcb-fastify-snapshot.yaml](./openapi-hcb-fastify-snapshot.yaml) and integration tests in sync.
 
 ### 2.2 Schema Mapper (`/api/v1/schema-mapper`) — envelope
 

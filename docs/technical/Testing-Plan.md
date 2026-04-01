@@ -87,6 +87,8 @@ npx vitest run src/lib/institution-register-form.test.ts
 
 **Manual / E2E (optional):** With **`npm run spring:start`** (or legacy **`npm run server`**) and **`VITE_USE_MOCK_FALLBACK=false`**, open **`/institutions/register`**, confirm Step 1 sections match **`form-metadata`** for **`VITE_INSTITUTION_REGISTER_GEOGRAPHY`**; set env to **`kenya`** and confirm jurisdiction control is a single-select with three countries only.
 
+**Registration number:** Confirm **Registration Number** is **read-only**, shows the assigned-on-submit hint, and is **not** required (no `*` on label). Submit a new member without sending **`registrationNumber`**; **201** response and institution list/detail show the server-assigned value (**`BK-…-YYYY-#####`** pattern when using default geography types).
+
 ---
 
 ## Fastify dev API — Schema Mapper `source-type-fields` (traceability)
@@ -122,6 +124,10 @@ npx vitest run src/lib/institution-register-form.test.ts
 | AUTH-011 | Revoked refresh token rejected | POST /auth/refresh with revoked token | 401 |
 | AUTH-012 | Logout revokes refresh token | POST /auth/logout + subsequent refresh attempt | 401 on subsequent refresh |
 | AUTH-013 | /auth/me returns correct user | GET /auth/me with valid JWT | User summary without sensitive fields |
+| AUTH-014 | MFA login returns challenge | User with `mfa_enabled=1`: POST /auth/login valid password | 200, `mfaRequired=true`, `mfaChallengeId`, no accessToken |
+| AUTH-015 | MFA verify with dummy OTP | POST /auth/mfa/verify with challenge + `123456` (dev dummy mode) | 200 + JWT pair |
+| AUTH-016 | MFA wrong OTP | POST /auth/mfa/verify with bad code | 401 ERR_MFA_INVALID |
+| AUTH-017 | Captcha required | `HCB_CAPTCHA_ENABLED=true` + secret set; POST login without `captchaToken` | 400 ERR_CAPTCHA_REQUIRED |
 
 ### Institution Module Tests
 

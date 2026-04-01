@@ -27,6 +27,8 @@ User Management covers the full lifecycle of portal users: invitation, role assi
 6. Platform activity log with filters
 7. VIEWER role denied audit log access
 
+**Navigation catalogue vs matrix (SPA):** **`src/lib/nav-config.ts`** defines **`permissionSections`**—each section has an **`items[]`** list of human labels and paths (e.g. **Member Management** includes **Member Institutions**, **Register member**, **Consortiums**). The **Roles & Permissions** UI (`RolesPermissionsPage.tsx`) stores toggles per **section id** (e.g. **`members`**) × **View / Create / Edit / Delete / Export**; it does **not** add a separate matrix row per sub-route. Granting **Create** (or full access) on **Member Management** therefore covers registration (`/institutions/register`) alongside the list and consortium screens, consistent with Spring **`@PreAuthorize`** on institution APIs.
+
 ---
 
 ## 2. Scope
@@ -311,6 +313,8 @@ VALUES (9, 3, NULL);
 ```
 
 #### 3. Permissions Matrix
+
+**Implementation note:** The live portal matrix is **section × action** (aligned with **`permissionSections`** in **`nav-config.ts`**). The table below documents **server-style permission keys** for reference; subsection routes such as **`/institutions/register`** are catalogued under **Member Management** in **`nav-config`** but are not separate rows in the SPA matrix.
 
 | Permission | SUPER_ADMIN | BUREAU_ADMIN | ANALYST | VIEWER |
 |-----------|:-----------:|:------------:|:-------:|:------:|

@@ -16,7 +16,6 @@ import {
   ShieldCheck,
   Activity,
   FileBarChart,
-  ScrollText,
   Users,
   Package,
 } from "lucide-react";
@@ -48,7 +47,6 @@ const navigationItems = [
   { label: "Alert Engine", path: "/monitoring/alert-engine", icon: Activity, group: "Monitoring" },
   { label: "Reports", path: "/reporting", icon: FileBarChart, group: "Navigation" },
   { label: "New Report Request", path: "/reporting/new", icon: FileBarChart, group: "Navigation" },
-  { label: "Audit Logs", path: "/audit-logs", icon: ScrollText, group: "Navigation" },
   { label: "User Management", path: "/user-management/users", icon: Users, group: "Navigation" },
   { label: "Roles & Permissions", path: "/user-management/roles", icon: Users, group: "Navigation" },
   { label: "Activity Log", path: "/user-management/activity", icon: Users, group: "Navigation" },
