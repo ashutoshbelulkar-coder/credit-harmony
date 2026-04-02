@@ -54,6 +54,7 @@ public class ConsortiumController {
         Long total = jdbc.queryForObject("SELECT COUNT(*) FROM consortiums c " + where, Long.class, params.toArray());
         String sql = "SELECT c.id, c.consortium_name as name, c.consortium_type as type, c.consortium_status as status,"
             + " c.description as description, c.governance_model as governanceModel,"
+            + " c.data_visibility as dataVisibility,"
             + " (SELECT COUNT(*) FROM consortium_members cm WHERE cm.consortium_id=c.id) as membersCount,"
             + " c.created_at as createdAt"
             + " FROM consortiums c " + where + " ORDER BY c.consortium_name LIMIT ? OFFSET ?";
@@ -69,6 +70,7 @@ public class ConsortiumController {
         List<Map<String, Object>> rows = jdbc.queryForList(
             "SELECT c.id, c.consortium_name as name, c.consortium_type as type, c.consortium_status as status,"
                 + " c.description as description, c.governance_model as governanceModel,"
+                + " c.data_visibility as dataVisibility,"
                 + " (SELECT COUNT(*) FROM consortium_members cm WHERE cm.consortium_id=c.id) as membersCount,"
                 + " c.created_at as createdAt"
                 + " FROM consortiums c WHERE c.id=? AND c.is_deleted=0",
@@ -185,6 +187,7 @@ public class ConsortiumController {
         out.put("status", consortiumStatus);
         out.put("membersCount", totalMembers != null ? totalMembers : memberCount);
         out.put("description", description);
+        out.put("dataVisibility", dataVisibility);
         out.put("createdAt", now);
         return ResponseEntity.status(201).body(out);
     }
@@ -212,14 +215,53 @@ public class ConsortiumController {
         @AuthenticationPrincipal AuthUserPrincipal currentUser,
         HttpServletRequest req
     ) {
+        String dataVisibility = extractDataVisibility(body.get("dataPolicy"));
+        String description = body.get("description") != null ? String.valueOf(body.get("description")) : null;
+        Object gov = body.get("governanceModel");
+        String governanceModel = gov != null ? String.valueOf(gov) : null;
         jdbc.update(
             "UPDATE consortiums SET consortium_name=COALESCE(?,consortium_name),"
-                + " consortium_status=COALESCE(?,consortium_status), updated_at=? WHERE id=?",
+                + " consortium_status=COALESCE(?,consortium_status),"
+                + " data_visibility=COALESCE(?,data_visibility),"
+                + " governance_model=COALESCE(?,governance_model),"
+                + " description=COALESCE(?,description),"
+                + " updated_at=? WHERE id=?",
             body.get("name") != null ? String.valueOf(body.get("name")) : null,
             body.get("status") != null ? String.valueOf(body.get("status")) : null,
+            dataVisibility,
+            governanceModel,
+            description,
             LocalDateTime.now().toString(),
             id
         );
+
+        // Replace members when provided (wizard edit flow).
+        Object membersObj = body.get("members");
+        if (membersObj instanceof List<?> list) {
+            jdbc.update("DELETE FROM consortium_members WHERE consortium_id=?", id);
+            String now = LocalDateTime.now().toString();
+            for (Object o : list) {
+                if (!(o instanceof Map<?, ?> m)) continue;
+                Object iid = m.get("institutionId");
+                if (iid == null) continue;
+                long institutionPk;
+                try {
+                    institutionPk = Long.parseLong(String.valueOf(iid).trim(), 10);
+                } catch (NumberFormatException e) {
+                    continue;
+                }
+                jdbc.update(
+                    """
+                        INSERT INTO consortium_members (consortium_id, institution_id, member_role, consortium_member_status, joined_at)
+                        VALUES (?, ?, 'Consumer', 'active', ?)
+                        """,
+                    id,
+                    institutionPk,
+                    now
+                );
+            }
+        }
+
         auditService.log(currentUser, "CONSORTIUM_UPDATED", "consortium", String.valueOf(id), "Consortium updated", getIp(req));
         return ResponseEntity.ok().build();
     }

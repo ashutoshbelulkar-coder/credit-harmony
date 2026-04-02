@@ -181,8 +181,12 @@ export default function ConsortiumDetailPage() {
                 <CardTitle>Data policy</CardTitle>
               </CardHeader>
               <CardContent className="text-[10px] text-muted-foreground space-y-1">
+                <p>
+                  <span className="text-foreground font-medium">Data visibility:</span>{" "}
+                  <span className="tabular-nums">{consortium.dataVisibility ?? "—"}</span>
+                </p>
                 <p className="text-caption text-muted-foreground">
-                  Data policy configuration is managed separately by consortium administrators.
+                  Product-level masked-field unmasking allow-lists are configured in the consortium wizard (Edit → Data policy).
                 </p>
               </CardContent>
             </Card>

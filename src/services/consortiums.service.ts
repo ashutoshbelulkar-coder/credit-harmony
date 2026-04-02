@@ -11,6 +11,11 @@ export interface ConsortiumResponse {
   membersCount: number;
   dataVolume?: string;
   description?: string;
+  /**
+   * Consortium-level visibility policy stored on consortiums.data_visibility.
+   * Present in Spring API responses; may be absent in legacy/mock fixtures.
+   */
+  dataVisibility?: "full" | "masked_pii" | "derived" | string;
   createdAt?: string;
 }
 

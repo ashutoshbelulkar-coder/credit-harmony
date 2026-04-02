@@ -157,7 +157,7 @@ export default function ConsortiumWizardPage() {
       form.reset({
         name: existing.name,
         description: existing.description ?? "",
-        dataVisibility: "full",
+        dataVisibility: (existing.dataVisibility as "full" | "masked_pii" | "derived") ?? "full",
       });
     } else if (!isEdit) {
       form.reset({
