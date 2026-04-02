@@ -777,6 +777,30 @@ database:
         - { name: deleted_at,     type: "DATETIME" }
       references: []
 
+    - name: data_policies
+      group: CATALOG
+      description: >
+        Product-level data policy storage for masked-field governance.
+        Each row persists the policy for a single (institution_id, product_id) pair
+        as a JSON array of field rules (fields_json).
+      owns_attributes:
+        - id
+        - institution_id
+        - product_id
+        - fields_json
+        - updated_by
+        - updated_at
+      columns:
+        - { name: id,             type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: institution_id, type: "VARCHAR(100) NOT NULL" }
+        - { name: product_id,     type: "VARCHAR(100) NOT NULL" }
+        - { name: fields_json,    type: "TEXT NOT NULL" }
+        - { name: updated_by,     type: "VARCHAR(255)" }
+        - { name: updated_at,     type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+      references: []
+      constraints:
+        - UNIQUE(institution_id, product_id)
+
     - name: product_subscriptions
       group: CATALOG
       description: >

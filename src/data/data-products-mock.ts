@@ -35,6 +35,8 @@ export interface DataPacket {
 export interface PacketConfig {
   packetId: string;
   selectedFields: string[];
+  /** Subset of `selectedFields` that is selected but disabled. */
+  disabledFields?: string[];
   /** Computed / transformed fields (extensible). */
   selectedDerivedFields?: string[];
 }
@@ -174,9 +176,14 @@ export function buildProductPreviewJson(
     const fullPayload = packetMockData[pid] ?? {};
     const cfg = configMap.get(pid);
     const selectedFields = cfg?.selectedFields;
+    const disabledSet = new Set((cfg?.disabledFields ?? []).filter(Boolean));
     const filtered: Record<string, unknown> =
       selectedFields && selectedFields.length > 0
-        ? Object.fromEntries(Object.entries(fullPayload).filter(([k]) => selectedFields.includes(k)))
+        ? Object.fromEntries(
+            Object.entries(fullPayload).filter(
+              ([k]) => selectedFields.includes(k) && !disabledSet.has(k)
+            )
+          )
         : { ...fullPayload };
 
     const derivedSel = cfg?.selectedDerivedFields?.filter(Boolean) ?? [];

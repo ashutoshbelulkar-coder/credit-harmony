@@ -200,6 +200,31 @@ npx vitest run src/lib/institution-register-form.test.ts
 
 ---
 
+## Data Policy Management — QA test cases (manual)
+
+**Scope:** Product-level Data Policy configuration UI (consortium wizard → Data policy step → multi-select products → per-product Configure drawer) and mandatory governance audit entry creation on Save.
+
+| ID | Scenario | Steps | Expected |
+|----|----------|-------|----------|
+| DP-001 | Unmask policy section is present (consortium-level) | Open Consortium Wizard → Data policy step | “Unmask policy” section appears above Products (Full vs Partial) |
+| DP-002 | Full vs Partial selection persists while configuring products | Choose Partial → select products → open/close drawers | Consortium-level policy remains selected; does not reset on drawer open/close |
+| DP-003 | Multi-product selection renders active products list | Open Data policy step | Active products list renders; user can select multiple products |
+| DP-004 | No product selected hides Configure actions | Open Data policy step; select none | No per-product Configure actions shown |
+| DP-005 | Per-product drawer opens and lists masked fields | Select a product → click Configure | Right drawer opens for that product; shows masked fields with allow-unmask checkboxes and Data Type |
+| DP-006 | Drawer scroll works with long lists | Open Configure for product with many masked fields | Field list is scrollable; header and Save/Cancel remain accessible |
+| DP-007 | Consortium-level policy applies on field toggle | Set policy=Full → check a field | Field is set to `isUnmasked=true` and saved with `unmaskType=FULL` |
+| DP-008 | Partial requires template | Set policy=Partial → check a field without a supported template | UI blocks toggle and shows error “Partial masking template not available for this field” |
+| DP-009 | Partial works for supported fields | Set policy=Partial → check PAN/Phone/Email/Name | Toggle succeeds; saved payload includes `unmaskType=PARTIAL` and a `partialConfig` template (no free-text inputs) |
+| DP-010 | “At least 1 masked” guard blocks unsafe saves | Check every masked field for a product → Save | Save blocked with error “At least 1 field must remain masked”; selections retained |
+| DP-011 | Save persists product-scoped policy only | Configure Product A → Save → Configure Product B | Product A keeps its policy; Product B remains independent |
+| DP-012 | Draft vs saved behavior | Change selections (don’t save) → close drawer → reopen | Unsaved changes are preserved while the product draft is dirty; saving clears dirty state |
+| DP-013 | Switch consortium-level policy updates checked fields | With some fields checked, change policy Full ↔ Partial | Checked fields update their `unmaskType` accordingly where allowed (Partial requires template) |
+| DP-014 | Backend validation errors are surfaced | Force a backend 400 (e.g. attempt to save all fields unmasked) | Error toast shown; drawer stays open; state retained |
+| DP-015 | Audit log created on successful save | Save a policy update → open Data Governance → Governance Audit Logs | New row present with `actionType=DATA_POLICY_UPDATED` and `entityType=GOVERNANCE` (description contains changed field names only) |
+| DP-016 | RBAC: Viewer can read but cannot save | Login as VIEWER → open Configure and try Save | Fetch works (read-only); Save is forbidden (403) and UI shows error |
+| DP-017 | Auth required | Without JWT, load data-policy endpoint | API returns 401; SPA shows appropriate error state when mock fallback is disabled |
+| DP-018 | Multi-product selection performance | Select 10+ products | The page remains responsive; masked counts load progressively per product |
+
 ## Running Tests
 
 ### Backend Tests

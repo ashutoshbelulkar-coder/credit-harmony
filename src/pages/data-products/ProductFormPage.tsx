@@ -148,20 +148,32 @@ export default function ProductFormPage() {
       packetConfigs.find((c) => c.packetId === packetId) ?? {
         packetId,
         selectedFields: [],
+        disabledFields: [],
         selectedDerivedFields: [],
       },
     [packetConfigs]
   );
 
   const handleSavePacketFields = useCallback(
-    (packetId: string, payload: { selectedFields: string[]; selectedDerivedFields: string[] }) => {
+    (
+      packetId: string,
+      payload: {
+        selectedFields: string[];
+        disabledFields?: string[];
+        selectedDerivedFields: string[];
+      }
+    ) => {
       setPacketConfigs((prev) => {
         const without = prev.filter((c) => c.packetId !== packetId);
+        const selectedSet = new Set(payload.selectedFields);
+        const disabled =
+          payload.disabledFields?.filter((f) => selectedSet.has(f)) ?? [];
         return [
           ...without,
           {
             packetId,
             selectedFields: payload.selectedFields,
+            disabledFields: disabled,
             selectedDerivedFields: payload.selectedDerivedFields,
           },
         ];
@@ -600,6 +612,7 @@ export default function ProductFormPage() {
             const c = getPacketConfig(pid);
             return {
               selectedFields: c.selectedFields,
+              disabledFields: c.disabledFields ?? [],
               selectedDerivedFields: c.selectedDerivedFields ?? [],
             };
           }}

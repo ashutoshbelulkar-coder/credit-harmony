@@ -55,6 +55,9 @@ DROP TABLE IF EXISTS audit_logs;
 DROP TABLE IF EXISTS consortium_members;
 DROP TABLE IF EXISTS consortiums;
 DROP TABLE IF EXISTS product_subscriptions;
+DROP TABLE IF EXISTS product_packet_raw_fields;
+DROP TABLE IF EXISTS product_packets;
+DROP TABLE IF EXISTS data_policies;
 DROP TABLE IF EXISTS products;
 DROP TABLE IF EXISTS compliance_documents;
 DROP TABLE IF EXISTS ingestion_drift_alerts;
@@ -339,6 +342,34 @@ CREATE TABLE products (
     deleted_at     DATETIME,
     CONSTRAINT uq_products_code UNIQUE (product_code)
 );
+
+-- ----------------------------------------------------------------------------
+-- product_packets (selected catalogue packets per product)
+-- ----------------------------------------------------------------------------
+CREATE TABLE product_packets (
+    product_id  INTEGER      NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    packet_id   VARCHAR(100) NOT NULL,
+    sort_order  INTEGER      NOT NULL DEFAULT 0,
+    created_at  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (product_id, packet_id)
+);
+
+CREATE INDEX idx_product_packets_product_id ON product_packets (product_id);
+
+-- ----------------------------------------------------------------------------
+-- product_packet_raw_fields (selected raw fields per packet; enabled/disabled)
+-- ----------------------------------------------------------------------------
+CREATE TABLE product_packet_raw_fields (
+    product_id  INTEGER  NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+    packet_id   VARCHAR(100) NOT NULL,
+    field_path  TEXT     NOT NULL,
+    is_enabled  INTEGER  NOT NULL DEFAULT 1 CHECK (is_enabled IN (0,1)),
+    created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (product_id, packet_id, field_path)
+);
+
+CREATE INDEX idx_product_packet_raw_fields_product_id ON product_packet_raw_fields (product_id);
+CREATE INDEX idx_product_packet_raw_fields_packet_id  ON product_packet_raw_fields (packet_id);
 
 -- ----------------------------------------------------------------------------
 -- product_subscriptions (FK-only mapping; no product_name)
@@ -824,6 +855,22 @@ CREATE TABLE canonical_fields (
     updated_at          DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT uq_canonical_fields_code UNIQUE (field_code)
 );
+
+-- ----------------------------------------------------------------------------
+-- data_policies (product-level masked field unmasking rules)
+-- ----------------------------------------------------------------------------
+CREATE TABLE data_policies (
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    institution_id  VARCHAR(100) NOT NULL,
+    product_id      VARCHAR(100) NOT NULL,
+    fields_json     TEXT         NOT NULL,
+    updated_by      VARCHAR(255),
+    updated_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_data_policies UNIQUE (institution_id, product_id)
+);
+
+CREATE INDEX idx_data_policies_product_id     ON data_policies (product_id);
+CREATE INDEX idx_data_policies_institution_id ON data_policies (institution_id);
 
 -- ----------------------------------------------------------------------------
 -- validation_rules

@@ -13,6 +13,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -37,6 +38,80 @@ public class ProductController {
     private final AuditService auditService;
     private final ObjectMapper objectMapper;
     private final ApprovalQueueService approvalQueueService;
+
+    private static List<String> asStringList(Object v) {
+        if (v == null) return List.of();
+        if (v instanceof List<?> list) {
+            List<String> out = new ArrayList<>();
+            for (Object o : list) {
+                if (o == null) continue;
+                String s = String.valueOf(o).trim();
+                if (!s.isEmpty()) out.add(s);
+            }
+            return out;
+        }
+        return List.of();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> asObjectMapList(Object v) {
+        if (v == null) return List.of();
+        if (v instanceof List<?> list) {
+            List<Map<String, Object>> out = new ArrayList<>();
+            for (Object o : list) {
+                if (o instanceof Map<?, ?> m) {
+                    Map<String, Object> row = new LinkedHashMap<>();
+                    for (Map.Entry<?, ?> e : m.entrySet()) {
+                        row.put(String.valueOf(e.getKey()), e.getValue());
+                    }
+                    out.add(row);
+                }
+            }
+            return out;
+        }
+        return List.of();
+    }
+
+    private void replaceProductPacketConfig(long productId, List<String> packetIds, List<Map<String, Object>> packetConfigs) {
+        // Replace-all semantics for simplicity (dev-scale), kept in a transaction by caller.
+        jdbc.update("DELETE FROM product_packet_raw_fields WHERE product_id=?", productId);
+        jdbc.update("DELETE FROM product_packets WHERE product_id=?", productId);
+
+        for (int i = 0; i < packetIds.size(); i++) {
+            jdbc.update(
+                "INSERT INTO product_packets(product_id, packet_id, sort_order) VALUES(?,?,?)",
+                productId,
+                packetIds.get(i),
+                i
+            );
+        }
+
+        // Index configs by packetId for quick lookups; if absent, treat as empty.
+        Map<String, Map<String, Object>> cfgByPacketId = new HashMap<>();
+        for (Map<String, Object> cfg : packetConfigs) {
+            String pid = cfg.get("packetId") != null ? String.valueOf(cfg.get("packetId")).trim() : "";
+            if (!pid.isEmpty()) {
+                cfgByPacketId.put(pid, cfg);
+            }
+        }
+
+        for (String pid : packetIds) {
+            Map<String, Object> cfg = cfgByPacketId.getOrDefault(pid, Map.of());
+            List<String> selectedFields = asStringList(cfg.get("selectedFields"));
+            Set<String> selectedSet = new HashSet<>(selectedFields);
+            Set<String> disabledSet = new HashSet<>(asStringList(cfg.get("disabledFields")));
+            for (String f : selectedFields) {
+                boolean enabled = !disabledSet.contains(f);
+                jdbc.update(
+                    "INSERT INTO product_packet_raw_fields(product_id, packet_id, field_path, is_enabled) VALUES(?,?,?,?)",
+                    productId,
+                    pid,
+                    f,
+                    enabled ? 1 : 0
+                );
+            }
+        }
+    }
 
     @GetMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','BUREAU_ADMIN','ANALYST','VIEWER')")
@@ -101,11 +176,67 @@ public class ProductController {
                 + " FROM products p WHERE p.id=? AND p.is_deleted=0",
             id
         );
-        return rows.isEmpty() ? ResponseEntity.notFound().build() : ResponseEntity.ok(normalizeProductDetailRow(rows.get(0)));
+        if (rows.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Map<String, Object> out = normalizeProductDetailRow(rows.get(0));
+
+        List<Map<String, Object>> packetRows = jdbc.queryForList(
+            "SELECT packet_id as packetId FROM product_packets WHERE product_id=? ORDER BY sort_order ASC",
+            id
+        );
+        List<String> packetIds = new ArrayList<>();
+        for (Map<String, Object> r : packetRows) {
+            Object v = jdbcGetCi(r, "packetId");
+            if (v != null) {
+                String s = String.valueOf(v).trim();
+                if (!s.isEmpty()) packetIds.add(s);
+            }
+        }
+        out.put("packetIds", packetIds);
+
+        List<Map<String, Object>> rawRows = jdbc.queryForList(
+            "SELECT packet_id as packetId, field_path as fieldPath, is_enabled as isEnabled"
+                + " FROM product_packet_raw_fields WHERE product_id=?",
+            id
+        );
+        Map<String, List<String>> selectedByPacket = new HashMap<>();
+        Map<String, List<String>> disabledByPacket = new HashMap<>();
+        for (Map<String, Object> r : rawRows) {
+            String pid = jdbcString(jdbcGetCi(r, "packetId"));
+            String path = jdbcString(jdbcGetCi(r, "fieldPath"));
+            Object en = jdbcGetCi(r, "isEnabled");
+            if (pid == null || pid.isBlank() || path == null || path.isBlank()) continue;
+            selectedByPacket.computeIfAbsent(pid, __ -> new ArrayList<>()).add(path);
+            boolean enabled = true;
+            if (en instanceof Number n) {
+                enabled = n.intValue() != 0;
+            } else if (en != null) {
+                enabled = !"0".equals(String.valueOf(en));
+            }
+            if (!enabled) {
+                disabledByPacket.computeIfAbsent(pid, __ -> new ArrayList<>()).add(path);
+            }
+        }
+
+        List<Map<String, Object>> packetConfigs = new ArrayList<>();
+        for (String pid : packetIds) {
+            Map<String, Object> cfg = new LinkedHashMap<>();
+            cfg.put("packetId", pid);
+            cfg.put("selectedFields", selectedByPacket.getOrDefault(pid, List.of()));
+            cfg.put("disabledFields", disabledByPacket.getOrDefault(pid, List.of()));
+            cfg.put("selectedDerivedFields", List.of());
+            packetConfigs.add(cfg);
+        }
+        out.put("packetConfigs", packetConfigs);
+
+        return ResponseEntity.ok(out);
     }
 
     @PostMapping
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','BUREAU_ADMIN')")
+    @Transactional
     public ResponseEntity<Map<String, Object>> create(
         @RequestBody Map<String, Object> body,
         @AuthenticationPrincipal AuthUserPrincipal currentUser,
@@ -146,6 +277,14 @@ public class ProductController {
             now
         );
         Long newId = jdbc.queryForObject("SELECT last_insert_rowid()", Long.class);
+
+        // Persist packet selection + raw field enablement (if provided by SPA).
+        List<String> packetIds = asStringList(body.get("packetIds"));
+        List<Map<String, Object>> packetConfigs = asObjectMapList(body.get("packetConfigs"));
+        if (newId != null && !packetIds.isEmpty()) {
+            replaceProductPacketConfig(newId, packetIds, packetConfigs);
+        }
+
         if (needsApproval) {
             String desc = body.get("description") != null && !String.valueOf(body.get("description")).isBlank()
                 ? String.valueOf(body.get("description")).trim()
@@ -171,6 +310,7 @@ public class ProductController {
 
     @PatchMapping("/{id}")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN','BUREAU_ADMIN')")
+    @Transactional
     public ResponseEntity<Void> update(
         @PathVariable Long id,
         @RequestBody Map<String, Object> body,
@@ -185,6 +325,13 @@ public class ProductController {
             LocalDateTime.now().toString(),
             id
         );
+
+        List<String> packetIds = asStringList(body.get("packetIds"));
+        List<Map<String, Object>> packetConfigs = asObjectMapList(body.get("packetConfigs"));
+        if (!packetIds.isEmpty() || body.containsKey("packetConfigs") || body.containsKey("packetIds")) {
+            replaceProductPacketConfig(id, packetIds, packetConfigs);
+        }
+
         auditService.log(currentUser, "PRODUCT_UPDATED", "product", String.valueOf(id), "Product updated", getIp(req));
         return ResponseEntity.ok().build();
     }

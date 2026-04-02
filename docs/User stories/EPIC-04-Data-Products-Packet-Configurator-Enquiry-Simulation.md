@@ -108,6 +108,7 @@ Data Products are the monetizable units of the HCB credit bureau — defining wh
 - Visible chrome: Source type badge, optional Packet switcher (when multiple packets share same source type), Sources tab, Raw/Derived tabs
 - Sources tab: registry entries from `GET /api/v1/schema-mapper/schemas?sourceType=`
 - Raw tab: field paths from `GET /api/v1/schema-mapper/schemas/source-type-fields?sourceType=` merged with packet-only catalogue fields
+- Raw tab: each **selected** raw field has an **Enabled** toggle; disabling keeps the field selected but omits it from the product output/mapping
 - Derived tab: field names from each catalogue row's `derivedFields`
 - Packet switcher (catalogue labels) visible when multiple packets in group; "Save configuration" persists `packetConfigs` for each packet
 
@@ -360,6 +361,7 @@ flowchart TD
 ```typescript
 {
   rawFields: string[],       // selected raw field paths
+  disabledRawFields?: string[], // subset of rawFields that are selected but disabled
   derivedFields: string[],   // selected derived field names
   sourceIds: string[]        // selected source registry entry IDs
 }

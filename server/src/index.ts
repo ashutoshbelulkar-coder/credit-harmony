@@ -30,6 +30,29 @@ import { isWithinDateRange } from "../../src/lib/calc/dateFilter.ts";
 const JWT_SECRET = process.env.JWT_SECRET ?? "hcb-dev-secret-change-in-production";
 const PORT = Number(process.env.PORT ?? 8091);
 
+function inferPartialTemplate(fieldName: string) {
+  const f = String(fieldName ?? "").toLowerCase();
+  if (f.includes("pan") || f.includes("card_number") || f.includes("cardnumber")) return { type: "LAST_N", value: 4 };
+  if (f.includes("phone") || f.includes("msisdn") || f.includes("mobile")) return { type: "LAST_N", value: 2 };
+  if (f.includes("email")) return { type: "MASK_DOMAIN", value: 0 };
+  if (f.includes("name") && !f.includes("company")) return { type: "FIRST_N", value: 1 };
+  return undefined;
+}
+
+function sensitivityFromFieldName(fieldName: string): "HIGH" | "MEDIUM" | "LOW" {
+  const f = String(fieldName ?? "").toLowerCase();
+  if (f.includes("pan") || f.includes("card") || f.includes("national") || f.includes("id") || f.includes("dob") || f.includes("birth") || f.includes("name")) return "HIGH";
+  if (f.includes("email") || f.includes("phone") || f.includes("address")) return "MEDIUM";
+  return "LOW";
+}
+
+function dataTypeFromFieldName(fieldName: string): string {
+  const f = String(fieldName ?? "").toLowerCase();
+  if (f.includes("date") || f.includes("dob") || f.includes("birth")) return "date";
+  if (f.includes("amount") || f.includes("balance") || f.includes("score")) return "number";
+  return "string";
+}
+
 declare module "fastify" {
   interface FastifyRequest {
     user?: JwtUser;
@@ -2016,6 +2039,144 @@ export async function buildServer(options?: { logger?: boolean }): Promise<HcbSe
     state.consortiums.splice(i, 1);
     state.consortiumMembers = state.consortiumMembers.filter((m) => m.consortiumId !== id);
     return reply.code(204).send();
+  });
+
+  // ─── Data Policy (product-level masking) ──────────────────────────────────
+  app.get("/api/v1/data-policy", { preHandler: authPreHandler }, async (req, reply) => {
+    const q = req.query as Record<string, string | undefined>;
+    const institutionId = String(q.institutionId ?? "").trim();
+    const productId = String(q.productId ?? "").trim();
+    if (!institutionId || !productId) return err(reply, 400, "ERR_VALIDATION", "institutionId and productId are required");
+
+    const existing = state.dataPolicies.find(
+      (p: any) => String(p.institutionId) === institutionId && String(p.productId) === productId
+    );
+    if (existing) return existing;
+
+    // Generate a deterministic default policy for this product.
+    const baseFields = [
+      "PAN",
+      "Phone",
+      "Email",
+      "Name",
+      "NationalId",
+      "DateOfBirth",
+      "AddressLine1",
+      "Employer",
+    ];
+    const extraCount = 30;
+    const fields = [
+      ...baseFields,
+      ...Array.from({ length: extraCount }, (_, i) => `MaskedField_${String(i + 1).padStart(3, "0")}`),
+    ].map((fieldName) => ({
+      fieldName,
+      isMasked: true,
+      isUnmasked: false,
+      unmaskType: null,
+      dataType: dataTypeFromFieldName(fieldName),
+      sensitivityTag: sensitivityFromFieldName(fieldName),
+    }));
+
+    const row = {
+      id: `dp_${state.dataPolicyNextId++}`,
+      institutionId,
+      productId,
+      fields,
+      updatedBy: req.user!.email,
+      updatedAt: new Date().toISOString(),
+    };
+    state.dataPolicies.push(row);
+    return row;
+  });
+
+  app.post("/api/v1/data-policy", { preHandler: authPreHandler }, async (req, reply) => {
+    const b = req.body as Record<string, unknown>;
+    const institutionId = String(b.institutionId ?? "").trim();
+    const productId = String(b.productId ?? "").trim();
+    if (!institutionId || !productId) return err(reply, 400, "ERR_VALIDATION", "institutionId and productId are required");
+    const rawFields = b.fields;
+    if (!Array.isArray(rawFields)) return err(reply, 400, "ERR_VALIDATION", "fields[] is required");
+
+    const now = new Date().toISOString();
+    const prev = state.dataPolicies.find(
+      (p: any) => String(p.institutionId) === institutionId && String(p.productId) === productId
+    ) as any | undefined;
+
+    const nextFields = rawFields.map((f: any) => {
+      const fieldName = String(f.fieldName ?? "").trim();
+      const isMasked = true;
+      const isUnmasked = Boolean(f.isUnmasked);
+      const unmaskType = f.unmaskType === "FULL" || f.unmaskType === "PARTIAL" ? f.unmaskType : null;
+      const sensitivityTag =
+        f.sensitivityTag === "HIGH" || f.sensitivityTag === "MEDIUM" || f.sensitivityTag === "LOW"
+          ? f.sensitivityTag
+          : sensitivityFromFieldName(fieldName);
+      const dataType = typeof f.dataType === "string" && f.dataType.trim() ? f.dataType : dataTypeFromFieldName(fieldName);
+
+      let partialConfig = f.partialConfig;
+      if (unmaskType === "PARTIAL") {
+        const tpl = inferPartialTemplate(fieldName);
+        if (tpl) partialConfig = tpl;
+      } else {
+        partialConfig = undefined;
+      }
+
+      return {
+        fieldName,
+        isMasked,
+        isUnmasked,
+        unmaskType,
+        partialConfig,
+        dataType,
+        sensitivityTag,
+      };
+    });
+
+    const next = {
+      id: prev?.id ?? `dp_${state.dataPolicyNextId++}`,
+      institutionId,
+      productId,
+      fields: nextFields,
+      updatedBy: req.user!.email,
+      updatedAt: now,
+    };
+
+    const changedFields: string[] = [];
+    if (prev?.fields && Array.isArray(prev.fields)) {
+      const prevByName = new Map(prev.fields.map((x: any) => [String(x.fieldName), x]));
+      for (const f of nextFields) {
+        const before = prevByName.get(String(f.fieldName));
+        if (!before) continue;
+        const changed =
+          Boolean(before.isUnmasked) !== Boolean(f.isUnmasked) ||
+          String(before.unmaskType ?? "") !== String(f.unmaskType ?? "") ||
+          JSON.stringify(before.partialConfig ?? null) !== JSON.stringify(f.partialConfig ?? null);
+        if (changed) changedFields.push(String(f.fieldName));
+      }
+    }
+
+    if (prev) {
+      Object.assign(prev, next);
+    } else {
+      state.dataPolicies.push(next);
+    }
+
+    pushAudit(state, {
+      userEmail: req.user!.email,
+      actionType: "DATA_POLICY_UPDATED",
+      entityType: "GOVERNANCE",
+      entityId: productId,
+      description: JSON.stringify({
+        action: "DATA_POLICY_UPDATED",
+        entity: "Data Policy",
+        product: productId,
+        changedFields,
+        user: req.user!.email,
+        timestamp: now,
+      }),
+    });
+
+    return reply.code(200).send(prev ?? next);
   });
 
   // ─── Products ──────────────────────────────────────────────────────────────

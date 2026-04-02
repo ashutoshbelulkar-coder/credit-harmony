@@ -49,6 +49,8 @@ The **Create / Edit product** form loads the packet picker from **`GET /api/v1/p
 
 **Packet configuration modal (per source-type row, multiple catalogue packets):** The product form opens **`PacketConfigModal`** with the **list of packet ids** selected for that **Schema Mapper `sourceType`** (catalogue order). The SPA loads **raw field paths** from **`GET /api/v1/schema-mapper/schemas/source-type-fields?sourceType=<shared>`** (union of `parsedFields` for all registry rows of that type, current schema version per row) and merges **packet-only** paths from the **active** catalogue entry. **Sources** in the modal header lists **registry source names** from **`GET /api/v1/schema-mapper/schemas?sourceType=<same>&page=0&size=500`**. When **several** catalogue packets share the type, the modal exposes a **Packet** switcher; **Derived** checklists are **per packet id** from each catalogue entry’s **`derivedFields`** (same payload as **`GET /api/v1/products/packet-catalog`**; the modal uses the form’s resolved **`catalogOptions`**). **Save configuration** updates **`packetConfigs`** for **every** packet id in the open group. Calls use **`useSourceTypeFields`** and **`useSchemaRegistryList`** in `src/hooks/api/useSchemaMapper.ts`; mock fallback applies only when **`VITE_USE_MOCK_FALLBACK=true`** in dev and the API errors.
 
+**Raw field enable/disable:** The modal supports a separate **enabled/disabled** flag per selected raw field. Disabled fields remain selected for the packet but are omitted from the product output/mapping. The SPA persists this as `disabledFields` (a subset of `selectedFields`) inside each `packetConfigs[]` entry; Spring persists the selection + enablement state in normalized tables.
+
 When the SPA saves a new catalogue product with `status: approval_pending` (the default on **Create product**), Fastify:
 
 1. Appends the product to in-memory `state.products` (with optional `packetIds`, `packetConfigs`, `enquiryConfig` from the form).
@@ -147,6 +149,23 @@ The SPA uses `src/services/schema-mapper.service.ts` and `src/hooks/api/useSchem
 Implementation: [`server/src/ingestionDriftAlerts.ts`](../../server/src/ingestionDriftAlerts.ts). Alerts live in **`state.ingestionDriftAlerts`**, seeded from **`data-governance.json`**. **`POST /api/v1/schema-mapper/ingest`** and the mapping worker can prepend rows in memory — compare with Spring Schema Mapper if you need identical append behaviour on Java.
 
 The SPA loads alerts via **`src/services/data-ingestion.service.ts`** and **`src/hooks/api/useDataIngestion.ts`** (`useDriftAlerts`).
+
+## Data Policy Management (Spring — canonical)
+
+The consortium wizard’s **Data policy** step includes a product-level **Data Policy Management** module, backed by **Spring** persistence (SQLite/Postgres) in table **`data_policies`**.
+
+**UI semantics (SPA):**
+- Operators choose a consortium-level **Unmask policy** (**Full** or **Partial**) once, then configure **per-product** allow-lists (which masked fields may be unmasked).
+- The drawer is product-scoped and renders masked fields; selecting a field enables unmasking per the chosen policy.
+
+**API (JWT required):**
+
+| Method | Path | Notes |
+|--------|------|------|
+| GET | `/api/v1/data-policy?institutionId=&productId=` | Read or create the product-scoped policy row on first access |
+| POST | `/api/v1/data-policy` | Upsert policy; validates: at least one field remains masked; partial requires predefined templates |
+
+**Audit logging:** Each successful update writes **`DATA_POLICY_UPDATED`** to the audit log with **`entityType=GOVERNANCE`** so the change appears in **Governance Audit Logs** in the portal.
 
 ## Spring Boot — authentication and dashboard (SQLite dev)
 

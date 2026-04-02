@@ -35,6 +35,7 @@ Consortiums are governed groups of financial institutions that agree to share cr
 - Consortium list and detail pages
 - Member management (add, role assignment, suspend/exit)
 - Data policy configuration (share_loan_data, share_repayment_history, allow_aggregation, data_visibility)
+- Product-level Data Policy Management (masked-field unmask allow-lists) within the consortium wizard Data policy step
 - Consortium lifecycle management (approve, suspend, dissolve)
 - Approval queue integration (type: `consortium`)
 
@@ -84,6 +85,7 @@ Consortiums are governed groups of financial institutions that agree to share cr
 - **Status badge:** `pending`=yellow, `active`=green, `suspended`=orange, `dissolved`=gray
 - **Member role badge:** `Contributor`=blue, `Consumer`=green, `Observer`=gray
 - **Members wizard step:** Loads institution list with `role=subscriber`, `allowMockFallback: false`, `size=200`
+- **Data policy wizard step (product-level):** Operators pick a consortium-level **Unmask policy** (Full vs Partial) once, then select one or more active products and open a per-product Configure drawer to choose which masked fields may be unmasked. Partial uses predefined templates only (PAN/Phone/Email/Name).
 
 ### State Handling
 | State | UI Behavior |

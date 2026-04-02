@@ -3,6 +3,8 @@ import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
+import { toast } from "sonner";
+import { useQueries } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Button } from "@/components/ui/button";
@@ -24,6 +26,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Popover,
   PopoverContent,
@@ -39,14 +52,20 @@ import {
 } from "@/components/ui/command";
 import { Check, ChevronRight, FileStack, Shield, Users, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { tableHeaderClasses } from "@/lib/typography";
+import { badgeTextClasses, tableHeaderClasses } from "@/lib/typography";
 import {
   type ConsortiumDataPolicy,
   type ConsortiumMember,
 } from "@/data/consortiums-mock";
 import { useConsortium, useConsortiumMembers, useCreateConsortium, useUpdateConsortium } from "@/hooks/api/useConsortiums";
 import { useInstitutions } from "@/hooks/api/useInstitutions";
+import { useProducts } from "@/hooks/api/useProducts";
+import { useAuth } from "@/contexts/AuthContext";
+import { useSaveDataPolicy } from "@/hooks/api/useDataPolicy";
+import { inferPartialTemplate } from "@/data/data-policy-mock";
 import type { InstitutionResponse } from "@/services/institutions.service";
+import { fetchDataPolicy } from "@/services/dataPolicy.service";
+import type { DataPolicy, DataPolicyField, DataPolicyUnmaskType } from "@/types/data-policy";
 
 const steps = [
   { title: "Basic info", shortTitle: "Info", icon: FileStack },
@@ -73,6 +92,7 @@ export default function ConsortiumWizardPage() {
   const { id: paramId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
 
   const isEdit = Boolean(paramId && location.pathname.endsWith("/edit"));
   const editId = isEdit ? paramId! : undefined;
@@ -94,6 +114,24 @@ export default function ConsortiumWizardPage() {
     () => (institutionsPage?.content ?? []).filter((i) => i.isSubscriber),
     [institutionsPage]
   );
+
+  // ── Data Policy module state (product-level) ──────────────────────────────
+  const { data: productsPage, isLoading: productsLoading } = useProducts({ status: "active", page: 0, size: 200 });
+  const activeProducts = useMemo(() => {
+    const rows = productsPage?.content ?? [];
+    return rows.filter((p) => String(p.status ?? "").toLowerCase() === "active");
+  }, [productsPage]);
+  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+  const selectedProductIdSet = useMemo(() => new Set(selectedProductIds), [selectedProductIds]);
+  const [activeDrawerProductId, setActiveDrawerProductId] = useState<string | null>(null);
+
+  const institutionId = String(user?.institutionId ?? "HCB");
+  const { mutate: savePolicy, isPending: savingPolicy } = useSaveDataPolicy();
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [draftByProductId, setDraftByProductId] = useState<Record<string, DataPolicy>>({});
+  const [dirtyDraftProductIds, setDirtyDraftProductIds] = useState<Set<string>>(new Set());
+  const [focusFieldName, setFocusFieldName] = useState<string | null>(null);
+  const [consortiumUnmaskPolicy, setConsortiumUnmaskPolicy] = useState<DataPolicyUnmaskType>("FULL");
 
   const [currentStep, setCurrentStep] = useState(0);
   const [members, setMembers] = useState<ConsortiumMember[]>([]);
@@ -133,6 +171,48 @@ export default function ConsortiumWizardPage() {
     }
   }, [existing, editId, isEdit, form]);
 
+  const policyQueries = useQueries({
+    queries: selectedProductIds.map((productId) => ({
+      queryKey: ["data-policy", institutionId, productId] as const,
+      queryFn: () => fetchDataPolicy({ institutionId, productId }),
+      staleTime: 30_000,
+      enabled: Boolean(institutionId) && Boolean(productId),
+    })),
+  });
+
+  const policyByProductId = useMemo(() => {
+    const map: Record<string, DataPolicy | undefined> = {};
+    for (let i = 0; i < selectedProductIds.length; i += 1) {
+      const pid = selectedProductIds[i];
+      map[pid] = policyQueries[i]?.data;
+    }
+    return map;
+  }, [policyQueries, selectedProductIds]);
+
+  // Seed drafts from fetched policies (only when not dirty).
+  useEffect(() => {
+    setDraftByProductId((prev) => {
+      let next = prev;
+      for (const pid of selectedProductIds) {
+        const fetched = policyByProductId[pid];
+        if (!fetched) continue;
+        if (dirtyDraftProductIds.has(pid)) continue;
+        const existing = prev[pid];
+        if (existing) continue;
+        if (next === prev) next = { ...prev };
+        next[pid] = JSON.parse(JSON.stringify(fetched)) as DataPolicy;
+      }
+      return next;
+    });
+  }, [policyByProductId, selectedProductIds, dirtyDraftProductIds]);
+
+  useEffect(() => {
+    if (!drawerOpen || !focusFieldName) return;
+    const id = `dp-field-${encodeURIComponent(focusFieldName)}`;
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }, [drawerOpen, focusFieldName]);
+
   // Seed members from API when editing
   useEffect(() => {
     if (!existingMembers) return;
@@ -162,6 +242,119 @@ export default function ConsortiumWizardPage() {
   const removeMember = (instId: string) => {
     setMembers((prev) => prev.filter((m) => m.institutionId !== instId));
   };
+
+  const activeDrawerProduct = useMemo(() => {
+    if (!activeDrawerProductId) return undefined;
+    return activeProducts.find((p) => String(p.id) === String(activeDrawerProductId));
+  }, [activeDrawerProductId, activeProducts]);
+
+  const activePolicyDraft: DataPolicy | null = useMemo(() => {
+    if (!activeDrawerProductId) return null;
+    return draftByProductId[activeDrawerProductId] ?? null;
+  }, [activeDrawerProductId, draftByProductId]);
+
+  const activePolicyEffective: DataPolicy | null = useMemo(() => {
+    if (!activeDrawerProductId) return null;
+    return activePolicyDraft ?? policyByProductId[activeDrawerProductId] ?? null;
+  }, [activeDrawerProductId, activePolicyDraft, policyByProductId]);
+
+  const maskedFieldsForActiveDrawer: DataPolicyField[] = useMemo(() => {
+    const list = activePolicyEffective?.fields ?? [];
+    return list.filter((f) => Boolean(f.isMasked));
+  }, [activePolicyEffective?.fields]);
+
+  // Ensure a draft exists when opening Configure (so edits are always possible).
+  useEffect(() => {
+    if (!drawerOpen || !activeDrawerProductId) return;
+    setDraftByProductId((prev) => {
+      if (prev[activeDrawerProductId]) return prev;
+      const fetched = policyByProductId[activeDrawerProductId];
+      if (!fetched) return prev;
+      return { ...prev, [activeDrawerProductId]: JSON.parse(JSON.stringify(fetched)) as DataPolicy };
+    });
+  }, [drawerOpen, activeDrawerProductId, policyByProductId]);
+
+  const updateField = useCallback(
+    (productId: string, fieldName: string, patch: Partial<DataPolicyField>) => {
+      setDraftByProductId((prev) => {
+        const dp = prev[productId];
+        if (!dp) return prev;
+        const nextFields = dp.fields.map((f) =>
+          f.fieldName === fieldName ? ({ ...f, ...patch } as DataPolicyField) : f
+        );
+        return { ...prev, [productId]: { ...dp, fields: nextFields } };
+      });
+      setDirtyDraftProductIds((prev) => {
+        const next = new Set(prev);
+        next.add(productId);
+        return next;
+      });
+    },
+    []
+  );
+
+  const canSelectPartial = useCallback((fieldName: string) => {
+    return inferPartialTemplate(fieldName) != null;
+  }, []);
+
+  // Apply consortium-level unmask policy to existing checked fields.
+  useEffect(() => {
+    setDraftByProductId((prev) => {
+      let next = prev;
+      for (const pid of selectedProductIds) {
+        const dp = prev[pid];
+        if (!dp) continue;
+        const updatedFields = dp.fields.map((f) => {
+          if (!f.isMasked || !f.isUnmasked) return f;
+          const partialTpl = inferPartialTemplate(f.fieldName);
+          const canPartial = partialTpl != null;
+
+          const desired: DataPolicyUnmaskType = consortiumUnmaskPolicy;
+
+          if (desired === "PARTIAL" && !canPartial) {
+            // Can't honor PARTIAL for this field; leave as-is rather than silently breaking.
+            return f;
+          }
+
+          const nextUnmaskType = desired;
+          const nextPartialConfig = nextUnmaskType === "PARTIAL" ? partialTpl ?? f.partialConfig : undefined;
+          if (f.unmaskType === nextUnmaskType && (nextUnmaskType !== "PARTIAL" || f.partialConfig === nextPartialConfig)) {
+            return f;
+          }
+          return { ...f, unmaskType: nextUnmaskType, partialConfig: nextPartialConfig };
+        });
+
+        // Only write if something changed.
+        const changed = updatedFields.some((f, idx) => f !== dp.fields[idx]);
+        if (!changed) continue;
+        if (next === prev) next = { ...prev };
+        next[pid] = { ...dp, fields: updatedFields };
+      }
+      return next;
+    });
+    // Mark selected product drafts as dirty if we changed their checked fields.
+    setDirtyDraftProductIds((prev) => {
+      const next = new Set(prev);
+      for (const pid of selectedProductIds) next.add(pid);
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consortiumUnmaskPolicy]);
+
+  const validatePolicyBeforeSave = useCallback((policy: DataPolicy) => {
+    const fields = (policy.fields ?? []).filter((f) => Boolean(f.isMasked));
+    const maskedRemain = fields.some((f) => f.isUnmasked !== true);
+    if (!maskedRemain) return "At least 1 field must remain masked";
+
+    for (const f of fields) {
+      if (!f.isUnmasked) continue;
+      if (f.unmaskType === "PARTIAL") {
+        const tpl = inferPartialTemplate(f.fieldName);
+        if (!tpl) return `Partial masking template not available for ${f.fieldName}`;
+      }
+    }
+    return null;
+  }, []);
 
   const handleNext = async () => {
     if (currentStep === 0) {
@@ -511,29 +704,278 @@ export default function ConsortiumWizardPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-h4 font-medium">Data policy</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6 max-w-md">
-            <FormField
-              control={form.control}
-              name="dataVisibility"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-caption">Data visibility</FormLabel>
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="full">Full details</SelectItem>
-                      <SelectItem value="masked_pii">Masked PII</SelectItem>
-                      <SelectItem value="derived">Derived</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <CardContent className="space-y-6">
+            <Card className="border-0 shadow-none">
+              <CardHeader className="px-0 pb-3">
+                <CardTitle className="text-h4 font-medium">Unmask policy</CardTitle>
+                <p className="text-caption text-muted-foreground mt-0.5">
+                  Applies to all selected products.
+                </p>
+              </CardHeader>
+              <CardContent className="px-0">
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <RadioGroup
+                    value={consortiumUnmaskPolicy}
+                    onValueChange={(v) => {
+                      if (v === "FULL" || v === "PARTIAL") setConsortiumUnmaskPolicy(v);
+                    }}
+                    className="gap-3"
+                  >
+                    <label className="flex items-start gap-2 text-body">
+                      <RadioGroupItem value="FULL" className="mt-0.5" />
+                      <span className="space-y-0.5">
+                        <span className="block font-medium text-foreground">Full Unmasking</span>
+                        <span className="block text-caption text-muted-foreground">
+                          When a masked field is allowed, it is revealed in full.
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2 text-body">
+                      <RadioGroupItem value="PARTIAL" className="mt-0.5" />
+                      <span className="space-y-0.5">
+                        <span className="block font-medium text-foreground">Partial Unmasking</span>
+                        <span className="block text-caption text-muted-foreground">
+                          When a masked field is allowed, it uses predefined templates only (PAN/Phone/Email/Name).
+                        </span>
+                      </span>
+                    </label>
+                  </RadioGroup>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-none">
+              <CardHeader className="px-0 pb-3">
+                <CardTitle className="text-h4 font-medium">Products</CardTitle>
+                <p className="text-caption text-muted-foreground mt-0.5">
+                  Select one or more <span className="font-medium text-foreground">active</span> products, then click{" "}
+                  <span className="font-medium text-foreground">Configure</span> to manage masked fields.
+                </p>
+              </CardHeader>
+              <CardContent className="px-0 space-y-4">
+                {productsLoading ? (
+                  <div className="rounded-xl border border-border bg-muted/20 p-6 text-sm text-muted-foreground">
+                    Loading products…
+                  </div>
+                ) : activeProducts.length === 0 ? (
+                  <div className="rounded-xl border border-border bg-muted/20 p-6 text-sm text-muted-foreground">
+                    No active products found.
+                  </div>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {activeProducts.map((p) => {
+                      const pid = String(p.id);
+                      const selected = selectedProductIdSet.has(pid);
+                      const pol = draftByProductId[pid] ?? policyByProductId[pid];
+                      const maskedCount = (pol?.fields ?? []).filter((f) => Boolean(f.isMasked)).length;
+                      const queryIdx = selectedProductIds.indexOf(pid);
+                      const isPolicyLoading = selected && queryIdx >= 0 ? Boolean(policyQueries[queryIdx]?.isLoading) : false;
+                      const isPolicyError =
+                        selected &&
+                        queryIdx >= 0 &&
+                        Boolean(policyQueries[queryIdx]?.isError) &&
+                        pol == null;
+                      const chkId = `dp-prod-${pid}`;
+                      return (
+                        <li
+                          key={pid}
+                          className={cn(
+                            "flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors",
+                            selected
+                              ? "border-primary/30 bg-primary/5"
+                              : "border-border/80 bg-transparent hover:bg-muted/30"
+                          )}
+                        >
+                          <Checkbox
+                            id={chkId}
+                            checked={selected}
+                            onCheckedChange={() => {
+                              setSelectedProductIds((prev) =>
+                                prev.includes(pid) ? prev.filter((x) => x !== pid) : [...prev, pid]
+                              );
+                            }}
+                            className="shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <label
+                              htmlFor={chkId}
+                              className="text-[11px] text-muted-foreground cursor-pointer leading-tight block"
+                            >
+                              {p.name}
+                            </label>
+                            {selected ? (
+                              <p className="text-caption text-muted-foreground mt-0.5">
+                                Masked fields:{" "}
+                                <span className="font-mono text-[10px]">
+                                  {isPolicyLoading ? "…" : isPolicyError ? "—" : maskedCount}
+                                </span>
+                              </p>
+                            ) : null}
+                          </div>
+
+                          {selected ? (
+                            <div className="flex shrink-0 items-center min-w-[7rem]">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 gap-1.5 px-2 justify-start text-caption leading-snug overflow-visible"
+                                onClick={() => {
+                                  setActiveDrawerProductId(pid);
+                                  setDrawerOpen(true);
+                                  setFocusFieldName(null);
+                                }}
+                              >
+                                <span className="min-w-0">Configure</span>
+                              </Button>
+                            </div>
+                          ) : null}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+              </CardContent>
+            </Card>
+
+            <Sheet
+              open={drawerOpen}
+              onOpenChange={(open) => {
+                setDrawerOpen(open);
+                if (!open) {
+                  setActiveDrawerProductId(null);
+                  setFocusFieldName(null);
+                }
+              }}
+            >
+              <SheetContent side="right" className="w-full sm:max-w-2xl">
+                <SheetHeader>
+                  <SheetTitle>
+                    Configure Data Policy – {activeDrawerProduct?.name ?? "Product"}
+                  </SheetTitle>
+                  <SheetDescription>
+                    Choose which masked fields can be unmasked. Unmask policy is configured at the consortium level.
+                  </SheetDescription>
+                </SheetHeader>
+
+                <div className="mt-6 space-y-4">
+                  {!activeDrawerProductId || !activePolicyEffective ? (
+                    <div className="rounded-xl border border-border bg-muted/20 p-6 text-sm text-muted-foreground">
+                      Select a product and click Configure.
+                    </div>
+                  ) : (
+                    <>
+                      <div className="rounded-xl border border-border bg-card overflow-hidden">
+                        <div className="grid grid-cols-[1fr_90px] gap-4 px-4 py-3 border-b border-border bg-muted/60">
+                          <span className={cn(tableHeaderClasses)}>Field</span>
+                          <span className={cn(tableHeaderClasses)}>Type</span>
+                        </div>
+
+                        <ScrollArea className="h-[55vh]">
+                          <div className="divide-y divide-border">
+                            {maskedFieldsForActiveDrawer.length === 0 ? (
+                              <div className="px-4 py-10 text-center text-sm text-muted-foreground">
+                                No masked fields found for this product.
+                              </div>
+                            ) : maskedFieldsForActiveDrawer.map((f) => {
+                              const partialTpl = inferPartialTemplate(f.fieldName);
+                              const canPartial = partialTpl != null;
+                              const rowId = `dp-field-${encodeURIComponent(f.fieldName)}`;
+                              return (
+                                <div
+                                  key={f.fieldName}
+                                  id={rowId}
+                                  className={cn("px-4 py-3", focusFieldName === f.fieldName && "bg-primary/5")}
+                                >
+                                  <div className="grid grid-cols-[1fr_90px] gap-4 items-start">
+                                    <div className="flex items-start gap-3">
+                                      <Checkbox
+                                        checked={Boolean(f.isUnmasked)}
+                                        onCheckedChange={(v) => {
+                                          const checked = Boolean(v);
+                                          if (!checked) {
+                                            updateField(activeDrawerProductId, f.fieldName, { isUnmasked: false, unmaskType: null, partialConfig: undefined });
+                                            return;
+                                          }
+                                          const desired: DataPolicyUnmaskType = consortiumUnmaskPolicy;
+                                          if (desired === "PARTIAL" && !canPartial) {
+                                            toast.error("Partial masking template not available for this field");
+                                            return;
+                                          }
+                                          updateField(activeDrawerProductId, f.fieldName, {
+                                            isUnmasked: true,
+                                            unmaskType: desired,
+                                            partialConfig: desired === "PARTIAL" ? partialTpl : undefined,
+                                          });
+                                        }}
+                                      />
+                                      <div className="min-w-0">
+                                        <p className="text-body font-medium text-foreground truncate">{f.fieldName}</p>
+                                        <p className="text-caption text-muted-foreground">
+                                          Masked · {f.dataType ?? "—"}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="text-body text-foreground pt-0.5">{f.dataType ?? "—"}</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </ScrollArea>
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                        <Button type="button" variant="outline" className="flex-1" onClick={() => setDrawerOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          className="flex-1"
+                          disabled={savingPolicy}
+                          onClick={() => {
+                            const draft = activePolicyDraft ?? activePolicyEffective;
+                            if (!draft) return;
+                            const err = validatePolicyBeforeSave(draft);
+                            if (err) {
+                              toast.error(err);
+                              return;
+                            }
+                            const payload: DataPolicy = {
+                              ...draft,
+                              institutionId,
+                              productId: activeDrawerProductId,
+                              // Strip any legacy sensitivity metadata that might still exist in stored JSON.
+                              fields: (draft.fields ?? []).map((f) => {
+                                const { sensitivityTag: _s, ...rest } = f as DataPolicyField & { sensitivityTag?: unknown };
+                                return {
+                                  ...rest,
+                                  isUnmasked: rest.isUnmasked === true,
+                                };
+                              }),
+                              updatedBy: user?.email ?? "system",
+                              updatedAt: new Date().toISOString(),
+                            };
+                            savePolicy(payload, {
+                              onSuccess: () => {
+                                setDrawerOpen(false);
+                                setDirtyDraftProductIds((prev) => {
+                                  const next = new Set(prev);
+                                  next.delete(activeDrawerProductId);
+                                  return next;
+                                });
+                              },
+                            });
+                          }}
+                        >
+                          {savingPolicy ? "Saving…" : "Save"}
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
           </CardContent>
         </Card>
       )}

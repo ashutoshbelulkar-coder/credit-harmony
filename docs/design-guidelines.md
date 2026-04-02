@@ -849,8 +849,14 @@ This wizard is the most complex UX flow in the application. It mixes:
 **Steps:**
 1. Basic Info (name, description, type)
 2. Members (multi-select from subscriber institutions)
-3. Data Policy
+3. Data Policy (product-level masking)
 4. Review
+
+**Data Policy step (module extension, no redesign):**
+- Product selector: active products only, supports multi-select (Data packets-style list)
+- Configure action is per product (Configure opens the drawer for that product)
+- Drawer (right-side **Sheet**) shows masked fields with checkbox + per-field unmask policy config (Full vs Partial)
+- Save shows success toast and writes a Governance audit entry (`actionType=DATA_POLICY_UPDATED`)
 
 **Pattern:**
 - Step header: `steps.map()` with horizontal pill indicators using `Check` icon for completed steps

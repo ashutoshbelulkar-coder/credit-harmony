@@ -369,7 +369,7 @@ flowchart LR
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Data Governance Suite |
-| **Description** | 6 sub-modules: Dashboard (KPIs, trends), Schema Mapper Agent (8-step AI-assisted wizard), Validation Rules (rule builder with versioning), Identity Resolution Agent (match review with dual-approval), Data Quality Monitoring (anomaly detection, drift alerts), Governance Audit Logs |
+| **Description** | 7 sub-modules: Dashboard (KPIs, trends), Schema Mapper Agent (8-step AI-assisted wizard), Validation Rules (rule builder with versioning), Identity Resolution Agent (match review with dual-approval), Data Quality Monitoring (anomaly detection, drift alerts), **Data Policy Management** (product-level masked-field unmasking controls), Governance Audit Logs |
 | **Business Value** | Automated data quality management reduces manual effort by 60% |
 | **User Benefit** | AI-suggested mappings with confidence scores; visual rule builder; clear approval workflows |
 
@@ -2673,6 +2673,49 @@ Response (200):
       "workflowStatus": "approved"
     }
   ]
+}
+```
+
+#### Data Policy Management (NEW)
+
+**Purpose:** Product-level governance controls for **masked fields** — which fields may be unmasked. Unmasking behavior is governed by a **consortium-level** policy selection: **Full** or **Partial** (template-based only).
+
+**UI (module-only extension, no redesign):**
+- Product selector shows **active products only** and supports **multi-select**
+- “Unmask policy” is configured **once per consortium** (Full vs Partial) in the Data policy step (above the product list)
+- Each selected product row has its own **Configure** action (one drawer per product)
+- Configure opens a **right drawer (Sheet)** per product to select which **masked** fields are allowed to be unmasked (checkbox allow-list)
+- Save shows toast **“Data Policy Updated Successfully”** and writes a Governance audit log entry
+
+**Validation rules (enforced on Save):**
+- At least **1 field remains masked**
+- Partial masking must use predefined templates only (no free text)
+
+**API (Spring canonical + mock-aligned contract):**
+
+`GET /api/v1/products?status=active&page=0&size=200`
+
+`GET /api/v1/data-policy?institutionId=&productId=`
+
+`POST /api/v1/data-policy`
+
+```json
+Request body:
+{
+  "id": "dp_001",
+  "institutionId": "HCB",
+  "productId": "PRD_001",
+  "fields": [
+    {
+      "fieldName": "PAN",
+      "isMasked": true,
+      "isUnmasked": true,
+      "unmaskType": "PARTIAL",
+      "partialConfig": { "type": "LAST_N", "value": 4 }
+    }
+  ],
+  "updatedBy": "admin@hcb.com",
+  "updatedAt": "2026-04-02T10:12:00.000Z"
 }
 ```
 

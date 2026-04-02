@@ -35,6 +35,9 @@ export interface AppState {
   consortiumNextId: number;
   products: any[];
   productNextId: number;
+  /** Product-level data masking/unmasking policies (dev API; in-memory). */
+  dataPolicies: any[];
+  dataPolicyNextId: number;
   roles: any[];
   roleNextId: number;
   refreshTokens: Map<string, RefreshRecord>;
@@ -291,6 +294,34 @@ export function createInitialState(): AppState {
       return Number.isFinite(n) ? Math.max(m, n) : m;
     }, 0) + 1;
 
+  // ── Seed product-level data policies (masked fields) ─────────────────────
+  const nowIso = new Date().toISOString();
+  const seedMaskedFields = [
+    { fieldName: "PAN", dataType: "string", sensitivityTag: "HIGH" },
+    { fieldName: "NationalId", dataType: "string", sensitivityTag: "HIGH" },
+    { fieldName: "DateOfBirth", dataType: "date", sensitivityTag: "HIGH" },
+    { fieldName: "Phone", dataType: "string", sensitivityTag: "MEDIUM" },
+    { fieldName: "Email", dataType: "string", sensitivityTag: "MEDIUM" },
+    { fieldName: "Name", dataType: "string", sensitivityTag: "HIGH" },
+    { fieldName: "AddressLine1", dataType: "string", sensitivityTag: "MEDIUM" },
+  ];
+  const dataPolicies = products.map((p: any, idx: number) => ({
+    id: `dp_seed_${idx + 1}`,
+    institutionId: "HCB",
+    productId: String(p.id),
+    fields: seedMaskedFields.map((f) => ({
+      fieldName: f.fieldName,
+      isMasked: true,
+      isUnmasked: false,
+      unmaskType: null,
+      dataType: f.dataType,
+      sensitivityTag: f.sensitivityTag,
+    })),
+    updatedBy: "system",
+    updatedAt: nowIso,
+  }));
+  const dataPolicyNextId = dataPolicies.length + 1;
+
   let institutionProductSubscriptionNextId = 1;
   const institutionProductSubscriptions: any[] = [];
   const seedSubProducts = products.slice(0, 2);
@@ -352,6 +383,8 @@ export function createInitialState(): AppState {
     consortiumNextId,
     products,
     productNextId,
+    dataPolicies,
+    dataPolicyNextId,
     roles,
     roleNextId,
     refreshTokens: new Map(),

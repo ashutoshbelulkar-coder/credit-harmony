@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   productCatalogPacketOptions,
@@ -24,6 +25,7 @@ import { useSchemaRegistryList, useSourceTypeFields } from "@/hooks/api/useSchem
 
 export interface PacketConfigSavePayload {
   selectedFields: string[];
+  disabledFields?: string[];
   selectedDerivedFields: string[];
 }
 
@@ -32,15 +34,20 @@ function buildInitialDrafts(
   catalog: ProductCatalogPacketOption[],
   getPacketConfig: (packetId: string) => {
     selectedFields: string[];
+    disabledFields?: string[];
     selectedDerivedFields: string[];
   }
-): Record<string, { raw: string[]; derived: string[] }> {
-  const drafts: Record<string, { raw: string[]; derived: string[] }> = {};
+): Record<string, { raw: string[]; rawDisabled: string[]; derived: string[] }> {
+  const drafts: Record<string, { raw: string[]; rawDisabled: string[]; derived: string[] }> = {};
   for (const id of ids) {
     const p = catalog.find((o) => o.id === id);
     const c = getPacketConfig(id);
+    const raw = c.selectedFields.length > 0 ? [...c.selectedFields] : [...(p?.fields ?? [])];
+    const rawSet = new Set(raw);
+    const rawDisabled = (c.disabledFields ?? []).map(String).map((x) => x.trim()).filter(Boolean).filter((f) => rawSet.has(f));
     drafts[id] = {
-      raw: c.selectedFields.length > 0 ? [...c.selectedFields] : [...(p?.fields ?? [])],
+      raw,
+      rawDisabled,
       derived:
         (c.selectedDerivedFields?.length ?? 0) > 0 ? [...c.selectedDerivedFields] : [],
     };
@@ -56,6 +63,7 @@ interface PacketConfigModalProps {
   onClose: () => void;
   getPacketConfig: (packetId: string) => {
     selectedFields: string[];
+    disabledFields?: string[];
     selectedDerivedFields: string[];
   };
   onSave: (packetId: string, payload: PacketConfigSavePayload) => void;
@@ -122,17 +130,19 @@ export function PacketConfigModal({
   const [search, setSearch] = useState("");
   const initialActiveDraft = packetDrafts[packetIds[0]];
   const [checkedRaw, setCheckedRaw] = useState<string[]>(initialActiveDraft.raw);
+  const [disabledRaw, setDisabledRaw] = useState<string[]>(initialActiveDraft.rawDisabled ?? []);
   const [checkedDerived, setCheckedDerived] = useState<string[]>(initialActiveDraft.derived);
 
   const switchActivePacket = (nextId: string) => {
     if (nextId === activePacketId) return;
     const merged = {
       ...packetDrafts,
-      [activePacketId]: { raw: checkedRaw, derived: checkedDerived },
+      [activePacketId]: { raw: checkedRaw, rawDisabled: disabledRaw, derived: checkedDerived },
     };
     setPacketDrafts(merged);
     setActivePacketId(nextId);
     setCheckedRaw(merged[nextId].raw);
+    setDisabledRaw(merged[nextId].rawDisabled ?? []);
     setCheckedDerived(merged[nextId].derived);
     setTab("raw");
     setSearch("");
@@ -157,6 +167,7 @@ export function PacketConfigModal({
       });
     } else {
       setCheckedRaw((prev) => prev.filter((f) => !filteredRaw.includes(f)));
+      setDisabledRaw((prev) => prev.filter((f) => !filteredRaw.includes(f)));
     }
   };
 
@@ -164,6 +175,22 @@ export function PacketConfigModal({
     setCheckedRaw((prev) =>
       value === true ? [...prev, field] : prev.filter((f) => f !== field)
     );
+    if (value !== true) {
+      setDisabledRaw((prev) => prev.filter((f) => f !== field));
+    }
+  };
+
+  const handleRawEnabledChange = (field: string, enabled: boolean) => {
+    if (!checkedRaw.includes(field)) return;
+    setDisabledRaw((prev) => {
+      const set = new Set(prev);
+      if (enabled) {
+        set.delete(field);
+      } else {
+        set.add(field);
+      }
+      return [...set];
+    });
   };
 
   const handleDerivedChange = (field: string, value: boolean | "indeterminate") => {
@@ -175,7 +202,7 @@ export function PacketConfigModal({
   const handleSave = () => {
     const merged = {
       ...packetDrafts,
-      [activePacketId]: { raw: checkedRaw, derived: checkedDerived },
+      [activePacketId]: { raw: checkedRaw, rawDisabled: disabledRaw, derived: checkedDerived },
     };
     const hasAny = packetIds.some(
       (id) => merged[id].raw.length > 0 || merged[id].derived.length > 0
@@ -183,14 +210,16 @@ export function PacketConfigModal({
     if (!hasAny) return;
     for (const id of packetIds) {
       const d = merged[id];
-      onSave(id, { selectedFields: d.raw, selectedDerivedFields: d.derived });
+      const rawSet = new Set(d.raw);
+      const disabled = (d.rawDisabled ?? []).filter((f) => rawSet.has(f));
+      onSave(id, { selectedFields: d.raw, disabledFields: disabled, selectedDerivedFields: d.derived });
     }
     onClose();
   };
 
   const mergedPreview = {
     ...packetDrafts,
-    [activePacketId]: { raw: checkedRaw, derived: checkedDerived },
+    [activePacketId]: { raw: checkedRaw, rawDisabled: disabledRaw, derived: checkedDerived },
   };
   const canSave = packetIds.some(
     (id) => mergedPreview[id].raw.length > 0 || mergedPreview[id].derived.length > 0
@@ -348,6 +377,17 @@ export function PacketConfigModal({
                       >
                         {field}
                       </Label>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-[10px] text-muted-foreground select-none">
+                          {checkedRaw.includes(field) ? (disabledRaw.includes(field) ? "Disabled" : "Enabled") : "—"}
+                        </span>
+                        <Switch
+                          checked={checkedRaw.includes(field) ? !disabledRaw.includes(field) : false}
+                          disabled={!checkedRaw.includes(field)}
+                          onCheckedChange={(v) => handleRawEnabledChange(field, v)}
+                          aria-label={`Enable mapping for ${field}`}
+                        />
+                      </div>
                     </li>
                   ))}
                 </ul>

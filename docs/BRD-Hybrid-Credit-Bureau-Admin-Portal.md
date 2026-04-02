@@ -555,10 +555,12 @@ These requirements **refine or supersede** earlier rows where the narrative conf
 | Audit Event | id, timestamp, user, action, category, details | Audit service |
 | **Drift alert** (schema/mapping) | id, type, source, message, timestamp, severity | Data Governance mock (`data-governance.json`) |
 | Governance entities | Mappings, Validation Rules, Match results, Quality metrics, Governance audit entries | Data Governance / Backend |
+| **DataPolicy** | id, institutionId, productId, fields[] (fieldName, isMasked, isUnmasked, unmaskType, optional partialConfig), updatedBy, updatedAt | Data Governance / Backend |
 
 ### 8.2 Data Rules
 
 - **Drift alerts (mock):** `timestamp` ISO 8601; must fall within operator-selected or default **date range** for the alert list to display the record; `source` should align with Schema Mapper **source names** for **source type** filtering.
+- **Data Policy (product-level):** Policies apply per **institutionId + productId** and only target **masked fields**. Each field can remain masked or be allowed to be unmasked. The portal configures a consortium-level **Unmask policy** (**Full** or **Partial**) and applies it to the product’s allowed fields. Partial unmasking uses predefined templates only (PAN last-4, Phone last-2, Email domain masked, Name first character visible). Every update must write a **governance audit log** entry (`actionType=DATA_POLICY_UPDATED`, `entityType=GOVERNANCE`, `entityId=<productId>`), and must not include sensitive values beyond field names/config types.
 - **Institution status:** active | pending | suspended | draft.
 - **APIs enabled (v2.4):** List and detail responses expose **`apisEnabledCount`** computed from **effective** API & Access policy (defaults apply when nothing stored yet). **UI denominator** = count of role-based slots (submission and/or enquiry), not a fixed “out of 3” unless product reintroduces a third managed integration.
 - **Approval reject vs registry (v2.4):** Rejecting an **institution** approval does **not** remove the member row; operators use **DELETE** (soft-delete) or accept dev **in-memory reset** for demos.

@@ -166,6 +166,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 | GOV-US-004 | Review Consumer Identity Match Results | As a data analyst, I want to review potential duplicate consumer records so that the bureau database remains deduplicated. | `MatchReview.tsx` (UI stub) | `consumers` | P1 | ⚠️ Partial |
 | GOV-US-005 | Manage Canonical Field Registry | As a bureau admin, I want to view and update canonical field definitions so that the master schema reflects business requirements. | `GET /api/v1/schema-mapper/canonical` | `canonical_fields` | P1 | ✅ Implemented |
 | GOV-US-006 | View Governance Audit Logs | As a compliance officer, I want to see all data governance actions so that I can produce audit evidence. | `GET /api/v1/audit-logs` | `audit_logs` | P0 | ✅ Implemented |
+| GOV-US-007 | Manage Data Policy (Product Masking) | As a bureau admin, I want to configure which masked fields can be unmasked per product so that data exposure is controlled and auditable. | `GET/POST /api/v1/data-policy` | `data_policies`, `audit_logs` | P0 | ✅ Implemented |
 
 ---
 

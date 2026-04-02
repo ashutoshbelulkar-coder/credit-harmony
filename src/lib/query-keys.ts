@@ -100,6 +100,13 @@ export const QK = {
     packetCatalog: () => ["products", "packet-catalog"] as const,
   },
 
+  // ── Data Policy ──────────────────────────────────────────────────────────
+  dataPolicy: {
+    all: () => ["data-policy"] as const,
+    byProduct: (params: { institutionId: string; productId: string }) =>
+      ["data-policy", params.institutionId, params.productId] as const,
+  },
+
   // ── Audit Logs ────────────────────────────────────────────────────────────
   auditLogs: {
     all: () => ["audit-logs"] as const,
