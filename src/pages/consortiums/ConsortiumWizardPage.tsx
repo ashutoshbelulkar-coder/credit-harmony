@@ -57,7 +57,14 @@ import {
   type ConsortiumDataPolicy,
   type ConsortiumMember,
 } from "@/data/consortiums-mock";
-import { useConsortium, useConsortiumMembers, useCreateConsortium, useUpdateConsortium } from "@/hooks/api/useConsortiums";
+import {
+  useCbsMemberCatalog,
+  useConsortium,
+  useConsortiumCbsMembers,
+  useConsortiumMembers,
+  useCreateConsortium,
+  useUpdateConsortium,
+} from "@/hooks/api/useConsortiums";
 import { useInstitutions } from "@/hooks/api/useInstitutions";
 import { useProducts } from "@/hooks/api/useProducts";
 import { useAuth } from "@/contexts/AuthContext";
@@ -66,6 +73,14 @@ import { inferPartialTemplate } from "@/data/data-policy-mock";
 import type { InstitutionResponse } from "@/services/institutions.service";
 import { fetchDataPolicy } from "@/services/dataPolicy.service";
 import type { DataPolicy, DataPolicyField, DataPolicyUnmaskType } from "@/types/data-policy";
+import type { CbsMemberCatalogEntry } from "@/services/consortiums.service";
+
+type CbsMemberRow = {
+  rowKey: string;
+  catalogId: string;
+  memberId: string;
+  displayName?: string;
+};
 
 const steps = [
   { title: "Basic info", shortTitle: "Info", icon: FileStack },
@@ -88,6 +103,35 @@ function subscriberParticipationCaption(inst: InstitutionResponse) {
   return "Subscriber";
 }
 
+/** Map API / mock rows into wizard member state (joinedDate + optional registrationNumber). */
+function normalizeConsortiumMemberRows(rows: unknown[]): ConsortiumMember[] {
+  return rows.map((raw) => {
+    const r = raw as Record<string, unknown>;
+    const joinedRaw =
+      typeof r.joinedDate === "string"
+        ? r.joinedDate
+        : typeof r.joinedAt === "string"
+          ? r.joinedAt.includes("T")
+            ? r.joinedAt.split("T")[0]
+            : r.joinedAt
+          : new Date().toISOString().slice(0, 10);
+    const regRaw =
+      typeof r.registrationNumber === "string"
+        ? r.registrationNumber
+        : typeof (r as Record<string, unknown>)["registrationnumber"] === "string"
+          ? String((r as Record<string, unknown>)["registrationnumber"])
+          : "";
+    const reg = regRaw.trim();
+    return {
+      institutionId: String(r.institutionId ?? ""),
+      institutionName: String(r.institutionName ?? ""),
+      registrationNumber: reg.length > 0 ? reg : undefined,
+      joinedDate: joinedRaw,
+      status: r.status === "pending" ? "pending" : "active",
+    };
+  });
+}
+
 export default function ConsortiumWizardPage() {
   const { id: paramId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
@@ -99,6 +143,8 @@ export default function ConsortiumWizardPage() {
 
   const { data: existing } = useConsortium(editId);
   const { data: existingMembers } = useConsortiumMembers(editId);
+  const { data: existingCbsMembers } = useConsortiumCbsMembers(editId);
+  const { data: cbsCatalog = [], isPending: cbsCatalogLoading } = useCbsMemberCatalog();
   const { mutate: createConsortium, isPending: creating } = useCreateConsortium();
   const { mutate: updateConsortium, isPending: updating } = useUpdateConsortium();
   const {
@@ -135,6 +181,8 @@ export default function ConsortiumWizardPage() {
 
   const [currentStep, setCurrentStep] = useState(0);
   const [members, setMembers] = useState<ConsortiumMember[]>([]);
+  const [cbsMembers, setCbsMembers] = useState<CbsMemberRow[]>([]);
+  const [cbsCatalogOpen, setCbsCatalogOpen] = useState(false);
   const [institutionOpen, setInstitutionOpen] = useState(false);
 
   const form = useForm<ConsortiumWizardFormValues>({
@@ -167,9 +215,22 @@ export default function ConsortiumWizardPage() {
         memberCount: 0,
       });
       setMembers([]);
+      setCbsMembers([]);
       setCurrentStep(0);
     }
   }, [existing, editId, isEdit, form]);
+
+  useEffect(() => {
+    if (!editId || existingCbsMembers === undefined) return;
+    setCbsMembers(
+      existingCbsMembers.map((r) => ({
+        rowKey: String(r.id),
+        catalogId: String(r.catalogId),
+        memberId: r.memberId,
+        displayName: r.displayName,
+      }))
+    );
+  }, [editId, existingCbsMembers]);
 
   const policyQueries = useQueries({
     queries: selectedProductIds.map((productId) => ({
@@ -218,19 +279,22 @@ export default function ConsortiumWizardPage() {
     if (!existingMembers) return;
     const rows = Array.isArray(existingMembers)
       ? existingMembers
-      : (existingMembers as { content?: ConsortiumMember[] }).content ?? [];
-    if (rows.length > 0) setMembers(rows as ConsortiumMember[]);
+      : (existingMembers as { content?: unknown[] }).content ?? [];
+    if (rows.length > 0) setMembers(normalizeConsortiumMemberRows(rows));
   }, [existingMembers]);
 
-  const addInstitution = useCallback((instId: string, instName: string) => {
+  const addInstitution = useCallback((inst: InstitutionResponse) => {
     setMembers((prev) => {
+      const instId = String(inst.id);
       if (prev.some((m) => m.institutionId === instId)) return prev;
       const joined = new Date().toISOString().slice(0, 10);
+      const reg = inst.registrationNumber?.trim() ?? "";
       return [
         ...prev,
         {
           institutionId: instId,
-          institutionName: instName,
+          institutionName: inst.name,
+          registrationNumber: reg.length > 0 ? reg : undefined,
           joinedDate: joined,
           status: "active" as const,
         },
@@ -241,6 +305,33 @@ export default function ConsortiumWizardPage() {
 
   const removeMember = (instId: string) => {
     setMembers((prev) => prev.filter((m) => m.institutionId !== instId));
+  };
+
+  const addCbsFromCatalog = useCallback((entry: CbsMemberCatalogEntry) => {
+    const cid = String(entry.id);
+    if (cbsMembers.some((p) => p.catalogId === cid)) {
+      toast.error("This CBS member is already in the list");
+      return;
+    }
+    setCbsMembers((prev) => [
+      ...prev,
+      {
+        rowKey: `cat-${cid}-${crypto.randomUUID()}`,
+        catalogId: cid,
+        memberId: entry.memberId,
+        displayName: entry.displayName,
+      },
+    ]);
+    setCbsCatalogOpen(false);
+  }, [cbsMembers]);
+
+  const cbsCatalogPickList = useMemo(() => {
+    const selected = new Set(cbsMembers.map((r) => r.catalogId));
+    return cbsCatalog.filter((c) => !selected.has(String(c.id)));
+  }, [cbsCatalog, cbsMembers]);
+
+  const removeCbsMember = (rowKey: string) => {
+    setCbsMembers((prev) => prev.filter((r) => r.rowKey !== rowKey));
   };
 
   const activeDrawerProduct = useMemo(() => {
@@ -379,6 +470,7 @@ export default function ConsortiumWizardPage() {
       return;
     }
     const memberPayload = members.map((m) => ({ institutionId: m.institutionId }));
+    const cbsPayload = cbsMembers.map((r) => ({ catalogId: r.catalogId }));
     const policyPayload: ConsortiumDataPolicy = { dataVisibility: values.dataVisibility };
     const nameTrim = values.name.trim();
     const descriptionTrim = values.description?.trim() || undefined;
@@ -393,6 +485,7 @@ export default function ConsortiumWizardPage() {
             status: existing?.status,
             dataPolicy: policyPayload,
             members: memberPayload,
+            cbsMembers: cbsPayload,
           },
         },
         { onSuccess: () => navigate(`/consortiums/${editId}`) }
@@ -405,6 +498,7 @@ export default function ConsortiumWizardPage() {
           status: "approval_pending",
           dataPolicy: policyPayload,
           members: memberPayload,
+          cbsMembers: cbsPayload,
         },
         { onSuccess: (row) => navigate(`/consortiums/${row.id}`) }
       );
@@ -599,6 +693,7 @@ export default function ConsortiumWizardPage() {
         <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-h4 font-medium">Members</CardTitle>
+            <div className="flex items-center gap-2 shrink-0">
             <Popover open={institutionOpen} onOpenChange={setInstitutionOpen}>
               <PopoverTrigger asChild>
                 <Button type="button" variant="outline" size="sm" className="shrink-0">
@@ -631,7 +726,7 @@ export default function ConsortiumWizardPage() {
                               <CommandItem
                                 key={inst.id}
                                 value={`${inst.name} ${inst.institutionType} ${cap}`}
-                                onSelect={() => addInstitution(String(inst.id), inst.name)}
+                                onSelect={() => addInstitution(inst)}
                               >
                                 <span className="truncate">{inst.name}</span>
                                 <span className="text-caption text-muted-foreground ml-2 shrink-0 truncate max-w-[40%]">
@@ -647,6 +742,44 @@ export default function ConsortiumWizardPage() {
                 </Command>
               </PopoverContent>
             </Popover>
+            <Popover open={cbsCatalogOpen} onOpenChange={setCbsCatalogOpen}>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="outline" size="sm" className="shrink-0">
+                  Add CBS member
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 w-[min(100vw-2rem,360px)]" align="end">
+                <Command>
+                  <CommandInput placeholder="Search CBS members…" />
+                  <CommandList>
+                    {cbsCatalogLoading ? (
+                      <div className="py-6 px-3 text-center text-caption text-muted-foreground">Loading…</div>
+                    ) : (
+                      <>
+                        <CommandEmpty>No CBS members available or all are already added.</CommandEmpty>
+                        <CommandGroup>
+                          {cbsCatalogPickList.map((row) => (
+                            <CommandItem
+                              key={row.id}
+                              value={`${row.memberId} ${row.displayName ?? ""}`}
+                              onSelect={() => addCbsFromCatalog(row)}
+                            >
+                              <span className="font-mono text-[11px] truncate">{row.memberId}</span>
+                              {row.displayName ? (
+                                <span className="text-caption text-muted-foreground ml-2 shrink-0 truncate max-w-[45%]">
+                                  {row.displayName}
+                                </span>
+                              ) : null}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            </div>
           </CardHeader>
           <CardContent>
             <FormField
@@ -669,7 +802,10 @@ export default function ConsortiumWizardPage() {
                   <thead className="bg-muted/80">
                     <tr className="border-b border-border">
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
-                        Name
+                        Member ID
+                      </th>
+                      <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
+                        Member name
                       </th>
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-right")} />
                     </tr>
@@ -677,6 +813,9 @@ export default function ConsortiumWizardPage() {
                   <tbody>
                     {members.map((m) => (
                       <tr key={m.institutionId} className="border-b border-border last:border-0">
+                        <td className="px-4 py-3 text-body font-mono text-[11px] tabular-nums">
+                          {m.registrationNumber ?? "—"}
+                        </td>
                         <td className="px-4 py-3 text-body">{m.institutionName}</td>
                         <td className="px-4 py-3 text-right">
                           <Button
@@ -695,6 +834,46 @@ export default function ConsortiumWizardPage() {
                 </table>
               </div>
             )}
+
+            <div className="mt-8 space-y-3">
+              <p className="text-caption font-medium text-foreground">CBS members (external)</p>
+              {cbsMembers.length === 0 ? (
+                <p className="text-caption text-muted-foreground">No CBS members added.</p>
+              ) : (
+                <div className="min-w-0 overflow-x-auto rounded-xl border border-border">
+                  <table className="w-full min-w-max">
+                    <thead className="bg-muted/80">
+                      <tr className="border-b border-border">
+                        <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>Member ID</th>
+                        <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>Member Name</th>
+                        <th className={cn(tableHeaderClasses, "px-4 py-3 text-right")} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cbsMembers.map((row) => (
+                        <tr key={row.rowKey} className="border-b border-border last:border-0">
+                          <td className="px-4 py-3 text-body font-mono text-[11px]">{row.memberId}</td>
+                          <td className="px-4 py-3 text-body text-muted-foreground">
+                            {row.displayName ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => removeCbsMember(row.rowKey)}
+                            >
+                              Remove
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -1001,12 +1180,37 @@ export default function ConsortiumWizardPage() {
                       key={m.institutionId}
                       className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
                     >
-                      <span className="text-[10px] font-medium leading-[14px] text-foreground block truncate">
+                      <span className="text-[10px] font-mono leading-[14px] text-foreground block truncate">
+                        {m.registrationNumber ?? "—"}
+                      </span>
+                      <span className="text-[10px] font-medium leading-[14px] text-foreground block truncate mt-0.5">
                         {m.institutionName}
                       </span>
                     </li>
                   ))}
                 </ul>
+              </div>
+              <div className="space-y-2">
+                <p className="text-caption text-muted-foreground uppercase tracking-wider">CBS members</p>
+                {cbsMembers.length === 0 ? (
+                  <p className="text-caption text-muted-foreground">None</p>
+                ) : (
+                  <ul className="space-y-2 list-none m-0 p-0">
+                    {cbsMembers.map((row) => (
+                      <li
+                        key={row.rowKey}
+                        className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                      >
+                        <span className="text-[10px] font-medium leading-[14px] text-foreground block font-mono">
+                          {row.memberId}
+                        </span>
+                        {row.displayName ? (
+                          <span className="text-caption text-muted-foreground block mt-0.5">{row.displayName}</span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             </div>
             <Button

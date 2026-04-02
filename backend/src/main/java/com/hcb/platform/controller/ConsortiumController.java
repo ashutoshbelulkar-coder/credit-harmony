@@ -20,6 +20,7 @@ import java.util.Locale;
  * - GET    /api/v1/consortiums              — paged list
  * - GET    /api/v1/consortiums/{id}         — single
  * - GET    /api/v1/consortiums/{id}/members — members
+ * - GET    /api/v1/consortiums/{id}/cbs-members — CBS members linked to consortium (from catalog)
  * - POST   /api/v1/consortiums              — create
  * - PATCH  /api/v1/consortiums/{id}         — update
  * - DELETE /api/v1/consortiums/{id}         — soft-delete
@@ -84,9 +85,23 @@ public class ConsortiumController {
     public ResponseEntity<List<Map<String, Object>>> members(@PathVariable Long id) {
         return ResponseEntity.ok(jdbc.queryForList(
             "SELECT cm.id, i.id as institutionId, i.name as institutionName,"
+                + " i.registration_number as registrationNumber,"
                 + " cm.joined_at as joinedAt"
                 + " FROM consortium_members cm JOIN institutions i ON i.id=cm.institution_id"
                 + " WHERE cm.consortium_id=?",
+            id
+        ));
+    }
+
+    @GetMapping("/{id}/cbs-members")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN','BUREAU_ADMIN','ANALYST','VIEWER')")
+    public ResponseEntity<List<Map<String, Object>>> cbsMembers(@PathVariable Long id) {
+        return ResponseEntity.ok(jdbc.queryForList(
+            "SELECT CAST(ccm.id AS TEXT) AS id, CAST(cat.id AS TEXT) AS catalogId,"
+                + " cat.member_code AS memberId, cat.display_label AS displayName, ccm.linked_at AS createdAt"
+                + " FROM consortium_cbs_members ccm"
+                + " JOIN cbs_member_catalog cat ON cat.id = ccm.cbs_catalog_id"
+                + " WHERE ccm.consortium_id=? ORDER BY ccm.id",
             id
         ));
     }
@@ -162,6 +177,9 @@ public class ConsortiumController {
                 memberCount++;
             }
         }
+        if (body.containsKey("cbsMembers")) {
+            replaceConsortiumCbsMembers(newId, body.get("cbsMembers"), now);
+        }
         if (!skipApprovalQueue) {
             String desc = description != null && !description.isBlank()
                 ? description.trim()
@@ -190,6 +208,50 @@ public class ConsortiumController {
         out.put("dataVisibility", dataVisibility);
         out.put("createdAt", now);
         return ResponseEntity.status(201).body(out);
+    }
+
+    /**
+     * Replaces all CBS member links for a consortium. Expects {@code cbsMembers} as a JSON array of
+     * {@code { "catalogId": string | number }} referencing {@code cbs_member_catalog.id}.
+     */
+    private void replaceConsortiumCbsMembers(long consortiumId, Object cbsMembersObj, String timestamp) {
+        jdbc.update("DELETE FROM consortium_cbs_members WHERE consortium_id=?", consortiumId);
+        if (!(cbsMembersObj instanceof List<?> list)) {
+            return;
+        }
+        Set<Long> seen = new LinkedHashSet<>();
+        for (Object o : list) {
+            if (!(o instanceof Map<?, ?> m)) {
+                continue;
+            }
+            Object cid = m.get("catalogId");
+            if (cid == null) {
+                continue;
+            }
+            long catalogPk;
+            try {
+                catalogPk = Long.parseLong(String.valueOf(cid).trim(), 10);
+            } catch (NumberFormatException e) {
+                continue;
+            }
+            if (!seen.add(catalogPk)) {
+                continue;
+            }
+            Integer n = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM cbs_member_catalog WHERE id=?",
+                Integer.class,
+                catalogPk
+            );
+            if (n == null || n == 0) {
+                continue;
+            }
+            jdbc.update(
+                "INSERT INTO consortium_cbs_members (consortium_id, cbs_catalog_id, linked_at) VALUES (?,?,?)",
+                consortiumId,
+                catalogPk,
+                timestamp
+            );
+        }
     }
 
     private static String extractDataVisibility(Object dataPolicy) {
@@ -260,6 +322,10 @@ public class ConsortiumController {
                     now
                 );
             }
+        }
+
+        if (body.containsKey("cbsMembers")) {
+            replaceConsortiumCbsMembers(id, body.get("cbsMembers"), LocalDateTime.now().toString());
         }
 
         auditService.log(currentUser, "CONSORTIUM_UPDATED", "consortium", String.valueOf(id), "Consortium updated", getIp(req));

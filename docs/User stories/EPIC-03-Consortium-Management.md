@@ -22,9 +22,10 @@ Consortiums are governed groups of financial institutions that agree to share cr
 ### Key Capabilities
 1. Multi-step wizard to create a consortium (type, governance, data policy)
 2. Member addition from subscriber institution pool (no mock catalogue)
-3. Membership role management (Contributor / Consumer / Observer)
-4. Consortium lifecycle: pending → active → suspended → dissolved
-5. Approval queue integration on creation
+3. **CBS members (external):** optional per-consortium list of Core Banking member IDs (separate from institution members), for admin reference and optional Enquiry API `memberId` attribution
+4. Membership role management (Contributor / Consumer / Observer)
+5. Consortium lifecycle: pending → active → suspended → dissolved
+6. Approval queue integration on creation
 
 ---
 
@@ -34,6 +35,7 @@ Consortiums are governed groups of financial institutions that agree to share cr
 - Consortium creation wizard
 - Consortium list and detail pages
 - Member management (add, role assignment, suspend/exit)
+- CBS members (external Core Banking member IDs per consortium; separate table/API from institution members)
 - Data policy configuration (share_loan_data, share_repayment_history, allow_aggregation, data_visibility)
 - Product-level Data Policy Management (masked-field unmask allow-lists) within the consortium wizard Data policy step
 - Consortium lifecycle management (approve, suspend, dissolve)
@@ -62,8 +64,9 @@ Consortiums are governed groups of financial institutions that agree to share cr
 |---------|-------------|--------|
 | Create Consortium Wizard | Type, governance, data policy, members | ✅ Implemented |
 | Consortium List | Paginated list with status filter | ✅ Implemented |
-| Consortium Detail | Header, data policy, members table | ✅ Implemented |
+| Consortium Detail | Header, data policy, members + CBS members tables | ✅ Implemented |
 | Add Member | Add subscriber institution with role | ✅ Implemented |
+| CBS members | Wizard + detail: pick from `GET /api/v1/cbs-member-catalog`, persist links via `cbsMembers: [{ catalogId }]`, `GET …/cbs-members` | ✅ Implemented |
 | Manage Member Role | Change Contributor/Consumer/Observer | ✅ Implemented |
 | Suspend/Exit Member | Remove member from consortium | ✅ Implemented |
 | Dissolve Consortium | Status → dissolved | ✅ Implemented |
@@ -78,13 +81,14 @@ Consortiums are governed groups of financial institutions that agree to share cr
 |--------|------|-------------|
 | Consortium List | `/consortiums` | Paginated list with status filter |
 | Create Consortium Wizard | `/consortiums/create` | Multi-step wizard |
-| Consortium Detail | `/consortiums/:id` | Detail view with members |
+| Consortium Detail | `/consortiums/:id` | Detail view with institution members and CBS members (external) |
 
 ### Component Behavior
 - **Consortium type badge:** `Closed`=blue, `Open`=green, `Hybrid`=purple
 - **Status badge:** `pending`=yellow, `active`=green, `suspended`=orange, `dissolved`=gray
 - **Member role badge:** `Contributor`=blue, `Consumer`=green, `Observer`=gray
 - **Members wizard step:** Loads institution list with `role=subscriber`, `allowMockFallback: false`, `size=200`
+- **CBS members:** **Add CBS member** opens the same searchable picker pattern as institutions; options load from **`GET /api/v1/cbs-member-catalog`** (no free-text create). Second table lists selected catalog members. Duplicate catalog rows rejected client-side; server enforces uniqueness per consortium.
 - **Data policy wizard step (product-level):** Operators pick a consortium-level **Unmask policy** (Full vs Partial) once, then select one or more active products and open a per-product Configure drawer to choose which masked fields may be unmasked. Partial uses predefined templates only (PAN/Phone/Email/Name).
 
 ### State Handling
@@ -105,6 +109,9 @@ Consortiums are governed groups of financial institutions that agree to share cr
 | CONS-UI-TC-03 | Wizard | Members step loads subscribers | Reach Members step | Only subscriber institutions shown |
 | CONS-UI-TC-04 | Detail | View consortium detail | Click consortium in list | Detail page with members table |
 | CONS-UI-TC-05 | Detail | Add member | Click Add Member, select institution | Member added with pending status |
+| CONS-UI-TC-06 | Wizard | Add CBS member | Members step → Add CBS member → pick catalog row | Row appears in CBS table; payload uses catalogId |
+| CONS-UI-TC-07 | Wizard | Duplicate CBS pick | Select same catalog entry twice | Toast error; no duplicate row |
+| CONS-UI-TC-08 | Detail | View CBS members | Open consortium with seeded CBS rows → Members tab | CBS table shows Member ID and Label columns |
 
 ---
 
@@ -475,8 +482,11 @@ sequenceDiagram
 | Endpoint | Method | Auth | Description | Status |
 |----------|--------|------|-------------|--------|
 | `GET /api/v1/consortiums` | GET | Bearer | List consortiums | ✅ |
-| `POST /api/v1/consortiums` | POST | Bearer (Admin) | Create consortium | ✅ |
+| `POST /api/v1/consortiums` | POST | Bearer (Admin) | Create consortium; optional body `cbsMembers[]` | ✅ |
 | `GET /api/v1/consortiums/:id` | GET | Bearer | Consortium detail | ✅ |
+| `PATCH /api/v1/consortiums/:id` | PATCH | Bearer (Admin) | Update consortium; optional `cbsMembers` replaces CBS rows when sent | ✅ |
+| `GET /api/v1/cbs-member-catalog` | GET | Bearer | Master CBS member catalog (picker) | ✅ |
+| `GET /api/v1/consortiums/:id/cbs-members` | GET | Bearer | Linked CBS rows (`catalogId`, `memberId`, `displayName`) | ✅ |
 | `PATCH /api/v1/consortiums/:id/status` | PATCH | Bearer (Admin) | Change status | ✅ |
 | `POST /api/v1/consortiums/:id/members` | POST | Bearer (Admin) | Add member | ✅ |
 | `PATCH /api/v1/consortiums/:id/members/:mId` | PATCH | Bearer (Admin) | Update member role/status | ✅ |
@@ -490,6 +500,8 @@ sequenceDiagram
 |-------|------------|-------|
 | `consortiums` | `id`, `consortium_code`, `consortium_name`, `consortium_type`, `consortium_status`, data policy flags | Core entity |
 | `consortium_members` | `consortium_id`, `institution_id`, `member_role`, `consortium_member_status` | Membership mapping |
+| `cbs_member_catalog` | `member_code`, `display_label` | Master CBS member list (picker source) |
+| `consortium_cbs_members` | `consortium_id`, `cbs_catalog_id` | Links consortium ↔ catalog row |
 | `approval_queue` | `approval_item_type='consortium'` or `'consortium_membership'` | Governance workflow |
 
 ---

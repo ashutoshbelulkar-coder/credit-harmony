@@ -6,6 +6,8 @@ import {
   fetchConsortiums,
   fetchConsortiumById,
   fetchConsortiumMembers,
+  fetchConsortiumCbsMembers,
+  fetchCbsMemberCatalog,
   createConsortium,
   updateConsortium,
   deleteConsortium,
@@ -37,6 +39,23 @@ export function useConsortiumMembers(id: string | undefined) {
   });
 }
 
+export function useConsortiumCbsMembers(id: string | undefined) {
+  return useQuery({
+    queryKey: QK.consortiums.cbsMembers(id ?? ""),
+    queryFn: () => fetchConsortiumCbsMembers(id!),
+    enabled: !!id,
+  });
+}
+
+export function useCbsMemberCatalog(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: QK.cbsMemberCatalog.all(),
+    queryFn: () => fetchCbsMemberCatalog(),
+    staleTime: 60_000,
+    enabled: options?.enabled ?? true,
+  });
+}
+
 export function useCreateConsortium() {
   const qc = useQueryClient();
   return useMutation({
@@ -45,6 +64,7 @@ export function useCreateConsortium() {
       qc.invalidateQueries({ queryKey: QK.consortiums.all() });
       qc.invalidateQueries({ queryKey: QK.consortiums.detail(row.id) });
       qc.invalidateQueries({ queryKey: QK.consortiums.members(row.id) });
+      qc.invalidateQueries({ queryKey: QK.consortiums.cbsMembers(row.id) });
       qc.invalidateQueries({ queryKey: QK.approvals.all() });
       toast.success("Consortium created");
     },
@@ -60,6 +80,7 @@ export function useUpdateConsortium() {
       qc.invalidateQueries({ queryKey: QK.consortiums.all() });
       qc.invalidateQueries({ queryKey: QK.consortiums.detail(id) });
       qc.invalidateQueries({ queryKey: QK.consortiums.members(id) });
+      qc.invalidateQueries({ queryKey: QK.consortiums.cbsMembers(id) });
       qc.invalidateQueries({ queryKey: QK.approvals.all() });
       toast.success("Consortium updated");
     },

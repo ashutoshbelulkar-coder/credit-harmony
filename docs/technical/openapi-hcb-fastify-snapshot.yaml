@@ -16,6 +16,11 @@ components:
       type: http
       scheme: bearer
       bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Subscriber institution API key (Enquiry API; canonical implementation TBD)
   schemas:
     ErrorBody:
       type: object
@@ -84,6 +89,46 @@ components:
         - pending
         - active
         - inactive
+    CbsMemberCatalogRow:
+      type: object
+      properties:
+        id: { type: string }
+        memberId: { type: string, description: "Catalog member_code" }
+        displayName: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    ConsortiumCbsMemberInput:
+      type: object
+      required: [catalogId]
+      properties:
+        catalogId:
+          type: integer
+          description: FK to cbs_member_catalog.id
+    ConsortiumCbsMemberRow:
+      type: object
+      properties:
+        id: { type: string, description: "Junction row id" }
+        catalogId: { type: string }
+        memberId: { type: string }
+        displayName: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    EnquirySubmitRequest:
+      type: object
+      description: |
+        Documented Enquiry API contract (canonical Spring implementation TBD). Optional memberId ties to consortium CBS list in Admin.
+      required: [productId, enquiryType, enquiryPurpose, consumerIdentity]
+      properties:
+        productId: { type: integer }
+        enquiryType: { type: string, enum: [HARD, SOFT] }
+        enquiryPurpose: { type: string }
+        consentReference: { type: string }
+        consumerIdentity: { type: object }
+        requestedFields:
+          type: array
+          items: { type: string }
+        idempotencyKey: { type: string }
+        memberId:
+          type: string
+          description: Optional CBS member id (consortium-configured); audit attribution when Enquiry API persists enquiries.
     DataPolicyUnmaskType:
       type: string
       enum: [FULL, PARTIAL]
@@ -641,7 +686,7 @@ paths:
       description: |
         Requires `name`. Default `status` is `approval_pending` when omitted, which prepends an approvals row
         with `type: consortium` and `metadata.consortiumId`. Send `status: active` to skip the queue.
-        Optional `members` (`institutionId` only) and `dataPolicy` (`dataVisibility` only: `full` \| `masked_pii` \| `derived`) are persisted; `shareLoanData`, `shareRepaymentHistory`, and `allowAggregation` in the body are ignored. Members populate `state.consortiumMembers`.
+        Optional `members` (`institutionId` only), optional `cbsMembers` (`catalogId` from `GET /v1/cbs-member-catalog`), and `dataPolicy` (`dataVisibility` only: `full` \| `masked_pii` \| `derived`) are persisted on **Spring** (`8090`); Fastify may ignore `cbsMembers`. `shareLoanData`, `shareRepaymentHistory`, and `allowAggregation` in the body are ignored. Members populate `state.consortiumMembers` on Fastify.
       requestBody:
         required: true
         content:
@@ -667,6 +712,10 @@ paths:
                     type: object
                     properties:
                       institutionId: { type: integer }
+                cbsMembers:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ConsortiumCbsMemberInput"
       responses:
         "200":
           description: Created consortium row
@@ -718,6 +767,61 @@ paths:
       responses:
         "200":
           description: Member rows for consortium
+  /v1/cbs-member-catalog:
+    get:
+      security:
+        - bearerAuth: []
+      summary: CBS member master catalog (picker source)
+      description: |
+        Canonical **Spring** (`8090`). All rows from `cbs_member_catalog`; consortium wizard selects from this list (no free-text create in UI).
+      responses:
+        "200":
+          description: Catalog rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CbsMemberCatalogRow"
+  /v1/consortiums/{id}/cbs-members:
+    get:
+      security:
+        - bearerAuth: []
+      summary: CBS members linked to a consortium
+      description: |
+        Canonical **Spring** (`8090`). Joins `consortium_cbs_members` with `cbs_member_catalog`.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: CBS member rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConsortiumCbsMemberRow"
+  /v1/enquiries:
+    post:
+      security:
+        - ApiKeyAuth: []
+      summary: Submit credit enquiry (machine-to-machine)
+      description: |
+        **Contract reference** — full implementation TBD on canonical Spring. Optional `memberId` matches `cbs_member_catalog.member_code` when attributing an enquiry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnquirySubmitRequest"
+      responses:
+        "202":
+          description: Accepted (async processing)
+        "401":
+          description: Invalid API key
   /v1/data-ingestion/drift-alerts:
     get:
       summary: List schema/mapping drift alerts (Data Ingestion Agent store)

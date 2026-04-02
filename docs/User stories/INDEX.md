@@ -17,7 +17,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 | EPIC-00 Design System | Shared UI consistency: controls, badges, layout accessibility, and alignment with internal design guidelines (not a standalone product module). |
 | EPIC-01 Authentication | Secure JWT-based login (optional Turnstile + email OTP MFA), token refresh, and role-gated access for all portal users. |
 | EPIC-02 Institution Management | Full lifecycle management of member financial institutions from draft through active, including geography-driven registration, compliance documents, API keys, and billing. |
-| EPIC-03 Consortium Management | Create and govern data-sharing consortiums, manage institutional membership roles, and control data visibility policy. |
+| EPIC-03 Consortium Management | Create and govern data-sharing consortiums, manage institutional and external CBS member references, and control data visibility policy. |
 | EPIC-04 Data Products & Enquiry Simulation | Define, configure, and publish credit data products with packet-level field configuration, manage subscriptions, and simulate enquiry scoring against live products. |
 | EPIC-05 Schema Mapper Agent | AI-assisted wizard for ingesting source schemas, mapping fields to the HCB canonical model, validating, versioning, and submitting mappings for governance approval. |
 | EPIC-06 Data Governance | Operational data quality: monitor drift alerts, review auto-mapping suggestions, resolve consumer identity matches, and maintain the canonical field registry. |
@@ -30,7 +30,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 | EPIC-13 Dashboard & Command Center | Executive KPI dashboard with API usage charts, data quality trends, active batch pipeline table, processing throughput, and anomaly feed. |
 | EPIC-14 Batch Pipeline | Schemaless SFTP + HTTP bulk data ingestion pipeline: institutions drop files (CSV/JSON/XML/fixed-width) in their designated SFTP folder; auto-format detection, schema auto-mapping, all pipeline stages, full KPI tracking, and monitoring integration. |
 | EPIC-15 Data Submission API | External-facing API-first platform for real-time tradeline submission by member institutions using API keys. |
-| EPIC-16 Enquiry API | External-facing API-first platform for credit enquiry requests with consent validation, consumer profile fetch, and product-level enrichment. |
+| EPIC-16 Enquiry API | External-facing API-first platform for credit enquiry requests with consent validation, consumer profile fetch, product-level enrichment, and optional CBS `memberId` attribution. |
 | EPIC-17 Agents | AI agent platform: agent catalogue, chat workspace, bureau operator tools, bank statement upload, and agent fleet monitoring. |
 | EPIC-18 Identity Resolution Agent | Dedicated agent for cross-institution consumer identity deduplication via hash matching, confidence scoring, and resolution workflow. |
 

@@ -1,4 +1,5 @@
 import data from "./consortiums.json";
+import cbsCatalogData from "./cbs-member-catalog.json";
 import type { ConsortiumStatus } from "@/lib/consortium-ui";
 
 export type { ConsortiumStatus } from "@/lib/consortium-ui";
@@ -26,6 +27,8 @@ export interface Consortium {
 export interface ConsortiumMember {
   institutionId: string;
   institutionName: string;
+  /** Registration number (member id); mirrors API `registrationNumber`. */
+  registrationNumber?: string;
   joinedDate: string;
   status: "active" | "pending";
 }
@@ -44,6 +47,39 @@ export interface ConsortiumDataSummary {
 
 export const consortiums = data.consortiums as Consortium[];
 export const consortiumMembersByConsortiumId = data.membersByConsortiumId as Record<string, ConsortiumMember[]>;
+
+export type CbsMemberCatalogEntryMock = {
+  id: string;
+  memberId: string;
+  displayName?: string;
+  createdAt?: string;
+};
+
+export type ConsortiumCbsMemberMock = {
+  id: string;
+  catalogId: string;
+  memberId: string;
+  displayName?: string;
+  createdAt: string;
+};
+
+export function getCbsMemberCatalog(): CbsMemberCatalogEntryMock[] {
+  return cbsCatalogData as CbsMemberCatalogEntryMock[];
+}
+
+export const consortiumCbsMembersByConsortiumId = (data as { cbsMembersByConsortiumId?: Record<string, ConsortiumCbsMemberMock[]> })
+  .cbsMembersByConsortiumId ?? {};
+
+/** Spring seed `consortiums.id` (1,2,…) vs mock keys (`CONS_001`, …) for embedded fallback when the URL uses numeric ids. */
+const CONSORTIUM_NUMERIC_ID_TO_MOCK_KEY: Record<string, string> = {
+  "1": "CONS_001",
+  "2": "CONS_002",
+  "3": "CONS_003",
+};
+
+function resolveConsortiumMockKey(consortiumId: string): string {
+  return CONSORTIUM_NUMERIC_ID_TO_MOCK_KEY[consortiumId] ?? consortiumId;
+}
 export const consortiumContributionById = data.contributionByConsortiumId as Record<string, ConsortiumDataContributionRow[]>;
 export const consortiumContributionSummaryById = data.contributionSummaryByConsortiumId as Record<string, ConsortiumDataSummary>;
 
@@ -52,7 +88,11 @@ export function getConsortiumById(id: string): Consortium | undefined {
 }
 
 export function getConsortiumMembers(consortiumId: string): ConsortiumMember[] {
-  return consortiumMembersByConsortiumId[consortiumId] ?? [];
+  return consortiumMembersByConsortiumId[resolveConsortiumMockKey(consortiumId)] ?? [];
+}
+
+export function getConsortiumCbsMembers(consortiumId: string): ConsortiumCbsMemberMock[] {
+  return consortiumCbsMembersByConsortiumId[resolveConsortiumMockKey(consortiumId)] ?? [];
 }
 
 export function getConsortiumContribution(consortiumId: string): ConsortiumDataContributionRow[] {

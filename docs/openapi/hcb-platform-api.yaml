@@ -1,0 +1,3028 @@
+openapi: 3.1.0
+info:
+  title: Hybrid Credit Bureau Platform APIs
+  version: 1.0.0
+  description: |
+    Canonical REST API for the HCB Admin Portal and integrations. **Production contract:** Spring Boot (`hcb-spring-api`)
+    serves `/api/v1/**` (default local port 8090). Vite dev proxies `/api` to Spring.
+
+    **Service map (logical):**
+    - **Auth Service** — JWT login, MFA, refresh, session context.
+    - **Institution Service** — member onboarding, billing, API access, consent, consortium/product links.
+    - **Monitoring Service** — API request logs, enquiry logs, KPIs, charts.
+    - **Data Governance Service** — data policies, drift alerts, schema mapper (when enabled).
+    - **Reporting Service** — operational report requests.
+    - **User Management Service** — users, invitations, roles (RBAC).
+    - **Alert Engine Service** — alert rules, incidents, SLA breach history.
+    - **Batch Processing Service** — batch job lifecycle, execution console detail.
+
+    **Legacy reference:** Node Fastify on port 8091 mirrors many of the same paths with in-memory state — not the production contract owner.
+
+    **Reserved (SecurityConfig, not implemented in current Spring controllers):** `/api/v1/submission/**`, `/api/v1/inquiry/**`, `/api/v1/governance/**` — authorized for future member traffic APIs (`API_USER` / `SUPER_ADMIN`). **Ops:** Spring Actuator `GET /actuator/health` is public (not under `/api/v1`).
+
+    **Global auth:** SPA uses `Authorization: Bearer <JWT>`. CORS allows `X-API-Key` for partner patterns; member API keys are provisioned via `/api/v1/api-keys` (admin UI); inbound key validation for traffic APIs is reserved for those routes.
+
+    **Errors:** `ApiError` JSON for most failures; validation may return a field→message map (400). DELETE under `/api/v1/**` requires `SUPER_ADMIN` per global `SecurityConfig` (stricter than some `@PreAuthorize` on controllers).
+servers:
+  - url: https://api.hcb.com
+    description: Production
+  - url: https://uat.api.hcb.com
+    description: UAT
+  - url: http://127.0.0.1:8090
+    description: Local Spring Boot (canonical)
+  - url: http://127.0.0.1:8091
+    description: Legacy Fastify dev (in-memory)
+tags:
+  - name: Authentication
+    description: Login, MFA, tokens — used by all personas before calling protected APIs.
+  - name: Health
+    description: Liveness for load balancers and CI.
+  - name: Institutions
+    description: Member institution lifecycle, registration wizard metadata, compliance docs, subscriptions — Bureau Admin workflows.
+  - name: Consortiums
+    description: Data-sharing consortiums and members — governance onboarding.
+  - name: Products
+    description: Data products / credit packages and packet catalogue — product owners.
+  - name: Monitoring
+    description: API traffic and enquiry analytics — Analyst / Admin.
+  - name: Dashboard
+    description: Executive KPIs, charts, command center — operational visibility.
+  - name: Data Governance
+    description: Masking policies, drift alerts, schema mapper — Analyst / Admin.
+  - name: Schema Mapper
+    description: Ingest, mappings, rules, approvals — data architecture workflows.
+  - name: Reports
+    description: Scheduled / on-demand operational reports.
+  - name: Users
+    description: Directory, invitations, lifecycle — Super Admin / Bureau Admin.
+  - name: Roles
+    description: RBAC catalogue — Super Admin.
+  - name: API Keys
+    description: Institution-scoped keys for future traffic APIs — Admin.
+  - name: Approvals
+    description: Unified approval queue (institutions, products, consortiums, schema mappings, alert rules).
+  - name: Audit
+    description: Immutable activity log — compliance; `API_USER` allowed per `SecurityConfig`.
+  - name: Alerts
+    description: Alert rules and incidents — operations.
+  - name: SLA
+    description: SLA configuration — Admin.
+  - name: Batch Processing
+    description: Data submission batch jobs and execution console.
+  - name: External Integrations
+    description: Headers, idempotency, and partner-facing conventions (future traffic APIs).
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Access token from POST /api/v1/auth/login or /mfa/verify; refresh via /auth/refresh.
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Reserved for member API traffic; keys issued per institution via Admin API.
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 0, default: 0 }
+      description: Zero-based page index.
+    Size:
+      name: size
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 500, default: 20 }
+      description: Page size (schema mapper caps size server-side at 500 for registry list).
+
+  headers:
+    XRequestId:
+      description: Correlation id (client or gateway); echoed where applicable.
+      schema: { type: string, example: "req-8f2a1c9e-4410-4b2d-9c11-0a7e4d88c001" }
+    RateLimitRemaining:
+      description: Reserved — rate limits may be enforced on auth and traffic APIs.
+      schema: { type: string, example: "58" }
+    IdempotencyKey:
+      description: Reserved for unsafe retries on write APIs.
+      schema: { type: string, example: "idem-20260402-88421" }
+
+  schemas:
+    ApiError:
+      type: object
+      required: [error, message, timestamp, path]
+      properties:
+        error:
+          type: string
+          description: Stable machine code (e.g. ERR_AUTH_FAILED, ERR_INTERNAL).
+          example: ERR_VALIDATION
+        message:
+          type: string
+          example: At least one of isDataSubmitter or isSubscriber must be true
+        timestamp:
+          type: string
+          format: date-time
+          example: "2026-04-02T14:22:01"
+        path:
+          type: string
+          example: /api/v1/institutions
+        retryAfterSeconds:
+          type: integer
+          description: Present for MFA resend cooldown (HTTP 429).
+          example: 42
+    ValidationFieldErrors:
+      type: object
+      additionalProperties: { type: string }
+      example:
+        email: Valid email required
+        password: Password is required
+    PageContainer:
+      type: object
+      properties:
+        content: { type: array, items: {} }
+        totalElements: { type: integer, example: 142 }
+        totalPages: { type: integer, example: 8 }
+        page: { type: integer, example: 0 }
+        size: { type: integer, example: 20 }
+    Institution:
+      type: object
+      description: Member institution — core bureau participant record.
+      required: [id, name, institutionType, institutionLifecycleStatus, registrationNumber, jurisdiction, isDataSubmitter, isSubscriber, apisEnabledCount, isDeleted]
+      properties:
+        id: { type: integer, format: int64, example: 1001 }
+        name: { type: string, example: "Metro Retail Finance Ltd" }
+        tradingName: { type: string, nullable: true, example: "MRF Loans" }
+        institutionType: { type: string, example: "NBFC" }
+        institutionLifecycleStatus:
+          type: string
+          enum: [pending, active, suspended, draft]
+          example: active
+        registrationNumber: { type: string, example: "NBFC-MET-2026-1001" }
+        jurisdiction: { type: string, example: "IN-MH" }
+        licenseType: { type: string, nullable: true, example: "NBFC-D" }
+        licenseNumber: { type: string, nullable: true, example: "NFC-2019-88421" }
+        contactEmail: { type: string, format: email, example: "ops@mrfloans.in" }
+        contactPhone: { type: string, example: "+91-22-4411-2200" }
+        onboardedAt: { type: string, format: date-time, nullable: true }
+        isDataSubmitter: { type: boolean, example: true }
+        isSubscriber: { type: boolean, example: true }
+        billingModel: { type: string, example: "postpaid" }
+        creditBalance: { type: string, example: "125000.00" }
+        dataQualityScore: { type: string, example: "97.40" }
+        matchAccuracyScore: { type: string, example: "96.20" }
+        slaHealthPercent: { type: string, example: "99.10" }
+        apisEnabledCount: { type: integer, example: 2 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        isDeleted: { type: boolean, example: false }
+    User:
+      type: object
+      description: Portal user row returned by GET /users and /users/{id}.
+      properties:
+        id: { type: integer, format: int64, example: 12 }
+        email: { type: string, example: "analyst@hcb.com" }
+        displayName: { type: string, example: "Priya Analyst" }
+        givenName: { type: string, nullable: true }
+        familyName: { type: string, nullable: true }
+        userAccountStatus: { type: string, example: "active" }
+        mfaEnabled: { type: boolean, example: true }
+        institutionId: { type: integer, format: int64, nullable: true, example: 1001 }
+        institutionName: { type: string, nullable: true, example: "Metro Retail Finance Ltd" }
+        roles:
+          type: array
+          items: { type: string }
+          example: ["ANALYST"]
+        createdAt: { type: string, format: date-time }
+        lastLoginAt: { type: string, format: date-time, nullable: true }
+    APIRequestLog:
+      type: object
+      description: Row from GET /monitoring/api-requests content[].
+      properties:
+        requestId: { type: string, example: "REQ-8842101" }
+        apiKey: { type: string, example: "hcb_1001_a3f2_" }
+        endpoint: { type: string, example: "/submission/v1/accounts" }
+        status: { type: string, example: success }
+        responseTimeMs: { type: integer, example: 118 }
+        records: { type: integer, example: 240 }
+        errorCode: { type: string, nullable: true, example: null }
+        timestamp: { type: string, example: "2026-04-02 13:55:22" }
+    Enquiry:
+      type: object
+      description: Row from GET /monitoring/enquiries content[] (Spring projection).
+      properties:
+        enquiryId: { type: string, example: "5501" }
+        institution: { type: string, example: "Metro Retail Finance Ltd" }
+        status: { type: string, example: success }
+        responseTimeMs: { type: integer, example: 86 }
+        enquiryType: { type: string, example: "Comprehensive Credit Profile" }
+        timestamp: { type: string, example: "2026-04-02 13:52:10" }
+    Report:
+      type: object
+      properties:
+        id: { type: integer, format: int64, example: 301 }
+        type: { type: string, example: "Portfolio Performance Summary" }
+        name: { type: string, example: "Portfolio Performance Summary" }
+        status: { type: string, example: queued }
+        dateFrom: { type: string, example: "2026-01-01" }
+        dateTo: { type: string, example: "2026-03-31" }
+        requestedBy: { type: string, example: "admin@hcb.com" }
+        requestedAt: { type: string, example: "2026-04-02 09:15:00" }
+        completedAt: { type: string, nullable: true }
+    AlertRule:
+      type: object
+      properties:
+        id: { type: string, example: "42" }
+        name: { type: string, example: "Submission error rate spike" }
+        domain: { type: string, example: "Submission API" }
+        condition: { type: string, example: "error_rate_5m > 2%" }
+        severity: { type: string, enum: [Critical, Warning, Info], example: Warning }
+        status: { type: string, enum: [Enabled, Disabled, "Pending approval"], example: Enabled }
+        lastTriggered: { type: string, nullable: true, example: "2026-04-01 22:10:00" }
+    SchemaMapping:
+      type: object
+      description: Schema mapper mapping resource (JSON from service; shape varies by workflow).
+      additionalProperties: true
+      example:
+        id: "map-88421"
+        status: "needs_review"
+        schemaVersionId: "sv-1022"
+        fieldMappings: []
+    ValidationRule:
+      type: object
+      description: Per-mapping validation rule (JSON body to POST/PATCH rules).
+      additionalProperties: true
+      example:
+        id: "rule-12"
+        fieldPath: "borrower.pan"
+        ruleType: "regex"
+        expression: "^[A-Z]{5}[0-9]{4}[A-Z]$"
+    Agent:
+      type: object
+      description: Synthetic pipeline agent tile from GET /dashboard/command-center.
+      properties:
+        id: { type: string, example: "pipeline-schema-mapper" }
+        name: { type: string, example: "Schema Mapper" }
+        type: { type: string, example: schema }
+        task: { type: string, example: "AI-assisted mapping to canonical bureau schema" }
+        status: { type: string, enum: [active, idle, warning], example: active }
+        latencyMs: { type: integer, example: 11 }
+        accuracyPct: { type: number, example: 97.4 }
+    BatchJob:
+      type: object
+      properties:
+        batchId: { type: string, example: "999901" }
+        institutionId: { type: string, example: "1001" }
+        fileName: { type: string, example: "march_submissions.csv" }
+        status: { type: string, example: Processing }
+        totalRecords: { type: integer, example: 50000 }
+        successRecords: { type: integer, example: 48220 }
+        failedRecords: { type: integer, example: 1780 }
+        successRate: { type: number, example: 96.44 }
+        durationSeconds: { type: integer, example: 942 }
+        uploadedAt: { type: string, example: "2026-04-02 08:01:33" }
+        uploadedBy: { type: string, example: "batch.ops@hcb.com" }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email, example: "admin@hcb.com" }
+        password: { type: string, format: password, example: "Admin@1234" }
+        captchaToken: { type: string, description: Required when Turnstile enabled on API., example: "0.AbCdEf_turnstile_token" }
+    AuthLoginResponse:
+      type: object
+      description: Step-1 login — either MFA challenge or tokens.
+      properties:
+        mfaRequired: { type: boolean }
+        mfaChallengeId: { type: string, example: "mfa-ch-88421a" }
+        emailMasked: { type: string, example: "a***@hcb.com" }
+        resendAvailableInSeconds: { type: integer, example: 45 }
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer, example: 900 }
+        user:
+          $ref: "#/components/schemas/UserSummary"
+    UserSummary:
+      type: object
+      properties:
+        id: { type: integer, format: int64, example: 1 }
+        email: { type: string, example: "admin@hcb.com" }
+        displayName: { type: string, example: "HCB Administrator" }
+        roles:
+          type: array
+          items: { type: string }
+          example: ["BUREAU_ADMIN"]
+        institutionId: { type: integer, nullable: true }
+        institutionName: { type: string, nullable: true }
+    AuthResponse:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer, example: 900 }
+        user:
+          $ref: "#/components/schemas/UserSummary"
+    MfaVerifyRequest:
+      type: object
+      required: [mfaChallengeId, code]
+      properties:
+        mfaChallengeId: { type: string, example: "mfa-ch-88421a" }
+        code: { type: string, example: "123456" }
+    MfaResendRequest:
+      type: object
+      required: [mfaChallengeId]
+      properties:
+        mfaChallengeId: { type: string, example: "mfa-ch-88421a" }
+    RefreshRequest:
+      type: object
+      required: [refresh_token]
+      properties:
+        refresh_token: { type: string, example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." }
+    LogoutRequest:
+      type: object
+      properties:
+        refresh_token: { type: string }
+
+  responses:
+    BadRequest:
+      description: Validation or business rule failure.
+      content:
+        application/json:
+          schema:
+            oneOf:
+              - $ref: "#/components/schemas/ApiError"
+              - $ref: "#/components/schemas/ValidationFieldErrors"
+          examples:
+            apiError:
+              value:
+                error: ERR_VALIDATION
+                message: consortiumId is required
+                timestamp: "2026-04-02T14:22:01"
+                path: /api/v1/institutions/1001/consortium-memberships
+            fieldErrors:
+              value:
+                email: Valid email required
+    Unauthorized:
+      description: Missing or invalid JWT.
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string, example: ERR_AUTH_REQUIRED }
+              message: { type: string, example: Authentication required }
+    Forbidden:
+      description: Authenticated but insufficient role (e.g. VIEWER on write, ANALYST blocked from approvals).
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              error: { type: string, example: ERR_ACCESS_DENIED }
+              message: { type: string, example: Insufficient permissions }
+    NotFound:
+      description: Resource not found.
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/ApiError" }
+    Conflict:
+      description: Conflict (e.g. duplicate email on invite).
+    NoContent:
+      description: Success with no body (204).
+    InternalError:
+      description: Unexpected server error — generic message only.
+      content:
+        application/json:
+          schema:
+            type: object
+            example:
+              error: ERR_INTERNAL
+              message: An internal error occurred
+              timestamp: "2026-04-02T14:22:01"
+              path: /api/v1/reports
+
+paths:
+  /api/v1/health:
+    get:
+      tags: [Health]
+      summary: Liveness probe
+      description: Public endpoint for load balancers; returns service id.
+      operationId: getHealth
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string, example: hcb-spring-api }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/auth/login:
+    post:
+      tags: [Authentication]
+      summary: Password login (step 1)
+      description: May return MFA challenge for users with mfa_enabled; otherwise JWT pair.
+      operationId: postAuthLogin
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LoginRequest" }
+      responses:
+        "200":
+          description: MFA challenge or authenticated session
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthLoginResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/auth/mfa/verify:
+    post:
+      tags: [Authentication]
+      summary: Complete MFA challenge
+      operationId: postAuthMfaVerify
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MfaVerifyRequest" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/auth/mfa/resend:
+    post:
+      tags: [Authentication]
+      summary: Resend MFA OTP
+      operationId: postAuthMfaResend
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MfaResendRequest" }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "429":
+          description: Resend cooldown
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ApiError" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [Authentication]
+      summary: Refresh access token
+      operationId: postAuthRefresh
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RefreshRequest" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResponse" }
+        "400": { description: Missing refresh_token }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Invalidate refresh session
+      operationId: postAuthLogout
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LogoutRequest" }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/auth/me:
+    get:
+      tags: [Authentication]
+      summary: Current user summary from JWT
+      operationId: getAuthMe
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UserSummary" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/form-metadata:
+    get:
+      tags: [Institutions]
+      summary: Registration wizard field layout
+      description: Driven by geography; aligns SPA Step 1 with backend JSON config.
+      operationId: getInstitutionFormMetadata
+      parameters:
+        - name: geography
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions:
+    get:
+      tags: [Institutions]
+      summary: Page member institutions
+      operationId: listInstitutions
+      parameters:
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: type
+          in: query
+          schema: { type: string }
+        - name: jurisdiction
+          in: query
+          schema: { type: string }
+        - name: role
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: Spring Data Page of Institution
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items: { $ref: "#/components/schemas/Institution" }
+                  totalElements: { type: integer }
+                  totalPages: { type: integer }
+                  size: { type: integer }
+                  number: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [Institutions]
+      summary: Register institution (queues approval)
+      operationId: createInstitution
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Institution" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Institution" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}:
+    get:
+      tags: [Institutions]
+      summary: Get institution by id
+      operationId: getInstitution
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Institution" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    put:
+      tags: [Institutions]
+      summary: Full update (subset of fields)
+      operationId: putInstitution
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/Institution" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Institution" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    patch:
+      tags: [Institutions]
+      summary: Partial update
+      operationId: patchInstitution
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Institution" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    delete:
+      tags: [Institutions]
+      summary: Soft-delete institution
+      description: HTTP DELETE on /api/v1/** requires SUPER_ADMIN per SecurityConfig.
+      operationId: deleteInstitution
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/overview-charts:
+    get:
+      tags: [Institutions]
+      summary: Member overview charts (30d)
+      operationId: getInstitutionOverviewCharts
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties:
+                  type: array
+                  items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/documents:
+    post:
+      tags: [Institutions]
+      summary: Upload compliance document (multipart)
+      operationId: postInstitutionDocument
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                documentName: { type: string }
+                file: { type: string, format: binary }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  complianceDocs:
+                    type: array
+                    items: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/documents/{documentId}:
+    get:
+      tags: [Institutions]
+      summary: Download compliance document (base64 JSON)
+      operationId: getInstitutionDocument
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: documentId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name: { type: string }
+                  fileName: { type: string }
+                  mimeType: { type: string }
+                  dataBase64: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/suspend:
+    post:
+      tags: [Institutions]
+      summary: Suspend active institution
+      operationId: postInstitutionSuspend
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: suspended }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/reactivate:
+    post:
+      tags: [Institutions]
+      summary: Reactivate suspended institution
+      operationId: postInstitutionReactivate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: active }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/consortium-memberships:
+    get:
+      tags: [Institutions]
+      summary: List consortium memberships
+      operationId: listInstitutionConsortiumMemberships
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [Institutions]
+      summary: Add consortium membership (may queue approval)
+      operationId: postInstitutionConsortiumMembership
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                consortiumId: { type: string }
+                memberRole: { type: string }
+                consortiumMemberStatus: { type: string }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "409":
+          description: Already a member
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/consortium-memberships/{membershipId}:
+    delete:
+      tags: [Institutions]
+      summary: Remove consortium membership
+      operationId: deleteInstitutionConsortiumMembership
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: membershipId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/product-subscriptions:
+    get:
+      tags: [Institutions]
+      summary: List product subscriptions
+      operationId: listInstitutionProductSubscriptions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [Institutions]
+      summary: Subscribe to products
+      operationId: postInstitutionProductSubscriptions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                productIds:
+                  type: array
+                  items: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/product-subscriptions/{subscriptionId}:
+    patch:
+      tags: [Institutions]
+      summary: Update subscription status
+      operationId: patchInstitutionProductSubscription
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - name: subscriptionId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                subscriptionStatus: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/billing:
+    patch:
+      tags: [Institutions]
+      summary: Patch billing model and rate overrides
+      operationId: patchInstitutionBilling
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/api-access:
+    get:
+      tags: [Institutions, External Integrations]
+      summary: Data submission / enquiry API toggles
+      operationId: getInstitutionApiAccess
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    patch:
+      tags: [Institutions, External Integrations]
+      summary: Update API access JSON
+      operationId: patchInstitutionApiAccess
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/consent:
+    get:
+      tags: [Institutions]
+      summary: Consent configuration
+      operationId: getInstitutionConsent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    patch:
+      tags: [Institutions]
+      summary: Update consent configuration
+      operationId: patchInstitutionConsent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/billing-summary:
+    get:
+      tags: [Institutions]
+      summary: Billing KPI snapshot
+      operationId: getInstitutionBillingSummary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/institutions/{id}/monitoring-summary:
+    get:
+      tags: [Institutions, Monitoring]
+      summary: Per-member API and batch stats (30d)
+      operationId: getInstitutionMonitoringSummary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/monitoring/kpis:
+    get:
+      tags: [Monitoring]
+      summary: Monitoring KPI snapshot (24h)
+      operationId: getMonitoringKpis
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+              example:
+                totalCallsToday: 128440
+                successRatePercent: 99.2
+                p95LatencyMs: 210
+                avgProcessingTimeMs: 118
+                rejectionRatePercent: 0.8
+                activeApiKeys: 84
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/monitoring/api-requests:
+    get:
+      tags: [Monitoring]
+      summary: Paged API request log
+      operationId: listMonitoringApiRequests
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200":
+          description: PageContainer with APIRequestLog rows
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PageContainer"
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items: { $ref: "#/components/schemas/APIRequestLog" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/monitoring/enquiries:
+    get:
+      tags: [Monitoring]
+      summary: Paged enquiry log
+      operationId: listMonitoringEnquiries
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PageContainer"
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items: { $ref: "#/components/schemas/Enquiry" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/monitoring/charts:
+    get:
+      tags: [Monitoring]
+      summary: Aggregated charts for monitoring home
+      operationId: getMonitoringCharts
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/dashboard/metrics:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard KPI tiles
+      operationId: getDashboardMetrics
+      parameters:
+        - name: range
+          in: query
+          schema: { type: string, default: 30d, example: 30d }
+        - name: from
+          in: query
+          schema: { type: string, format: date }
+        - name: to
+          in: query
+          schema: { type: string, format: date }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/dashboard/charts:
+    get:
+      tags: [Dashboard]
+      summary: Dashboard chart series
+      operationId: getDashboardCharts
+      parameters:
+        - name: range
+          in: query
+          schema: { type: string, default: 30d }
+        - name: from
+          in: query
+          schema: { type: string }
+        - name: to
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/dashboard/activity:
+    get:
+      tags: [Dashboard]
+      summary: Recent audit activity feed
+      operationId: getDashboardActivity
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/dashboard/command-center:
+    get:
+      tags: [Dashboard]
+      summary: Ops command center (counts, agents, batches, anomalies, member quality)
+      operationId: getDashboardCommandCenter
+      parameters:
+        - name: range
+          in: query
+          schema: { type: string, default: 30d }
+        - name: from
+          in: query
+          schema: { type: string }
+        - name: to
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  pendingApprovals: { type: integer }
+                  activeAlerts: { type: integer }
+                  pendingOnboarding: { type: integer }
+                  activeInstitutions: { type: integer }
+                  recentErrors1h: { type: integer }
+                  agents:
+                    type: array
+                    items: { $ref: "#/components/schemas/Agent" }
+                  batches:
+                    type: array
+                    items: { type: object }
+                  anomalies:
+                    type: array
+                    items: { type: object }
+                  memberQuality:
+                    type: array
+                    items: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/batch-jobs:
+    get:
+      tags: [Batch Processing]
+      summary: Paged batch jobs
+      operationId: listBatchJobs
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: institutionId
+          in: query
+          schema: { type: string }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PageContainer"
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items: { $ref: "#/components/schemas/BatchJob" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/batch-jobs/kpis:
+    get:
+      tags: [Batch Processing]
+      summary: Batch processing KPIs
+      operationId: getBatchJobKpis
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/batch-jobs/charts:
+    get:
+      tags: [Batch Processing]
+      summary: Batch monitoring chart aggregates
+      operationId: getBatchJobCharts
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/batch-jobs/{id}:
+    get:
+      tags: [Batch Processing]
+      summary: Single batch job
+      operationId: getBatchJob
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BatchJob" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/batch-jobs/{id}/detail:
+    get:
+      tags: [Batch Processing]
+      summary: Batch execution console (phases, stages, logs, error samples)
+      operationId: getBatchJobDetail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  phases: { type: array, items: { type: object } }
+                  stages: { type: array, items: { type: object } }
+                  flowSegments: { type: array, items: { type: object } }
+                  logs: { type: array, items: { type: object } }
+                  errorSamples: { type: array, items: { type: object } }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/batch-jobs/{id}/retry:
+    post:
+      tags: [Batch Processing]
+      summary: Requeue failed batch job
+      operationId: postBatchJobRetry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200": { description: OK (empty body) }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/batch-jobs/{id}/cancel:
+    post:
+      tags: [Batch Processing]
+      summary: Cancel queued or processing batch job
+      operationId: postBatchJobCancel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200": { description: OK (empty body) }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/approvals:
+    get:
+      tags: [Approvals]
+      summary: Paged approval queue
+      operationId: listApprovals
+      parameters:
+        - name: type
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PageContainer"
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: string }
+                            type: { type: string }
+                            name: { type: string }
+                            description: { type: string }
+                            submittedBy: { type: string }
+                            submittedAt: { type: string }
+                            status: { type: string }
+                            reviewedBy: { type: string, nullable: true }
+                            reviewedAt: { type: string, nullable: true }
+                            rejectionReason: { type: string, nullable: true }
+                            metadata:
+                              type: object
+                              additionalProperties: { type: string }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/approvals/{id}/approve:
+    post:
+      tags: [Approvals]
+      summary: Approve queue item
+      operationId: postApprovalApprove
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/approvals/{id}/reject:
+    post:
+      tags: [Approvals]
+      summary: Reject queue item
+      operationId: postApprovalReject
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, example: "Incomplete KYC documentation" }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/approvals/{id}/request-changes:
+    post:
+      tags: [Approvals]
+      summary: Request changes on queue item
+      operationId: postApprovalRequestChanges
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                comment: { type: string, example: "Please clarify consortium data visibility" }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/users:
+    get:
+      tags: [Users]
+      summary: Paged users
+      operationId: listUsers
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: institutionId
+          in: query
+          schema: { type: integer, format: int64 }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: array
+                    items: { $ref: "#/components/schemas/User" }
+                  totalElements: { type: integer }
+                  totalPages: { type: integer }
+                  size: { type: integer }
+                  number: { type: integer }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/users/invitations:
+    post:
+      tags: [Users]
+      summary: Invite user by email
+      operationId: postUserInvitation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email]
+              properties:
+                email: { type: string, format: email }
+                institutionId: { type: integer, format: int64 }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "409": { $ref: "#/components/responses/Conflict" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/users/{id}:
+    get:
+      tags: [Users]
+      summary: Get user
+      operationId: getUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    patch:
+      tags: [Users]
+      summary: Update user
+      operationId: patchUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName: { type: string }
+                userAccountStatus: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    delete:
+      tags: [Users]
+      summary: Soft-delete user
+      description: SUPER_ADMIN only; global DELETE rule applies.
+      operationId: deleteUser
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/users/{id}/suspend:
+    post:
+      tags: [Users]
+      summary: Suspend user
+      operationId: postUserSuspend
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200": { description: OK (empty) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/users/{id}/activate:
+    post:
+      tags: [Users]
+      summary: Activate user
+      operationId: postUserActivate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200": { description: OK (empty) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/users/{id}/deactivate:
+    post:
+      tags: [Users]
+      summary: Deactivate user account
+      operationId: postUserDeactivate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/roles:
+    get:
+      tags: [Roles]
+      summary: List roles
+      operationId: listRoles
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    roleName: { type: string }
+                    description: { type: string }
+                    createdAt: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [Roles]
+      summary: Create role
+      operationId: createRole
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roleName: { type: string }
+                description: { type: string }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                type: object
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/roles/{id}:
+    patch:
+      tags: [Roles]
+      summary: Update role
+      operationId: patchRole
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    delete:
+      tags: [Roles]
+      summary: Delete role
+      operationId: deleteRole
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/reports:
+    get:
+      tags: [Reports]
+      summary: Paged reports
+      operationId: listReports
+      parameters:
+        - name: type
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PageContainer"
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items: { $ref: "#/components/schemas/Report" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [Reports]
+      summary: Request report generation
+      operationId: createReport
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string, example: "Quarterly portfolio risk" }
+                type: { type: string }
+                dateFrom: { type: string, format: date }
+                dateTo: { type: string, format: date }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: integer, format: int64, example: 301 }
+                  status: { type: string, example: queued }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/reports/{id}:
+    delete:
+      tags: [Reports]
+      summary: Delete report row
+      operationId: deleteReport
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/reports/{id}/cancel:
+    post:
+      tags: [Reports]
+      summary: Cancel queued/processing report
+      operationId: postReportCancel
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200": { description: OK (empty) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/reports/{id}/retry:
+    post:
+      tags: [Reports]
+      summary: Retry failed report
+      operationId: postReportRetry
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200": { description: OK (empty) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/products:
+    get:
+      tags: [Products]
+      summary: Paged data products
+      operationId: listProducts
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - name: type
+          in: query
+          schema: { type: string }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PageContainer"
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [Products]
+      summary: Create data product
+      operationId: createProduct
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/products/packet-catalog:
+    get:
+      tags: [Products]
+      summary: Packet catalogue for product form
+      operationId: getProductPacketCatalog
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/products/{id}:
+    get:
+      tags: [Products]
+      summary: Product detail with packetIds and packetConfigs
+      operationId: getProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    patch:
+      tags: [Products]
+      summary: Update product
+      operationId: patchProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200": { description: OK (empty) }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    delete:
+      tags: [Products]
+      summary: Soft-delete product
+      operationId: deleteProduct
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/consortiums:
+    get:
+      tags: [Consortiums]
+      summary: Paged consortiums
+      operationId: listConsortiums
+      parameters:
+        - name: search
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PageContainer"
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [Consortiums]
+      summary: Create consortium
+      operationId: createConsortium
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/consortiums/{id}:
+    get:
+      tags: [Consortiums]
+      summary: Get consortium
+      operationId: getConsortium
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    patch:
+      tags: [Consortiums]
+      summary: Update consortium
+      operationId: patchConsortium
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200": { description: OK (empty) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    delete:
+      tags: [Consortiums]
+      summary: Soft-delete consortium
+      operationId: deleteConsortium
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/consortiums/{id}/members:
+    get:
+      tags: [Consortiums]
+      summary: Consortium member rows
+      operationId: listConsortiumMembers
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/data-policy:
+    get:
+      tags: [Data Governance]
+      summary: Get or create default data policy for institution+product
+      operationId: getDataPolicy
+      parameters:
+        - name: institutionId
+          in: query
+          required: true
+          schema: { type: string }
+        - name: productId
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [Data Governance]
+      summary: Upsert field-level masking policy
+      operationId: upsertDataPolicy
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [institutionId, productId, fields]
+              properties:
+                institutionId: { type: string, example: "1001" }
+                productId: { type: string, example: "PRD_PREMIUM" }
+                fields:
+                  type: array
+                  items: { type: object, additionalProperties: true }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/api-keys:
+    get:
+      tags: [API Keys, External Integrations]
+      summary: List API keys
+      operationId: listApiKeys
+      parameters:
+        - name: institutionId
+          in: query
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    id: { type: integer }
+                    keyPrefix: { type: string, example: "hcb_1001_a3f2_" }
+                    environment: { type: string, enum: [sandbox, uat, production] }
+                    status: { type: string }
+                    institutionId: { type: integer }
+                    institutionName: { type: string }
+                    createdAt: { type: string }
+                    lastUsedAt: { type: string, nullable: true }
+                    rateLimit: { type: integer, example: 1000 }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [API Keys, External Integrations]
+      summary: Create API key metadata row
+      operationId: createApiKey
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [institutionId]
+              properties:
+                institutionId: { type: integer, example: 1001 }
+                environment: { type: string, example: sandbox }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/api-keys/{id}/regenerate:
+    post:
+      tags: [API Keys]
+      summary: Regenerate API key material
+      operationId: postApiKeyRegenerate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/api-keys/{id}/revoke:
+    post:
+      tags: [API Keys]
+      summary: Revoke API key
+      operationId: postApiKeyRevoke
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/alert-rules:
+    get:
+      tags: [Alerts]
+      summary: List alert rules
+      operationId: listAlertRules
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/AlertRule" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [Alerts]
+      summary: Create alert rule (pending approval)
+      operationId: createAlertRule
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                domain: { type: string }
+                condition: { type: string }
+                severity: { type: string }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AlertRule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/alert-rules/{id}:
+    patch:
+      tags: [Alerts]
+      summary: Update alert rule
+      operationId: patchAlertRule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "200": { description: OK (empty) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    delete:
+      tags: [Alerts]
+      summary: Soft-delete alert rule
+      operationId: deleteAlertRule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/alert-rules/{id}/activate:
+    post:
+      tags: [Alerts]
+      summary: Enable alert rule
+      operationId: postAlertRuleActivate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "400":
+          description: Rule still pending approval
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/alert-rules/{id}/deactivate:
+    post:
+      tags: [Alerts]
+      summary: Disable alert rule
+      operationId: postAlertRuleDeactivate
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/alert-incidents:
+    get:
+      tags: [Alerts]
+      summary: Paged alert incidents
+      operationId: listAlertIncidents
+      parameters:
+        - name: status
+          in: query
+          schema: { type: string }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PageContainer"
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/alert-incidents/charts:
+    get:
+      tags: [Alerts]
+      summary: Alert incident charts
+      operationId: getAlertIncidentCharts
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/alert-incidents/breach-history:
+    get:
+      tags: [Alerts, SLA]
+      summary: SLA breach history
+      operationId: getSlaBreachHistory
+      parameters:
+        - name: domain
+          in: query
+          schema: { type: string }
+        - name: severity
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/alert-incidents/{id}/acknowledge:
+    post:
+      tags: [Alerts]
+      summary: Acknowledge incident
+      operationId: postAlertIncidentAcknowledge
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200": { description: OK (empty) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/alert-incidents/{id}/resolve:
+    post:
+      tags: [Alerts]
+      summary: Resolve incident
+      operationId: postAlertIncidentResolve
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        "200": { description: OK (empty) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/sla-configs:
+    get:
+      tags: [SLA]
+      summary: List active SLA configurations
+      operationId: listSlaConfigs
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/sla-configs/{id}:
+    patch:
+      tags: [SLA]
+      summary: Update SLA threshold
+      operationId: patchSlaConfig
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                thresholdValue: { type: number, example: 99.5 }
+      responses:
+        "200": { description: OK (empty) }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/audit-logs:
+    get:
+      tags: [Audit]
+      summary: Paged audit log (VIEWER denied at security layer for this path — use ANALYST+)
+      operationId: listAuditLogs
+      description: |
+        `SecurityConfig` grants GET /api/v1/audit-logs to SUPER_ADMIN, BUREAU_ADMIN, ANALYST, API_USER (not VIEWER).
+      parameters:
+        - name: userId
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: actionType
+          in: query
+          schema: { type: string }
+        - name: entityType
+          in: query
+          schema: { type: string }
+        - name: entityId
+          in: query
+          schema: { type: string }
+        - name: from
+          in: query
+          schema: { type: string, format: date-time }
+        - name: to
+          in: query
+          schema: { type: string, format: date-time }
+        - { $ref: "#/components/parameters/Page" }
+        - name: size
+          in: query
+          schema: { type: integer, default: 50 }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: "#/components/schemas/PageContainer"
+                  - type: object
+                    properties:
+                      content:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            id: { type: integer }
+                            userId: { type: integer, nullable: true }
+                            userEmail: { type: string, nullable: true }
+                            actionType: { type: string }
+                            entityType: { type: string }
+                            entityId: { type: string }
+                            description: { type: string }
+                            ipAddressHash: { type: string, nullable: true }
+                            auditOutcome: { type: string, nullable: true }
+                            occurredAt: { type: string, format: date-time }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/data-ingestion/drift-alerts:
+    get:
+      tags: [Data Governance]
+      summary: Schema / ingestion drift alerts
+      operationId: getDataIngestionDriftAlerts
+      parameters:
+        - name: dateFrom
+          in: query
+          schema: { type: string, format: date }
+        - name: dateTo
+          in: query
+          schema: { type: string, format: date }
+        - name: sourceType
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alerts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        type: { type: string }
+                        source: { type: string }
+                        message: { type: string }
+                        severity: { type: string }
+                        timestamp: { type: string, format: date-time }
+                  requestId: { type: string, format: uuid }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/metrics:
+    get:
+      tags: [Schema Mapper]
+      summary: Schema mapper KPIs
+      operationId: getSchemaMapperMetrics
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/canonical:
+    get:
+      tags: [Schema Mapper]
+      summary: Canonical schema tree
+      operationId: getSchemaMapperCanonical
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/wizard-metadata:
+    get:
+      tags: [Schema Mapper]
+      summary: Wizard dropdown metadata
+      operationId: getSchemaMapperWizardMetadata
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/schemas:
+    get:
+      tags: [Schema Mapper]
+      summary: Paged schema registry
+      operationId: listSchemaMapperSchemas
+      parameters:
+        - name: sourceType
+          in: query
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: string }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/schemas/source-types:
+    get:
+      tags: [Schema Mapper]
+      summary: Distinct source types
+      operationId: getSchemaMapperSourceTypes
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/schemas/source-type-fields:
+    get:
+      tags: [Schema Mapper]
+      summary: Union of parsed field paths for sourceType
+      operationId: getSchemaMapperSourceTypeFields
+      parameters:
+        - name: sourceType
+          in: query
+          required: true
+          schema: { type: string, example: Bank }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/ingest:
+    post:
+      tags: [Schema Mapper]
+      summary: Ingest schema sample / register fields
+      operationId: postSchemaMapperIngest
+      requestBody:
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/mappings:
+    post:
+      tags: [Schema Mapper]
+      summary: Create async mapping job
+      operationId: postSchemaMapperMapping
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [schemaVersionId]
+              properties:
+                schemaVersionId: { type: string }
+      responses:
+        "202":
+          description: Accepted — async mapping
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SchemaMapping" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/mappings/{id}:
+    get:
+      tags: [Schema Mapper]
+      summary: Get mapping by id
+      operationId: getSchemaMapperMapping
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SchemaMapping" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "404": { $ref: "#/components/responses/NotFound" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    patch:
+      tags: [Schema Mapper]
+      summary: Patch mapping (e.g. fieldMappings, containsPii)
+      operationId: patchSchemaMapperMapping
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SchemaMapping" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SchemaMapping" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/mappings/{id}/rules:
+    get:
+      tags: [Schema Mapper]
+      summary: List validation rules for mapping
+      operationId: listSchemaMapperMappingRules
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    post:
+      tags: [Schema Mapper]
+      summary: Create validation rule
+      operationId: postSchemaMapperMappingRule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ValidationRule" }
+      responses:
+        "201":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationRule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/mappings/{id}/rules/{ruleId}:
+    patch:
+      tags: [Schema Mapper]
+      summary: Patch validation rule
+      operationId: patchSchemaMapperMappingRule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ValidationRule" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ValidationRule" }
+        "400": { $ref: "#/components/responses/BadRequest" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+    delete:
+      tags: [Schema Mapper]
+      summary: Delete validation rule
+      operationId: deleteSchemaMapperMappingRule
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+        - name: ruleId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "204": { $ref: "#/components/responses/NoContent" }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/mappings/{id}/submit-approval:
+    post:
+      tags: [Schema Mapper, Approvals]
+      summary: Submit mapping for approval queue
+      operationId: postSchemaMapperSubmitApproval
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "202":
+          description: Accepted
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/schemas/{versionId}/drift-scan:
+    post:
+      tags: [Schema Mapper]
+      summary: Trigger drift scan for schema version
+      operationId: postSchemaMapperDriftScan
+      parameters:
+        - name: versionId
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        "202":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }
+
+  /api/v1/schema-mapper/drift:
+    get:
+      tags: [Schema Mapper]
+      summary: Paged drift records
+      operationId: listSchemaMapperDrift
+      parameters:
+        - name: schemaVersionId
+          in: query
+          schema: { type: string }
+        - { $ref: "#/components/parameters/Page" }
+        - { $ref: "#/components/parameters/Size" }
+      responses:
+        "200":
+          content:
+            application/json:
+              schema: { type: object, additionalProperties: true }
+        "401": { $ref: "#/components/responses/Unauthorized" }
+        "403": { $ref: "#/components/responses/Forbidden" }
+        "500": { $ref: "#/components/responses/InternalError" }

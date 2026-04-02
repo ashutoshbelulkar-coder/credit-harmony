@@ -107,7 +107,8 @@ The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscr
     "email": "consumer@example.com"
   },
   "requestedFields": ["credit_score", "total_exposure", "dpd_band", "active_accounts"],
-  "idempotencyKey": "FIN-ENQ-2026-001"
+  "idempotencyKey": "FIN-ENQ-2026-001",
+  "memberId": "CBS-MEM-1001"
 }
 ```
 
@@ -122,6 +123,7 @@ The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscr
 | `consumerIdentity` | object | Yes | Consumer identification |
 | `requestedFields` | string[] | No | Field subset; defaults to all product fields |
 | `idempotencyKey` | string | No | Duplicate prevention |
+| `memberId` | string | No | Optional external **CBS member id** (as configured on the consortium in Admin) for attribution and audit when the subscriber’s enquiry is tied to a Core Banking member record. Omitted when not applicable. Persisted on the enquiry record when the Enquiry API implementation lands. |
 
 ---
 
@@ -345,7 +347,8 @@ Idempotency-Key: FIN-ENQ-2026-001
   "consumerIdentity": {
     "nationalIdType": "PAN",
     "nationalId": "ABCDE1234F"
-  }
+  },
+  "memberId": "CBS-MEM-1001"
 }
 ```
 
@@ -363,6 +366,14 @@ Idempotency-Key: FIN-ENQ-2026-001
 - [ ] POST /api/v1/enquiries accepts valid payload
 - [ ] Returns 202 with enquiryId
 - [ ] Inserts initial enquiries record with INITIATED status
+- [ ] Optional `memberId` accepted when present; omitted when absent; stored for audit when implementation persists enquiry rows
+
+#### 6. Test Cases (memberId)
+
+| Test ID | Scenario | Steps | Expected |
+|---------|----------|-------|----------|
+| ENQ-TC-MID-01 | Omit memberId | POST valid payload without `memberId` | 202; enquiry processed; no memberId stored |
+| ENQ-TC-MID-02 | Provide memberId | POST with `memberId` matching consortium CBS list | 202; value recorded on enquiry / audit for traceability (when API persists) |
 
 ---
 

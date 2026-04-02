@@ -11,8 +11,8 @@ import {
   consortiumListLabel,
   consortiumListLabelStyles,
 } from "@/data/consortiums-mock";
-import { useConsortium, useConsortiumMembers } from "@/hooks/api/useConsortiums";
-import type { ConsortiumMember } from "@/services/consortiums.service";
+import { useConsortium, useConsortiumCbsMembers, useConsortiumMembers } from "@/hooks/api/useConsortiums";
+import type { ConsortiumCbsMember, ConsortiumMember } from "@/services/consortiums.service";
 
 const DETAIL_TABS = ["Overview", "Members", "Data policy"] as const;
 
@@ -24,13 +24,29 @@ export default function ConsortiumDetailPage() {
 
   const { data: consortium, isLoading } = useConsortium(id ?? "");
   const { data: membersData } = useConsortiumMembers(id ?? "");
+  const { data: cbsMembersData, isPending: cbsMembersLoading } = useConsortiumCbsMembers(id ?? "");
 
   const members: ConsortiumMember[] = useMemo(() => {
     if (!membersData) return [];
-    return Array.isArray(membersData)
-      ? (membersData as ConsortiumMember[])
-      : ((membersData as { content?: ConsortiumMember[] }).content ?? []);
+    const raw = Array.isArray(membersData)
+      ? membersData
+      : ((membersData as { content?: unknown[] }).content ?? []);
+    return raw.map((item) => {
+      const m = item as Record<string, unknown>;
+      const reg =
+        typeof m.registrationNumber === "string"
+          ? m.registrationNumber
+          : typeof m.registrationnumber === "string"
+            ? m.registrationnumber
+            : undefined;
+      return { ...(item as ConsortiumMember), registrationNumber: reg };
+    });
   }, [membersData]);
+
+  const cbsMembers: ConsortiumCbsMember[] = useMemo(() => {
+    if (!cbsMembersData) return [];
+    return Array.isArray(cbsMembersData) ? cbsMembersData : [];
+  }, [cbsMembersData]);
 
   if (isLoading) {
     return (
@@ -195,6 +211,9 @@ export default function ConsortiumDetailPage() {
                 members.map((m) => (
                   <Card key={m.id ?? `${m.institutionId}-${m.institutionName}`}>
                     <CardContent className="pt-4 space-y-1">
+                      <p className="text-[10px] font-mono text-foreground tabular-nums">
+                        {m.registrationNumber ?? "—"}
+                      </p>
                       <p className="text-[10px] font-medium text-foreground">{m.institutionName}</p>
                       <p className="text-caption text-muted-foreground">
                         Joined {m.joinedAt ? m.joinedAt.split("T")[0] : "—"}
@@ -210,7 +229,10 @@ export default function ConsortiumDetailPage() {
                   <thead className="bg-muted/80">
                     <tr className="border-b border-border">
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
-                        Institution
+                        Member ID
+                      </th>
+                      <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
+                        Member name
                       </th>
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
                         Joined
@@ -220,7 +242,7 @@ export default function ConsortiumDetailPage() {
                   <tbody>
                     {members.length === 0 ? (
                       <tr>
-                        <td colSpan={2} className="px-4 py-8 text-center text-caption text-muted-foreground">
+                        <td colSpan={3} className="px-4 py-8 text-center text-caption text-muted-foreground">
                           No members found for this consortium.
                         </td>
                       </tr>
@@ -230,6 +252,9 @@ export default function ConsortiumDetailPage() {
                           key={m.id ?? `${m.institutionId}-${m.institutionName}`}
                           className="border-b border-border last:border-0"
                         >
+                          <td className="px-4 py-3 text-[10px] font-mono tabular-nums">
+                            {m.registrationNumber ?? "—"}
+                          </td>
                           <td className="px-4 py-3 text-[10px]">{m.institutionName}</td>
                           <td className="px-4 py-3 text-[10px] text-muted-foreground tabular-nums">
                             {m.joinedAt ? m.joinedAt.split("T")[0] : "—"}
@@ -240,6 +265,36 @@ export default function ConsortiumDetailPage() {
                   </tbody>
                 </table>
               </div>
+            </div>
+
+            <div className="space-y-2 pt-2">
+              <h3 className="text-caption font-medium text-foreground">CBS members (external)</h3>
+              {cbsMembersLoading ? (
+                <p className="text-caption text-muted-foreground py-2">Loading CBS members…</p>
+              ) : cbsMembers.length === 0 ? (
+                <p className="text-caption text-muted-foreground py-2">No CBS members configured.</p>
+              ) : (
+                <div className="rounded-xl border border-border bg-card overflow-hidden">
+                  <div className="min-w-0 overflow-x-auto">
+                    <table className="w-full min-w-max">
+                      <thead className="bg-muted/80">
+                        <tr className="border-b border-border">
+                          <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>Member ID</th>
+                          <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>Member Name</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cbsMembers.map((row) => (
+                          <tr key={row.id} className="border-b border-border last:border-0">
+                            <td className="px-4 py-3 text-[10px] font-mono">{row.memberId}</td>
+                            <td className="px-4 py-3 text-[10px] text-muted-foreground">{row.displayName ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

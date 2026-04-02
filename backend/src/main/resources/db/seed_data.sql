@@ -324,6 +324,24 @@ INSERT OR IGNORE INTO consortium_members (consortium_id, institution_id, member_
 (3, 3, 'Consumer',    'pending', '2026-02-20');
 
 -- ============================================================================
+-- CBS MEMBER CATALOG (master list — wizard picker source)
+-- ============================================================================
+INSERT OR IGNORE INTO cbs_member_catalog (id, member_code, display_label, created_at) VALUES
+(1, 'CBS-MEM-1001', 'Retail Branch A',     '2025-11-01'),
+(2, 'CBS-MEM-1002', 'SME Desk North',      '2025-11-15'),
+(3, 'CBS-MEM-2044', 'Alliance Hub',        '2025-08-20'),
+(4, 'CBS-MEM-3001', 'Corporate Desk West', '2025-09-01'),
+(5, 'CBS-MEM-3002', 'Agri Lending Unit',   '2025-10-10');
+
+-- ============================================================================
+-- CONSORTIUM CBS MEMBERS (links to catalog)
+-- ============================================================================
+INSERT OR IGNORE INTO consortium_cbs_members (consortium_id, cbs_catalog_id, linked_at) VALUES
+(1, 1, '2025-11-01'),
+(1, 2, '2025-11-15'),
+(2, 3, '2025-08-20');
+
+-- ============================================================================
 -- SLA CONFIGS (from alert-engine.json slaConfigs)
 -- ============================================================================
 INSERT OR IGNORE INTO sla_configs

@@ -52,6 +52,8 @@ DROP TABLE IF EXISTS canonical_fields;
 DROP TABLE IF EXISTS reports;
 DROP TABLE IF EXISTS approval_queue;
 DROP TABLE IF EXISTS audit_logs;
+DROP TABLE IF EXISTS consortium_cbs_members;
+DROP TABLE IF EXISTS cbs_member_catalog;
 DROP TABLE IF EXISTS consortium_members;
 DROP TABLE IF EXISTS consortiums;
 DROP TABLE IF EXISTS product_subscriptions;
@@ -433,6 +435,33 @@ CREATE TABLE consortium_members (
 
 CREATE INDEX idx_consortium_members_institution_id ON consortium_members (institution_id);
 CREATE INDEX idx_consortium_members_consortium_id  ON consortium_members (consortium_id);
+
+-- ----------------------------------------------------------------------------
+-- cbs_member_catalog (master list of external CBS member codes — admin-seeded)
+-- ----------------------------------------------------------------------------
+CREATE TABLE cbs_member_catalog (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    member_code      VARCHAR(64)  NOT NULL,
+    display_label    VARCHAR(255),
+    created_at       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_cbs_member_catalog_code UNIQUE (member_code)
+);
+
+CREATE INDEX idx_cbs_member_catalog_code ON cbs_member_catalog (member_code);
+
+-- ----------------------------------------------------------------------------
+-- consortium_cbs_members (links consortium ↔ catalog row; no free-text creation in UI)
+-- ----------------------------------------------------------------------------
+CREATE TABLE consortium_cbs_members (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    consortium_id    INTEGER      NOT NULL REFERENCES consortiums(id) ON DELETE CASCADE,
+    cbs_catalog_id   INTEGER      NOT NULL REFERENCES cbs_member_catalog(id) ON DELETE RESTRICT,
+    linked_at        DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT uq_consortium_cbs_catalog UNIQUE (consortium_id, cbs_catalog_id)
+);
+
+CREATE INDEX idx_consortium_cbs_members_consortium_id ON consortium_cbs_members (consortium_id);
+CREATE INDEX idx_consortium_cbs_members_catalog_id ON consortium_cbs_members (cbs_catalog_id);
 
 -- ============================================================================
 -- GROUP: CREDIT

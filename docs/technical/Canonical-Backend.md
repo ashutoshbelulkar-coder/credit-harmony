@@ -76,6 +76,8 @@ The consortium wizard **Add member** control uses **`GET /api/v1/institutions`**
 
 To create a consortium **without** an approval item (e.g. automation), send an explicit **`status: active`**. **`ConsortiumController`** inserts **`consortium_members`** from **`members[]`** and optional **`dataPolicy.dataVisibility`** into **`data_visibility`**.
 
+**Spring — external CBS members:** Master list **`cbs_member_catalog`** (admin-seeded member codes). **`GET /api/v1/cbs-member-catalog`** returns the full catalog for pickers. Table **`consortium_cbs_members`** links a consortium to catalog rows (**`cbs_catalog_id`** FK). **`GET /api/v1/consortiums/{id}/cbs-members`** returns junction **`id`**, **`catalogId`**, **`memberId`**, **`displayName`**, **`createdAt`**. **`POST /api/v1/consortiums`** and **`PATCH /api/v1/consortiums/{id}`** accept optional **`cbsMembers`**: `[{ "catalogId": number }]` only. When **`cbsMembers`** is present on **PATCH**, links are **replaced**. Seeded demo rows exist in **`seed_data.sql`**.
+
 ## Alert rules → approval queue (Spring)
 
 **Spring:** **`AlertRuleController`** inserts new rules with **`alert_rule_status = pending_approval`**, enqueues **`approval_queue`** with **`approval_item_type = alert_rule`**, and maps list/create JSON to the SPA (**`Pending approval`**, **`Enabled`**, **`Disabled`** display strings). **`POST /api/v1/alert-rules/:id/activate`** rejects **400** **`ERR_INVALID_STATE`** until the rule is approved in the queue (or already **`enabled`** / not pending). Approval actions flip **`enabled`** / **`disabled`** in SQL.

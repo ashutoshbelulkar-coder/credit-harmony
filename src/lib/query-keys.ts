@@ -90,6 +90,11 @@ export const QK = {
     list: (params?: Record<string, unknown>) => ["consortiums", "list", params ?? {}] as const,
     detail: (id: string) => ["consortiums", id] as const,
     members: (id: string) => ["consortiums", id, "members"] as const,
+    cbsMembers: (id: string) => ["consortiums", id, "cbs-members"] as const,
+  },
+
+  cbsMemberCatalog: {
+    all: () => ["cbs-member-catalog"] as const,
   },
 
   // ── Products ─────────────────────────────────────────────────────────────

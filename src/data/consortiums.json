@@ -36,18 +36,28 @@
   ],
   "membersByConsortiumId": {
     "CONS_001": [
-      { "institutionId": "1", "institutionName": "First National Bank", "joinedDate": "2025-11-03", "status": "active" },
-      { "institutionId": "2", "institutionName": "Metro Credit Union", "joinedDate": "2025-11-18", "status": "active" },
-      { "institutionId": "4", "institutionName": "Southern Trust Bank", "joinedDate": "2026-01-07", "status": "active" }
+      { "institutionId": "1", "institutionName": "First National Bank", "registrationNumber": "BK-2024-00142", "joinedDate": "2025-11-03", "status": "active" },
+      { "institutionId": "2", "institutionName": "Metro Credit Union", "registrationNumber": "CU-2024-00087", "joinedDate": "2025-11-18", "status": "active" },
+      { "institutionId": "4", "institutionName": "Southern Trust Bank", "registrationNumber": "BK-2024-00098", "joinedDate": "2026-01-07", "status": "active" }
     ],
     "CONS_002": [
-      { "institutionId": "1", "institutionName": "First National Bank", "joinedDate": "2025-08-12", "status": "active" },
-      { "institutionId": "7", "institutionName": "Alpine Microfinance", "joinedDate": "2025-10-01", "status": "active" },
-      { "institutionId": "8", "institutionName": "Urban Commercial Bank", "joinedDate": "2025-12-15", "status": "active" }
+      { "institutionId": "1", "institutionName": "First National Bank", "registrationNumber": "BK-2024-00142", "joinedDate": "2025-08-12", "status": "active" },
+      { "institutionId": "7", "institutionName": "Alpine Microfinance", "registrationNumber": "MF-2024-00176", "joinedDate": "2025-10-01", "status": "active" },
+      { "institutionId": "8", "institutionName": "Urban Commercial Bank", "registrationNumber": "BK-2024-00114", "joinedDate": "2025-12-15", "status": "active" }
     ],
     "CONS_003": [
-      { "institutionId": "3", "institutionName": "Pacific Finance Corp", "joinedDate": "2026-02-20", "status": "pending" }
+      { "institutionId": "3", "institutionName": "Pacific Finance Corp", "registrationNumber": "NB-2025-00201", "joinedDate": "2026-02-20", "status": "pending" }
     ]
+  },
+  "cbsMembersByConsortiumId": {
+    "CONS_001": [
+      { "id": "1", "catalogId": "1", "memberId": "CBS-MEM-1001", "displayName": "Retail Branch A", "createdAt": "2025-11-01T00:00:00.000Z" },
+      { "id": "2", "catalogId": "2", "memberId": "CBS-MEM-1002", "displayName": "SME Desk North", "createdAt": "2025-11-15T00:00:00.000Z" }
+    ],
+    "CONS_002": [
+      { "id": "3", "catalogId": "3", "memberId": "CBS-MEM-2044", "displayName": "Alliance Hub", "createdAt": "2025-08-20T00:00:00.000Z" }
+    ],
+    "CONS_003": []
   },
   "contributionByConsortiumId": {
     "CONS_001": [

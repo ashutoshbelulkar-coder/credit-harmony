@@ -895,6 +895,49 @@ database:
         - { name: idx_consortium_members_institution_id, columns: [institution_id] }
         - { name: idx_consortium_members_consortium_id,  columns: [consortium_id] }
 
+    - name: cbs_member_catalog
+      group: CATALOG
+      description: >
+        Master list of external Core Banking member codes (admin-seeded). Consortium wizard selects from this table only.
+      owns_attributes:
+        - id
+        - member_code
+        - display_label
+        - created_at
+      columns:
+        - { name: id,               type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: member_code,      type: "VARCHAR(64) NOT NULL" }
+        - { name: display_label,    type: "VARCHAR(255)" }
+        - { name: created_at,       type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+      references: []
+      constraints:
+        - UNIQUE(member_code)
+      indexes:
+        - { name: idx_cbs_member_catalog_code, columns: [member_code] }
+
+    - name: consortium_cbs_members
+      group: CATALOG
+      description: >
+        Links a consortium to CBS catalog rows. No free-text member creation in the UI.
+      owns_attributes:
+        - id
+        - consortium_id
+        - cbs_catalog_id
+        - linked_at
+      columns:
+        - { name: id,               type: "INTEGER PRIMARY KEY AUTOINCREMENT" }
+        - { name: consortium_id,    type: "INTEGER NOT NULL", fk: "consortiums(id)" }
+        - { name: cbs_catalog_id,   type: "INTEGER NOT NULL", fk: "cbs_member_catalog(id)" }
+        - { name: linked_at,        type: "DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" }
+      references:
+        - { column: consortium_id,  references_table: consortiums,         references_column: id, on_delete: CASCADE }
+        - { column: cbs_catalog_id, references_table: cbs_member_catalog, references_column: id, on_delete: RESTRICT }
+      constraints:
+        - UNIQUE(consortium_id, cbs_catalog_id)
+      indexes:
+        - { name: idx_consortium_cbs_members_consortium_id, columns: [consortium_id] }
+        - { name: idx_consortium_cbs_members_catalog_id, columns: [cbs_catalog_id] }
+
   # ─────────────────────────────────────────────────────────────────────────────
   # GROUP: MONITORING
   # ─────────────────────────────────────────────────────────────────────────────
