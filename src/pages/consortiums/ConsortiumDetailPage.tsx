@@ -4,19 +4,17 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses, detailPageTabTriggerBaseClasses } from "@/lib/typography";
 import {
   consortiumListLabel,
   consortiumListLabelStyles,
-  consortiumContributionSummaryById as mockContributionSummary,
 } from "@/data/consortiums-mock";
 import { useConsortium, useConsortiumMembers } from "@/hooks/api/useConsortiums";
 import type { ConsortiumMember } from "@/services/consortiums.service";
 
-const DETAIL_TABS = ["Overview", "Members", "Data Contribution"] as const;
+const DETAIL_TABS = ["Overview", "Members", "Data policy"] as const;
 
 export default function ConsortiumDetailPage() {
   const { id } = useParams();
@@ -33,11 +31,6 @@ export default function ConsortiumDetailPage() {
       ? (membersData as ConsortiumMember[])
       : ((membersData as { content?: ConsortiumMember[] }).content ?? []);
   }, [membersData]);
-
-  const contributionSummary = useMemo(
-    () => (id ? mockContributionSummary[id] : undefined),
-    [id]
-  );
 
   if (isLoading) {
     return (
@@ -251,44 +244,30 @@ export default function ConsortiumDetailPage() {
           </div>
         )}
 
-        {activeTab === "Data Contribution" && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {activeTab === "Data policy" && (
+          <div className="grid gap-4 sm:grid-cols-2">
             <Card>
-              <CardHeader className="px-3 pt-3 pb-1">
-                <CardTitle className="text-[10px] font-medium text-muted-foreground">Total records shared</CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-3">
-                <p className="text-h3 font-bold tabular-nums text-foreground">
-                  {contributionSummary?.totalRecordsShared ?? "—"}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="px-3 pt-3 pb-1">
-                <CardTitle className="text-[10px] font-medium text-muted-foreground">Last updated</CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-3">
-                <p className="text-[10px] text-muted-foreground">
-                  {contributionSummary?.lastUpdated ?? "—"}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="sm:col-span-2 lg:col-span-3">
               <CardHeader className="pb-2">
-                <CardTitle>Data types</CardTitle>
+                <CardTitle>Visibility</CardTitle>
               </CardHeader>
-              <CardContent>
-                {(contributionSummary?.dataTypes.length ?? 0) === 0 ? (
-                  <p className="text-caption text-muted-foreground">No data types listed yet.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {contributionSummary!.dataTypes.map((t) => (
-                      <Badge key={t} variant="secondary" className="font-normal">
-                        {t}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+              <CardContent className="space-y-2 text-[10px] text-muted-foreground">
+                <p>
+                  <span className="text-foreground font-medium">Data visibility:</span>{" "}
+                  <span className="tabular-nums">{consortium.dataVisibility ?? "—"}</span>
+                </p>
+                <p className="text-caption text-muted-foreground">
+                  Product-level masked-field unmasking allow-lists are configured in the consortium wizard (Edit → Data policy).
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle>Audit</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-[10px] text-muted-foreground">
+                <p className="text-caption text-muted-foreground">
+                  Updates to product-level data policies create Governance audit log entries (action type: <span className="font-mono">DATA_POLICY_UPDATED</span>).
+                </p>
               </CardContent>
             </Card>
           </div>
