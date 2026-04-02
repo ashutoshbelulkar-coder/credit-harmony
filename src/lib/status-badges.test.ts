@@ -3,10 +3,15 @@ import {
   apiRequestStatusBadgeClass,
   apiRequestStatusLabel,
   enquiryStatusBadgeClass,
+  institutionLifecycleStatusBadgeClass,
+  institutionLifecycleStatusKey,
+  institutionLifecycleStatusLabel,
   normalizeStatusKey,
   reportStatusBadgeClass,
   reportStatusLabel,
   reportStatusesEqual,
+  userAccountStatusBadgeClass,
+  userAccountStatusLabel,
 } from "./status-badges";
 
 describe("normalizeStatusKey", () => {
@@ -38,5 +43,24 @@ describe("report status", () => {
     expect(reportStatusesEqual("queued", "Queued")).toBe(true);
     expect(reportStatusLabel("completed")).toBe("Completed");
     expect(reportStatusBadgeClass("failed")).toContain("bg-destructive/20");
+  });
+});
+
+describe("institution lifecycle status", () => {
+  it("normalises pending variants", () => {
+    expect(institutionLifecycleStatusKey("Pending Approval")).toBe("pending_approval");
+    expect(institutionLifecycleStatusKey("pending-approval")).toBe("pending_approval");
+  });
+  it("maps active and suspended to badge classes", () => {
+    expect(institutionLifecycleStatusBadgeClass("active")).toContain("bg-success/15");
+    expect(institutionLifecycleStatusBadgeClass("suspended")).toContain("bg-destructive/15");
+    expect(institutionLifecycleStatusLabel("active")).toBe("Active");
+  });
+});
+
+describe("user account status", () => {
+  it("maps invited to info tint", () => {
+    expect(userAccountStatusBadgeClass("invited")).toContain("bg-info/15");
+    expect(userAccountStatusLabel("Active")).toBe("Active");
   });
 });

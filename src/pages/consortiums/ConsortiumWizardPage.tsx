@@ -1,12 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -34,7 +44,6 @@ import {
   type ConsortiumDataPolicy,
   type ConsortiumMember,
 } from "@/data/consortiums-mock";
-import { toast } from "sonner";
 import { useConsortium, useConsortiumMembers, useCreateConsortium, useUpdateConsortium } from "@/hooks/api/useConsortiums";
 import { useInstitutions } from "@/hooks/api/useInstitutions";
 import type { InstitutionResponse } from "@/services/institutions.service";
@@ -45,6 +54,15 @@ const steps = [
   { title: "Data policy", shortTitle: "Policy", icon: Shield },
   { title: "Review", shortTitle: "Review", icon: Eye },
 ] as const;
+
+const consortiumWizardSchema = z.object({
+  name: z.string().min(1, "Consortium name is required"),
+  description: z.string().optional(),
+  dataVisibility: z.enum(["full", "masked_pii", "derived"]),
+  memberCount: z.coerce.number().min(1, "Add at least one member"),
+});
+
+type ConsortiumWizardFormValues = z.infer<typeof consortiumWizardSchema>;
 
 function subscriberParticipationCaption(inst: InstitutionResponse) {
   if (inst.isSubscriber && inst.isDataSubmitter) return "Subscriber · Data submission";
@@ -78,29 +96,42 @@ export default function ConsortiumWizardPage() {
   );
 
   const [currentStep, setCurrentStep] = useState(0);
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
   const [members, setMembers] = useState<ConsortiumMember[]>([]);
   const [institutionOpen, setInstitutionOpen] = useState(false);
-  const [dataPolicy, setDataPolicy] = useState<ConsortiumDataPolicy>({
-    dataVisibility: "full",
+
+  const form = useForm<ConsortiumWizardFormValues>({
+    resolver: zodResolver(consortiumWizardSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      dataVisibility: "full",
+      memberCount: 0,
+    },
+    mode: "onTouched",
   });
 
   useEffect(() => {
+    form.setValue("memberCount", members.length);
+  }, [members.length, form]);
+
+  useEffect(() => {
     if (existing && editId) {
-      setName(existing.name);
-      setDescription(existing.description ?? "");
-      // dataPolicy is a UI-only construct; keep form defaults when loading existing
-    } else if (!isEdit) {
-      setName("");
-      setDescription("");
-      setMembers([]);
-      setDataPolicy({
+      form.reset({
+        name: existing.name,
+        description: existing.description ?? "",
         dataVisibility: "full",
       });
+    } else if (!isEdit) {
+      form.reset({
+        name: "",
+        description: "",
+        dataVisibility: "full",
+        memberCount: 0,
+      });
+      setMembers([]);
       setCurrentStep(0);
     }
-  }, [existing, editId, isEdit]);
+  }, [existing, editId, isEdit, form]);
 
   // Seed members from API when editing
   useEffect(() => {
@@ -132,18 +163,15 @@ export default function ConsortiumWizardPage() {
     setMembers((prev) => prev.filter((m) => m.institutionId !== instId));
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === 0) {
-      if (!name.trim()) {
-        toast.error("Consortium name is required");
-        return;
-      }
+      const ok = await form.trigger("name");
+      if (!ok) return;
     }
     if (currentStep === 1) {
-      if (members.length === 0) {
-        toast.error("Add at least one member");
-        return;
-      }
+      form.setValue("memberCount", members.length);
+      const ok = await form.trigger("memberCount");
+      if (!ok) return;
     }
     setCurrentStep((s) => Math.min(s + 1, steps.length - 1));
   };
@@ -152,21 +180,23 @@ export default function ConsortiumWizardPage() {
     setCurrentStep((s) => Math.max(s - 1, 0));
   };
 
-  const handleSubmit = () => {
-    if (!name.trim() || members.length === 0) {
-      toast.error("Complete required fields");
+  const onSubmit = (values: ConsortiumWizardFormValues) => {
+    if (members.length === 0) {
+      form.setError("memberCount", { type: "manual", message: "Add at least one member" });
       return;
     }
     const memberPayload = members.map((m) => ({ institutionId: m.institutionId }));
-    const policyPayload = { dataVisibility: dataPolicy.dataVisibility };
+    const policyPayload: ConsortiumDataPolicy = { dataVisibility: values.dataVisibility };
+    const nameTrim = values.name.trim();
+    const descriptionTrim = values.description?.trim() || undefined;
 
     if (isEdit && editId) {
       updateConsortium(
         {
           id: editId,
           data: {
-            name: name.trim(),
-            description: description.trim() || undefined,
+            name: nameTrim,
+            description: descriptionTrim,
             status: existing?.status,
             dataPolicy: policyPayload,
             members: memberPayload,
@@ -177,8 +207,8 @@ export default function ConsortiumWizardPage() {
     } else {
       createConsortium(
         {
-          name: name.trim(),
-          description: description.trim() || undefined,
+          name: nameTrim,
+          description: descriptionTrim,
           status: "approval_pending",
           dataPolicy: policyPayload,
           members: memberPayload,
@@ -300,8 +330,12 @@ export default function ConsortiumWizardPage() {
     </>
   );
 
+  const watchedName = form.watch("name");
+  const watchedDescription = form.watch("description");
+
   return (
     <DashboardLayout>
+      <Form {...form}>
       <div className="space-y-6 animate-fade-in max-w-4xl w-full">
       <PageBreadcrumb
         segments={[
@@ -333,24 +367,37 @@ export default function ConsortiumWizardPage() {
             <CardTitle className="text-h4 font-medium">Basic info</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-6 md:gap-y-4">
-            <div className="space-y-1.5 min-w-0 md:col-span-2">
-              <Label htmlFor="cw-name" className="text-caption">
-                Name
-              </Label>
-              <Input id="cw-name" value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="space-y-1.5 min-w-0 md:col-span-2">
-              <Label htmlFor="cw-desc" className="text-caption">
-                Description (optional)
-              </Label>
-              <Textarea
-                id="cw-desc"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="resize-y min-h-[72px]"
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem className="min-w-0 md:col-span-2">
+                  <FormLabel className="text-caption">Name</FormLabel>
+                  <FormControl>
+                    <Input id="cw-name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem className="min-w-0 md:col-span-2">
+                  <FormLabel className="text-caption">Description (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      id="cw-desc"
+                      rows={3}
+                      className="resize-y min-h-[72px]"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
       )}
@@ -409,6 +456,18 @@ export default function ConsortiumWizardPage() {
             </Popover>
           </CardHeader>
           <CardContent>
+            <FormField
+              control={form.control}
+              name="memberCount"
+              render={({ field }) => (
+                <FormItem className="mb-3">
+                  <FormControl>
+                    <input type="hidden" name={field.name} ref={field.ref} value={members.length} readOnly />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             {members.length === 0 ? (
               <p className="text-caption text-muted-foreground">No members yet.</p>
             ) : (
@@ -453,27 +512,28 @@ export default function ConsortiumWizardPage() {
             <CardTitle className="text-h4 font-medium">Data policy</CardTitle>
           </CardHeader>
           <CardContent className="space-y-6 max-w-md">
-            <div className="space-y-1.5">
-              <Label className="text-caption">Data visibility</Label>
-              <Select
-                value={dataPolicy.dataVisibility}
-                onValueChange={(v) =>
-                  setDataPolicy((p) => ({
-                    ...p,
-                    dataVisibility: v as ConsortiumDataPolicy["dataVisibility"],
-                  }))
-                }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="full">Full details</SelectItem>
-                  <SelectItem value="masked_pii">Masked PII</SelectItem>
-                  <SelectItem value="derived">Derived</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <FormField
+              control={form.control}
+              name="dataVisibility"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="text-caption">Data visibility</FormLabel>
+                  <Select value={field.value} onValueChange={field.onChange}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="full">Full details</SelectItem>
+                      <SelectItem value="masked_pii">Masked PII</SelectItem>
+                      <SelectItem value="derived">Derived</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
       )}
@@ -486,8 +546,11 @@ export default function ConsortiumWizardPage() {
           <CardContent className="space-y-3 text-body text-muted-foreground">
             <div className="rounded-lg border border-border p-4 space-y-4 bg-muted/20">
               <p>
-                <span className="text-foreground font-medium text-body">{name}</span>
+                <span className="text-foreground font-medium text-body">{watchedName}</span>
               </p>
+              {watchedDescription ? (
+                <p className="text-caption text-muted-foreground">{watchedDescription}</p>
+              ) : null}
               <div className="space-y-2">
                 <p className="text-caption text-muted-foreground uppercase tracking-wider">Members</p>
                 <ul className="space-y-2 list-none m-0 p-0">
@@ -504,7 +567,12 @@ export default function ConsortiumWizardPage() {
                 </ul>
               </div>
             </div>
-            <Button type="button" onClick={handleSubmit} disabled={creating || updating} className="gap-2">
+            <Button
+              type="button"
+              onClick={() => void form.handleSubmit(onSubmit)()}
+              disabled={creating || updating}
+              className="gap-2"
+            >
               {creating || updating ? "Saving…" : (isEdit ? "Save changes" : "Create consortium")}
               <ChevronRight className="w-4 h-4" />
             </Button>
@@ -522,7 +590,7 @@ export default function ConsortiumWizardPage() {
           Back
         </Button>
         {currentStep < steps.length - 1 ? (
-          <Button type="button" onClick={handleNext}>
+          <Button type="button" onClick={() => void handleNext()}>
             Next
           </Button>
         ) : (
@@ -530,6 +598,7 @@ export default function ConsortiumWizardPage() {
         )}
       </div>
       </div>
+      </Form>
     </DashboardLayout>
   );
 }

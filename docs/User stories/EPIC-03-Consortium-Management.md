@@ -4,6 +4,8 @@
 > **Owner:** Platform Engineering | **Priority:** P0–P2
 > **Implementation Status:** ✅ Fully Implemented
 
+> **Cross-cutting UI:** Create/edit consortium wizard uses `react-hook-form` + Zod + `FormMessage` for field validation per [EPIC-00](./EPIC-00-Design-System-Cross-Cutting.md).
+
 ---
 
 ## 1. Executive Summary

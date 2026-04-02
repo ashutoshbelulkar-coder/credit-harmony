@@ -3,6 +3,8 @@
 > **Epic Code:** DASH | **Story Range:** DASH-US-001–006
 > **Owner:** Platform Engineering | **Priority:** P0–P2
 > **Implementation Status:** ✅ Mostly Implemented (DASH-US-003–005 Partial)
+>
+> **Cross-cutting UI:** Dashboard CSV export uses the shared `Button` component; charts inherit `ChartContainer` accessibility defaults — [EPIC-00](./EPIC-00-Design-System-Cross-Cutting.md).
 
 ---
 

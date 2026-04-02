@@ -4,6 +4,8 @@
 > **Owner:** Platform Engineering | **Priority:** P0–P1
 > **Implementation Status:** ✅ Fully Implemented
 
+> **Cross-cutting UI:** Institution **Users** tab account-status chips use `userAccountStatusBadgeClass` / `userAccountStatusLabel` from `status-badges.ts` — [EPIC-00](./EPIC-00-Design-System-Cross-Cutting.md).
+
 ---
 
 ## 1. Executive Summary

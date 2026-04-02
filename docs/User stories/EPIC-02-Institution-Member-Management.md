@@ -3,6 +3,8 @@
 > **Epic Code:** INST | **Story Range:** INST-US-001–012
 > **Owner:** Platform Engineering | **Priority:** P0–P2
 > **Implementation Status:** ✅ Mostly Implemented (INST-US-012 Partial)
+>
+> **Cross-cutting UI:** Member list/detail status chips and sortable column headers follow [EPIC-00](./EPIC-00-Design-System-Cross-Cutting.md) / [Design Guidelines](../design-guidelines.md) (April 2026).
 
 ---
 

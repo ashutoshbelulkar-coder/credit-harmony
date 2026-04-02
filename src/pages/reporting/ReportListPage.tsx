@@ -105,7 +105,7 @@ export function ReportListPage() {
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-h2 font-semibold text-foreground">Hybrid Credit Reports</h1>
+          <h1 className="text-h2 font-semibold text-foreground">Reporting</h1>
           <p className="text-caption text-muted-foreground mt-1">
             View, filter, and download credit bureau reports.
           </p>

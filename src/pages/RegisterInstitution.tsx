@@ -270,9 +270,6 @@ const RegisterInstitution = () => {
           <div>
             <h1 className="text-xl font-bold text-foreground sm:text-2xl">Register member</h1>
             <p className="text-caption text-muted-foreground mt-0.5">Complete all steps to register a new member institution</p>
-            {registerFormMeta?.geographyDescription && (
-              <p className="text-[10px] text-muted-foreground mt-1 max-w-xl">{registerFormMeta.geographyDescription}</p>
-            )}
           </div>
           <Button variant="outline" size="sm" onClick={handleSaveDraft} className="gap-1.5 self-start">
             <Save className="w-3.5 h-3.5" /> Save Draft
@@ -602,7 +599,7 @@ function RegisterField({
                       aria-expanded={consortiumOpen}
                       disabled={metaLoading || (!metaError && opts.length === 0)}
                       className={cn(
-                        "h-10 w-full justify-between font-normal px-3",
+                        "h-9 w-full justify-between px-3 font-normal",
                         !n && "text-muted-foreground",
                       )}
                     >
@@ -667,7 +664,7 @@ function RegisterField({
               disabled={metaLoading || (!metaError && field.options.length === 0)}
             >
               <FormControl>
-                <SelectTrigger className="h-10">
+                <SelectTrigger>
                   <SelectValue placeholder={metaLoading ? "Loading…" : field.placeholder ?? "Select"} />
                 </SelectTrigger>
               </FormControl>
@@ -705,8 +702,8 @@ function RegisterField({
               type={inputType}
               placeholder={field.placeholder}
               className={cn(
-                "h-10",
-                field.readOnly && "bg-muted/50 text-muted-foreground cursor-not-allowed",
+                field.readOnly &&
+                  "cursor-not-allowed bg-muted/50 [color:hsl(var(--muted-foreground))]",
               )}
               value={typeof ff.value === "string" ? ff.value : ""}
               onChange={ff.onChange}

@@ -137,3 +137,76 @@ export const ENQUIRY_STATUS_FILTER_OPTIONS = [
   { value: "consent_missing", label: "Consent missing" },
   { value: "subject_not_found", label: "Subject not found" },
 ] as const;
+
+// ─── Institution lifecycle (institutions.institution_lifecycle_status / API string) ─
+
+/** Normalise UI/API variants: "Pending Approval", "pending-approval" → pending_approval. */
+export function institutionLifecycleStatusKey(status: string): string {
+  return status.trim().toLowerCase().replace(/[\s_-]+/g, "_");
+}
+
+const INSTITUTION_LIFECYCLE_BADGE: Record<string, string> = {
+  active: "bg-success/15 text-success hover:bg-success/25",
+  pending: "bg-warning/15 text-warning hover:bg-warning/25",
+  pending_approval: "bg-warning/15 text-warning hover:bg-warning/25",
+  suspended: "bg-destructive/15 text-destructive hover:bg-destructive/25",
+  draft: "bg-muted text-muted-foreground hover:bg-muted",
+  inactive: "bg-muted text-muted-foreground hover:bg-muted",
+};
+
+const INSTITUTION_LIFECYCLE_LABEL: Record<string, string> = {
+  active: "Active",
+  pending: "Pending",
+  pending_approval: "Pending approval",
+  suspended: "Suspended",
+  draft: "Draft",
+  inactive: "Inactive",
+};
+
+function institutionLifecycleBucket(status: string): string {
+  const k = institutionLifecycleStatusKey(status);
+  if (k === "pending_approval" || k === "pendingapproval") return "pending_approval";
+  if (k.startsWith("pending")) return "pending";
+  return k;
+}
+
+export function institutionLifecycleStatusBadgeClass(status: string): string {
+  const bucket = institutionLifecycleBucket(status);
+  const cls =
+    INSTITUTION_LIFECYCLE_BADGE[bucket] ??
+    (bucket.includes("pending") ? INSTITUTION_LIFECYCLE_BADGE.pending : undefined);
+  return cn(BADGE_SHELL, cls ?? "bg-muted/70 text-muted-foreground hover:bg-muted");
+}
+
+export function institutionLifecycleStatusLabel(status: string): string {
+  const bucket = institutionLifecycleBucket(status);
+  return INSTITUTION_LIFECYCLE_LABEL[bucket] ?? status;
+}
+
+// ─── User account (user_management user_account_status) ─────────────────────
+
+const USER_ACCOUNT_BADGE: Record<string, string> = {
+  active: "bg-success/15 text-success hover:bg-success/25",
+  invited: "bg-info/15 text-info hover:bg-info/25",
+  suspended: "bg-destructive/15 text-destructive hover:bg-destructive/25",
+  inactive: "bg-muted text-muted-foreground hover:bg-muted",
+  disabled: "bg-muted text-muted-foreground hover:bg-muted",
+};
+
+const USER_ACCOUNT_LABEL: Record<string, string> = {
+  active: "Active",
+  invited: "Invited",
+  suspended: "Suspended",
+  inactive: "Inactive",
+  disabled: "Disabled",
+};
+
+export function userAccountStatusBadgeClass(status: string): string {
+  const key = normalizeStatusKey(status);
+  return cn(BADGE_SHELL, USER_ACCOUNT_BADGE[key] ?? "bg-muted/70 text-muted-foreground hover:bg-muted");
+}
+
+export function userAccountStatusLabel(status: string): string {
+  const key = normalizeStatusKey(status);
+  return USER_ACCOUNT_LABEL[key] ?? status;
+}

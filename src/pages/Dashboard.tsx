@@ -28,6 +28,7 @@ import { exportToCsv } from "@/lib/csv-export";
 import type { DashboardRange } from "@/api/dashboard-types";
 import { apiVolumeKpiTitle } from "@/api/dashboard-types";
 import { ApiErrorCard } from "@/components/ui/api-error-card";
+import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
   const [range, setRange] = useState<DashboardDateRange>({ kind: "preset", preset: "30d" });
@@ -59,9 +60,11 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center gap-2">
             <DashboardDateRangePicker value={range} onChange={setRange} />
-            <button
+            <Button
               type="button"
-              className="h-7 px-2.5 rounded-md border border-border bg-background text-caption hover:bg-muted transition-colors"
+              variant="outline"
+              size="sm"
+              className="text-caption"
               title="Download current KPI snapshot as CSV (browser export; not a server-side report job)."
               onClick={() => {
                 const data = snapshot.data;
@@ -91,7 +94,7 @@ const Dashboard = () => {
               aria-label="Export dashboard report as CSV"
             >
               Export
-            </button>
+            </Button>
           </div>
         </div>
 

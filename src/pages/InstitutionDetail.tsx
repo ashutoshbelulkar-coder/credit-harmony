@@ -4,6 +4,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, CheckCircle2, AlertTriangle, ExternalLink, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { institutionManagedApiSlotCount } from "@/lib/institutionManagedApiSlots";
+import {
+  institutionLifecycleStatusBadgeClass,
+  institutionLifecycleStatusLabel,
+} from "@/lib/status-badges";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses, detailPageTabTriggerBaseClasses } from "@/lib/typography";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
@@ -57,17 +61,6 @@ import ReportsTab from "./institution-tabs/ReportsTab";
 import AuditTrailTab from "./institution-tabs/AuditTrailTab";
 import ConsortiumMembershipsTab from "./institution-tabs/ConsortiumMembershipsTab";
 import ProductSubscriptionsTab from "./institution-tabs/ProductSubscriptionsTab";
-
-const statusStyles: Record<string, string> = {
-  active: "bg-success/15 text-success",
-  suspended: "bg-destructive/15 text-destructive",
-  inactive: "bg-muted text-muted-foreground",
-  "pending-approval": "bg-warning/15 text-warning",
-  "Pending Approval": "bg-warning/15 text-warning",
-  Active: "bg-success/15 text-success",
-  Suspended: "bg-destructive/15 text-destructive",
-  Inactive: "bg-muted text-muted-foreground",
-};
 
 const InstitutionDetail = () => {
   const { id } = useParams();
@@ -136,8 +129,8 @@ const InstitutionDetail = () => {
               <div className="flex flex-wrap items-center gap-2 mt-0.5">
                 <span className="text-caption text-muted-foreground">{institution.institutionType}</span>
                 <span className="w-1 h-1 rounded-full bg-muted-foreground" />
-                <span className={cn("px-2 py-0.5 rounded-full capitalize", badgeTextClasses, statusStyles[institution.institutionLifecycleStatus] ?? "bg-muted text-muted-foreground")}>
-                  {institution.institutionLifecycleStatus}
+                <span className={cn("px-2 py-0.5 rounded-full capitalize", badgeTextClasses, institutionLifecycleStatusBadgeClass(institution.institutionLifecycleStatus))}>
+                  {institutionLifecycleStatusLabel(institution.institutionLifecycleStatus)}
                 </span>
                 {institution.isDataSubmitter && (
                   <span className={cn("px-2 py-0.5 rounded-full", badgeTextClasses, "bg-primary/15 text-primary")}>

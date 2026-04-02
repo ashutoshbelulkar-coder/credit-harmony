@@ -2,17 +2,17 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { cn } from "@/lib/utils";
 import { Info, AlertTriangle, AlertCircle } from "lucide-react";
 
-export type AlertType = "info" | "warning" | "critical";
+export type MonitoringAlertBannerType = "info" | "warning" | "critical";
 
 interface MonitoringAlertBannerProps {
-  type: AlertType;
+  type: MonitoringAlertBannerType;
   title: string;
   description?: string;
   className?: string;
 }
 
 const typeConfig: Record<
-  AlertType,
+  MonitoringAlertBannerType,
   { icon: typeof Info; className: string }
 > = {
   info: {

@@ -1,8 +1,35 @@
 # HCB Admin Portal — Design Guidelines
 ### Internal Design Audit + Documentation
-**Version:** 1.0 — Reverse-engineered from codebase  
+**Version:** 1.1 — Reverse-engineered from codebase + implementation log  
 **Audience:** Product, Design, Engineering  
 **Status:** Living document — update on each sprint that touches UI
+
+---
+
+## 0. Implementation log
+
+### April 2026 (design guideline remediation — phase 1)
+
+**Shipped in code**
+
+- **Control height:** `Button` default `h-9`, differentiated `sm` (`h-7`) and `icon` (`h-9 w-9`); `Input` and `SelectTrigger` use `h-9` and `text-body`.
+- **Card:** Default `Card` surface uses `rounded-xl` (aligned with KPI/chart cards).
+- **Empty state:** `EmptyState` typography uses semantic tokens (`text-h4`, `text-body`); icon wrapper is `aria-hidden`.
+- **Status badges:** Institution lifecycle and user account status use `institutionLifecycleStatusBadgeClass` / `institutionLifecycleStatusLabel` and `userAccountStatusBadgeClass` / `userAccountStatusLabel` in [`src/lib/status-badges.ts`](src/lib/status-badges.ts). Consumers include member list, institution detail header, and institution Users tab. Removed `statusStyles` export from [`src/data/institutions-mock.ts`](src/data/institutions-mock.ts).
+- **Sortable tables:** Member institutions list uses `<button type="button">` column headers with `aria-sort`.
+- **Charts:** [`ChartContainer`](src/components/ui/chart.tsx) sets default `role="img"` and `aria-label` (override per chart when needed).
+- **Toasts / header:** Sonner `containerAriaLabel="Notifications"`; notification bell `aria-label` reflects unread count; “Mark all read” uses `Button`.
+- **Layout:** Skip link to `#main-content`; `<main id="main-content" tabIndex={-1}>`; mobile drawer wrapped with Radix `FocusScope` (`trapped`, `loop`).
+- **Dashboard:** CSV export control uses `Button` instead of a raw `<button>`.
+- **Monitoring:** [`MonitoringAlertBanner`](src/components/ui/monitoring-alert-banner.tsx) promoted to `src/components/ui/`.
+- **Consortium wizard:** [`ConsortiumWizardPage`](src/pages/consortiums/ConsortiumWizardPage.tsx) uses `react-hook-form` + Zod + `<FormMessage>` for basic info, member count, and data visibility.
+
+**Still open (see §12–§14)**
+
+- Broad migration away from `text-sm` / `text-xs` across all pages; optional ESLint guard.
+- Optional Storybook or token reference page; keyboard navigation for clickable `<tr>` rows beyond current patterns; further consolidation of other local `statusStyles` maps (products, batches, etc.).
+
+**Documentation:** [EPIC-00 — Design System](User%20stories/EPIC-00-Design-System-Cross-Cutting.md), [INDEX](User%20stories/INDEX.md).
 
 ---
 
@@ -10,7 +37,7 @@
 
 1. [Executive Summary](#1-executive-summary)
 2. [Current Design Philosophy](#2-current-design-philosophy)
-3. [Layout & Structure](#3-layout--structure)
+3. [Layout & Structure](#3-layout--structure) (includes [§3.7 Theme](#37-light-and-dark-theme) and [§3.8 Responsive](#38-responsive-behaviour))
 4. [Typography](#4-typography)
 5. [Color System](#5-color-system)
 6. [Component Inventory](#6-component-inventory)
@@ -45,11 +72,11 @@ The HCB Admin Portal operates on an **implicit, component-driven design system**
 |---|---|
 | Color system | ★★★★☆ — HSL variables, semantic names, light/dark tokens |
 | Typography | ★★★☆☆ — Custom scale exists, but Tailwind defaults (`text-sm`, `text-xs`) still leak in |
-| Component library | ★★★★☆ — shadcn/ui primitives + custom wrappers |
-| Status badges | ★★★★★ — `status-badges.ts` is fully centralized |
+| Component library | ★★★★☆ — shadcn/ui primitives + custom wrappers; default/`sm` Button heights differentiated (Apr 2026) |
+| Status badges | ★★★★★ — `status-badges.ts` covers API/enquiry/report + institution lifecycle + user account (Apr 2026) |
 | Layout patterns | ★★★★☆ — Consistent shell, minor responsive gaps |
 | State handling | ★★★★☆ — Loading/error/empty covered, not fully standardized |
-| Accessibility | ★★★☆☆ — ARIA on key interactions, gaps in live regions and keyboard focus |
+| Accessibility | ★★★★☆ — Sortable `<th>` buttons, chart `role="img"`, skip link, mobile drawer focus scope, richer toast/bell labels (Apr 2026); some tables still use row `onClick` only |
 | Documentation | ★☆☆☆☆ — Nearly none (this document fills the gap) |
 
 ### Key Strengths
@@ -64,12 +91,10 @@ The HCB Admin Portal operates on an **implicit, component-driven design system**
 
 ### Key Gaps
 
-- **Typography inconsistency** — 15+ page files mix `text-sm` / `text-xs` (Tailwind defaults) alongside the custom semantic scale (`text-body`, `text-caption`)
-- **Button sizing inconsistency** — `sm` and `default` Button sizes share identical dimensions (`h-8 px-3`)
-- **Inline status badge duplication** — `InstitutionList.tsx` and `InstitutionDetail.tsx` each define their own `statusStyles` map, diverging from the canonical `status-badges.ts`
-- **No design token documentation** — engineers must read `tailwind.config.ts` and `index.css` to discover tokens
-- **Empty state `EmptyState` component uses `text-sm`** — inconsistent with the rest of the system's `text-body` scale
-- **No motion/animation design language** — animations exist (`fade-in`, `slide-in-right`, `float`) but are not systematically documented
+- **Typography inconsistency** — Many pages still mix `text-sm` / `text-xs` (Tailwind defaults) alongside the semantic scale (`text-body`, `text-caption`); `EmptyState` and core inputs now use tokens (Apr 2026).
+- **No design token documentation** — engineers must read `tailwind.config.ts` and `index.css` to discover tokens (optional Storybook/token page still outstanding).
+- **No motion/animation design language** — animations exist (`fade-in`, `slide-in-right`, `float`) but are not systematically documented.
+- **Clickable table rows** — several lists use `onClick` on `<tr>` without full keyboard parity; member list sort headers fixed (Apr 2026).
 
 ---
 
@@ -185,6 +210,20 @@ Beyond standard Tailwind, the config adds:
 | `desktop` | 1440px | Larger typography/spacing on wide monitors |
 
 **Inconsistency:** `laptop` breakpoint used only in `Dashboard.tsx` and `DashboardCharts.tsx`. Other pages use only `sm`/`md`/`lg`/`xl` — the custom breakpoints are not adopted app-wide.
+
+### 3.7 Light and dark theme
+
+- **Mechanism:** The SPA uses **next-themes** with a **class** on the root (`dark`) so [`src/index.css`](src/index.css) can swap HSL custom properties. The header exposes **Light / Dark / System** in a dropdown.
+- **Tokens:** Core semantic variables (`--background`, `--foreground`, `--card`, `--primary`, etc.) are defined in **light and dark** columns in [§5.1](#51-core-palette-hsl-tokens-indexcss). Sidebar uses a dedicated dark-blue strip (`--sidebar-*`) in both themes for contrast with the content area.
+- **Components:** shadcn primitives consume CSS variables, so components do not hard-code light-only colours.
+
+### 3.8 Responsive behaviour
+
+- **Shell:** Below `md`, the sidebar becomes a **full-height drawer** with a `bg-black/50` scrim; the header includes a **mobile menu** control. Main content uses responsive padding (`p-4 sm:p-6`).
+- **Page headers:** Standard pattern stacks vertically below `sm` (`flex-col` → `sm:flex-row`).
+- **Breakpoints:** Default Tailwind plus **`laptop` (1200px)** and **`desktop` (1440px)** for dashboard density; see §3.6 for adoption gaps.
+- **Touch:** Header controls use at least **44×44px** touch targets on small viewports where noted (e.g. notification bell).
+- **QA:** See §15.3 for the responsiveness checklist.
 
 ---
 
@@ -1252,6 +1291,7 @@ Use this checklist before merging any UI PR:
 
 ---
 
-*End of Design Guidelines v1.0*  
+*End of Design Guidelines v1.1*  
 *Last reverse-engineered: April 2026*  
+*Implementation log: §0*  
 *Next review: Before next major feature milestone*

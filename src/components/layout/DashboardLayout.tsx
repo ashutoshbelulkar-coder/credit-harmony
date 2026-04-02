@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation } from "react-router-dom";
+import { FocusScope } from "@radix-ui/react-focus-scope";
 import { cn } from "@/lib/utils";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
@@ -35,6 +36,12 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="flex h-dvh overflow-hidden w-full bg-background">
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-[100] focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-primary-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+      >
+        Skip to main content
+      </a>
       {/* Desktop / tablet sidebar */}
       <div className="hidden md:flex">
         <AppSidebar />
@@ -42,24 +49,30 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
       {/* Mobile sidebar drawer */}
       {mobileSidebarOpen && (
-        <div className="fixed inset-0 z-40 flex md:hidden min-h-screen w-full">
-          <div className="h-full w-72 max-w-[80%] flex flex-col overflow-hidden shrink-0">
-            <AppSidebar />
+        <FocusScope trapped loop asChild>
+          <div className="fixed inset-0 z-40 flex md:hidden min-h-screen w-full">
+            <div className="h-full w-72 max-w-[80%] flex flex-col overflow-hidden shrink-0">
+              <AppSidebar />
+            </div>
+            <button
+              type="button"
+              aria-label="Close navigation"
+              onClick={() => setMobileSidebarOpen(false)}
+              className="flex-1 min-w-0 min-h-full bg-black/50 cursor-pointer touch-manipulation"
+            />
           </div>
-          <button
-            type="button"
-            aria-label="Close navigation"
-            onClick={() => setMobileSidebarOpen(false)}
-            className="flex-1 min-w-0 min-h-full bg-black/50 cursor-pointer touch-manipulation"
-          />
-        </div>
+        </FocusScope>
       )}
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {showHeader && (
           <AppHeader onToggleSidebar={() => setMobileSidebarOpen((open) => !open)} />
         )}
-        <main className={cn("flex flex-1 flex-col min-h-0 p-4 sm:p-6 pr-[max(1rem,env(safe-area-inset-right))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pb-[max(2rem,env(safe-area-inset-bottom))]", isAgentSubscreen ? "overflow-hidden p-0 pb-0 sm:p-4 sm:p-6" : "overflow-y-auto overscroll-y-contain")}>
+        <main
+          id="main-content"
+          tabIndex={-1}
+          className={cn("flex flex-1 flex-col min-h-0 p-4 sm:p-6 pr-[max(1rem,env(safe-area-inset-right))] pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pb-[max(2rem,env(safe-area-inset-bottom))]", isAgentSubscreen ? "overflow-hidden p-0 pb-0 sm:p-4 sm:p-6" : "overflow-y-auto overscroll-y-contain")}
+        >
           {isAgentSubscreen ? (
             <div className="flex flex-1 flex-col min-h-0 overflow-hidden">{children}</div>
           ) : (

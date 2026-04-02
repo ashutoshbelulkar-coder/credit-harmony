@@ -1,6 +1,6 @@
 # HCB Platform — Epic & User Story Master Index
 
-> **Version:** 1.0.1 | **Last Updated:** 2026-04-02 | **Status:** Living Document
+> **Version:** 1.0.2 | **Last Updated:** 2026-04-02 | **Status:** Living Document
 >
 > This index is the single source of truth for all epics and user stories in the HCB (Hybrid Credit Bureau) Admin Portal. Use it as a sprint-planning input, QA coverage checklist, and compliance audit reference.
 
@@ -10,8 +10,11 @@
 
 The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeScript + Tailwind + shadcn/ui) backed by a Spring Boot API (port 8090) with SQLite in development and PostgreSQL in production. The platform is the **control plane** for a multi-institution credit bureau network, enabling bureau administrators to onboard member financial institutions, manage data products and consortiums, govern data quality, monitor API traffic, process batch credit data submissions, and run AI-powered schema mapping and identity resolution agents.
 
+**Cross-cutting UI:** Platform-wide design tokens, accessibility, and badge conventions are tracked in **[EPIC-00 — Design System](./EPIC-00-Design-System-Cross-Cutting.md)** and [Design Guidelines](../design-guidelines.md).
+
 | Epic | Purpose in One Sentence |
 |------|------------------------|
+| EPIC-00 Design System | Shared UI consistency: controls, badges, layout accessibility, and alignment with internal design guidelines (not a standalone product module). |
 | EPIC-01 Authentication | Secure JWT-based login (optional Turnstile + email OTP MFA), token refresh, and role-gated access for all portal users. |
 | EPIC-02 Institution Management | Full lifecycle management of member financial institutions from draft through active, including geography-driven registration, compliance documents, API keys, and billing. |
 | EPIC-03 Consortium Management | Create and govern data-sharing consortiums, manage institutional membership roles, and control data visibility policy. |
@@ -37,6 +40,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 
 | Epic | Code | Module Name | Brief Description | Stories | Story Range | Doc Link | UI | API | DB |
 |------|------|-------------|-------------------|---------|-------------|----------|----|-----|-----|
+| EPIC-00 | DSYS | Design System (cross-cutting) | Tokens, badges, shell a11y, guideline remediation | — | — | [EPIC-00](./EPIC-00-Design-System-Cross-Cutting.md) | ✅ Partial | N/A | N/A |
 | EPIC-01 | AUTH | Authentication & Session | JWT login, refresh, logout, /me, RBAC | 5 | AUTH-US-001–005 | [EPIC-01](./EPIC-01-Authentication-Session.md) | ✅ Implemented | ✅ Implemented | ✅ Implemented |
 | EPIC-02 | INST | Institution / Member Management | Registration wizard, lifecycle, sub-tabs | 12 | INST-US-001–012 | [EPIC-02](./EPIC-02-Institution-Member-Management.md) | ✅ Implemented | ✅ Implemented | ✅ Implemented |
 | EPIC-03 | CONS | Consortium Management | Create wizard, membership, governance | 7 | CONS-US-001–007 | [EPIC-03](./EPIC-03-Consortium-Management.md) | ✅ Implemented | ✅ Implemented | ✅ Implemented |
@@ -408,6 +412,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 
 | Code | Epic |
 |------|------|
+| DSYS | EPIC-00 Design System & UI Consistency |
 | AUTH | EPIC-01 Authentication & Session |
 | INST | EPIC-02 Institution / Member Management |
 | CONS | EPIC-03 Consortium Management |
@@ -431,6 +436,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 
 ### Documentation notes (2026-04-02)
 
+- **EPIC-00 / Design Guidelines:** Phase 1 design-guideline remediation (controls, institution/user badges, sortable table a11y, chart labels, skip link + mobile focus trap, consortium wizard RHF+Zod, monitoring alert banner location) — see [EPIC-00](./EPIC-00-Design-System-Cross-Cutting.md) and [Design Guidelines](../design-guidelines.md) implementation log.
 - **EPIC-02 / PRD / BRD:** **Register member** is a **Member Management** sidebar sub-item; Member Institutions list no longer shows a header **Register member** button.
 - **EPIC-12:** **Roles & Permissions** remains **section-scoped**; **`nav-config`** lists **`/institutions/register`** under Member Management for navigation/RBAC catalogue alignment only.
 - **EPIC-02 — Registration number:** Register wizard **Registration Number** is **read-only**; **Spring** assigns **`registrationNumber`** on **`POST /api/v1/institutions`** when omitted (**`PREFIX-Slug3-YYYY-id`**). See **Register-Member-Form-Metadata-Source.md**, **API-UI-Parity-Matrix**, **Testing-Plan**.

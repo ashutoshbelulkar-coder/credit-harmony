@@ -15,7 +15,7 @@ import {
 import { institutionManagedApiSlotCount } from "@/lib/institutionManagedApiSlots";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
-import { statusStyles } from "@/data/institutions-mock";
+import { institutionLifecycleStatusBadgeClass } from "@/lib/status-badges";
 import { exportToCsv } from "@/lib/csv-export";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -113,10 +113,6 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
     return sortDir === "asc" ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />;
   };
 
-  const getStatusStyle = (status: string) => {
-    return statusStyles[status as keyof typeof statusStyles] ?? "bg-muted text-muted-foreground";
-  };
-
   const handleSuspendConfirm = () => {
     if (!suspendTarget) return;
     suspendMutation.mutate(suspendTarget.id, {
@@ -200,23 +196,34 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                       { label: "APIs Enabled", key: "apisEnabledCount" as SortKey, align: "text-right" },
                       { label: "SLA Health", key: "slaHealthPercent" as SortKey, align: "text-right" },
                       { label: "Last Updated", key: "updatedAt" as SortKey, align: "text-left" },
-                    ]).map((h) => (
+                    ]).map((h) => {
+                      const sorted = sortKey === h.key;
+                      const ariaSort: "none" | "ascending" | "descending" = sorted
+                        ? sortDir === "asc"
+                          ? "ascending"
+                          : "descending"
+                        : "none";
+                      return (
                       <th
                         key={h.label}
+                        scope="col"
+                        aria-sort={ariaSort}
                         className={cn("px-5 py-3", tableHeaderClasses, h.align)}
                       >
-                        <span
+                        <button
+                          type="button"
                           onClick={() => handleSort(h.key)}
                           className={cn(
-                            "flex items-center gap-1 cursor-pointer hover:text-foreground transition-colors select-none",
+                            "flex w-full items-center gap-1 cursor-pointer hover:text-foreground transition-colors select-none font-inherit bg-transparent border-0 p-0 text-inherit",
                             h.align === "text-right" && "justify-end"
                           )}
                         >
                           {h.label}
                           <SortIcon col={h.key} />
-                        </span>
+                        </button>
                       </th>
-                    ))}
+                    );
+                    })}
                     <th className={cn("px-5 py-3", tableHeaderClasses)} />
                   </tr>
                 </thead>
@@ -247,7 +254,7 @@ const InstitutionList = ({ roleFilter }: { roleFilter?: "dataSubmitter" | "subsc
                         <span className="text-body text-muted-foreground">{inst.institutionType}</span>
                       </td>
                       <td className="px-5 py-4">
-                        <span className={cn("px-2.5 py-1 rounded-full capitalize", badgeTextClasses, getStatusStyle(inst.institutionLifecycleStatus))}>
+                        <span className={cn("px-2.5 py-1 rounded-full capitalize", badgeTextClasses, institutionLifecycleStatusBadgeClass(inst.institutionLifecycleStatus))}>
                           {inst.institutionLifecycleStatus}
                         </span>
                       </td>

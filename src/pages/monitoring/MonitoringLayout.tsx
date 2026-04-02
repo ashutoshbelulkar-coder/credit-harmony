@@ -6,7 +6,7 @@ import {
   defaultMonitoringFilters,
   type MonitoringFilters,
 } from "./MonitoringFilterBar";
-import { MonitoringAlertBanner } from "./MonitoringAlertBanner";
+import { MonitoringAlertBanner } from "@/components/ui/monitoring-alert-banner";
 import { useMonitoringKpis } from "@/hooks/api/useMonitoring";
 import { ApiErrorCard } from "@/components/ui/api-error-card";
 

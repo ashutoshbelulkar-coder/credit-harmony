@@ -3,6 +3,8 @@
 > **Epic Code:** MON | **Story Range:** MON-US-001–007
 > **Owner:** Platform Engineering / Operations | **Priority:** P0–P1
 > **Implementation Status:** ✅ Fully Implemented
+>
+> **Cross-cutting UI:** `MonitoringAlertBanner` component path is `src/components/ui/monitoring-alert-banner.tsx` (shared primitive); see [EPIC-00](./EPIC-00-Design-System-Cross-Cutting.md).
 
 ---
 

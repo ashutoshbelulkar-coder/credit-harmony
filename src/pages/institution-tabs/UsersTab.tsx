@@ -27,18 +27,10 @@ import { Switch } from "@/components/ui/switch";
 import tabsData from "@/data/institution-tabs.json";
 import { useUsers, useInviteUser, useSuspendUser } from "@/hooks/api/useUsers";
 import type { UserResponse } from "@/services/users.service";
+import { userAccountStatusBadgeClass, userAccountStatusLabel } from "@/lib/status-badges";
 
 const roles = tabsData.users.roles as readonly string[];
 type UserRole = (typeof tabsData.users.roles)[number];
-
-const statusStyles: Record<string, string> = {
-  active: "bg-success/15 text-success",
-  inactive: "bg-muted text-muted-foreground",
-  invited: "bg-info/15 text-info",
-  Active: "bg-success/15 text-success",
-  Inactive: "bg-muted text-muted-foreground",
-  Suspended: "bg-destructive/15 text-destructive",
-};
 
 export default function UsersTab({ institutionId }: { institutionId?: string | number }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -133,8 +125,8 @@ export default function UsersTab({ institutionId }: { institutionId?: string | n
                   <td className="px-5 py-4 text-body text-muted-foreground">{u.email}</td>
                   <td className="px-5 py-4 text-body text-foreground">{u.roles?.[0] ?? "—"}</td>
                   <td className="px-5 py-4">
-                    <span className={cn("px-2.5 py-1 rounded-full capitalize", badgeTextClasses, statusStyles[u.userAccountStatus] ?? "bg-muted text-muted-foreground")}>
-                      {u.userAccountStatus}
+                    <span className={cn("px-2.5 py-1 rounded-full capitalize", badgeTextClasses, userAccountStatusBadgeClass(u.userAccountStatus))}>
+                      {userAccountStatusLabel(u.userAccountStatus)}
                     </span>
                   </td>
                   <td className="px-5 py-4 text-body text-muted-foreground">
