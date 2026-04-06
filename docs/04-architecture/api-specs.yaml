@@ -1,0 +1,28 @@
+# =============================================================================
+# HCB Platform API — Architecture documentation anchor
+# =============================================================================
+# Single source of truth for the full OpenAPI 3.1 specification:
+#   ../openapi/hcb-platform-api.yaml
+#
+# This file exists so architecture docs can reference a stable path under
+# docs/04-architecture/. Do not duplicate the full spec here — update the
+# canonical file above and keep service descriptions aligned with Spring Boot.
+# =============================================================================
+
+x-hcb-canonical-openapi: "../openapi/hcb-platform-api.yaml"
+x-hcb-legacy-snapshot: "../technical/openapi-hcb-fastify-snapshot.yaml"
+
+info:
+  title: Hybrid Credit Bureau Platform APIs (reference)
+  version: "see-canonical"
+  description: |
+    Import or validate the canonical spec at:
+      docs/openapi/hcb-platform-api.yaml
+
+    Local Spring Boot (canonical): http://127.0.0.1:8090
+    Legacy Fastify (in-memory):   http://127.0.0.1:8091
+
+    Global errors, auth, and tag structure are documented in the canonical file.
+
+openapi: 3.1.0
+paths: {}
