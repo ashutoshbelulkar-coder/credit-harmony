@@ -47,11 +47,8 @@ export type DiffChangeType = "added" | "removed" | "modified";
 
 export type WizardStep =
   | "source_ingestion"
-  | "multi_schema_matching"
   | "llm_field_intelligence"
   | "auto_rule_preview"
-  | "semantic_insights"
-  | "storage_visibility"
   | "governance_actions";
 
 // ─── Schema Registry ───────────────────────────────────────────────────────

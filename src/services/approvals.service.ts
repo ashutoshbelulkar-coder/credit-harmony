@@ -27,6 +27,16 @@ export interface ApprovalListParams {
   size?: number;
 }
 
+let localApprovalExtras: ApprovalResponse[] = [];
+
+export function enqueueLocalApprovalItem(item: ApprovalResponse): void {
+  localApprovalExtras = [item, ...localApprovalExtras];
+}
+
+export function clearLocalApprovalExtras(): void {
+  localApprovalExtras = [];
+}
+
 function isNetworkOrServerError(err: unknown): boolean {
   if (!(err instanceof ApiError)) return true;
   return err.isServerError;
@@ -37,7 +47,7 @@ export async function fetchApprovals(params?: ApprovalListParams): Promise<Paged
     return await get<PagedResponse<ApprovalResponse>>(`${BASE}${buildQuery(params ?? {})}`);
   } catch (err) {
     if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
-      let list = [...mockItems] as ApprovalResponse[];
+      let list = [...localApprovalExtras, ...mockItems] as ApprovalResponse[];
       if (params?.type && params.type !== "all") list = list.filter((i) => i.type === params.type);
       if (params?.status && params.status !== "all") list = list.filter((i) => i.status === params.status);
       const page = params?.page ?? 0;

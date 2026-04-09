@@ -1,0 +1,436 @@
+{
+  "masterSchemas": [
+    {
+      "id": "msm-1001",
+      "name": "Telecom Master Schema",
+      "sourceType": "telecom",
+      "description": "Enterprise master schema for telecom alternate data ingestion.",
+      "version": "v1.2",
+      "status": "active",
+      "fields": [
+        { "name": "consumer_id", "dataType": "string", "required": true, "masking": "none", "description": "Unique consumer identifier." },
+        { "name": "full_name", "dataType": "string", "required": true, "masking": "partial", "description": "Consumer full legal name." },
+        { "name": "phone_number", "dataType": "string", "required": true, "masking": "partial", "description": "Primary mobile number." },
+        { "name": "date_of_birth", "dataType": "date", "required": false, "masking": "full", "description": "Date of birth (if available)." },
+        { "name": "avg_monthly_bill", "dataType": "decimal", "required": false, "masking": "none", "description": "Average monthly bill for last 3 months." },
+        { "name": "payment_delay_days", "dataType": "integer", "required": false, "masking": "none", "description": "Days payment was delayed." }
+      ],
+      "createdBy": "Priya Sharma",
+      "updatedBy": "Priya Sharma",
+      "createdAt": "2026-01-12T10:15:00Z",
+      "updatedAt": "2026-02-18T09:30:00Z",
+      "rawJson": {
+        "$schema": "https://json-schema.org/draft-07/schema",
+        "title": "Telco Master Schema",
+        "description": "Canonical information model for telecommunications service providers. Aligned with TM Forum SID and Open APIs.",
+        "version": "1.0",
+        "definitions": {
+          "Party": {
+            "type": "object",
+            "description": "Any individual or organization that can play a role in a business interaction.",
+            "properties": {
+              "partyId": { "type": "string", "description": "Globally unique identifier for the party." },
+              "partyType": { "type": "string", "enum": ["Individual", "Organization"] },
+              "legalName": { "type": "string" },
+              "displayName": { "type": "string" },
+              "taxId": { "type": "string" },
+              "status": { "type": "string", "enum": ["Active", "Inactive", "Suspended"] },
+              "createdDate": { "type": "string", "format": "date" },
+              "lastUpdated": { "type": "string", "format": "date" }
+            },
+            "required": ["partyId", "partyType", "legalName", "status"]
+          },
+          "PartyRole": {
+            "type": "object",
+            "description": "Associates a Party with a specific role type and validity period.",
+            "properties": {
+              "partyRoleId": { "type": "string" },
+              "partyId": { "type": "string" },
+              "roleType": { "type": "string", "enum": ["Customer", "EnterpriseCustomer", "Partner", "Vendor", "Regulator"] },
+              "validFrom": { "type": "string", "format": "date" },
+              "validTo": { "type": "string", "format": "date" },
+              "status": { "type": "string", "enum": ["Active", "Inactive"] }
+            },
+            "required": ["partyRoleId", "partyId", "roleType", "validFrom", "status"]
+          },
+          "Customer": {
+            "type": "object",
+            "description": "A party role representing an entity receiving telecom services.",
+            "properties": {
+              "customerId": { "type": "string" },
+              "partyRoleId": { "type": "string" },
+              "customerType": { "type": "string", "enum": ["Residential", "SME", "Enterprise", "Government"] },
+              "regCategory": { "type": "string" },
+              "lifecycleState": { "type": "string", "enum": ["Prospect", "Active", "Suspended", "Churned"] },
+              "customerSince": { "type": "string", "format": "date" }
+            },
+            "required": ["customerId", "partyRoleId", "customerType", "lifecycleState"]
+          },
+          "CustomerAccount": {
+            "type": "object",
+            "description": "The billing/financial account associated with one or more customers.",
+            "properties": {
+              "accountId": { "type": "string" },
+              "accountNumber": { "type": "string" },
+              "customerId": { "type": "string" },
+              "accountStatus": { "type": "string", "enum": ["Active", "Closed", "Suspended"] },
+              "billingCycle": { "type": "string", "enum": ["Monthly", "Quarterly", "Annual"] },
+              "currency": { "type": "string" },
+              "creditLimit": { "type": "number" },
+              "billingAddressId": { "type": "string" }
+            },
+            "required": ["accountId", "accountNumber", "customerId", "accountStatus", "billingCycle", "currency"]
+          },
+          "ContactMedium": {
+            "type": "object",
+            "description": "A contact channel such as email, phone, or postal address.",
+            "properties": {
+              "contactMediumId": { "type": "string" },
+              "partyId": { "type": "string" },
+              "type": { "type": "string", "enum": ["Mobile", "Email", "Landline", "PostalAddress", "URL"] },
+              "value": { "type": "string" },
+              "countryCode": { "type": "string" },
+              "language": { "type": "string" },
+              "isPrimary": { "type": "boolean" },
+              "isPreferredForNotification": { "type": "boolean" }
+            },
+            "required": ["contactMediumId", "partyId", "type", "value"]
+          },
+          "ProductSpecification": {
+            "type": "object",
+            "description": "Technical and commercial definition of a product independent of customer or price.",
+            "properties": {
+              "productSpecId": { "type": "string" },
+              "name": { "type": "string" },
+              "description": { "type": "string" },
+              "category": { "type": "string", "enum": ["Mobile", "Broadband", "Enterprise", "IoT", "Voice", "Bundle"] },
+              "subCategory": { "type": "string" },
+              "version": { "type": "string" },
+              "status": { "type": "string", "enum": ["Active", "Retired", "Draft"] }
+            },
+            "required": ["productSpecId", "name", "category", "status"]
+          },
+          "ProductOffering": {
+            "type": "object",
+            "description": "A marketable product offer combining one or more product specifications.",
+            "properties": {
+              "productOfferingId": { "type": "string" },
+              "productSpecId": { "type": "string" },
+              "name": { "type": "string" },
+              "marketSegment": { "type": "string" },
+              "channel": { "type": "array", "items": { "type": "string" } },
+              "validFrom": { "type": "string", "format": "date" },
+              "validTo": { "type": "string", "format": "date" },
+              "isBundle": { "type": "boolean" }
+            },
+            "required": ["productOfferingId", "productSpecId", "name", "validFrom"]
+          },
+          "ProductPrice": {
+            "type": "object",
+            "description": "A charge or rate associated with a product offering.",
+            "properties": {
+              "productPriceId": { "type": "string" },
+              "productOfferingId": { "type": "string" },
+              "priceName": { "type": "string" },
+              "priceType": { "type": "string", "enum": ["OneTime", "Recurring", "UsageBased"] },
+              "chargeBasis": { "type": "string" },
+              "amount": { "type": "number" },
+              "currency": { "type": "string" },
+              "taxCategory": { "type": "string" }
+            },
+            "required": ["productPriceId", "productOfferingId", "priceType", "amount", "currency"]
+          },
+          "Service": {
+            "type": "object",
+            "description": "An instantiated service being delivered to a customer.",
+            "properties": {
+              "serviceId": { "type": "string" },
+              "serviceSpecId": { "type": "string" },
+              "customerAccountId": { "type": "string" },
+              "circuitOrMSISDN": { "type": "string" },
+              "serviceStatus": { "type": "string", "enum": ["Active", "Pending", "Suspended", "Disconnected", "Cancelled"] },
+              "activationDate": { "type": "string", "format": "date" },
+              "terminationDate": { "type": ["string", "null"], "format": "date" },
+              "locationId": { "type": "string" }
+            },
+            "required": ["serviceId", "serviceSpecId", "customerAccountId", "serviceStatus", "activationDate"]
+          },
+          "Location": {
+            "type": "object",
+            "description": "A physical or logical location such as a customer premise or network site.",
+            "properties": {
+              "locationId": { "type": "string" },
+              "type": { "type": "string", "enum": ["CustomerPremise", "NetworkSite", "DataCenter", "Tower", "Manhole"] },
+              "addressLine1": { "type": "string" },
+              "city": { "type": "string" },
+              "state": { "type": "string" },
+              "pinCode": { "type": "string" },
+              "country": { "type": "string" },
+              "latitude": { "type": "number" },
+              "longitude": { "type": "number" }
+            },
+            "required": ["locationId", "type", "city", "country"]
+          },
+          "Resource": {
+            "type": "object",
+            "description": "A physical or logical resource used to deliver telecom services.",
+            "properties": {
+              "resourceId": { "type": "string" },
+              "resourceSpecId": { "type": "string" },
+              "serialNumber": { "type": "string" },
+              "status": { "type": "string", "enum": ["InService", "OutOfService", "Planned", "Retired"] },
+              "installDate": { "type": "string", "format": "date" },
+              "locationId": { "type": "string" },
+              "linkedServiceId": { "type": "string" },
+              "owner": { "type": "string", "enum": ["Operator", "CustomerLeased", "CustomerOwned"] }
+            },
+            "required": ["resourceId", "resourceSpecId", "status"]
+          },
+          "UsageEvent": {
+            "type": "object",
+            "description": "A single CDR, IPDR, or session-level usage record.",
+            "properties": {
+              "usageEventId": { "type": "string" },
+              "serviceId": { "type": "string" },
+              "eventType": { "type": "string", "enum": ["VoiceCall", "SMS", "DataSession", "MMS", "RoamingCall"] },
+              "startTime": { "type": "string", "format": "date-time" },
+              "endTime": { "type": "string", "format": "date-time" },
+              "volume": { "type": "number" },
+              "volumeUnit": { "type": "string", "enum": ["seconds", "bytes", "messages"] },
+              "direction": { "type": "string", "enum": ["Originating", "Terminating"] },
+              "originatingId": { "type": "string" },
+              "destinationId": {},
+              "networkType": { "type": "string" }
+            },
+            "required": ["usageEventId", "serviceId", "eventType", "startTime", "volume", "volumeUnit"]
+          },
+          "Bill": {
+            "type": "object",
+            "description": "A rendered invoice for a billing account covering a billing period.",
+            "properties": {
+              "billId": { "type": "string" },
+              "billingAccountId": { "type": "string" },
+              "billNumber": { "type": "string" },
+              "billPeriodStart": { "type": "string", "format": "date" },
+              "billPeriodEnd": { "type": "string", "format": "date" },
+              "billDate": { "type": "string", "format": "date" },
+              "dueDate": { "type": "string", "format": "date" },
+              "totalAmount": { "type": "number" },
+              "taxAmount": { "type": "number" },
+              "currency": { "type": "string" },
+              "status": { "type": "string", "enum": ["Draft", "Issued", "Paid", "Overdue", "Disputed"] }
+            },
+            "required": ["billId", "billingAccountId", "billNumber", "billPeriodStart", "billPeriodEnd", "totalAmount", "currency", "status"]
+          },
+          "Payment": {
+            "type": "object",
+            "description": "A payment received from a customer.",
+            "properties": {
+              "paymentId": { "type": "string" },
+              "billingAccountId": { "type": "string" },
+              "paymentMethod": { "type": "string", "enum": ["Cash", "Card", "UPI", "DirectDebit", "BankTransfer", "DigitalWallet"] },
+              "amount": { "type": "number" },
+              "currency": { "type": "string" },
+              "paymentDate": { "type": "string", "format": "date" },
+              "referenceNo": { "type": "string" },
+              "status": { "type": "string", "enum": ["Pending", "Settled", "Failed", "Refunded"] }
+            },
+            "required": ["paymentId", "billingAccountId", "paymentMethod", "amount", "currency", "paymentDate", "status"]
+          },
+          "Agreement": {
+            "type": "object",
+            "description": "A legal or commercial agreement between parties.",
+            "properties": {
+              "agreementId": { "type": "string" },
+              "agreementType": { "type": "string", "enum": ["ServiceContract", "EnterpriseContract", "DataSharingConsent", "PartnerAgreement"] },
+              "customerId": { "type": "string" },
+              "productOfferingId": { "type": "string" },
+              "status": { "type": "string", "enum": ["Active", "Expired", "Terminated", "Pending"] },
+              "effectiveStart": { "type": "string", "format": "date" },
+              "effectiveEnd": { "type": "string", "format": "date" },
+              "jurisdiction": { "type": "string" },
+              "signedDate": { "type": "string", "format": "date" }
+            },
+            "required": ["agreementId", "agreementType", "customerId", "status", "effectiveStart"]
+          }
+        },
+        "sampleData": {
+          "Party": [
+            { "partyId": "PTY-001", "partyType": "Individual", "legalName": "Rajesh Kumar", "displayName": "Rajesh K.", "taxId": "ABCPK1234Z", "status": "Active", "createdDate": "2022-03-15", "lastUpdated": "2024-11-01" },
+            { "partyId": "PTY-002", "partyType": "Individual", "legalName": "Priya Sharma", "displayName": "Priya S.", "taxId": "XYZPS5678A", "status": "Active", "createdDate": "2021-07-20", "lastUpdated": "2025-01-10" },
+            { "partyId": "PTY-003", "partyType": "Organization", "legalName": "InfoEdge Pvt Ltd", "displayName": "InfoEdge", "taxId": "27AABCI1234Z1ZX", "status": "Active", "createdDate": "2020-05-01", "lastUpdated": "2025-03-22" },
+            { "partyId": "PTY-004", "partyType": "Individual", "legalName": "Amit Desai", "displayName": "Amit D.", "taxId": "PQRAD9012B", "status": "Active", "createdDate": "2023-01-05", "lastUpdated": "2025-02-18" },
+            { "partyId": "PTY-005", "partyType": "Organization", "legalName": "Zenith Corp Ltd", "displayName": "Zenith Corp", "taxId": "29AACZX7890Z1ZY", "status": "Active", "createdDate": "2019-11-30", "lastUpdated": "2024-09-14" }
+          ],
+          "Customer": [
+            { "customerId": "CUS-001", "partyRoleId": "PR-001", "customerType": "Residential", "regCategory": "Standard", "lifecycleState": "Active", "customerSince": "2022-03-15" },
+            { "customerId": "CUS-002", "partyRoleId": "PR-002", "customerType": "Residential", "regCategory": "LowIncome", "lifecycleState": "Active", "customerSince": "2021-07-20" },
+            { "customerId": "CUS-003", "partyRoleId": "PR-003", "customerType": "Enterprise", "regCategory": "Corporate", "lifecycleState": "Active", "customerSince": "2020-05-01" },
+            { "customerId": "CUS-004", "partyRoleId": "PR-004", "customerType": "SME", "regCategory": "Standard", "lifecycleState": "Active", "customerSince": "2023-01-05" },
+            { "customerId": "CUS-005", "partyRoleId": "PR-005", "customerType": "Enterprise", "regCategory": "Corporate", "lifecycleState": "Active", "customerSince": "2019-11-30" }
+          ],
+          "CustomerAccount": [
+            { "accountId": "ACC-001", "accountNumber": "ACT20220315001", "customerId": "CUS-001", "accountStatus": "Active", "billingCycle": "Monthly", "currency": "INR", "creditLimit": 10000, "billingAddressId": "LOC-001" },
+            { "accountId": "ACC-002", "accountNumber": "ACT20210720002", "customerId": "CUS-002", "accountStatus": "Active", "billingCycle": "Monthly", "currency": "INR", "creditLimit": 5000, "billingAddressId": "LOC-002" },
+            { "accountId": "ACC-003", "accountNumber": "ACT20200501003", "customerId": "CUS-003", "accountStatus": "Active", "billingCycle": "Monthly", "currency": "INR", "creditLimit": 500000, "billingAddressId": "LOC-003" }
+          ],
+          "ProductOffering": [
+            { "productOfferingId": "PO-001", "productSpecId": "PS-001", "name": "Prepaid 199 Plan", "marketSegment": "Residential", "channel": ["Digital", "Retail"], "validFrom": "2024-01-01", "validTo": "2025-12-31", "isBundle": false },
+            { "productOfferingId": "PO-002", "productSpecId": "PS-002", "name": "Postpaid Unlimited 599", "marketSegment": "Residential", "channel": ["Digital", "Retail"], "validFrom": "2024-01-01", "validTo": "2025-12-31", "isBundle": false },
+            { "productOfferingId": "PO-003", "productSpecId": "PS-003", "name": "Home Fiber 100 Plan", "marketSegment": "Residential", "channel": ["Digital", "Partner"], "validFrom": "2024-04-01", "validTo": "2026-03-31", "isBundle": false },
+            { "productOfferingId": "PO-005", "productSpecId": "PS-005", "name": "Enterprise Connect MPLS", "marketSegment": "Enterprise", "channel": ["Direct"], "validFrom": "2023-01-01", "validTo": "2025-12-31", "isBundle": false }
+          ],
+          "Service": [
+            { "serviceId": "SVC-001", "serviceSpecId": "SS-002", "customerAccountId": "ACC-001", "circuitOrMSISDN": "+919876543210", "serviceStatus": "Active", "activationDate": "2022-03-15", "terminationDate": null, "locationId": "LOC-001" },
+            { "serviceId": "SVC-003", "serviceSpecId": "SS-003", "customerAccountId": "ACC-002", "circuitOrMSISDN": "FBB-MUM-00234", "serviceStatus": "Active", "activationDate": "2021-08-01", "terminationDate": null, "locationId": "LOC-002" },
+            { "serviceId": "SVC-004", "serviceSpecId": "SS-004", "customerAccountId": "ACC-003", "circuitOrMSISDN": "MPLS-BLR-0091", "serviceStatus": "Active", "activationDate": "2020-06-01", "terminationDate": null, "locationId": "LOC-003" }
+          ],
+          "UsageEvent": [
+            { "usageEventId": "UE-001", "serviceId": "SVC-001", "eventType": "VoiceCall", "startTime": "2025-03-01T09:02:00", "endTime": "2025-03-01T09:07:34", "volume": 334, "volumeUnit": "seconds", "direction": "Originating", "originatingId": "+919876543210", "destinationId": "+919011223344", "networkType": "LTE" },
+            { "usageEventId": "UE-003", "serviceId": "SVC-002", "eventType": "DataSession", "startTime": "2025-03-01T11:00:00", "endTime": "2025-03-01T11:45:00", "volume": 1250, "volumeUnit": "bytes", "direction": "Originating", "originatingId": "+919876543210", "destinationId": null, "networkType": "5G NR" },
+            { "usageEventId": "UE-004", "serviceId": "SVC-003", "eventType": "DataSession", "startTime": "2025-03-02T08:00:00", "endTime": "2025-03-02T08:30:00", "volume": 3200, "volumeUnit": "bytes", "direction": "Originating", "originatingId": "FBB-MUM-00234", "destinationId": null, "networkType": "FTTH" }
+          ],
+          "Bill": [
+            { "billId": "BIL-001", "billingAccountId": "ACC-001", "billNumber": "INV-2025-03-001", "billPeriodStart": "2025-03-01", "billPeriodEnd": "2025-03-31", "billDate": "2025-04-01", "dueDate": "2025-04-15", "totalAmount": 706.82, "taxAmount": 107.82, "currency": "INR", "status": "Issued" },
+            { "billId": "BIL-002", "billingAccountId": "ACC-002", "billNumber": "INV-2025-03-002", "billPeriodStart": "2025-03-01", "billPeriodEnd": "2025-03-31", "billDate": "2025-04-01", "dueDate": "2025-04-15", "totalAmount": 942.82, "taxAmount": 143.82, "currency": "INR", "status": "Issued" },
+            { "billId": "BIL-003", "billingAccountId": "ACC-003", "billNumber": "INV-2025-03-003", "billPeriodStart": "2025-03-01", "billPeriodEnd": "2025-03-31", "billDate": "2025-04-01", "dueDate": "2025-04-20", "totalAmount": 34810, "taxAmount": 5310, "currency": "INR", "status": "Paid" }
+          ],
+          "Payment": [
+            { "paymentId": "PAY-001", "billingAccountId": "ACC-001", "paymentMethod": "UPI", "amount": 706.82, "currency": "INR", "paymentDate": "2025-04-12", "referenceNo": "UPI-123456789", "status": "Settled" },
+            { "paymentId": "PAY-002", "billingAccountId": "ACC-002", "paymentMethod": "DirectDebit", "amount": 942.82, "currency": "INR", "paymentDate": "2025-04-13", "referenceNo": "DD-987654321", "status": "Settled" },
+            { "paymentId": "PAY-003", "billingAccountId": "ACC-003", "paymentMethod": "BankTransfer", "amount": 34810, "currency": "INR", "paymentDate": "2025-04-18", "referenceNo": "NEFT-MUM20250418001", "status": "Settled" }
+          ]
+        }
+      },
+      "versions": [],
+      "impact": {
+        "apis": [
+          { "id": "api-telecom-v2", "name": "Telecom Submission API v2", "href": "/monitoring/data-submission-api" }
+        ],
+        "products": [
+          { "id": "prod-alt-telecom", "name": "Alternate Data – Telecom Pack", "href": "/data-products/products" }
+        ],
+        "institutions": [
+          { "id": "1001", "name": "Jio Telecom", "href": "/institutions/1001" }
+        ]
+      }
+    },
+    {
+      "id": "msm-1002",
+      "name": "Utility Master Schema",
+      "sourceType": "utility",
+      "description": "Master schema for utility payments and arrears signals.",
+      "version": "v1.0",
+      "status": "pending",
+      "fields": [
+        { "name": "consumer_id", "dataType": "string", "required": true, "masking": "none", "description": "Unique consumer identifier." },
+        { "name": "utility_customer_id", "dataType": "string", "required": true, "masking": "none", "description": "Utility-specific customer identifier." },
+        { "name": "service_address", "dataType": "string", "required": false, "masking": "partial", "description": "Service address." },
+        { "name": "monthly_bill_amount", "dataType": "decimal", "required": false, "masking": "none", "description": "Monthly billed amount." },
+        { "name": "payment_status", "dataType": "enum", "required": true, "masking": "none", "description": "Payment status bucket." }
+      ],
+      "createdBy": "Amit Patel",
+      "updatedBy": "Amit Patel",
+      "createdAt": "2026-02-10T12:00:00Z",
+      "updatedAt": "2026-03-02T08:10:00Z",
+      "rawJson": {
+        "title": "Utility Master Schema",
+        "type": "object",
+        "properties": {
+          "consumer_id": { "type": "string" },
+          "utility_customer_id": { "type": "string" },
+          "service_address": { "type": "string" },
+          "monthly_bill_amount": { "type": "number" },
+          "payment_status": { "type": "string", "enum": ["CURRENT", "OVERDUE", "PAID"] }
+        }
+      },
+      "versions": [],
+      "impact": {
+        "apis": [
+          { "id": "api-utility-v1", "name": "Utility Submission API v1" }
+        ],
+        "products": [
+          { "id": "prod-alt-utility", "name": "Alternate Data – Utility Pack", "href": "/data-products/products" }
+        ],
+        "institutions": [
+          { "id": "1002", "name": "Tata Power Utility", "href": "/institutions/1002" }
+        ]
+      }
+    },
+    {
+      "id": "msm-1003",
+      "name": "Banking Master Schema",
+      "sourceType": "bank",
+      "description": "Banking submission master schema for credit accounts and balance snapshots.",
+      "version": "v2.1",
+      "status": "active",
+      "fields": [
+        { "name": "consumer_id", "dataType": "string", "required": true, "masking": "none", "description": "Unique consumer identifier." },
+        { "name": "account_number", "dataType": "string", "required": true, "masking": "full", "description": "Account identifier (masked at rest and in UI)." },
+        { "name": "account_type", "dataType": "enum", "required": true, "masking": "none", "description": "Account type." },
+        { "name": "current_balance", "dataType": "decimal", "required": false, "masking": "none", "description": "Current outstanding amount." },
+        { "name": "dpd", "dataType": "integer", "required": false, "masking": "none", "description": "Days past due." }
+      ],
+      "createdBy": "Sneha Gupta",
+      "updatedBy": "Sneha Gupta",
+      "createdAt": "2025-10-04T07:00:00Z",
+      "updatedAt": "2026-02-04T10:05:00Z",
+      "rawJson": {
+        "title": "Banking Master Schema",
+        "type": "object",
+        "properties": {
+          "consumer_id": { "type": "string" },
+          "account_number": { "type": "string" },
+          "account_type": { "type": "string", "enum": ["credit_card", "personal_loan", "home_loan", "auto_loan"] },
+          "current_balance": { "type": "number" },
+          "dpd": { "type": "integer" }
+        }
+      },
+      "versions": [],
+      "impact": {
+        "apis": [
+          { "id": "api-bank-v3", "name": "Data Submission API v3", "href": "/monitoring/data-submission-api" }
+        ],
+        "products": [
+          { "id": "prod-credit-core", "name": "Core Credit Pack", "href": "/data-products/products" }
+        ],
+        "institutions": [
+          { "id": "1003", "name": "HDFC Bank", "href": "/institutions/1003" }
+        ]
+      }
+    },
+    {
+      "id": "msm-1004",
+      "name": "GST Master Schema",
+      "sourceType": "gst",
+      "description": "GST filing and compliance signals schema.",
+      "version": "v0.3",
+      "status": "draft",
+      "fields": [
+        { "name": "gstin", "dataType": "string", "required": true, "masking": "none", "description": "GST identification number." },
+        { "name": "legal_trade_name", "dataType": "string", "required": true, "masking": "none", "description": "Legal trade name." },
+        { "name": "filing_frequency", "dataType": "enum", "required": false, "masking": "none", "description": "Filing frequency." },
+        { "name": "taxable_turnover", "dataType": "decimal", "required": false, "masking": "none", "description": "Taxable turnover amount." },
+        { "name": "filing_status", "dataType": "enum", "required": false, "masking": "none", "description": "Return filing status." }
+      ],
+      "createdBy": "Vikram Singh",
+      "updatedBy": "Vikram Singh",
+      "createdAt": "2026-02-01T11:30:00Z",
+      "updatedAt": "2026-02-28T15:45:00Z",
+      "rawJson": {
+        "title": "GST Master Schema",
+        "type": "object",
+        "properties": {
+          "gstin": { "type": "string" },
+          "legal_trade_name": { "type": "string" },
+          "filing_frequency": { "type": "string", "enum": ["MONTHLY", "QUARTERLY"] },
+          "taxable_turnover": { "type": "number" },
+          "filing_status": { "type": "string", "enum": ["FILED", "PENDING", "LATE"] }
+        }
+      },
+      "versions": [],
+      "impact": { "apis": [], "products": [], "institutions": [] }
+    }
+  ]
+}
+

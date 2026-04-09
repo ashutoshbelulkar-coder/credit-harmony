@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ClipboardCheck, Clock, CheckCircle2, XCircle, AlertTriangle, ThumbsUp, ThumbsDown, MessageSquare, Building2, ScrollText, Users, Package, Bell } from "lucide-react";
+import { ClipboardCheck, Clock, CheckCircle2, XCircle, AlertTriangle, ThumbsUp, ThumbsDown, MessageSquare, Building2, ScrollText, Users, Package, Bell, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -49,6 +49,7 @@ export function ApprovalQueuePage() {
   const tabTypeMap: Record<string, string> = {
     institutions: "institution",
     mappings: "schema_mapping",
+    "master-schemas": "schema_master",
     consortiums: "consortium",
     products: "product",
     "alert-rules": "alert_rule",
@@ -101,7 +102,7 @@ export function ApprovalQueuePage() {
       <div className="space-y-5">
         <div>
           <h1 className="text-h2 font-bold text-foreground">Approval Queue</h1>
-          <p className="text-caption text-muted-foreground mt-1">Review and approve institution registrations and schema mappings</p>
+          <p className="text-caption text-muted-foreground mt-1">Review and approve institutions, schemas, and governance changes</p>
         </div>
 
         {/* KPIs */}
@@ -132,6 +133,7 @@ export function ApprovalQueuePage() {
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="institutions">Institutions</TabsTrigger>
               <TabsTrigger value="mappings">Schema Mappings</TabsTrigger>
+              <TabsTrigger value="master-schemas">Master Schemas</TabsTrigger>
               <TabsTrigger value="consortiums">Consortiums</TabsTrigger>
               <TabsTrigger value="products">Products</TabsTrigger>
               <TabsTrigger value="alert-rules">Alert rules</TabsTrigger>
@@ -182,6 +184,7 @@ export function ApprovalQueuePage() {
                         <div className="flex items-center gap-1.5">
                           {item.type === "institution" && <Building2 className="w-3.5 h-3.5 text-muted-foreground" />}
                           {item.type === "schema_mapping" && <ScrollText className="w-3.5 h-3.5 text-muted-foreground" />}
+                          {item.type === "schema_master" && <Layers className="w-3.5 h-3.5 text-muted-foreground" />}
                           {(item.type === "consortium" || item.type === "consortium_membership") && (
                             <Users className="w-3.5 h-3.5 text-muted-foreground" />
                           )}
@@ -192,6 +195,8 @@ export function ApprovalQueuePage() {
                               ? "Institution"
                               : item.type === "schema_mapping"
                                 ? "Mapping"
+                                : item.type === "schema_master"
+                                  ? "Master schema"
                                 : item.type === "consortium"
                                   ? "Consortium"
                                   : item.type === "consortium_membership"
@@ -246,6 +251,8 @@ export function ApprovalQueuePage() {
                     ? "Institution"
                     : detailItem.type === "schema_mapping"
                       ? "Schema Mapping"
+                      : detailItem.type === "schema_master"
+                        ? "Master schema"
                       : detailItem.type === "consortium"
                         ? "Consortium"
                         : detailItem.type === "consortium_membership"
@@ -316,6 +323,21 @@ export function ApprovalQueuePage() {
                         to={`/data-governance/auto-mapping-review?mapping=${encodeURIComponent((detailItem.metadata as Record<string, string>).mappingId)}`}
                       >
                         Open in Schema Mapper
+                      </Link>
+                    </Button>
+                  </>
+                )}
+
+              {detailItem.type === "schema_master" &&
+                detailItem.metadata &&
+                typeof (detailItem.metadata as Record<string, string>).schemaId === "string" && (
+                  <>
+                    <Separator />
+                    <Button variant="outline" size="sm" asChild>
+                      <Link
+                        to={`/data-governance/master-schema/${encodeURIComponent((detailItem.metadata as Record<string, string>).schemaId)}`}
+                      >
+                        Open in Master Schema Management
                       </Link>
                     </Button>
                   </>

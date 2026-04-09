@@ -1,6 +1,7 @@
 export type ApprovalType =
   | "institution"
   | "schema_mapping"
+  | "schema_master"
   | "consortium"
   | "consortium_membership"
   | "product"

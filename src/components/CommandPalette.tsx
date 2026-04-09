@@ -36,7 +36,6 @@ const navigationItems = [
   { label: "Create product", path: "/data-products/products/create", icon: Package, group: "Data Products" },
   { label: "Data Governance Dashboard", path: "/data-governance/dashboard", icon: ShieldCheck, group: "Data Governance" },
   { label: "Schema Mapper Agent", path: "/data-governance/auto-mapping-review", icon: ShieldCheck, group: "Data Governance" },
-  { label: "Validation Rules", path: "/data-governance/validation-rules", icon: ShieldCheck, group: "Data Governance" },
   { label: "Identity Resolution Agent", path: "/data-governance/match-review", icon: ShieldCheck, group: "Data Governance" },
   { label: "Data Quality Monitoring", path: "/data-governance/data-quality-monitoring", icon: ShieldCheck, group: "Data Governance" },
   { label: "Governance Audit Logs", path: "/data-governance/governance-audit-logs", icon: ShieldCheck, group: "Data Governance" },

@@ -23,8 +23,9 @@ Data Governance is the operational quality layer of the HCB platform. It provide
 2. Drift alert monitoring with source type and date filters
 3. Auto-mapping suggestion review (approve/reject AI suggestions)
 4. Consumer identity match review (partial — full implementation in EPIC-18)
-5. Canonical field registry browsing and maintenance
-6. Governance audit log with action-type and entity filters
+5. Master schema registry browsing and maintenance (Master Schema Management)
+6. Canonical field registry browsing and maintenance (schema-mapper canonical fields)
+7. Governance audit log with action-type and entity filters
 
 ---
 
@@ -34,6 +35,7 @@ Data Governance is the operational quality layer of the HCB platform. It provide
 - Data Governance Dashboard (`DataGovernanceDashboard.tsx`)
 - Data Quality Monitoring with drift alerts (`DataQualityMonitoring.tsx`)
 - Auto-Mapping Review page (`AutoMappingReview.tsx`)
+- Master Schema Management pages (`MasterSchemaRegistryPage.tsx`, `MasterSchemaDetailPage.tsx`, `MasterSchemaEditorPage.tsx`)
 - Match Review page (`MatchReview.tsx`) — partial
 - Governance Audit Logs (`GovernanceAuditLogs.tsx`)
 - Canonical field registry view (via schema mapper canonical API)
@@ -75,12 +77,13 @@ Data Governance is the operational quality layer of the HCB platform. It provide
 
 | Screen | Path | Description |
 |--------|------|-------------|
-| Governance Dashboard | `/data-governance` | Overview with quality KPIs |
-| Data Quality Monitoring | `/data-governance/quality` | Drift alert list + trend chart |
-| Validation Rules | `/data-governance/validation` | (EPIC-07) |
+| Governance Dashboard | `/data-governance/dashboard` | Overview with quality KPIs |
+| Master Schema Management | `/data-governance/master-schema` | Central registry + detail/editor for master schemas |
+| Data Quality Monitoring | `/data-governance/data-quality-monitoring` | Drift alert list + trend chart |
+| Schema Mapper Agent | `/data-governance/auto-mapping-review` | AI suggestion review (schema mapper workflows) |
 | Match Review | `/data-governance/match-review` | Consumer match review |
-| Auto-Mapping Review | `/data-governance/auto-mapping` | AI suggestion review |
-| Audit Logs | `/data-governance/audit-logs` | Governance actions log |
+| Governance Audit Logs | `/data-governance/governance-audit-logs` | Governance actions log |
+| Validation Rules | `/data-governance/validation-rules` | (EPIC-07) Route exists; entry may be hidden from sidebar navigation temporarily |
 
 ### State Handling
 | State | UI Behavior |

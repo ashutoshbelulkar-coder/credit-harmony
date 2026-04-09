@@ -6,6 +6,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { Fragment } from "react";
 import { useNavigate } from "react-router-dom";
 
 interface BreadcrumbSegment {
@@ -26,21 +27,21 @@ export function PageBreadcrumb({ segments }: PageBreadcrumbProps) {
         {segments.map((seg, i) => {
           const isLast = i === segments.length - 1;
           return (
-            <BreadcrumbItem key={i}>
-              {isLast ? (
-                <BreadcrumbPage className="text-caption">{seg.label}</BreadcrumbPage>
-              ) : (
-                <>
+            <Fragment key={`crumb-${i}-${seg.label}`}>
+              <BreadcrumbItem>
+                {isLast ? (
+                  <BreadcrumbPage className="text-caption">{seg.label}</BreadcrumbPage>
+                ) : (
                   <BreadcrumbLink
                     className="cursor-pointer text-caption"
                     onClick={() => seg.href && navigate(seg.href)}
                   >
                     {seg.label}
                   </BreadcrumbLink>
-                  <BreadcrumbSeparator />
-                </>
-              )}
-            </BreadcrumbItem>
+                )}
+              </BreadcrumbItem>
+              {!isLast && <BreadcrumbSeparator />}
+            </Fragment>
           );
         })}
       </BreadcrumbList>

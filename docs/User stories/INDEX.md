@@ -20,7 +20,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 | EPIC-03 Consortium Management | Create and govern data-sharing consortiums, manage institutional and external CBS member references, and control data visibility policy. |
 | EPIC-04 Data Products & Enquiry Simulation | Define, configure, and publish credit data products with packet-level field configuration, manage subscriptions, and simulate enquiry scoring against live products. |
 | EPIC-05 Schema Mapper Agent | AI-assisted wizard for ingesting source schemas, mapping fields to the HCB canonical model, validating, versioning, and submitting mappings for governance approval. |
-| EPIC-06 Data Governance | Operational data quality: monitor drift alerts, review auto-mapping suggestions, resolve consumer identity matches, and maintain the canonical field registry. |
+| EPIC-06 Data Governance | Operational data quality: monitor drift alerts, review auto-mapping suggestions, resolve consumer identity matches, maintain master schemas, and maintain the canonical field registry. |
 | EPIC-07 Data Validation | Define and execute the rule engine that validates incoming data against FORMAT, RANGE, MANDATORY, CROSS_FIELD, DUPLICATE, and ENUM rules before storage. |
 | EPIC-08 Approval Queue | Multi-type human-in-the-loop approval workflow for institutions, products, consortiums, alert rules, and schema mappings. |
 | EPIC-09 Monitoring | Real-time operational observability: API request logs, enquiry logs, KPI snapshots, throughput/latency charts, and institution-scoped filtering. |

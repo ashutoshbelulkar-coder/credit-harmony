@@ -141,4 +141,13 @@ export const QK = {
     metrics: () => ["schema-mapper", "metrics"] as const,
     wizardMetadata: () => ["schema-mapper", "wizard-metadata"] as const,
   },
+
+  // ── Master Schema Management ───────────────────────────────────────────────
+  masterSchemas: {
+    all: () => ["master-schemas"] as const,
+    list: (params?: Record<string, unknown>) => ["master-schemas", "list", params ?? {}] as const,
+    detail: (id: string) => ["master-schemas", String(id)] as const,
+    versions: (id: string) => ["master-schemas", String(id), "versions"] as const,
+    impact: (id: string) => ["master-schemas", String(id), "impact"] as const,
+  },
 } as const;

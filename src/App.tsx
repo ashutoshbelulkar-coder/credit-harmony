@@ -37,6 +37,15 @@ const AutoMappingReview = lazy(() => import("./pages/data-governance/AutoMapping
 const ValidationRules = lazy(() => import("./pages/data-governance/ValidationRules"));
 const MatchReview = lazy(() => import("./pages/data-governance/MatchReview"));
 const DataQualityMonitoring = lazy(() => import("./pages/data-governance/DataQualityMonitoring"));
+const MasterSchemaRegistryPage = lazy(() =>
+  import("./pages/data-governance/master-schema/MasterSchemaRegistryPage").then((m) => ({ default: m.MasterSchemaRegistryPage }))
+);
+const MasterSchemaDetailPage = lazy(() =>
+  import("./pages/data-governance/master-schema/MasterSchemaDetailPage").then((m) => ({ default: m.MasterSchemaDetailPage }))
+);
+const MasterSchemaEditorPage = lazy(() =>
+  import("./pages/data-governance/master-schema/MasterSchemaEditorPage").then((m) => ({ default: m.MasterSchemaEditorPage }))
+);
 
 const MonitoringLayout = lazy(() =>
   import("./pages/monitoring/MonitoringLayout").then((m) => ({ default: m.MonitoringLayout }))
@@ -148,6 +157,10 @@ function AppRoutes() {
             <Route index element={<Navigate to="dashboard" replace />} />
             <Route path="dashboard" element={<DataGovernanceDashboard />} />
             <Route path="auto-mapping-review" element={<AutoMappingReview />} />
+            <Route path="master-schema" element={<MasterSchemaRegistryPage />} />
+            <Route path="master-schema/new" element={<MasterSchemaEditorPage mode="create" />} />
+            <Route path="master-schema/:id" element={<MasterSchemaDetailPage />} />
+            <Route path="master-schema/:id/edit" element={<MasterSchemaEditorPage mode="edit" />} />
             <Route path="validation-rules" element={<ValidationRules />} />
             <Route path="match-review" element={<MatchReview />} />
             <Route path="data-quality-monitoring" element={<DataQualityMonitoring />} />

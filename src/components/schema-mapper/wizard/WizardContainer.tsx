@@ -1,6 +1,6 @@
-import { useState, useCallback, useMemo, useEffect } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { X } from "lucide-react";
-import { useQueryClient, useQueries } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Breadcrumb,
@@ -12,11 +12,8 @@ import {
 } from "@/components/ui/breadcrumb";
 import { StepIndicator, STEPS } from "./StepIndicator";
 import { SourceIngestionStep } from "./SourceIngestionStep";
-import { MultiSchemaMatchingStep } from "./MultiSchemaMatchingStep";
 import { LLMFieldIntelligenceStep } from "./LLMFieldIntelligenceStep";
 import { ValidationRuleStep } from "./ValidationRuleStep";
-import { SemanticInsightsStep } from "./SemanticInsightsStep";
-import { StorageVisibilityStep } from "./StorageVisibilityStep";
 import { GovernanceActionsStep } from "./GovernanceActionsStep";
 import type {
   WizardStep,
@@ -26,24 +23,17 @@ import type {
   LLMFieldIntelligenceRow,
   EnumReconciliation,
   GeneratedValidationRule,
-  FieldCluster,
-  StorageMetadataSummary,
-  LineageEntry,
   GovernanceSummary,
 } from "@/types/schema-mapper";
 import {
   llmFieldIntelligenceRowsTelecom,
   telecomEnumReconciliations,
   generatedValidationRules,
-  fieldClusters,
-  storageMetadataSummary,
-  lineagePreview,
   governanceSummaryDefault,
   masterSchemaTree,
 } from "@/data/schema-mapper-mock";
 import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 import { fieldMappingsToLlmRows, llmRowsToFieldMappings } from "@/lib/schema-mapper-api";
-import { QK } from "@/lib/query-keys";
 import { fetchMapping } from "@/services/schema-mapper.service";
 import {
   useIngestSchema,
@@ -51,20 +41,7 @@ import {
   usePatchMapping,
   useSubmitMappingApproval,
   useSchemaMappingDetail,
-  useSchemaRegistryList,
-  useSchemaMapperWizardMetadata,
 } from "@/hooks/api/useSchemaMapper";
-import { fetchSourceTypeFields } from "@/services/schema-mapper.service";
-import {
-  buildMultiSchemaMatchRows,
-  pathsFromParsedFields,
-} from "@/lib/build-multi-schema-match-rows";
-import {
-  FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS,
-  FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS,
-} from "@/lib/schema-mapper-wizard-metadata";
-import { schemaRegistryEntries } from "@/data/schema-mapper-mock";
-import type { SourceType } from "@/types/schema-mapper";
 
 interface WizardContainerProps {
   onCancel: () => void;
@@ -85,85 +62,14 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
   const [ingestedMetadata, setIngestedMetadata] = useState<IngestedSourceMetadata | null>(null);
   const [parsedFields, setParsedFields] = useState<ParsedSourceField[]>([]);
   const [fieldStats, setFieldStats] = useState<SourceFieldStatistics | null>(null);
-  const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null);
   const [schemaVersionId, setSchemaVersionId] = useState<string | null>(null);
   const [mappingId, setMappingId] = useState<string | null>(null);
   const [llmRows, setLlmRows] = useState<LLMFieldIntelligenceRow[]>(llmFieldIntelligenceRowsTelecom);
   const [enumReconciliations, setEnumReconciliations] = useState<EnumReconciliation[]>(telecomEnumReconciliations);
   const [validationRules, setValidationRules] = useState<GeneratedValidationRule[]>(generatedValidationRules);
-  const [clusters, setClusters] = useState<FieldCluster[]>(fieldClusters);
-  const [storageMetadata, setStorageMetadata] = useState<StorageMetadataSummary | null>(storageMetadataSummary);
-  const [lineage, setLineage] = useState<LineageEntry[]>(lineagePreview);
   const [governanceSummary, setGovernanceSummary] = useState<GovernanceSummary | null>(governanceSummaryDefault);
 
   const { data: mappingData } = useSchemaMappingDetail(apiMode ? mappingId : null);
-
-  const allowMockForQueries = !apiMode;
-  const registryListParams = useMemo(() => ({ page: 0, size: 500 }), []);
-  const { data: wizardMetaForMatch } = useSchemaMapperWizardMetadata({
-    allowMockFallback: allowMockForQueries,
-  });
-  const { data: registryPageForMatch, isLoading: registryMatchLoading } = useSchemaRegistryList(
-    registryListParams,
-    {
-      enabled: currentStep === "multi_schema_matching",
-      allowMockFallback: allowMockForQueries,
-    },
-  );
-
-  const sourceTypeOptionValues = useMemo(() => {
-    const opts = wizardMetaForMatch?.sourceTypeOptions ?? FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS;
-    return opts
-      .map((o) => String(o.value ?? "").trim())
-      .filter(Boolean) as SourceType[];
-  }, [wizardMetaForMatch?.sourceTypeOptions]);
-
-  const refPathQueries = useQueries({
-    queries: sourceTypeOptionValues.map((st) => ({
-      queryKey: [...QK.schemaMapper.sourceTypeFields(st), "wizard-ref-paths", allowMockForQueries ? "mock" : "api"] as const,
-      queryFn: async () => {
-        const r = await fetchSourceTypeFields(st, { allowMockFallback: allowMockForQueries });
-        return r.fields.map((f) => String(f.path ?? "").trim()).filter(Boolean);
-      },
-      enabled: currentStep === "multi_schema_matching" && sourceTypeOptionValues.length > 0,
-      staleTime: 60 * 1000,
-    })),
-  });
-
-  const refPathsBySourceType = useMemo(() => {
-    const m: Partial<Record<SourceType, string[]>> = {};
-    sourceTypeOptionValues.forEach((st, i) => {
-      const paths = refPathQueries[i]?.data;
-      if (paths?.length) m[st] = paths;
-    });
-    return m;
-  }, [sourceTypeOptionValues, refPathQueries]);
-
-  const refPathsLoading =
-    currentStep === "multi_schema_matching" &&
-    refPathQueries.some((q) => q.isLoading || q.isFetching);
-
-  const multiSchemaMatchRows = useMemo(() => {
-    const opts = wizardMetaForMatch?.sourceTypeOptions ?? FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS;
-    const dcOpts = wizardMetaForMatch?.dataCategoryOptions ?? FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS;
-    const entries = registryPageForMatch?.content ?? schemaRegistryEntries;
-    const incoming = pathsFromParsedFields(parsedFields);
-    return buildMultiSchemaMatchRows({
-      sourceTypeOptions: opts,
-      dataCategoryOptions: dcOpts,
-      registryEntries: entries,
-      incomingPaths: incoming,
-      referencePathsBySourceType: refPathsBySourceType,
-      preferredSourceType: ingestedMetadata?.sourceType,
-    });
-  }, [
-    wizardMetaForMatch?.sourceTypeOptions,
-    wizardMetaForMatch?.dataCategoryOptions,
-    registryPageForMatch?.content,
-    parsedFields,
-    refPathsBySourceType,
-    ingestedMetadata?.sourceType,
-  ]);
 
   const apiSyncedRows = useMemo(() => {
     if (!mappingData?.fieldMappings?.length) return null;
@@ -219,24 +125,8 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
           });
           setSchemaVersionId(res.schemaVersionId);
           await queryClient.invalidateQueries({ queryKey: ["schema-mapper", "registry"] });
-          await queryClient.invalidateQueries({
-            queryKey: [...QK.schemaMapper.sourceTypeFields(meta.sourceType)],
-          });
-        } catch {
-          return;
-        }
-      }
-      goNext();
-    },
-    [apiMode, goNext, ingestMutation, queryClient],
-  );
-
-  const handleMultiSchemaComplete = useCallback(
-    async (schemaId: string | null, _createNew: boolean) => {
-      setSelectedSchemaId(schemaId);
-      if (apiMode && schemaVersionId) {
-        try {
-          const job = await createJobMutation.mutateAsync({ schemaVersionId });
+          // Mapping job now starts immediately after ingest to skip the similarity step.
+          const job = await createJobMutation.mutateAsync({ schemaVersionId: res.schemaVersionId });
           setMappingId(job.mappingId);
         } catch {
           return;
@@ -244,7 +134,7 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
       }
       goNext();
     },
-    [apiMode, schemaVersionId, createJobMutation, goNext],
+    [apiMode, goNext, ingestMutation, queryClient, createJobMutation],
   );
 
   const handleLLMComplete = useCallback(
@@ -253,10 +143,7 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
       setEnumReconciliations(enums);
       if (apiMode && mappingId) {
         try {
-          const latest = await queryClient.fetchQuery({
-            queryKey: QK.schemaMapper.mapping(mappingId),
-            queryFn: () => fetchMapping(mappingId),
-          });
+          const latest = await fetchMapping(mappingId);
           const body = llmRowsToFieldMappings(rows, masterSchemaTree, latest.fieldMappings);
           await patchMutation.mutateAsync({ id: mappingId, body: { fieldMappings: body } });
         } catch {
@@ -265,7 +152,7 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
       }
       goNext();
     },
-    [apiMode, mappingId, queryClient, patchMutation, goNext],
+    [apiMode, mappingId, patchMutation, goNext],
   );
 
   const handleRulesComplete = useCallback(
@@ -290,10 +177,6 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
   }, [apiMode, mappingId, submitApprovalMutation]);
 
   const handleGovernanceSaveDraft = useCallback(() => {
-    onComplete();
-  }, [onComplete]);
-
-  const handleGovernanceReject = useCallback(() => {
     onComplete();
   }, [onComplete]);
 
@@ -342,14 +225,6 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
             onComplete={handleSourceComplete}
           />
         )}
-        {currentStep === "multi_schema_matching" && (
-          <MultiSchemaMatchingStep
-            similarSchemas={multiSchemaMatchRows}
-            isLoading={registryMatchLoading || refPathsLoading}
-            selectedSchemaId={selectedSchemaId}
-            onComplete={handleMultiSchemaComplete}
-          />
-        )}
         {currentStep === "llm_field_intelligence" && (
           <LLMFieldIntelligenceStep
             initialRows={llmRows}
@@ -365,26 +240,11 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
             onComplete={handleRulesComplete}
           />
         )}
-        {currentStep === "semantic_insights" && (
-          <SemanticInsightsStep
-            clusters={clusters}
-            onClustersChange={setClusters}
-            onComplete={goNext}
-          />
-        )}
-        {currentStep === "storage_visibility" && (
-          <StorageVisibilityStep
-            storageMetadata={storageMetadata}
-            lineagePreview={lineage}
-            onComplete={goNext}
-          />
-        )}
         {currentStep === "governance_actions" && (
           <GovernanceActionsStep
             governanceSummary={governanceSummary}
             onSubmitToQueue={handleGovernanceSubmitToQueue}
             onSaveDraft={handleGovernanceSaveDraft}
-            onReject={handleGovernanceReject}
             onComplete={onComplete}
           />
         )}

@@ -323,7 +323,7 @@ export function LLMFieldIntelligenceStep({
           className="gap-1.5"
           disabled={jobPending && rows.length === 0}
         >
-          Confirm & Generate Rules
+          Proceed
           <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       </div>

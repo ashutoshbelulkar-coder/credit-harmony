@@ -26,6 +26,7 @@ import {
   getParsedSourceFieldsForIngestionScenario,
   getSourceFieldStatisticsForIngestionScenario,
 } from "@/data/schema-mapper-mock";
+import { masterSchemasSeed } from "@/data/master-schemas-mock";
 import type { IngestedSourceMetadata, ParsedSourceField, SourceFieldStatistics, SourceType } from "@/types/schema-mapper";
 import simulationDefaults from "@/data/simulation-defaults.json";
 import { useSchemaMapperWizardMetadata } from "@/hooks/api/useSchemaMapper";
@@ -42,6 +43,13 @@ const similarityChartConfig = {
 } satisfies ChartConfig;
 
 const SAMPLE_JSON = simulationDefaults.schemaMapper.sampleJson;
+
+function targetSchemaLabelForSourceType(sourceType: string, fallback: string) {
+  const match =
+    masterSchemasSeed.find((s) => s.sourceType === sourceType && s.status === "active") ??
+    masterSchemasSeed.find((s) => s.sourceType === sourceType);
+  return match?.name ?? fallback;
+}
 
 interface SourceIngestionStepProps {
   initialMetadata: IngestedSourceMetadata | null;
@@ -97,6 +105,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
   const [rawJson, setRawJson] = useState(SAMPLE_JSON);
   const [selectedPreviousId, setSelectedPreviousId] = useState<string>("");
   const [isParsed, setIsParsed] = useState(false);
+  const [docFile, setDocFile] = useState<File | null>(null);
 
   const handleParse = useCallback(() => {
     setIsParsed(true);
@@ -139,6 +148,11 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
     onComplete,
   ]);
 
+  const handleParseAndProceed = useCallback(async () => {
+    setIsParsed(true);
+    await handleProceed();
+  }, [handleProceed]);
+
   const parsedFields = useMemo(
     () => getParsedSourceFieldsForIngestionScenario(sourceType, schemaInput, selectedPreviousId),
     [sourceType, schemaInput, selectedPreviousId],
@@ -147,7 +161,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
   const similarSchemas = Array.isArray(metadata.similarSchemas) ? metadata.similarSchemas : [];
   const similarityData = similarityRankingForBarChart;
 
-  const isFormValid = isParsed && resolvedSourceName.length > 0;
+  const isFormValid = resolvedSourceName.length > 0;
 
   return (
     <div className="space-y-6">
@@ -162,7 +176,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
             triggerClassName="h-8"
           />
           <div className="space-y-1.5">
-            <Label className="text-caption text-muted-foreground">Source Type *</Label>
+            <Label className="text-caption text-muted-foreground">Target schema *</Label>
             <Select value={sourceType} onValueChange={(v) => setSourceType(v as SourceType)}>
               <SelectTrigger className="h-8">
                 <SelectValue placeholder={wizardMetaLoading ? "Loading…" : undefined} />
@@ -170,7 +184,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
               <SelectContent>
                 {sourceTypeOptions.map((o) => (
                   <SelectItem key={o.value} value={o.value}>
-                    {o.label}
+                    {targetSchemaLabelForSourceType(o.value, o.label)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -208,7 +222,10 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
       </div>
 
       <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-        <h3 className="text-h4 font-semibold text-foreground mb-4">Upload & Analyze Source Schema</h3>
+        <h3 className="text-h4 font-semibold text-foreground mb-1">Raw Data Upload</h3>
+        <p className="text-caption text-muted-foreground mb-4">
+          Upload a sample file or paste JSON so we can parse fields and start mapping.
+        </p>
 
         <Tabs value={schemaInput} onValueChange={(v) => { setSchemaInput(v as typeof schemaInput); setIsParsed(false); }}>
           <div className="overflow-x-auto -mx-1 mb-4">
@@ -233,7 +250,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
               <div className="text-center">
                 <FileJson className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
                 <p className="text-body text-muted-foreground">Drop a JSON schema file here or click to browse</p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={handleParse}>
+                <Button variant="outline" size="sm" className="mt-3" onClick={handleParse} disabled={!isFormValid}>
                   Select File
                 </Button>
               </div>
@@ -245,7 +262,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
               <div className="text-center">
                 <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
                 <p className="text-body text-muted-foreground">Drop a CSV sample file to auto-detect schema</p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={handleParse}>
+                <Button variant="outline" size="sm" className="mt-3" onClick={handleParse} disabled={!isFormValid}>
                   Select File
                 </Button>
               </div>
@@ -260,11 +277,6 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
               className="font-mono text-caption resize-none"
               placeholder="Paste your JSON schema here..."
             />
-            {!isParsed && (
-              <Button size="sm" className="mt-3" onClick={handleParse}>
-                Parse Schema
-              </Button>
-            )}
           </TabsContent>
 
           <TabsContent value="select_previous">
@@ -282,14 +294,66 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
                   ))}
                 </SelectContent>
               </Select>
-              {!isParsed && (
-                <Button size="sm" className="mt-2" onClick={handleSelectPrevious} disabled={!selectedPreviousId}>
-                  Load Schema
-                </Button>
-              )}
+              <Button
+                size="sm"
+                className="mt-2"
+                onClick={handleSelectPrevious}
+                disabled={!selectedPreviousId || !isFormValid}
+              >
+                Load Schema
+              </Button>
             </div>
           </TabsContent>
         </Tabs>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <h3 className="text-h4 font-semibold text-foreground mb-1">Source Schema Documentation</h3>
+        <p className="text-caption text-muted-foreground mb-4">
+          Optional supporting documentation for reviewers (data dictionary, field definitions, etc.).
+        </p>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            {docFile ? (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary" className="text-[9px]">Attached</Badge>
+                <span className="text-caption text-foreground truncate" title={docFile.name}>{docFile.name}</span>
+                <span className="text-[10px] text-muted-foreground tabular-nums shrink-0">
+                  {Math.ceil(docFile.size / 1024)} KB
+                </span>
+              </div>
+            ) : (
+              <p className="text-caption text-muted-foreground">No documentation attached</p>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2 shrink-0">
+            <label>
+              <Input
+                type="file"
+                className="hidden"
+                accept=".pdf,.doc,.docx,.txt,.md"
+                onChange={(e) => setDocFile(e.target.files?.[0] ?? null)}
+              />
+              <Button asChild variant="outline" size="sm">
+                <span>{docFile ? "Replace file" : "Upload file"}</span>
+              </Button>
+            </label>
+            {docFile ? (
+              <Button variant="ghost" size="sm" onClick={() => setDocFile(null)}>
+                Remove
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex justify-center sm:justify-end">
+        <Button onClick={() => void handleParseAndProceed()} disabled={!isFormValid} className="gap-1.5">
+          Proceed
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Button>
       </div>
 
       {isParsed && (
@@ -351,14 +415,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
         </div>
       )}
 
-      {isParsed && (
-        <div className="flex justify-center sm:justify-end">
-          <Button onClick={() => void handleProceed()} disabled={!isFormValid} className="gap-1.5">
-            Proceed to Similarity Analysis
-            <ArrowRight className="h-3.5 w-3.5" />
-          </Button>
-        </div>
-      )}
+      {/* Proceed CTA removed: Parse/Load actions now advance directly to LLM Field Intelligence */}
     </div>
   );
 }

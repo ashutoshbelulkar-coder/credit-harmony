@@ -78,7 +78,7 @@ Data Validation is the rule engine that gates incoming data before it enters the
 
 | Screen | Path | Description |
 |--------|------|-------------|
-| Validation Rules | `/data-governance/validation` | Rule list and management |
+| Validation Rules | `/data-governance/validation-rules` | Rule list and management (may be hidden from sidebar navigation temporarily) |
 
 ### Component Behavior
 - Rule type badge: `FORMAT`=blue, `RANGE`=purple, `MANDATORY`=red, `CROSS_FIELD`=orange, `DUPLICATE`=yellow, `ENUM`=green
@@ -102,7 +102,7 @@ Data Validation is the rule engine that gates incoming data before it enters the
 
 | Test ID | Screen | Scenario | Steps | Expected Result |
 |---------|--------|----------|-------|----------------|
-| DVAL-UI-TC-01 | Rules List | Load validation rules | Navigate to /data-governance/validation | Rule table visible |
+| DVAL-UI-TC-01 | Rules List | Load validation rules | Navigate to /data-governance/validation-rules | Rule table visible |
 | DVAL-UI-TC-02 | Rules List | Create FORMAT rule | Click Add Rule, fill form, submit | New rule in list |
 | DVAL-UI-TC-03 | Rules List | Deactivate rule | Click Deactivate on active rule | Status changes to inactive |
 | DVAL-UI-TC-04 | Rules List | Test rule | Click Test, input sample data, run | Test result (pass/fail) displayed |

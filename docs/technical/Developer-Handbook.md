@@ -95,6 +95,8 @@ npm run dev
 
 Open `http://localhost:8080`. With `VITE_USE_MOCK_FALLBACK=true`, many screens work if the API is down.
 
+**Note — Master Schema Management (mock fallback):** The Master Schema pages under **`/data-governance/master-schema`** can run without the API. Seed data comes from `src/data/master-schemas.json`. In mock-fallback mode, the **Fields** tab may **derive** the displayed field inventory from `schema.rawJson.definitions.*.properties` (when present) so large schemas (e.g. Telco) show their full field set even if the seed `fields[]` list is smaller.
+
 ### Mode B — Full stack (**recommended** — Spring + SPA)
 
 **Terminal 1 — Spring API**

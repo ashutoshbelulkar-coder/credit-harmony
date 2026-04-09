@@ -1,8 +1,7 @@
 import { useState } from "react";
-import { Save, Send, X, CheckCircle2 } from "lucide-react";
+import { Save, Send, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
 import type { GovernanceSummary } from "@/types/schema-mapper";
 import { governanceSummaryDefault } from "@/data/schema-mapper-mock";
 
@@ -10,7 +9,6 @@ interface GovernanceActionsStepProps {
   governanceSummary: GovernanceSummary | null;
   onSubmitToQueue: () => void | Promise<void>;
   onSaveDraft: () => void;
-  onReject: () => void;
   onComplete: () => void;
 }
 
@@ -18,7 +16,6 @@ export function GovernanceActionsStep({
   governanceSummary,
   onSubmitToQueue,
   onSaveDraft,
-  onReject,
   onComplete,
 }: GovernanceActionsStepProps) {
   const [submitted, setSubmitted] = useState(false);
@@ -120,17 +117,7 @@ export function GovernanceActionsStep({
             disabled={submitted || submitting}
           >
             <Send className="h-3.5 w-3.5" />
-            {submitting ? "Submitting…" : "Submit to Evolution Queue"}
-          </Button>
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={onReject}
-            className="gap-1.5"
-            disabled={submitted}
-          >
-            <X className="h-3.5 w-3.5" />
-            Reject Schema
+            {submitting ? "Submitting…" : "Send for approval"}
           </Button>
         </div>
 

@@ -125,6 +125,28 @@ Then the response includes phases, stages, flowSegments, logs, errorSamples in c
 
 ---
 
+## US-06 — View Master Schema fields from schema JSON
+
+**Description:** As a **data governance analyst**, I want to **open a master schema and see its full field inventory** so that **I can review field definitions without manually reading raw JSON**.
+
+**Acceptance criteria:**
+
+```gherkin
+Given the Master Schema detail page is opened for a schema (e.g. /data-governance/master-schema/:id)
+When I click the "Fields" tab
+Then I see a table of fields derived from the schema content
+And the table is scrollable for large schemas
+And required fields are marked as "Yes" when the underlying schema marks them required
+```
+
+**Edge cases:** Schema JSON has no `definitions` or no `properties` (show empty state); schema contains union types (e.g. `["string","null"]`) and still renders a sensible data type; very large schemas remain usable via scroll.
+
+**Dependencies:** EPIC-06 (Master Schema Management UI), mock/seed master schema JSON (`src/data/master-schemas.json`), mock fallback service layer (`master-schema.service.ts`).
+
+**Priority:** P1
+
+---
+
 ## Coverage note
 
 Add stories per module by cloning the template; link each story ID to **test cases** in [../06-quality/test-cases.md](../06-quality/test-cases.md).

@@ -1,15 +1,12 @@
-import { Check, FileInput, GitCompare, Sparkles, ShieldCheck, Network, Database, SendHorizonal, ArrowLeft } from "lucide-react";
+import { Check, FileInput, Sparkles, ShieldCheck, SendHorizonal, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { WizardStep } from "@/types/schema-mapper";
 
 const STEPS: { key: WizardStep; label: string; shortLabel: string; icon: React.ElementType }[] = [
-  { key: "source_ingestion", label: "Upload & Analyze Source Schema", shortLabel: "Upload", icon: FileInput },
-  { key: "multi_schema_matching", label: "Global Schema Similarity Analysis", shortLabel: "Similarity", icon: GitCompare },
+  { key: "source_ingestion", label: "Upload Source Schema", shortLabel: "Upload", icon: FileInput },
   { key: "llm_field_intelligence", label: "LLM Field Intelligence", shortLabel: "Field Intel", icon: Sparkles },
-  { key: "auto_rule_preview", label: "Validation Rules Proposed by AI", shortLabel: "Rules", icon: ShieldCheck },
-  { key: "semantic_insights", label: "Global Field Clusters Impact", shortLabel: "Clusters", icon: Network },
-  { key: "storage_visibility", label: "Storage Model Visibility", shortLabel: "Storage", icon: Database },
+  { key: "auto_rule_preview", label: "Validation Rules", shortLabel: "Rules", icon: ShieldCheck },
   { key: "governance_actions", label: "Governance Actions", shortLabel: "Governance", icon: SendHorizonal },
 ];
 

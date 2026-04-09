@@ -195,7 +195,7 @@ export function ValidationRuleStep({ initialRules, onComplete }: ValidationRuleS
       {/* Proceed */}
       <div className="flex justify-end">
         <Button onClick={() => onComplete(rules)} className="gap-1.5">
-          Proceed to Semantic Insights
+          Proceed
           <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       </div>
