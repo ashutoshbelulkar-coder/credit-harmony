@@ -42,7 +42,7 @@ export function MultiSchemaMatchingStep({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <h3 className="text-h4 font-semibold text-foreground mb-4">Global Schema Similarity Analysis</h3>
         <p className="text-caption text-muted-foreground mb-3">
           Incoming schema is ranked against each Source Type from tenant configuration. Data categories shown are those stored on registered schemas for that type.

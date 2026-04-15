@@ -88,7 +88,7 @@ export function DashboardKPIRow({
         {kpiStats.map((stat) => (
           <div
             key={stat.title}
-            className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] laptop:col-span-3 cursor-pointer hover:border-primary/30 transition-colors"
+            className="bg-card rounded-xl border border-border p-4 shadow-sm laptop:col-span-3 cursor-pointer hover:border-primary/30 transition-colors"
             onClick={() => navigate(stat.href)}
           >
             <div className="flex items-start justify-between gap-3">

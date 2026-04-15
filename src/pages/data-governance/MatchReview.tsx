@@ -44,7 +44,7 @@ export default function MatchReview() {
       </div>
 
       {/* Filters */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <Label className="text-caption">Confidence range</Label>
@@ -77,7 +77,7 @@ export default function MatchReview() {
           <div
             key={cluster.id}
             className={cn(
-              "cursor-pointer rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] transition-colors hover:border-primary/30",
+              "cursor-pointer rounded-xl border border-border bg-card p-4 shadow-sm transition-colors hover:border-primary/30",
               selectedCluster?.id === cluster.id && "ring-2 ring-primary"
             )}
             onClick={() => setSelectedCluster(cluster)}

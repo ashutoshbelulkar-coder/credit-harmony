@@ -111,7 +111,7 @@ export function ApprovalQueuePage() {
         {!isLoading && !isError && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {kpis.map((kpi) => (
-            <Card key={kpi.label} className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+            <Card key={kpi.label} className="border-border shadow-sm">
               <CardContent className="p-3.5 flex items-center gap-3">
                 <div className={cn("p-2 rounded-lg bg-muted", kpi.accent)}>
                   <kpi.icon className="w-4 h-4" />
@@ -154,7 +154,7 @@ export function ApprovalQueuePage() {
         </div>
 
         {/* Table */}
-        <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <Card className="border-border shadow-sm">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>

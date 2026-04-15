@@ -152,7 +152,7 @@ export function DataGovernanceDashboard() {
           transition={{ duration: 0.3 }}
           className="xl:col-span-7 2xl:col-span-8"
         >
-          <div className="h-full rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-6">
+          <div className="h-full rounded-xl border border-border bg-card p-4 shadow-sm xl:p-6">
             <div>
               <h2 className="text-h4 font-semibold text-foreground">Mapping Accuracy Trend</h2>
               <p className="mt-1 text-caption text-muted-foreground">Accuracy over selected period (use trend period above)</p>
@@ -195,7 +195,7 @@ export function DataGovernanceDashboard() {
           transition={{ duration: 0.3, delay: 0.05 }}
           className="xl:col-span-5 2xl:col-span-4"
         >
-          <div className="h-full rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-6">
+          <div className="h-full rounded-xl border border-border bg-card p-4 shadow-sm xl:p-6">
             <h2 className="text-h4 font-semibold text-foreground">Validation Errors by Institution</h2>
             <p className="mt-1 text-caption text-muted-foreground">Failure count by submitting member institution</p>
             <div className="mt-4 h-[260px]">
@@ -225,7 +225,7 @@ export function DataGovernanceDashboard() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
         >
-          <div className="h-full rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-6">
+          <div className="h-full rounded-xl border border-border bg-card p-4 shadow-sm xl:p-6">
             <h2 className="text-h4 font-semibold text-foreground">Match Confidence Distribution</h2>
             <p className="mt-1 text-caption text-muted-foreground">Histogram of entity match confidence</p>
             <div className="mt-4 h-[240px]">
@@ -255,7 +255,7 @@ export function DataGovernanceDashboard() {
           transition={{ duration: 0.3, delay: 0.2 }}
           className="xl:col-span-7 2xl:col-span-8"
         >
-          <div className="h-full rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-6">
+          <div className="h-full rounded-xl border border-border bg-card p-4 shadow-sm xl:p-6">
             <h2 className="text-h4 font-semibold text-foreground">Data Quality Score Trend</h2>
             <p className="mt-1 text-caption text-muted-foreground">Quality score over the same period as mapping accuracy (selector at top)</p>
             <div className="mt-4 h-[260px]">
@@ -296,7 +296,7 @@ export function DataGovernanceDashboard() {
           transition={{ duration: 0.3, delay: 0.25 }}
           className="xl:col-span-5 2xl:col-span-4"
         >
-          <div className="h-full rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-6">
+          <div className="h-full rounded-xl border border-border bg-card p-4 shadow-sm xl:p-6">
             <h2 className="text-h4 font-semibold text-foreground">Rejection Reasons Breakdown</h2>
             <p className="mt-1 text-caption text-muted-foreground">Distribution of rejection reasons</p>
             <div className="mt-4 h-[260px]">
@@ -336,7 +336,7 @@ function KpiCard({
   const displayValue = useCountUp(kpi.value, 1200);
   const trend = kpi.trend ?? "neutral";
   return (
-    <div className="flex h-full flex-col rounded-xl border border-border bg-card p-3.5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-4 2xl:p-5">
+    <div className="flex h-full flex-col rounded-xl border border-border bg-card p-3.5 shadow-sm xl:p-4 2xl:p-5">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
           <p className="truncate text-caption font-medium uppercase tracking-[0.08em] text-muted-foreground">{kpi.label}</p>

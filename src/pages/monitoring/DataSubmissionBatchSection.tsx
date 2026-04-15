@@ -140,7 +140,7 @@ function KpiCard({
   icon: React.ComponentType<{ className?: string }>;
 }) {
   return (
-    <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+    <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-caption font-medium uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
@@ -433,7 +433,7 @@ export function DataSubmissionBatchSection({ filters: _filters }: { filters: Mon
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
           <h4 className="text-body font-semibold text-foreground mb-4">Batch Volume Trend</h4>
           <ChartContainer config={batchVolumeConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
             <ComposedChart data={volumeChartData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
@@ -447,7 +447,7 @@ export function DataSubmissionBatchSection({ filters: _filters }: { filters: Mon
             </ComposedChart>
           </ChartContainer>
         </div>
-        <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
           <h4 className="text-body font-semibold text-foreground mb-4">Processing Duration Trend</h4>
           <ChartContainer config={durationConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
             <LineChart data={durationChartData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
@@ -461,7 +461,7 @@ export function DataSubmissionBatchSection({ filters: _filters }: { filters: Mon
         </div>
       </div>
 
-      <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
         <h4 className="text-body font-semibold text-foreground mb-4">Top Batch Error Categories</h4>
         <ChartContainer config={errorCategoriesConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
           <BarChart data={errorCategoriesChartData} margin={{ top: 5, right: 8, bottom: 5, left: 0 }}>
@@ -474,7 +474,7 @@ export function DataSubmissionBatchSection({ filters: _filters }: { filters: Mon
         </ChartContainer>
       </div>
 
-      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
         <div className="px-4 pt-4 pb-4 border-b border-border md:px-6 md:pt-6">
           <h4 className="text-body font-semibold text-foreground mb-4">Batch Jobs</h4>
           <div className="md:hidden">

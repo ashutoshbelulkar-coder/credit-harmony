@@ -157,7 +157,7 @@ export function LLMFieldIntelligenceStep({
         }}
       />
 
-      <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card shadow-sm">
         <p className="p-3 text-caption font-medium uppercase tracking-wider text-muted-foreground">
           LLM Field Intelligence
         </p>
@@ -293,7 +293,7 @@ export function LLMFieldIntelligenceStep({
       </div>
 
       {enums.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
           <p className="text-body font-medium text-foreground mb-1.5">Enum Reconciliation Required</p>
           <div className="space-y-1.5">
             {enums.map((e) => (

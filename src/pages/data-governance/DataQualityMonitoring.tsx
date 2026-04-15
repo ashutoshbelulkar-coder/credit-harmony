@@ -133,7 +133,7 @@ export default function DataQualityMonitoring() {
         </Button>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <p className="text-caption font-medium text-muted-foreground mb-3">Filters</p>
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-1.5">
@@ -182,7 +182,7 @@ export default function DataQualityMonitoring() {
         {adjustedMetrics.map((m) => (
           <div
             key={m.id}
-            className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
+            className="rounded-xl border border-border bg-card p-4 shadow-sm"
           >
             <p className="text-caption font-medium uppercase tracking-wider text-muted-foreground">{m.label}</p>
             <p className="mt-2 font-sans text-h2 font-bold text-foreground tabular-nums">
@@ -199,7 +199,7 @@ export default function DataQualityMonitoring() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <h2 className="text-h4 font-semibold text-foreground">Data quality trend (anomaly detection)</h2>
         <p className="mt-1 text-caption text-muted-foreground">
           Trend reflects the selected member institution (mock offset). Threshold at {THRESHOLD}%.
@@ -244,7 +244,7 @@ export default function DataQualityMonitoring() {
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <h2 className="text-h4 font-semibold text-foreground">Schema & mapping drift alerts</h2>
         <p className="mt-1 text-caption text-muted-foreground">
           From the Data Ingestion Agent (API). Filtered by date range and source type.

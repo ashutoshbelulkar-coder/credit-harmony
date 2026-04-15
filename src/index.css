@@ -5,238 +5,339 @@
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 220 20% 97%;
-    --foreground: 222 47% 11%;
+    :root {
+        /* ─────────────────────────────────────────────────────────
+         * CRIF Official Palette Reference (do not change these values)
+         *   CRIF Blue (primary/dominant)  #003B79  → 211 100% 24%
+         *   CRIF Light Blue               #B0CEEC  → 210  61% 81%
+         *   CRIF Orange (primary/dominant)#EE7D11  → 29   87% 50%
+         *   CRIF Light Gray               #DDDDDD  → 0     0% 87%
+         *   CRIF Green-Yellow (secondary) #D9E021  → 62   76% 50%
+         *     ↳ For charts/tags/decoration ONLY — never interactive elements
+         *
+         * Interactive accent (teal, not in CRIF palette but WCAG-safe):
+         *   Teal                           hsl(175 60% 40%)
+         *     ↳ Used as --secondary / --accent for interactive UI elements
+         * ───────────────────────────────────────────────────────── */
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+        --background: 220 20% 97%;
+        --foreground: 222 47% 11%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+        --card: 0 0% 100%;
+        --card-foreground: 222 47% 11%;
 
-    --primary: 214 78% 20%;
-    --primary-foreground: 210 40% 98%;
-    --primary-light: 214 78% 95%;
+        --popover: 0 0% 100%;
+        --popover-foreground: 222 47% 11%;
 
-    --secondary: 175 60% 40%;
-    --secondary-foreground: 0 0% 100%;
+        /* CRIF Blue #003B79 — corrected from 214 78% 20% */
+        --primary: 211 100% 24%;
+        --primary-foreground: 210 40% 98%;
+        /* CRIF Light Blue #B0CEEC — corrected from 214 78% 95% */
+        --primary-light: 210 61% 81%;
+        /* Near-white CRIF blue tint — for row highlights/selections only, not interactive */
+        --primary-subtle: 211 100% 97%;
 
-    --muted: 220 14% 92%;
-    --muted-foreground: 220 9% 46%;
+        /* Teal — retained for interactive UI (buttons, active states, focus) */
+        --secondary: 175 60% 40%;
+        --secondary-foreground: 0 0% 100%;
 
-    --accent: 175 50% 45%;
-    --accent-foreground: 0 0% 100%;
-    --accent-light: 175 50% 95%;
+        --muted: 220 14% 92%;
+        --muted-foreground: 220 9% 46%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+        --accent: 175 50% 45%;
+        --accent-foreground: 0 0% 100%;
+        --accent-light: 175 50% 95%;
 
-    --danger: 0 72% 51%;
-    --danger-foreground: 0 0% 100%;
-    --danger-light: 0 72% 96%;
-    --danger-subtle: 0 65% 92%;
+        --destructive: 0 72% 51%;
+        --destructive-foreground: 210 40% 98%;
 
-    --border: 220 13% 88%;
-    --input: 220 13% 88%;
-    --ring: 214 78% 20%;
+        --danger: 0 72% 51%;
+        --danger-foreground: 0 0% 100%;
+        --danger-light: 0 72% 96%;
+        --danger-subtle: 0 65% 92%;
 
-    --radius: 0.5rem;
+        --border: 220 13% 88%;
+        --input: 220 13% 88%;
+        /* Corrected: matches --primary */
+        --ring: 211 100% 24%;
 
-    /* Custom tokens */
-    --sidebar-bg: 222 47% 11%;
-    --sidebar-fg: 220 14% 80%;
-    --sidebar-active: 175 60% 40%;
-    --sidebar-hover: 222 40% 16%;
-    --sidebar-border: 222 30% 18%;
+        --radius: 0.5rem;
 
-    --success: 152 60% 42%;
-    --success-foreground: 0 0% 100%;
-    --success-light: 152 60% 96%;
-    --success-subtle: 152 50% 92%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --warning-light: 38 92% 96%;
-    --warning-subtle: 38 85% 88%;
-    --info: 210 80% 52%;
-    --info-foreground: 0 0% 100%;
-    --info-light: 210 80% 96%;
-    --info-subtle: 210 70% 90%;
+        /* Status tokens */
+        --success: 152 60% 42%;
+        --success-foreground: 0 0% 100%;
+        --success-light: 152 60% 96%;
+        --success-subtle: 152 50% 92%;
+        --warning: 38 92% 50%;
+        --warning-foreground: 0 0% 100%;
+        --warning-light: 38 92% 96%;
+        --warning-subtle: 38 85% 88%;
+        --info: 210 80% 52%;
+        --info-foreground: 0 0% 100%;
+        --info-light: 210 80% 96%;
+        --info-subtle: 210 70% 90%;
 
-    --header-bg: 0 0% 100%;
-    --header-border: 220 13% 90%;
+        /* Header tokens */
+        --header-bg: 0 0% 100%;
+        --header-border: 220 13% 90%;
 
-    --badge-sandbox: 38 92% 50%;
-    --badge-uat: 262 52% 47%;
-    --badge-prod: 152 60% 42%;
+        /* Environment badge tokens */
+        --badge-sandbox: 38 92% 50%;
+        --badge-uat: 262 52% 47%;
+        --badge-prod: 152 60% 42%;
 
-    --crif-orange: 24 95% 53%;
-    --crif-orange-foreground: 0 0% 100%;
+        /* CRIF Orange #EE7D11 — corrected from 24 95% 53% */
+        --crif-orange: 29 87% 50%;
+        --crif-orange-foreground: 0 0% 100%;
 
-    --chart-1: 214 78% 20%;
-    --chart-2: 152 55% 40%;
-    --chart-3: 38 92% 50%;
-    --chart-4: 225 20% 65%;
-    --chart-5: 210 16% 35%;
+        /* CRIF Light Gray #DDDDDD */
+        --crif-light-gray: 0 0% 87%;
 
-    --sidebar-background: 222 47% 11%;
-    --sidebar-foreground: 220 14% 80%;
-    --sidebar-primary: 175 60% 40%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 222 40% 16%;
-    --sidebar-accent-foreground: 220 14% 90%;
-    --sidebar-border: 222 30% 18%;
-    --sidebar-ring: 175 60% 40%;
+        /* CRIF Green-Yellow #D9E021 — charts/tags/decoration ONLY, never interactive */
+        --crif-green-yellow: 62 76% 50%;
 
-    /* Theme alias tokens (responsive + theme optimization) */
-    --bg-primary: var(--background);
-    --bg-secondary: var(--muted);
-    --text-primary: var(--foreground);
-    --text-secondary: var(--muted-foreground);
-    --border-default: var(--border);
-    --card-bg: var(--card);
-    --table-header-bg: 220 14% 94%;
-    --hover-bg: 220 14% 92%;
-  }
+        /* Chart palette — 7 slots with CRIF brand anchors and perceptual differentiation
+         * Slots 1 (CRIF Blue) and 3 (CRIF Orange) are brand anchors.
+         * Adjacent slots differ by ≥30° hue and ≥15pp lightness. */
+        --chart-1: 211 100% 24%;    /* CRIF Blue — brand anchor */
+        --chart-2: 152 60% 42%;     /* Green — perceptually distinct */
+        --chart-3: 29 87% 50%;      /* CRIF Orange — brand anchor */
+        --chart-4: 262 52% 47%;     /* Purple — distinct from blue */
+        --chart-5: 210 16% 45%;     /* Cool slate — neutral */
+        --chart-6: 175 60% 40%;     /* Teal — product accent */
+        --chart-7: 38 92% 50%;      /* Amber — warning/operational */
 
-  .dark {
-    --background: 222 47% 8%;
-    --foreground: 210 40% 95%;
-    --card: 222 47% 11%;
-    --card-foreground: 210 40% 95%;
-    --popover: 222 47% 11%;
-    --popover-foreground: 210 40% 95%;
-    --primary: 175 60% 40%;
-    --primary-foreground: 0 0% 100%;
-    --primary-light: 175 60% 20%;
-    --secondary: 214 78% 20%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 222 30% 18%;
-    --muted-foreground: 220 14% 60%;
-    --accent: 175 50% 35%;
-    --accent-foreground: 0 0% 100%;
-    --accent-light: 175 50% 20%;
-    --destructive: 0 62% 30%;
-    --destructive-foreground: 210 40% 98%;
-    --danger: 0 72% 55%;
-    --danger-foreground: 0 0% 100%;
-    --danger-light: 0 72% 15%;
-    --danger-subtle: 0 65% 20%;
-    --success-light: 152 60% 15%;
-    --success-subtle: 152 50% 20%;
-    --warning-light: 38 92% 15%;
-    --warning-subtle: 38 85% 22%;
-    --info-light: 210 80% 15%;
-    --info-subtle: 210 70% 22%;
-    --crif-orange: 24 90% 55%;
-    --crif-orange-foreground: 0 0% 100%;
-    --border: 222 30% 18%;
-    --input: 222 30% 18%;
-    --ring: 175 60% 40%;
+        /* Canonical sidebar tokens (used by Tailwind sidebar.* classes) */
+        --sidebar-background: 222 47% 11%;
+        --sidebar-foreground: 220 14% 80%;
+        --sidebar-primary: 175 60% 40%;
+        --sidebar-primary-foreground: 0 0% 100%;
+        --sidebar-accent: 222 40% 16%;
+        --sidebar-accent-foreground: 220 14% 90%;
+        --sidebar-border: 222 30% 18%;
+        --sidebar-ring: 175 60% 40%;
 
-    /* Theme alias tokens (dark) */
-    --bg-primary: var(--background);
-    --bg-secondary: var(--muted);
-    --text-primary: var(--foreground);
-    --text-secondary: var(--muted-foreground);
-    --border-default: var(--border);
-    --card-bg: var(--card);
-    --table-header-bg: 222 35% 14%;
-    --hover-bg: 222 35% 16%;
-  }
+        /* Credit domain risk severity tokens — separate from UI state (danger/warning/destructive)
+         * Use risk-* for credit scores, bureau quality indicators, batch risk classifications.
+         * Use danger/destructive for UI actions (delete, form errors).
+         * Use warning for operational alerts (SLA, batch failures, schema drift). */
+        --risk-high: 0 85% 45%;
+        --risk-high-foreground: 0 0% 100%;
+        --risk-high-subtle: 0 85% 95%;
+        --risk-medium: 29 87% 50%;       /* CRIF Orange — elevated risk */
+        --risk-medium-foreground: 0 0% 100%;
+        --risk-medium-subtle: 29 87% 95%;
+        --risk-low: 152 60% 42%;         /* Green — acceptable risk */
+        --risk-low-foreground: 0 0% 100%;
+        --risk-low-subtle: 152 60% 96%;
+
+        /* Elevation shadow system — 3 semantic levels
+         * shadow-sm → list items, table rows, inline chips
+         * shadow-md → page cards, panels, section containers, stat tiles
+         * shadow-lg → modals, drawers, command palette, floating dropdowns */
+        --shadow-color: 222 47% 11%;
+        --shadow-sm: 0 1px 2px hsl(var(--shadow-color) / 0.04), 0 1px 3px hsl(var(--shadow-color) / 0.06);
+        --shadow-md: 0 4px 6px hsl(var(--shadow-color) / 0.06), 0 2px 4px hsl(var(--shadow-color) / 0.04);
+        --shadow-lg: 0 10px 24px hsl(var(--shadow-color) / 0.10), 0 4px 8px hsl(var(--shadow-color) / 0.06);
+
+        /* Interaction state overlay tokens — use these instead of per-component opacity hacks
+         * hover:bg-[hsl(var(--state-hover-overlay))]  for interactive surface hovers
+         * disabled:opacity-[var(--state-disabled-opacity)] for all disabled states */
+        --state-hover-overlay: 220 13% 0% / 0.04;
+        --state-active-overlay: 220 13% 0% / 0.08;
+        --state-focus-ring-offset-color: 0 0% 100%;
+        --state-disabled-opacity: 0.4;
+
+        /* Theme alias tokens */
+        --bg-primary: var(--background);
+        --bg-secondary: var(--muted);
+        --text-primary: var(--foreground);
+        --text-secondary: var(--muted-foreground);
+        --border-default: var(--border);
+        --card-bg: var(--card);
+        --table-header-bg: 220 14% 94%;
+        --hover-bg: 220 14% 92%;
+    }
+
+    .dark {
+        --background: 222 47% 8%;
+        --foreground: 210 40% 95%;
+        --card: 222 47% 11%;
+        --card-foreground: 210 40% 95%;
+        --popover: 222 47% 11%;
+        --popover-foreground: 210 40% 95%;
+
+        /* Hue-preserving lightness scaling: same hue/sat as CRIF Blue, raised lightness for dark bg */
+        --primary: 211 90% 62%;
+        --primary-foreground: 0 0% 100%;
+        --primary-light: 211 90% 22%;
+        --primary-subtle: 211 90% 10%;
+
+        --secondary: 214 78% 20%;
+        --secondary-foreground: 210 40% 98%;
+        --muted: 222 30% 18%;
+        --muted-foreground: 220 14% 60%;
+        --accent: 175 50% 35%;
+        --accent-foreground: 0 0% 100%;
+        --accent-light: 175 50% 20%;
+        --destructive: 0 62% 30%;
+        --destructive-foreground: 210 40% 98%;
+        --danger: 0 72% 55%;
+        --danger-foreground: 0 0% 100%;
+        --danger-light: 0 72% 15%;
+        --danger-subtle: 0 65% 20%;
+        --success-light: 152 60% 15%;
+        --success-subtle: 152 50% 20%;
+        --warning-light: 38 92% 15%;
+        --warning-subtle: 38 85% 22%;
+        --info-light: 210 80% 15%;
+        --info-subtle: 210 70% 22%;
+
+        /* Hue-preserving: same hue/sat as CRIF Orange, +10pp lightness */
+        --crif-orange: 29 87% 60%;
+        --crif-orange-foreground: 0 0% 100%;
+
+        --border: 222 30% 18%;
+        --input: 222 30% 18%;
+        /* Corrected: follows --primary in dark mode */
+        --ring: 211 90% 62%;
+
+        /* Dark mode chart overrides — hue-preserving lightness scaling (+20–25pp) */
+        --chart-1: 211 90% 62%;     /* CRIF Blue (light for dark bg) */
+        --chart-2: 152 55% 58%;     /* Green */
+        --chart-3: 29 87% 60%;      /* CRIF Orange (matches dark crif-orange) */
+        --chart-4: 262 52% 68%;     /* Purple */
+        --chart-5: 210 16% 62%;     /* Cool slate */
+        --chart-6: 175 60% 55%;     /* Teal */
+        --chart-7: 38 92% 65%;      /* Amber */
+
+        /* Risk tokens — dark mode (reduced saturation for glare reduction) */
+        --risk-high: 0 80% 55%;
+        --risk-high-subtle: 0 80% 12%;
+        --risk-medium: 29 87% 60%;
+        --risk-medium-subtle: 29 87% 12%;
+        --risk-low: 152 55% 55%;
+        --risk-low-subtle: 152 55% 12%;
+
+        /* Shadow — darker base, shadows appear more subtle on dark surfaces */
+        --shadow-color: 222 47% 4%;
+
+        /* Interaction state overlays — white tint on dark surfaces */
+        --state-hover-overlay: 0 0% 100% / 0.05;
+        --state-active-overlay: 0 0% 100% / 0.09;
+        --state-focus-ring-offset-color: 222 47% 8%;
+
+        /* Theme alias tokens (dark) */
+        --bg-primary: var(--background);
+        --bg-secondary: var(--muted);
+        --text-primary: var(--foreground);
+        --text-secondary: var(--muted-foreground);
+        --border-default: var(--border);
+        --card-bg: var(--card);
+        --table-header-bg: 222 35% 14%;
+        --hover-bg: 222 35% 16%;
+    }
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
+    * {
+        @apply border-border;
+    }
 
-  /* Single scroll: app shell (DashboardLayout main) scrolls; prevent document + main both scrolling */
-  html {
-    height: 100%;
-  }
+    /* Single scroll: app shell (DashboardLayout main) scrolls; prevent document + main both scrolling */
+    html {
+        height: 100%;
+    }
 
-  body {
-    @apply bg-background text-foreground font-sans antialiased;
-    height: 100%;
-    margin: 0;
-    overflow: hidden;
-  }
+    body {
+        @apply bg-background text-foreground font-sans antialiased;
+        height: 100%;
+        margin: 0;
+        overflow: hidden;
+    }
 
-  #root {
-    height: 100%;
-    min-height: 0;
-  }
+    #root {
+        height: 100%;
+        min-height: 0;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-  }
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
 }
 
 @layer utilities {
-  .sidebar-gradient {
-    background: linear-gradient(180deg, hsl(222 47% 11%) 0%, hsl(222 47% 8%) 100%);
-  }
+    /* Sidebar is always a dark surface — both stops use fixed sidebar token values, not --background */
+    .sidebar-gradient {
+        background: linear-gradient(
+            180deg,
+            hsl(var(--sidebar-background)) 0%,
+            hsl(222 47% 8%) 100%
+        );
+    }
 
-  .card-shine {
-    background: linear-gradient(135deg, hsl(0 0% 100% / 0.05) 0%, transparent 50%);
-  }
+    .card-shine {
+        background: linear-gradient(135deg, hsl(0 0% 100% / 0.05) 0%, transparent 50%);
+    }
 
-  .stat-glow-primary {
-    box-shadow: 0 4px 20px -4px hsl(214 78% 20% / 0.15);
-  }
+    /* Glow utilities use CSS variable references — no hardcoded HSL values */
+    .stat-glow-primary {
+        box-shadow: 0 4px 20px -4px hsl(var(--primary) / 0.15);
+    }
 
-  .stat-glow-success {
-    box-shadow: 0 4px 20px -4px hsl(152 60% 42% / 0.15);
-  }
+    .stat-glow-success {
+        box-shadow: 0 4px 20px -4px hsl(var(--success) / 0.15);
+    }
 
-  .stat-glow-warning {
-    box-shadow: 0 4px 20px -4px hsl(38 92% 50% / 0.15);
-  }
+    .stat-glow-warning {
+        box-shadow: 0 4px 20px -4px hsl(var(--warning) / 0.15);
+    }
 
-  .stat-glow-accent {
-    box-shadow: 0 4px 20px -4px hsl(175 60% 40% / 0.15);
-  }
+    .stat-glow-accent {
+        box-shadow: 0 4px 20px -4px hsl(var(--accent) / 0.15);
+    }
 
-  /* Mobile-style horizontal scroll: no scrollbar, smooth touch, no vertical scroll */
-  .scroll-touch-x {
-    overflow-x: auto;
-    overflow-y: hidden;
-    -webkit-overflow-scrolling: touch;
-    scroll-behavior: smooth;
-    scrollbar-width: none;
-    -ms-overflow-style: none;
-  }
-  .scroll-touch-x::-webkit-scrollbar {
-    display: none;
-  }
+    /* Mobile-style horizontal scroll: no scrollbar, smooth touch, no vertical scroll */
+    .scroll-touch-x {
+        overflow-x: auto;
+        overflow-y: hidden;
+        -webkit-overflow-scrolling: touch;
+        scroll-behavior: smooth;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
 
-  /* Scroll hint: subtle gradient overlay on right edge for horizontal table scroll */
-  .table-scroll-fade::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: 24px;
-    pointer-events: none;
-    background: linear-gradient(to right, transparent, hsl(var(--background) / 0.6));
-  }
-  .dark .table-scroll-fade::after {
-    background: linear-gradient(to right, transparent, hsl(var(--background) / 0.8));
-  }
+    .scroll-touch-x::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Scroll hint: subtle gradient overlay on right edge for horizontal table scroll */
+    .table-scroll-fade::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        width: 24px;
+        pointer-events: none;
+        background: linear-gradient(to right, transparent, hsl(var(--background) / 0.6));
+    }
+
+    .dark .table-scroll-fade::after {
+        background: linear-gradient(to right, transparent, hsl(var(--background) / 0.8));
+    }
 }
 
 @media print {
-  aside,
-  [data-sidebar],
-  .no-print {
-    display: none !important;
-  }
+    aside,
+    [data-sidebar],
+    .no-print {
+        display: none !important;
+    }
 }

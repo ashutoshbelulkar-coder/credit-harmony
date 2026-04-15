@@ -126,7 +126,7 @@ export default function ConsortiumDetailPage() {
           </Button>
         </div>
 
-        <div className="rounded-xl border border-border bg-card px-1.5 py-1.5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="rounded-xl border border-border bg-card px-1.5 py-1.5 shadow-sm">
           <div className="overflow-x-auto overflow-y-hidden -mx-0.5 md:overflow-visible md:mx-0">
             <div className="flex items-center gap-0.5 min-w-0 w-max md:w-full md:flex-wrap md:min-w-0">
               {DETAIL_TABS.map((tab) => (

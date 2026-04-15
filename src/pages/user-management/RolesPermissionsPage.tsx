@@ -60,7 +60,7 @@ function apiRoleToDefinition(r: RoleResponse): LocalRole {
     role: roleLabel,
     description: r.description ?? "",
     userCount: userCountByRoleName.get(roleLabel.toLowerCase()) ?? 0,
-    color: "hsl(220, 9%, 46%)",
+    color: "hsl(var(--muted-foreground))",
     permissions: {},
     sectionPermissions: matrix,
   };

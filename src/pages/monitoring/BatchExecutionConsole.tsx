@@ -61,7 +61,7 @@ import type {
 } from "@/data/monitoring-mock";
 import { toast } from "@/hooks/use-toast";
 
-const CARD = "rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]";
+const CARD = "rounded-xl border border-border bg-card shadow-sm";
 
 const statusStyles: Record<BatchStatus, string> = {
   Completed: "bg-success/15 text-success",

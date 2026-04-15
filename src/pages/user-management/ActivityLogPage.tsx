@@ -161,7 +161,7 @@ export function ActivityLogPage() {
           <SkeletonTable rows={PAGE_SIZE} cols={6} />
         </div>
       ) : (
-        <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)] mt-4">
+        <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm mt-4">
           <div className="min-w-0 overflow-x-auto">
             <Table>
               <TableHeader>

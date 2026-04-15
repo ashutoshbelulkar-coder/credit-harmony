@@ -167,6 +167,7 @@ function toListItem(s: MasterSchema): MasterSchemaListItem {
     name: s.name,
     version: s.version,
     fieldCount: s.fields?.length ?? 0,
+    maskedCount: s.fields?.filter((f) => f.masking !== "none").length ?? 0,
     status: s.status,
     updatedAt: s.updatedAt,
   };

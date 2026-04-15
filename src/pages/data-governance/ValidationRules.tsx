@@ -153,7 +153,7 @@ export default function ValidationRules() {
       </div>
 
       {/* Rule list table */}
-      <div className="min-w-0 overflow-x-auto rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="min-w-0 overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
         <Table>
           <TableHeader>
             <TableRow>
@@ -245,7 +245,7 @@ export default function ValidationRules() {
 
       {/* Impact Analysis section */}
       {rules.some((r) => r.impactPercent != null) && (
-        <div className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
           <h2 className="text-h4 font-semibold text-foreground">Impact analysis</h2>
           <p className="mt-1 text-caption text-muted-foreground">% of records affected by active rules</p>
           <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">

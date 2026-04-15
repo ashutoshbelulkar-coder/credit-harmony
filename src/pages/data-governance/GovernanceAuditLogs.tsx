@@ -94,7 +94,7 @@ export default function GovernanceAuditLogs() {
           </Button>
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div className="space-y-1.5">
                 <Label className="text-caption text-muted-foreground">Date from</Label>
@@ -135,7 +135,7 @@ export default function GovernanceAuditLogs() {
       </Collapsible>
 
       {/* Desktop: always-visible filters */}
-      <div className="hidden rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] md:block">
+      <div className="hidden rounded-xl border border-border bg-card p-4 shadow-sm md:block">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-1.5">
             <Label className="text-caption text-muted-foreground">Date from</Label>
@@ -176,7 +176,7 @@ export default function GovernanceAuditLogs() {
       {isLoading ? (
         <SkeletonTable rows={8} cols={6} />
       ) : (
-        <div className="min-w-0 overflow-x-auto rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="min-w-0 overflow-x-auto rounded-xl border border-border bg-card shadow-sm">
           <Table>
             <TableHeader>
               <TableRow>

@@ -195,7 +195,7 @@ export function UsersListPage() {
       </div>
 
       {/* Table */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)] mt-4">
+      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm mt-4">
         {isLoading && <SkeletonTable rows={8} cols={6} />}
         {isError && <ApiErrorCard error={error} onRetry={() => refetch()} className="m-4" />}
         {!isLoading && !isError && (

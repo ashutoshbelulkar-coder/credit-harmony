@@ -10,7 +10,7 @@ const PAGE_SIZE = 10;
 /** Match Member Data Quality: strictly greater than 90% reads as on-track (green). */
 function qualityClass(q: number) {
   if (q > 90) return "text-success";
-  if (q > 80) return "text-orange-500";
+  if (q > 80) return "text-crif-orange";
   return "text-destructive";
 }
 
@@ -61,7 +61,7 @@ export function ActiveBatchPipelineTable({
   const rangeTo = Math.min(page * PAGE_SIZE, total);
 
   return (
-    <Card className="min-w-0 border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+    <Card className="min-w-0 border-border shadow-sm">
       <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <CardTitle className="text-h4 font-semibold text-foreground">Active Batch Pipeline</CardTitle>
@@ -87,7 +87,7 @@ export function ActiveBatchPipelineTable({
               <tr className="text-caption text-muted-foreground border-b border-border">
                 <th
                   scope="col"
-                  className="sticky left-0 z-[1] bg-card py-2 pl-0 pr-2 text-left font-medium shadow-[4px_0_12px_-4px_rgba(15,23,42,0.12)] dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.35)]"
+                  className="sticky left-0 z-[1] bg-card py-2 pl-0 pr-2 text-left font-medium shadow-[4px_0_12px_-4px_hsl(var(--shadow-color)/0.12)] dark:shadow-[4px_0_12px_-4px_hsl(var(--shadow-color)/0.35)]"
                 >
                   Batch ID
                 </th>
@@ -130,7 +130,7 @@ export function ActiveBatchPipelineTable({
                     }
                   }}
                 >
-                  <td className="sticky left-0 z-[1] bg-card py-3 pr-2 font-mono text-primary shadow-[4px_0_12px_-4px_rgba(15,23,42,0.12)] transition-colors group-hover:bg-muted/30 dark:shadow-[4px_0_12px_-4px_rgba(0,0,0,0.35)]">
+                  <td className="sticky left-0 z-[1] bg-card py-3 pr-2 font-mono text-primary shadow-[4px_0_12px_-4px_hsl(var(--shadow-color)/0.12)] transition-colors group-hover:bg-muted/30 dark:shadow-[4px_0_12px_-4px_hsl(var(--shadow-color)/0.35)]">
                     <span className="inline-flex items-center gap-2 whitespace-nowrap">
                       {r.priority === "critical" && (
                         <span

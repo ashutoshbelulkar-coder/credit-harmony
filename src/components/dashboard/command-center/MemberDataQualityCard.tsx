@@ -41,7 +41,7 @@ function scoreClass(score: number) {
     if (score >= 97) return "bg-success/15 text-success border-success/20";
     return "bg-success/10 text-success border-success/25";
   }
-  if (score > 80) return "bg-orange-500/15 text-orange-500 border-orange-500/20";
+  if (score > 80) return "bg-crif-orange/15 text-crif-orange border-crif-orange/20";
   return "bg-destructive/15 text-destructive border-destructive/20";
 }
 
@@ -70,7 +70,7 @@ export function MemberDataQualityCard({
   const byKey = new Map(points.map((p) => [`${p.member}__${p.period}`, p] as const));
 
   return (
-    <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+    <Card className="border-border shadow-sm">
       <CardHeader className="flex-row items-start justify-between gap-4">
         <div className="min-w-0">
           <CardTitle className="text-h4 font-semibold text-foreground">Member Data Quality</CardTitle>

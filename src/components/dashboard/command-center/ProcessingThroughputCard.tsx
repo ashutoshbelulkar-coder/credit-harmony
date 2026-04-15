@@ -59,7 +59,7 @@ export function ProcessingThroughputCard({
   const { multiplier } = dashboardData.throughputConfig;
 
   return (
-    <Card className="flex h-full min-h-0 w-full flex-col border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+    <Card className="flex h-full min-h-0 w-full flex-col border-border shadow-sm">
       <CardHeader className="shrink-0 flex-row items-start justify-between gap-4">
         <div className="min-w-0">
           <CardTitle className="text-h4 font-semibold text-foreground">Processing Throughput</CardTitle>

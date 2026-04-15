@@ -61,7 +61,7 @@ export function ApiUsageChart({
   return (
     <section aria-label="API usage and reliability" className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-12">
       <div className="lg:col-span-8">
-        <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm h-full flex flex-col">
           <header>
             <h2 className="text-h4 font-semibold text-foreground">{heading}</h2>
             <p className="mt-1 text-caption text-muted-foreground">{sub}</p>
@@ -84,7 +84,7 @@ export function ApiUsageChart({
       </div>
 
       <div className="lg:col-span-4">
-        <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm h-full flex flex-col">
           <header>
             <h2 className="text-h4 font-semibold text-foreground">Success vs Failure Rate</h2>
             <p className="mt-1 text-caption text-muted-foreground">Distribution of successful vs failed API calls</p>
@@ -125,7 +125,7 @@ export function DataQualityCharts({ data, loading }: { data?: DashboardChartsDat
   return (
     <section aria-label="Data quality and matching" className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-2 laptop:grid-cols-12">
       <div className="laptop:col-span-6">
-        <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm h-full flex flex-col">
           <header>
             <h2 className="text-h4 font-semibold text-foreground">Mapping Accuracy Trend</h2>
             <p className="mt-1 text-caption text-muted-foreground">Weekly auto-mapping accuracy across active integrations</p>
@@ -152,7 +152,7 @@ export function DataQualityCharts({ data, loading }: { data?: DashboardChartsDat
       </div>
 
       <div className="laptop:col-span-6">
-        <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] h-full flex flex-col">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm h-full flex flex-col">
           <header>
             <h2 className="text-h4 font-semibold text-foreground">Match Confidence Distribution</h2>
             <p className="mt-1 text-caption text-muted-foreground">Histogram of entity match confidence across recent decisions</p>
@@ -179,7 +179,7 @@ export function SlaLatencyChart({ data, loading }: { data?: DashboardChartsData;
   const slaLatencyData = data?.slaLatency ?? [];
   return (
     <section aria-label="SLA latency trend">
-      <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
         <header>
           <h2 className="text-h4 font-semibold text-foreground">SLA Latency Trend (P95 / P99)</h2>
           <p className="mt-1 text-caption text-muted-foreground">End-to-end response times for enquiry and submission APIs</p>
@@ -206,7 +206,7 @@ export function RejectionOverrideChart({ data, loading }: { data?: DashboardChar
   const rejectionOverrideData = data?.rejectionOverride ?? [];
   return (
     <section aria-label="Rejection and override trends">
-      <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
         <header>
           <h2 className="text-h4 font-semibold text-foreground">Rejection &amp; Override Trends</h2>
           <p className="mt-1 text-caption text-muted-foreground">Weekly trends in automatically rejected and manually overridden cases</p>

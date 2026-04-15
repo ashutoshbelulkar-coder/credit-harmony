@@ -31,7 +31,7 @@ import {
 import { useSlaConfigs, useUpdateSlaConfig } from "@/hooks/api/useAlerts";
 
 const cardClass =
-  "bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]";
+  "bg-card rounded-xl border border-border p-6 shadow-sm";
 
 const operators: { value: ">=" | "<=" | "<" | ">"; label: string }[] = [
   { value: ">=", label: "≥" },

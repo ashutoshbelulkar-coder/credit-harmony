@@ -109,7 +109,7 @@ export default function ConsortiumListPage() {
                   key={c.id}
                   type="button"
                   onClick={() => navigate(`/consortiums/${c.id}`)}
-                  className="w-full text-left rounded-xl border border-border bg-card p-4 space-y-2 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
+                  className="w-full text-left rounded-xl border border-border bg-card p-4 space-y-2 shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-body font-medium text-foreground">{c.name}</span>

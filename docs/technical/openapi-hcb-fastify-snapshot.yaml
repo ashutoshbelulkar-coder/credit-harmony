@@ -162,11 +162,11 @@ components:
           description: Optional UI metadata returned by the API (e.g. string/date/number)
     DataPolicy:
       type: object
-      required: [id, institutionId, productId, fields, updatedBy, updatedAt]
+      required: [id, institutionId, sourceType, fields, updatedBy, updatedAt]
       properties:
         id: { type: string }
         institutionId: { type: string }
-        productId: { type: string }
+        sourceType: { type: string }
         fields:
           type: array
           items:
@@ -231,14 +231,14 @@ paths:
     get:
       security:
         - bearerAuth: []
-      summary: Get or create a product data policy (masked-field unmask allow-list)
+      summary: Get or create a source-type data policy (masked-field unmask allow-list)
       parameters:
         - in: query
           name: institutionId
           required: true
           schema: { type: string }
         - in: query
-          name: productId
+          name: sourceType
           required: true
           schema: { type: string }
       responses:

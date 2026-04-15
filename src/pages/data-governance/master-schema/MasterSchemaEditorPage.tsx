@@ -335,7 +335,7 @@ export function MasterSchemaEditorPage({ mode }: { mode: "create" | "edit" }) {
 
         {(!isEdit || schema) && (
           <div className="grid grid-cols-1 gap-4">
-            <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+            <Card className="border-border shadow-sm">
               <CardContent className="p-4 space-y-4">
                 <div>
                   <h2 className="text-h4 font-semibold text-foreground">Schema metadata</h2>
@@ -371,7 +371,7 @@ export function MasterSchemaEditorPage({ mode }: { mode: "create" | "edit" }) {
               </CardContent>
             </Card>
 
-            <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+            <Card className="border-border shadow-sm">
               <CardContent className="p-4 space-y-4">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                   <div>

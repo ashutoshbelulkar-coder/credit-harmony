@@ -107,7 +107,7 @@ export function NewReportRequestPage() {
         </p>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField

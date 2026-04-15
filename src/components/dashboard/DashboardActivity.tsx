@@ -27,7 +27,7 @@ export function DashboardActivity({
       className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-5 laptop:grid-cols-12"
     >
       {/* Recent Activity */}
-      <div className="lg:col-span-3 laptop:col-span-7 bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="lg:col-span-3 laptop:col-span-7 bg-card rounded-xl border border-border p-4 shadow-sm">
         <div className="flex items-center justify-between border-b border-border pb-4">
           <h2 className="text-label uppercase tracking-[0.08em] text-muted-foreground">Recent Activity</h2>
           <Link
@@ -55,7 +55,7 @@ export function DashboardActivity({
       </div>
 
       {/* Top institutions by enquiry volume (live data from /v1/dashboard/charts). */}
-      <div className="lg:col-span-2 laptop:col-span-5 bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="lg:col-span-2 laptop:col-span-5 bg-card rounded-xl border border-border p-4 shadow-sm">
         <div className="flex items-center justify-between border-b border-border pb-4">
           <h2 className="text-label uppercase tracking-[0.08em] text-muted-foreground">Top institutions</h2>
           <BarChart3 className="h-4 w-4 text-muted-foreground" />

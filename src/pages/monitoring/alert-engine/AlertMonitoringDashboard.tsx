@@ -70,20 +70,20 @@ function toActiveAlert(r: AlertIncidentResponse): ActiveAlert {
 }
 
 const cardClass =
-  "bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]";
+  "bg-card rounded-xl border border-border p-4 shadow-sm";
 
 const chartCardClass =
-  "bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]";
+  "bg-card rounded-xl border border-border p-6 shadow-sm";
 
 const severityStyles: Record<string, string> = {
   Critical: "border border-destructive/30 bg-destructive/10 text-destructive",
-  Warning: "border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  Warning: "border border-warning/40 bg-warning/10 text-warning",
   Info: "border border-border bg-muted/80 text-muted-foreground",
 };
 
 const statusStyles: Record<AlertStatus, string> = {
   Active: "border border-primary/30 bg-primary/10 text-primary",
-  Acknowledged: "border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400",
+  Acknowledged: "border border-warning/40 bg-warning/10 text-warning",
   Resolved: "border border-success/30 bg-success/10 text-success",
 };
 

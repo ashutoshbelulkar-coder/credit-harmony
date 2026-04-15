@@ -11,6 +11,8 @@
         { "name": "consumer_id", "dataType": "string", "required": true, "masking": "none", "description": "Unique consumer identifier." },
         { "name": "full_name", "dataType": "string", "required": true, "masking": "partial", "description": "Consumer full legal name." },
         { "name": "phone_number", "dataType": "string", "required": true, "masking": "partial", "description": "Primary mobile number." },
+        { "name": "email_address", "dataType": "string", "required": true, "masking": "full", "description": "Consumer email address." },
+        { "name": "alternate_phone", "dataType": "string", "required": false, "masking": "full", "description": "Alternate contact number." },
         { "name": "date_of_birth", "dataType": "date", "required": false, "masking": "full", "description": "Date of birth (if available)." },
         { "name": "avg_monthly_bill", "dataType": "decimal", "required": false, "masking": "none", "description": "Average monthly bill for last 3 months." },
         { "name": "payment_delay_days", "dataType": "integer", "required": false, "masking": "none", "description": "Days payment was delayed." }
@@ -321,10 +323,13 @@
       "sourceType": "utility",
       "description": "Master schema for utility payments and arrears signals.",
       "version": "v1.0",
-      "status": "pending",
+      "status": "active",
       "fields": [
         { "name": "consumer_id", "dataType": "string", "required": true, "masking": "none", "description": "Unique consumer identifier." },
         { "name": "utility_customer_id", "dataType": "string", "required": true, "masking": "none", "description": "Utility-specific customer identifier." },
+        { "name": "contact_name", "dataType": "string", "required": false, "masking": "full", "description": "Name of the key contact person." },
+        { "name": "contact_email", "dataType": "string", "required": false, "masking": "partial", "description": "Primary email for billing." },
+        { "name": "pan_number", "dataType": "string", "required": false, "masking": "full", "description": "Tax ID associated with utility account." },
         { "name": "service_address", "dataType": "string", "required": false, "masking": "partial", "description": "Service address." },
         { "name": "monthly_bill_amount", "dataType": "decimal", "required": false, "masking": "none", "description": "Monthly billed amount." },
         { "name": "payment_status", "dataType": "enum", "required": true, "masking": "none", "description": "Payment status bucket." }
@@ -367,6 +372,9 @@
       "fields": [
         { "name": "consumer_id", "dataType": "string", "required": true, "masking": "none", "description": "Unique consumer identifier." },
         { "name": "account_number", "dataType": "string", "required": true, "masking": "full", "description": "Account identifier (masked at rest and in UI)." },
+        { "name": "credit_card_number", "dataType": "string", "required": false, "masking": "full", "description": "Credit card number." },
+        { "name": "pan_number", "dataType": "string", "required": true, "masking": "partial", "description": "Tax ID mapped to the banking account." },
+        { "name": "branch_address", "dataType": "string", "required": false, "masking": "partial", "description": "Issuing branch location." },
         { "name": "account_type", "dataType": "enum", "required": true, "masking": "none", "description": "Account type." },
         { "name": "current_balance", "dataType": "decimal", "required": false, "masking": "none", "description": "Current outstanding amount." },
         { "name": "dpd", "dataType": "integer", "required": false, "masking": "none", "description": "Days past due." }
@@ -405,10 +413,12 @@
       "sourceType": "gst",
       "description": "GST filing and compliance signals schema.",
       "version": "v0.3",
-      "status": "draft",
+      "status": "active",
       "fields": [
         { "name": "gstin", "dataType": "string", "required": true, "masking": "none", "description": "GST identification number." },
         { "name": "legal_trade_name", "dataType": "string", "required": true, "masking": "none", "description": "Legal trade name." },
+        { "name": "proprietor_pan", "dataType": "string", "required": false, "masking": "full", "description": "Proprietor permanent account number." },
+        { "name": "business_email", "dataType": "string", "required": false, "masking": "partial", "description": "Business contact email." },
         { "name": "filing_frequency", "dataType": "enum", "required": false, "masking": "none", "description": "Filing frequency." },
         { "name": "taxable_turnover", "dataType": "decimal", "required": false, "masking": "none", "description": "Taxable turnover amount." },
         { "name": "filing_status", "dataType": "enum", "required": false, "masking": "none", "description": "Return filing status." }

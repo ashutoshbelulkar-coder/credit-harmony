@@ -154,17 +154,17 @@ The SPA loads alerts via **`src/services/data-ingestion.service.ts`** and **`src
 
 ## Data Policy Management (Spring — canonical)
 
-The consortium wizard’s **Data policy** step includes a product-level **Data Policy Management** module, backed by **Spring** persistence (SQLite/Postgres) in table **`data_policies`**.
+The consortium wizard’s **Data policy** step includes a source-type-level **Data Policy Management** module, backed by **Spring** persistence (SQLite/Postgres) in table **`data_policies`**.
 
 **UI semantics (SPA):**
-- Operators choose a consortium-level **Unmask policy** (**Full** or **Partial**) once, then configure **per-product** allow-lists (which masked fields may be unmasked).
-- The drawer is product-scoped and renders masked fields; selecting a field enables unmasking per the chosen policy.
+- Operators choose a consortium-level **Unmask policy** (**Full** or **Partial**) once, then configure **per-source-type** allow-lists (which masked fields may be unmasked).
+- The drawer is source-type-scoped and renders masked fields; selecting a field enables unmasking per the chosen policy.
 
 **API (JWT required):**
 
 | Method | Path | Notes |
 |--------|------|------|
-| GET | `/api/v1/data-policy?institutionId=&productId=` | Read or create the product-scoped policy row on first access |
+| GET | `/api/v1/data-policy?institutionId=&sourceType=` | Read or create the source-type-scoped policy row on first access |
 | POST | `/api/v1/data-policy` | Upsert policy; validates: at least one field remains masked; partial requires predefined templates |
 
 **Audit logging:** Each successful update writes **`DATA_POLICY_UPDATED`** to the audit log with **`entityType=GOVERNANCE`** so the change appears in **Governance Audit Logs** in the portal.

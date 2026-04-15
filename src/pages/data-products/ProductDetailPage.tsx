@@ -11,7 +11,7 @@ import type { ProductLifecycleStatus } from "@/data/data-products-mock";
 const statusStyles: Record<ProductLifecycleStatus, string> = {
   active: "bg-success/15 text-success",
   draft: "bg-warning/15 text-warning",
-  approval_pending: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  approval_pending: "bg-primary/15 text-primary",
 };
 
 const statusLabel: Record<ProductLifecycleStatus, string> = {

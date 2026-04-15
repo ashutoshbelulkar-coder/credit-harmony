@@ -2218,14 +2218,14 @@ paths:
   /api/v1/data-policy:
     get:
       tags: [Data Governance]
-      summary: Get or create default data policy for institution+product
+      summary: Get or create default data policy for institution+sourceType
       operationId: getDataPolicy
       parameters:
         - name: institutionId
           in: query
           required: true
           schema: { type: string }
-        - name: productId
+        - name: sourceType
           in: query
           required: true
           schema: { type: string }
@@ -2247,10 +2247,10 @@ paths:
           application/json:
             schema:
               type: object
-              required: [institutionId, productId, fields]
+              required: [institutionId, sourceType, fields]
               properties:
                 institutionId: { type: string, example: "1001" }
-                productId: { type: string, example: "PRD_PREMIUM" }
+                sourceType: { type: string, example: "credit_card" }
                 fields:
                   type: array
                   items: { type: object, additionalProperties: true }

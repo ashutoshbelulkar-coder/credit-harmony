@@ -369,7 +369,7 @@ flowchart LR
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Data Governance Suite |
-| **Description** | 7 sub-modules: Dashboard (KPIs, trends), Schema Mapper Agent (8-step AI-assisted wizard), Validation Rules (rule builder with versioning), Identity Resolution Agent (match review with dual-approval), Data Quality Monitoring (anomaly detection, drift alerts), **Data Policy Management** (product-level masked-field unmasking controls), Governance Audit Logs |
+| **Description** | 7 sub-modules: Dashboard (KPIs, trends), Schema Mapper Agent (8-step AI-assisted wizard), Validation Rules (rule builder with versioning), Identity Resolution Agent (match review with dual-approval), Data Quality Monitoring (anomaly detection, drift alerts), **Data Policy Management** (source-type-level masked-field unmasking controls), Governance Audit Logs |
 | **Business Value** | Automated data quality management reduces manual effort by 60% |
 | **User Benefit** | AI-suggested mappings with confidence scores; visual rule builder; clear approval workflows |
 

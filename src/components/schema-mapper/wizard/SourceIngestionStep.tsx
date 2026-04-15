@@ -166,7 +166,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
   return (
     <div className="space-y-6">
       {/* Source Metadata */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <h3 className="text-h4 font-semibold text-foreground mb-4">Source Metadata</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <InstitutionFilterSelect
@@ -221,7 +221,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <h3 className="text-h4 font-semibold text-foreground mb-1">Raw Data Upload</h3>
         <p className="text-caption text-muted-foreground mb-4">
           Upload a sample file or paste JSON so we can parse fields and start mapping.
@@ -307,7 +307,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
         </Tabs>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <h3 className="text-h4 font-semibold text-foreground mb-1">Source Schema Documentation</h3>
         <p className="text-caption text-muted-foreground mb-4">
           Optional supporting documentation for reviewers (data dictionary, field definitions, etc.).
@@ -358,7 +358,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
 
       {isParsed && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 animate-fade-in">
-          <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <p className="mb-3 text-caption font-medium uppercase tracking-wider text-muted-foreground">
               Parsed Schema
             </p>
@@ -370,7 +370,7 @@ export function SourceIngestionStep({ initialMetadata, onComplete }: SourceInges
               />
             </ScrollArea>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <p className="mb-3 text-caption font-medium uppercase tracking-wider text-muted-foreground">
               Auto-detected Metadata
             </p>

@@ -212,7 +212,7 @@ export default function Login() {
   return (
     <div className="flex h-screen flex-col overflow-hidden lg:flex-row">
       {/* ── Left Brand Panel ── */}
-      <div className="relative hidden w-full shrink flex-col items-center justify-center overflow-hidden bg-[#0B2E5B] px-8 py-8 lg:flex lg:w-1/2 lg:h-full lg:py-0 lg:shrink-0">
+      <div className="relative hidden w-full shrink flex-col items-center justify-center overflow-hidden bg-[#003B79] px-8 py-8 lg:flex lg:w-1/2 lg:h-full lg:py-0 lg:shrink-0">
         <CreditNetworkCanvas reduced={!!prefersReduced} />
 
         <motion.div
@@ -240,7 +240,7 @@ export default function Login() {
           <div role="main" aria-label="Sign in">
             {/* Header */}
             <motion.div className="mb-6 lg:mb-8" {...stagger} {...staggerDelay(0)}>
-              <h1 className="font-sans text-[22px] font-bold leading-tight text-[#0B2E5B] dark:text-foreground">
+              <h1 className="font-sans text-[22px] font-bold leading-tight text-primary dark:text-foreground">
                 {step === "credentials" ? "Login" : "Verify sign-in"}
               </h1>
               {step === "otp" && (
@@ -280,7 +280,7 @@ export default function Login() {
               >
                 <Label
                   htmlFor="login-email"
-                  className="text-[11px] font-medium text-gray-700 dark:text-muted-foreground"
+                  className="text-[11px] font-medium text-muted-foreground"
                 >
                   Email Address
                 </Label>
@@ -319,7 +319,7 @@ export default function Login() {
               >
                 <Label
                   htmlFor="login-password"
-                  className="text-[11px] font-medium text-gray-700 dark:text-muted-foreground"
+                  className="text-[11px] font-medium text-muted-foreground"
                 >
                   Password
                 </Label>
@@ -439,7 +439,7 @@ export default function Login() {
               <motion.div className="space-y-2" {...stagger} {...staggerDelay(1)}>
                 <Label
                   htmlFor="login-otp"
-                  className="text-[11px] font-medium text-gray-700 dark:text-muted-foreground"
+                  className="text-[11px] font-medium text-muted-foreground"
                 >
                   One-time code
                 </Label>

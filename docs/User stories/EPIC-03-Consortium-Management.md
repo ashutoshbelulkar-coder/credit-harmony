@@ -37,7 +37,7 @@ Consortiums are governed groups of financial institutions that agree to share cr
 - Member management (add, role assignment, suspend/exit)
 - CBS members (external Core Banking member IDs per consortium; separate table/API from institution members)
 - Data policy configuration (share_loan_data, share_repayment_history, allow_aggregation, data_visibility)
-- Product-level Data Policy Management (masked-field unmask allow-lists) within the consortium wizard Data policy step
+- Source-type-level Data Policy Management (masked-field unmask allow-lists) within the consortium wizard Data policy step
 - Consortium lifecycle management (approve, suspend, dissolve)
 - Approval queue integration (type: `consortium`)
 
@@ -89,7 +89,7 @@ Consortiums are governed groups of financial institutions that agree to share cr
 - **Member role badge:** `Contributor`=blue, `Consumer`=green, `Observer`=gray
 - **Members wizard step:** Loads institution list with `role=subscriber`, `allowMockFallback: false`, `size=200`
 - **CBS members:** **Add CBS member** opens the same searchable picker pattern as institutions; options load from **`GET /api/v1/cbs-member-catalog`** (no free-text create). Second table lists selected catalog members. Duplicate catalog rows rejected client-side; server enforces uniqueness per consortium.
-- **Data policy wizard step (product-level):** Operators pick a consortium-level **Unmask policy** (Full vs Partial) once, then select one or more active products and open a per-product Configure drawer to choose which masked fields may be unmasked. Partial uses predefined templates only (PAN/Phone/Email/Name).
+- **Data policy wizard step (source-type-level):** Operators pick a consortium-level **Unmask policy** (Full vs Partial) once, then view a table of active master schemas (source types) and open a per-source-type Configure drawer to choose which masked fields may be unmasked. Partial uses predefined templates only (PAN/Phone/Email/Name).
 
 ### State Handling
 | State | UI Behavior |

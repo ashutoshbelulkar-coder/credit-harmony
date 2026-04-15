@@ -17,7 +17,7 @@ import {
 import { Label } from "@/components/ui/label";
 
 const cardClass =
-  "bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)]";
+  "bg-card rounded-xl border border-border overflow-hidden shadow-sm";
 
 const DOMAINS = ["Data Submission API", "Batch Processing", "Inquiry API", "All"];
 const SEVERITIES: (SeverityLevel | "All")[] = ["All", "Critical", "Warning", "Info"];

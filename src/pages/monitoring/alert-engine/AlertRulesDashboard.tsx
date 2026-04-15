@@ -350,7 +350,7 @@ export function AlertRulesDashboard() {
 
   return (
     <section className="shrink-0">
-      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 px-6 pt-6 pb-4 border-b border-border">
           <h3 className="text-body font-semibold text-foreground">Alert Rules</h3>
           <Button size="sm" className="gap-1.5 h-8 text-body text-primary-foreground shrink-0" onClick={() => setCreateOpen(true)} disabled={creating}>

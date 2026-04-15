@@ -148,7 +148,7 @@ const InstitutionDetail = () => {
         </div>
 
         {/* Tabs */}
-        <div className="rounded-xl border border-border bg-card px-1.5 py-1.5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="rounded-xl border border-border bg-card px-1.5 py-1.5 shadow-sm">
           <div className="overflow-x-auto overflow-y-hidden -mx-0.5 md:overflow-visible md:mx-0">
             <div className="flex items-center gap-0.5 min-w-0 w-max md:w-full md:flex-wrap md:min-w-0">
               {allTabs.map((tab) => (
@@ -240,7 +240,7 @@ const sourceConfig: ChartConfig = {
 };
 const latencyConfig: ChartConfig = { latency: { label: "Latency (ms)", color: "hsl(var(--secondary))" } };
 
-const CHART_CARD = "bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] flex flex-col";
+const CHART_CARD = "bg-card rounded-xl border border-border p-6 shadow-sm flex flex-col";
 
 function calcP95(values: number[]): string {
   if (values.length === 0) return "—";
@@ -357,13 +357,13 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
     <div className="space-y-6">
       {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
           <p className="text-caption text-muted-foreground">APIs enabled</p>
           <p className={cn("text-h4 font-bold mt-1", allManagedApisEnabled ? "text-success" : "text-foreground")}>
             {managedApiSlots > 0 ? `${institution.apisEnabledCount}/${managedApiSlots}` : "—"}
           </p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
           <p className="text-caption text-muted-foreground">SLA health</p>
           <p className={cn("text-h4 font-bold mt-1", (institution.slaHealthPercent ?? 0) >= 99 ? "text-success" : "text-foreground")}>
             {institution.slaHealthPercent != null && institution.slaHealthPercent > 0
@@ -371,14 +371,14 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
               : "—"}
           </p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
           <p className="text-caption text-muted-foreground">Onboarded</p>
           <p className="text-h4 font-bold mt-1 text-muted-foreground">
             {institution.onboardedAt ? new Date(institution.onboardedAt).toLocaleDateString() : "—"}
           </p>
         </div>
         {institution.isSubscriber && institution.creditBalance != null && (
-          <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
             <p className="text-caption text-muted-foreground">Available credits</p>
             <p className="text-h4 font-bold mt-1 text-foreground">{institution.creditBalance.toLocaleString()}</p>
           </div>
@@ -449,19 +449,19 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
               </p>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Total requests</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">{memberApiRequests.length}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Success rate</p>
                 <p className="text-h4 font-bold mt-1 text-success">{apiSuccessRate}{apiSuccessRate !== "—" ? "%" : ""}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">P95 latency</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">{apiP95}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">APIs enabled (member)</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">
                   {managedApiSlots > 0 ? `${institution.apisEnabledCount}/${managedApiSlots}` : "—"}
@@ -575,19 +575,19 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
               </p>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Batches (member)</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">{memberBatches.length}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Queued / Processing</p>
                 <p className="text-h4 font-bold mt-1 text-warning">{batchActive}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Records in scope</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">{batchRecords.toLocaleString()}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Avg success rate</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">
                   {batchAvgSuccess !== "—" ? `${batchAvgSuccess}%` : "—"}
@@ -609,19 +609,19 @@ function OverviewTab({ institution }: { institution: InstitutionResponse }) {
               </p>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Enquiries</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">{memberEnquiries.length}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Success rate</p>
                 <p className="text-h4 font-bold mt-1 text-success">{enqSuccessRate}{enqSuccessRate !== "—" ? "%" : ""}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">P95 latency</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">{enqP95}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Total enquiry types</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">
                   {new Set(memberEnquiries.map((e) => e.enquiryType)).size || "—"}

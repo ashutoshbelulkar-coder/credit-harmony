@@ -849,7 +849,7 @@ This wizard is the most complex UX flow in the application. It mixes:
 **Steps:**
 1. Basic Info (name, description, type)
 2. Members (multi-select from subscriber institutions)
-3. Data Policy (product-level masking)
+3. Data Policy (source-type-level masking)
 4. Review
 
 **Data Policy step (module extension, no redesign):**

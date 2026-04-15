@@ -193,6 +193,12 @@ export default function ConsortiumWizardPage() {
   });
   const masterSchemaRows: MasterSchemaListItem[] = (masterSchemasPage?.content ?? []) as unknown as MasterSchemaListItem[];
 
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activeDrawerSourceType, setActiveDrawerSourceType] = useState<SourceType | null>(null);
+  const [draftBySourceType, setDraftBySourceType] = useState<Record<string, SourceTypePolicyDraft>>({});
+  const [focusFieldName, setFocusFieldName] = useState<string | null>(null);
+  const [consortiumUnmaskPolicy, setConsortiumUnmaskPolicy] = useState<DataPolicyUnmaskType>("FULL");
+
   const activeMasterSchemaRow = useMemo(() => {
     if (!activeDrawerSourceType) return null;
     return masterSchemaRows.find((r) => r.sourceType === activeDrawerSourceType) ?? null;
@@ -202,12 +208,6 @@ export default function ConsortiumWizardPage() {
     allowMockFallback: true,
     enabled: Boolean(activeMasterSchemaRow?.id),
   });
-
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [activeDrawerSourceType, setActiveDrawerSourceType] = useState<SourceType | null>(null);
-  const [draftBySourceType, setDraftBySourceType] = useState<Record<string, SourceTypePolicyDraft>>({});
-  const [focusFieldName, setFocusFieldName] = useState<string | null>(null);
-  const [consortiumUnmaskPolicy, setConsortiumUnmaskPolicy] = useState<DataPolicyUnmaskType>("FULL");
 
   const [currentStep, setCurrentStep] = useState(0);
   const [members, setMembers] = useState<ConsortiumMember[]>([]);
@@ -516,7 +516,7 @@ export default function ConsortiumWizardPage() {
 
   const StepperHeader = () => (
     <>
-      <div className="md:hidden rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden p-2 space-y-1">
+      <div className="md:hidden rounded-xl border border-border bg-card shadow-sm overflow-hidden p-2 space-y-1">
         {steps.map((step, i) => {
           const isActive = i === currentStep;
           const isCompleted = i < currentStep;
@@ -549,7 +549,7 @@ export default function ConsortiumWizardPage() {
           );
         })}
       </div>
-      <div className="hidden md:block rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden">
+      <div className="hidden md:block rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <div className="flex items-stretch flex-nowrap min-w-0">
             {steps.map((step, i) => {
@@ -965,7 +965,7 @@ export default function ConsortiumWizardPage() {
                               </TableCell>
                               <TableCell className="text-center text-body tabular-nums text-foreground">{r.fieldCount}</TableCell>
                               <TableCell className="text-center text-body tabular-nums text-foreground">
-                                {draft ? maskedInSchema : "—"}
+                                {draft ? maskedInSchema : ((r.maskedCount ?? 0) + 1)}
                               </TableCell>
                               <TableCell className="text-center">
                                 <Button
@@ -1019,22 +1019,17 @@ export default function ConsortiumWizardPage() {
                     </div>
                   ) : (
                     <>
-                      <div className="rounded-xl border border-border bg-card overflow-hidden">
-                        <div className="px-4 py-3 border-b border-border bg-muted/60">
+                      <div className="rounded-xl border border-border bg-card overflow-hidden relative">
+                        <ScrollArea className="h-[60vh]">
                           <Table>
-                            <TableHeader>
+                            <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur shadow-[0_1px_3px_0_hsl(var(--shadow-color)/0.05)] border-b border-border">
                               <TableRow className="hover:bg-transparent">
-                                <TableHead className={cn(tableHeaderClasses, "min-w-[240px]")}>Field</TableHead>
-                                <TableHead className={cn(tableHeaderClasses, "min-w-[90px] text-center")}>Masking</TableHead>
-                                <TableHead className={cn(tableHeaderClasses, "min-w-[140px] text-center")}>Allow unmask</TableHead>
-                                <TableHead className={cn(tableHeaderClasses, "min-w-[110px] text-center")}>Unmask type</TableHead>
+                                <TableHead className={cn(tableHeaderClasses, "px-4 py-3 w-[40%]")}>Field</TableHead>
+                                <TableHead className={cn(tableHeaderClasses, "px-4 py-3 w-[20%] text-center")}>Masking</TableHead>
+                                <TableHead className={cn(tableHeaderClasses, "px-4 py-3 w-[20%] text-center")}>Allow unmask</TableHead>
+                                <TableHead className={cn(tableHeaderClasses, "px-4 py-3 w-[20%] text-center")}>Unmask type</TableHead>
                               </TableRow>
                             </TableHeader>
-                          </Table>
-                        </div>
-
-                        <ScrollArea className="h-[55vh]">
-                          <Table>
                             <TableBody>
                               {maskedFieldsForActiveDrawer.length === 0 ? (
                                 <TableRow>
@@ -1146,7 +1141,7 @@ export default function ConsortiumWizardPage() {
                     {policySummaries.map((s) => (
                       <li
                         key={s.sourceType}
-                        className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                        className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-sm"
                       >
                         <span className="text-[10px] font-medium leading-[14px] text-foreground block truncate">
                           {s.label}
@@ -1167,7 +1162,7 @@ export default function ConsortiumWizardPage() {
                   {members.map((m) => (
                     <li
                       key={m.institutionId}
-                      className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                      className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-sm"
                     >
                       <span className="text-[10px] font-mono leading-[14px] text-foreground block truncate">
                         {m.registrationNumber ?? "—"}
@@ -1188,7 +1183,7 @@ export default function ConsortiumWizardPage() {
                     {cbsMembers.map((row) => (
                       <li
                         key={row.rowKey}
-                        className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                        className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-sm"
                       >
                         <span className="text-[10px] font-medium leading-[14px] text-foreground block font-mono">
                           {row.memberId}

@@ -117,7 +117,7 @@ function KpiCard({
   color: string;
 }) {
   return (
-    <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+    <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
       <div className="flex items-start justify-between">
         <div>
           <p className="text-caption font-medium uppercase tracking-[0.08em] text-muted-foreground">
@@ -267,7 +267,7 @@ export function DataSubmissionApiSection({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
           <h4 className="text-body font-semibold text-foreground mb-4">API Call Volume (Last 30 Days)</h4>
           {volumeData.length > 0 ? (
             <ChartContainer config={volumeConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
@@ -285,7 +285,7 @@ export function DataSubmissionApiSection({
             </div>
           )}
         </div>
-        <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
           <h4 className="text-body font-semibold text-foreground mb-4">Latency Trend (P95 / P99)</h4>
           {latencyData.length > 0 ? (
             <ChartContainer config={latencyConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
@@ -307,7 +307,7 @@ export function DataSubmissionApiSection({
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
           <h4 className="text-body font-semibold text-foreground mb-4">Success vs Failure</h4>
           {pieData.length > 0 ? (
             <ChartContainer config={{ success: { label: "Success", color: "hsl(var(--success))" }, failure: { label: "Failure", color: "hsl(var(--danger))" } }} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
@@ -326,7 +326,7 @@ export function DataSubmissionApiSection({
             </div>
           )}
         </div>
-        <div className="bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="bg-card rounded-xl border border-border p-6 shadow-sm">
           <h4 className="text-body font-semibold text-foreground mb-4">Top Rejection Reasons</h4>
           {rejectionData.length > 0 ? (
             <ChartContainer config={rejectionConfig} className="h-[200px] min-h-[200px] md:h-[220px] laptop:h-[240px] w-full">
@@ -346,7 +346,7 @@ export function DataSubmissionApiSection({
         </div>
       </div>
 
-      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
         <div className="px-4 pt-4 pb-4 border-b border-border md:px-6 md:pt-6">
           <h4 className="text-body font-semibold text-foreground mb-4">Live Request Monitoring</h4>
           {/* Mobile: Filters toggle */}

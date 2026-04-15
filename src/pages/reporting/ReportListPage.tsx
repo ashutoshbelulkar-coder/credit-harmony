@@ -117,7 +117,7 @@ export function ReportListPage() {
         </Button>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="md:hidden">
           <button
             type="button"

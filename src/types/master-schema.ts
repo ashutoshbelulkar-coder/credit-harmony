@@ -87,6 +87,7 @@ export interface MasterSchemaListItem {
   name: string;
   version: string;
   fieldCount: number;
+  maskedCount?: number;
   status: MasterSchemaStatus;
   updatedAt: string;
 }

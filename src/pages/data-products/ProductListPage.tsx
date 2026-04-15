@@ -78,7 +78,7 @@ function mergeApiProductWithCatalog(api: ProductResponse): ProductListRow {
 const statusStyles: Record<ProductLifecycleStatus, string> = {
   active: "bg-success/15 text-success",
   draft: "bg-warning/15 text-warning",
-  approval_pending: "bg-blue-500/15 text-blue-600 dark:text-blue-400",
+  approval_pending: "bg-primary/15 text-primary",
 };
 
 const statusLabel: Record<ProductLifecycleStatus, string> = {
@@ -188,7 +188,7 @@ export default function ProductListPage() {
           filtered.map((p) => (
             <div
               key={p.id}
-              className="rounded-xl border border-border bg-card p-4 space-y-2 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
+              className="rounded-xl border border-border bg-card p-4 space-y-2 shadow-sm"
             >
               <div className="flex items-start justify-between gap-2">
                 <span className="text-body font-medium text-foreground">{p.name}</span>

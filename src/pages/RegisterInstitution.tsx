@@ -276,7 +276,7 @@ const RegisterInstitution = () => {
           </Button>
         </div>
 
-        <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden">
+        <div className="rounded-xl border border-border bg-card shadow-sm overflow-hidden">
           <div className="overflow-x-auto">
             <div className="flex items-stretch flex-nowrap min-w-0">
               {steps.map((step, i) => {
@@ -353,7 +353,7 @@ const RegisterInstitution = () => {
           </div>
         </div>
 
-        <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <Card className="border-border shadow-sm">
           <CardContent className="p-4 sm:p-6">
             <div className="flex items-center gap-3 mb-5 pb-4 border-b border-border">
               <div className="w-9 h-9 rounded-lg flex items-center justify-center shrink-0 bg-primary/10 text-primary">

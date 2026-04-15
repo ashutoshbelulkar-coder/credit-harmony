@@ -24,7 +24,7 @@ export function StepIndicator({ currentStep, completedSteps, onBack, isFirst, cl
   return (
     <div
       className={cn(
-        "rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden",
+        "rounded-xl border border-border bg-card shadow-sm overflow-hidden",
         className,
       )}
     >

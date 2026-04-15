@@ -50,3 +50,50 @@ See `package.json` scripts for the canonical list:
 - No Docker required for local dev; Spring dev uses **SQLite** on disk (`backend/data/hcb_platform.db`). Legacy Fastify uses in-memory state only.
 - **SQLite seed time windows:** `backend/src/main/resources/db/seed_data.sql` anchors operational rows to a fixed calendar band (see the seed header). Endpoints that filter with `datetime('now', '-30 days')` (dashboard, monitoring KPIs, institution overview charts) show little or no data if your machine clock is far outside that band. For a clean re-init, stop Spring, delete `backend/data/hcb_platform.db` (and `-shm`/`-wal` if present), and start again so `spring.sql.init` reapplies schema + seed. Dev datasource **Hikari `maximum-pool-size` is 5** so JPA (open-in-view) and `JdbcTemplate` in the same request do not deadlock on a single connection.
 - **List APIs vs DDL:** Spring **`JdbcTemplate`** for **consortiums**, **products**, **reports**, **sla-configs**, **alert-rules**, **users**, and **audit-logs** must stay aligned with **`backend/src/main/resources/db/create_tables.sql`** — mismatches surface as **`500` / `ERR_INTERNAL`**. **`GET /api/v1/audit-logs`** is denied for role **`VIEWER`** (`SecurityConfig`); use **ANALYST+** or **API_USER** for the Activity Log API. Details: **`docs/technical/SPA-Service-Contract-Drift.md`**, **`Canonical-Backend.md`**, **TDL-018** in **`Technical-Decision-Log.md`**.
+
+### Design Token Authoring
+
+**CRIF Official Palette** (do not deviate without brand approval):
+| Token | Hex | HSL | Role |
+|---|---|---|---|
+| `--primary` | `#003B79` | `211 100% 24%` | CTA buttons, links, active nav, focus rings |
+| `--primary-light` | `#B0CEEC` | `210 61% 81%` | Active nav items, prominent status badges |
+| `--primary-subtle` | — | `211 100% 97%` | Row highlights, selections — **never interactive** |
+| `--crif-orange` | `#EE7D11` | `29 87% 50%` | Brand orange accent |
+| `--crif-light-gray` | `#DDDDDD` | `0 0% 87%` | Borders, light surfaces |
+| `--crif-green-yellow` | `#D9E021` | `62 76% 50%` | Charts/tags/decoration ONLY |
+
+**Token addition rule:** Every new color token must be added to **both** `src/index.css` (`:root` and `.dark`) **and** `tailwind.config.ts` before use. Never use Tailwind default palette classes (`blue-500`, `orange-500`, `amber-500`, `gray-7xx`, etc.) — use only semantic tokens (`primary`, `crif-orange`, `warning`, etc.).
+
+**Color role rules:**
+- `bg-primary` → CTA buttons and primary actions only
+- `bg-primary-light` → active navigation items, prominent status badges, section highlights
+- `bg-primary-subtle` → table row selected states, card accents, passive highlights. **Do not use `bg-primary/15` opacity hacks** — use `bg-primary-subtle` instead
+- `crif-green-yellow` → chart fills, data tags, decorative indicators **only**. Must **NOT** be used for interactive elements (buttons, links, active states, focus rings, borders on clickable surfaces). WCAG contrast ratio ~2.7:1 on white — fails 4.5:1 for text and 3:1 for UI components.
+- Teal (`--secondary` / `--accent`, hue 175°) is retained as the interactive product accent. It is not in the CRIF palette but is WCAG-safe for interactive elements.
+
+**Semantic token distinction:**
+- `danger` / `destructive` → UI actions: delete confirmations, form validation errors, API error states
+- `warning` → operational system alerts: SLA breaches, batch failures, schema drift thresholds
+- `risk-high` / `risk-medium` / `risk-low` → credit data domain: credit scores, bureau data quality indicators, batch ingestion risk classifications
+
+**Shadow elevation convention** — use semantic shadow classes, **never** hardcoded `rgba()` shadow values:
+- `shadow-sm` → list items, table rows, inline chips, subtle card lift
+- `shadow-md` → page cards, panels, section containers, stat tiles
+- `shadow-lg` → modals, drawers, command palette, floating dropdowns
+
+For sticky column separators use: `shadow-[4px_0_12px_-4px_hsl(var(--shadow-color)/0.12)]`
+
+**Chart authoring rules:**
+- Always use `--chart-N` tokens (`N` = 1–7) or `hsl(var(--chart-N))` — never Tailwind default palette colors
+- Slots 1 (CRIF Blue) and 3 (CRIF Orange) are brand anchors; preserve them
+- Adjacent slots must differ by ≥30° hue and ≥15pp lightness for perceptual differentiation
+- Dark mode overrides use hue-preserving lightness scaling: same hue/saturation, raised lightness (+20–25pp)
+
+**Interaction state tokens** — use instead of per-component opacity hacks:
+- `hover:bg-[hsl(var(--state-hover-overlay))]` for interactive surface hovers
+- `active:bg-[hsl(var(--state-active-overlay))]` for press/active states
+- `disabled:opacity-[var(--state-disabled-opacity)]` for all disabled states
+- Do **not** invent per-component `hover:bg-primary/10` or `disabled:opacity-50` values
+
+**Dark mode principle:** Dark mode tokens must preserve the hue (±3°) and approximate saturation (±8pp) of their light mode counterparts — only lightness is scaled. This ensures dark mode is the same brand at different luminance, not a rebranded experience.

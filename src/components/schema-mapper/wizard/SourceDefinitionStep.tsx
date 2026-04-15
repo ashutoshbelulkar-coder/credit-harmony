@@ -90,7 +90,7 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
   return (
     <div className="space-y-6">
       {/* Section A: Source Metadata */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <h3 className="text-h4 font-semibold text-foreground mb-4">Source Metadata</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5">
@@ -134,7 +134,7 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
       </div>
 
       {/* Section B: Schema Input */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <h3 className="text-h4 font-semibold text-foreground mb-4">Schema Input</h3>
 
         <Tabs value={schemaInput} onValueChange={(v) => { setSchemaInput(v as typeof schemaInput); setIsParsed(false); }}>
@@ -213,7 +213,7 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
       {/* Parsed Result */}
       {isParsed && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 animate-fade-in">
-          <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <p className="mb-3 text-caption font-medium uppercase tracking-wider text-muted-foreground">
               Source Schema Tree
             </p>
@@ -221,7 +221,7 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
               <SchemaTreeView nodes={previewParsedFields} showSamples />
             </ScrollArea>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <p className="mb-3 text-caption font-medium uppercase tracking-wider text-muted-foreground">
               Field Statistics
             </p>

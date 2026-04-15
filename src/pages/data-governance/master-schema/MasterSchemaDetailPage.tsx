@@ -332,7 +332,7 @@ export function MasterSchemaDetailPage() {
 
             <TabsContent value="overview">
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-                <Card className="lg:col-span-7 border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <Card className="lg:col-span-7 border-border shadow-sm">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center justify-between gap-3">
                       <h2 className="text-h4 font-semibold text-foreground">Schema metadata</h2>
@@ -375,7 +375,7 @@ export function MasterSchemaDetailPage() {
                   </CardContent>
                 </Card>
 
-                <Card className="lg:col-span-5 border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <Card className="lg:col-span-5 border-border shadow-sm">
                   <CardContent className="p-4 space-y-3">
                     <div className="flex items-center gap-2">
                       <ShieldCheck className="h-4 w-4 text-muted-foreground" />
@@ -521,7 +521,7 @@ export function MasterSchemaDetailPage() {
             </TabsContent>
 
             <TabsContent value="versions">
-              <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)] space-y-4">
+              <div className="rounded-xl border border-border bg-card p-4 shadow-sm space-y-4">
                 <div className="flex items-center gap-2">
                   <GitCompare className="h-4 w-4 text-muted-foreground" />
                   <h2 className="text-h4 font-semibold text-foreground">Version history</h2>
@@ -625,7 +625,7 @@ export function MasterSchemaDetailPage() {
 
             <TabsContent value="impact">
               <div className="grid grid-cols-1 gap-3 lg:grid-cols-12">
-                <Card className="lg:col-span-4 border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <Card className="lg:col-span-4 border-border shadow-sm">
                   <CardContent className="p-4 space-y-2">
                     <h3 className="text-h4 font-semibold text-foreground">APIs</h3>
                     {(schema.impact.apis ?? []).length === 0 ? (
@@ -647,7 +647,7 @@ export function MasterSchemaDetailPage() {
                     )}
                   </CardContent>
                 </Card>
-                <Card className="lg:col-span-4 border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <Card className="lg:col-span-4 border-border shadow-sm">
                   <CardContent className="p-4 space-y-2">
                     <h3 className="text-h4 font-semibold text-foreground">Products</h3>
                     {(schema.impact.products ?? []).length === 0 ? (
@@ -669,7 +669,7 @@ export function MasterSchemaDetailPage() {
                     )}
                   </CardContent>
                 </Card>
-                <Card className="lg:col-span-4 border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+                <Card className="lg:col-span-4 border-border shadow-sm">
                   <CardContent className="p-4 space-y-2">
                     <h3 className="text-h4 font-semibold text-foreground">Institutions</h3>
                     {(schema.impact.institutions ?? []).length === 0 ? (
