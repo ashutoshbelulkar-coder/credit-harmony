@@ -149,13 +149,13 @@ components:
         isMasked: { type: boolean }
         isUnmasked: { type: boolean }
         unmaskType:
-          oneOf:
+          nullable: true
+          allOf:
             - $ref: "#/components/schemas/DataPolicyUnmaskType"
-            - type: "null"
         partialConfig:
-          oneOf:
+          nullable: true
+          allOf:
             - $ref: "#/components/schemas/DataPolicyPartialConfig"
-            - type: "null"
         dataType:
           type: string
           nullable: true
