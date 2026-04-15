@@ -808,25 +808,22 @@ Showing 1–5 of 23 institutions    [Previous] [1 / 5] [Next]
 - No progress save (refresh = lost data)
 - `registrationNumber` is read-only but still part of the form — unclear to users it's auto-assigned
 
-### 8.2 Schema Mapper Wizard (7-Step)
+### 8.2 Schema Mapper Wizard (4-Step)
 
 **Route:** `/data-governance/auto-mapping-review`
 **Component:** `WizardContainer.tsx` with `StepIndicator.tsx`
 
 **Steps:**
 1. Source Ingestion
-2. Multi-Schema Matching
-3. LLM Field Intelligence
-4. Validation Rules
-5. Semantic Insights
-6. Storage & Visibility
-7. Governance Actions
+2. LLM Field Intelligence
+3. Validation Rules
+4. Governance Actions
 
 **Step Indicator:** `StepIndicator.tsx` — horizontal progress dots/numbers.
 
 This wizard is the most complex UX flow in the application. It mixes:
 - API calls between steps (async job creation after Step 1)
-- LLM-generated suggestions (Step 3)
+- LLM-generated suggestions (Step 2)
 - Complex data grid for field mapping (Step 2)
 - Drawer sub-panels (`EnumReconciliationDrawer`, `MasterFieldDrawer`)
 
@@ -837,7 +834,7 @@ This wizard is the most complex UX flow in the application. It mixes:
 - `ConfirmationStep` at end summarizes all decisions
 
 **Friction points:**
-- 7 steps is long — no ability to jump back to a specific step freely
+- 4 steps is streamlined — steps 2 and 4 provide clear decision points
 - LLM suggestions step has no "skip" affordance if LLM is unavailable
 - No auto-save between wizard steps
 
@@ -907,7 +904,7 @@ This wizard is the most complex UX flow in the application. It mixes:
 **Route:** `/data-governance/auto-mapping-review`
 
 Three entry modes:
-1. New mapping → full 7-step wizard
+1. New mapping → full 4-step wizard
 2. Edit existing → wizard pre-populated from saved mapping
 3. Registry view → `SchemaRegistryView.tsx` shows all submitted mappings
 

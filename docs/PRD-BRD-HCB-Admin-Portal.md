@@ -376,7 +376,7 @@ flowchart LR
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Data Governance Suite |
-| **Description** | 7 sub-modules: Dashboard (KPIs, trends), Schema Mapper Agent (8-step AI-assisted wizard), Validation Rules (rule builder with versioning), Identity Resolution Agent (match review with dual-approval), Data Quality Monitoring (anomaly detection, drift alerts), **Data Policy Management** (product-level masked-field unmasking controls), Governance Audit Logs |
+| **Description** | 7 sub-modules: Dashboard (KPIs, trends), Schema Mapper Agent (4-step AI-assisted wizard), Validation Rules (rule builder with versioning), Identity Resolution Agent (match review with dual-approval), Data Quality Monitoring (anomaly detection, drift alerts), **Data Policy Management** (product-level masked-field unmasking controls), Governance Audit Logs |
 | **Business Value** | Automated data quality management reduces manual effort by 60% |
 | **User Benefit** | AI-suggested mappings with confidence scores; visual rule builder; clear approval workflows |
 
@@ -664,27 +664,20 @@ Step 1: User navigates to Data Governance → Schema Mapper Agent
   → System displays Schema Registry table (existing mappings)
   
 Step 2: User clicks "New Mapping" or edits existing
-  → System launches 7-step wizard:
-    1. Source Ingestion (upload/paste source schema, auto-detect category)
-    2. Multi-Schema Matching (find similar schemas across system)
-    3. LLM Field Intelligence (AI analyzes each field: meaning, PII, canonical match)
-    4. Validation Rule Preview (auto-generated validation rules)
-    5. Semantic Insights (field clustering, deduplication)
-    6. Storage & Visibility (lineage, storage config)
-    7. Governance Actions (submit to approval queue, save draft, reject schema)
+  → System launches 4-step wizard:
+    1. Source Ingestion (Upload CSV/JSON/XML, Institution picker, Source Type, Category)
+    2. LLM Field Intelligence (AI Mapping review, PII tagging Yes/No, Enum reconciliation)
+    3. Validation Rules (Attach rules to mapped fields)
+    4. Governance Actions (Submit to approval queue or save draft)
 
 Step 3: AI processes source fields
+  → Async mapping job (202 Accepted) triggered after Ingestion
   → For each field: confidence score, match type (exact/semantic/contextual/derived)
-  → Decision: Confidence ≥90% → auto_accepted | 70-89% → needs_review | <70% → unmapped
+  → Results reviewable in Step 2: edit suggestions, toggle PII, map enums
 
-Step 4: User reviews mappings
-  → Accept, modify, or reject AI suggestions
-  → Handle unmapped fields: map to existing, create new master field, or ignore
-
-Step 5: Governance submission
-  → Mapping submitted for dual-approval
-  → First approver reviews → Second approver confirms
-  → Status: draft → under_review → approved → active
+Step 4: Governance submission
+  → Mapping submitted for approval (creates `schema_mapping` queue item)
+  → Status: draft → pending_approval → approved → active
 ```
 
 ### 5.4 Agent Chat Workflow
@@ -1028,7 +1021,7 @@ Step 1 is **not** a fixed field matrix in production: the SPA renders **`registe
 
 **Views:**
 1. **Schema Registry** — Table of existing schema mappings with filters, create/edit/audit actions
-2. **Wizard** — 7-step AI mapping flow (see Section 5.3)
+2. **Wizard** — 4-step AI mapping flow (see Section 5.3)
 3. **Version Diff Viewer** — Side-by-side diff of mapping versions
 
 | Element | Type | Description |
@@ -1036,8 +1029,8 @@ Step 1 is **not** a fixed field matrix in production: the SPA renders **`registe
 | Schema Registry Table | Data Table | Columns: Source Name, Source Type, Master Schema Version, Coverage %, Unmapped Fields, Rule Count, Status, Version, Created By, Actions |
 | Registry Filters | Filter Bar | Source type, status, search |
 | Schema Detail Dialog | Modal | Detailed view of a single registry entry |
-| Wizard Container | Multi-step form | 7-step progressive wizard with step indicator |
-| Step Indicator | Progress Bar | Visual step tracker with labels |
+| Wizard Container | Multi-step form | 4-step progressive wizard with step indicator |
+| Step Indicator | Progress Bar | Visual step tracker (Ingestion -> Intel -> Rules -> Governance) |
 | Version Diff Viewer | Split Panel | Old vs New with change highlighting |
 
 ### 6.8 Monitoring - Data Submission API (`/monitoring/data-submission-api`)
@@ -2399,7 +2392,7 @@ src/
 │   ├── data-governance/       # Governance workflow components
 │   ├── schema-mapper/         # Schema mapping wizard components
 │   │   ├── registry/          # Registry table, filters, detail dialog, SchemaRegistryView
-│   │   ├── wizard/            # 7-step wizard + GovernanceActionsStep
+│   │   ├── wizard/            # 4-step wizard + GovernanceActionsStep
 │   │   └── shared/            # Reusable schema components
 │   ├── user-management/       # InviteUserModal, UserDetailDrawer
 │   ├── CommandPalette.tsx     # ⌘K command palette

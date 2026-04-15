@@ -19,14 +19,14 @@ The Schema Mapper Agent is the data normalization backbone of the HCB platform. 
 - Integration with approval workflow ensures no untested mapping goes to production
 
 ### Key Capabilities
-1. Ingest source schema files (CSV, JSON, XML headers)
-2. Multi-step wizard: Source Definition → AI Mapping → Review → Validation Rules → Storage Visibility → Confirmation
+1. Ingest source schema and metadata in a unified step
+2. 4-step wizard: Source Ingestion -> LLM Field Intelligence -> Validation Rules -> Governance Actions
 3. LLM field intelligence with PII detection via OpenAI (optional; falls back to heuristics)
-4. Enum reconciliation for categorical fields
+4. Enum reconciliation for categorical fields (integrated in mapping review)
 5. Validation rule attachment per mapped field
 6. Schema registry with version history
 7. Drift monitoring for schema changes
-8. Submit mapping for approval → `type: schema_mapping` in approval queue
+8. Submit mapping for approval (creates `type: schema_mapping` in approval queue)
 
 ---
 
@@ -34,15 +34,12 @@ The Schema Mapper Agent is the data normalization backbone of the HCB platform. 
 
 ### In Scope
 - Schema ingestion endpoint (`POST /api/v1/schema-mapper/ingest`)
-- Multi-step wizard UI (all 8+ wizard steps in `src/components/schema-mapper/wizard/`)
+- 4-step wizard UI (`src/components/schema-mapper/wizard/`)
 - AI/LLM mapping with OpenAI integration (optional)
 - Schema registry CRUD and search
 - Validation rule attachment to mappings
-- Storage visibility and data category configuration
-- Enum reconciliation
+- Enum reconciliation (integrated in mapping review)
 - Schema version management
-- Semantic insights step
-- Multi-schema matching
 - Submit mapping for approval
 - Drift log monitoring
 - Metrics dashboard
@@ -68,15 +65,10 @@ The Schema Mapper Agent is the data normalization backbone of the HCB platform. 
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| Schema Ingestion | Upload source file, parse fields | ✅ Implemented |
-| Wizard Step 1: Source Definition | Source name, type, source name (institution picker) | ✅ Implemented |
-| Wizard Step 2: AI/LLM Mapping | Async mapping job with heuristics + optional LLM | ✅ Implemented |
-| Wizard Step 3: Review & Edit | Manual review and correction of suggestions | ✅ Implemented |
-| Wizard Step 4: LLM Intelligence | PII detection per field | ✅ Implemented |
-| Wizard Step 5: Validation Rules | Attach rules to mapped fields | ✅ Implemented |
-| Wizard Step 6: Storage Visibility | Set visibility and data categories | ✅ Implemented |
-| Wizard Step 7: Enum Reconciliation | Map source enum values to canonical | ✅ Implemented |
-| Wizard Step 8: Confirmation | Summary and submit for approval | ✅ Implemented |
+| Schema Ingestion | Upload source file and metadata (Step 1) | ✅ Implemented |
+| LLM Field Intelligence | AI mapping, review, PII, and enum reconciliation (Step 2) | ✅ Implemented |
+| Validation Rules | Attach rules to mapped fields (Step 3) | ✅ Implemented |
+| Governance Actions | Submit for approval or save draft (Step 4) | ✅ Implemented |
 | Schema Registry | Browse, search, filter registered schemas | ✅ Implemented |
 | Drift Monitoring | View schema drift log | ✅ Implemented |
 | Submit for Approval | Insert approval_queue row | ✅ Implemented |
@@ -95,19 +87,12 @@ The Schema Mapper Agent is the data normalization backbone of the HCB platform. 
 
 ### Wizard Step Components
 
-| Step | Component | Purpose |
-|------|-----------|---------|
-| 1 | `SourceDefinitionStep` | Source name, type, institution picker |
-| 2 | `SourceIngestionStep` | File upload and field parsing |
-| 3 | `AIMappingStep` | Async mapping progress, field results |
-| 4 | `LLMFieldIntelligenceStep` | PII detection per field |
-| 5 | `MultiSchemaMatchingStep` | Match against multiple source schemas |
-| 6 | `ValidationRuleStep` | Attach validation rules |
-| 7 | `StorageVisibilityStep` | Set field visibility and category |
-| 8 | `SemanticInsightsStep` | Semantic analysis of mapping quality |
-| 9 | `TargetSchemaStep` | Final canonical field assignments |
-| 10 | `GovernanceActionsStep` | Submit for approval or save draft |
-| 11 | `ConfirmationStep` | Completion summary |
+| Step | Component | Purpose | Key Actions |
+|------|-----------|---------|-------------|
+| 1 | `SourceIngestionStep` | Ingest file + Define metadata | Select Institution, Source Type, Category; Upload file |
+| 2 | `LLMFieldIntelligenceStep` | Mapping Review & Edit | AI Mapping job, Review Table, PII Tagging, Enum Reconciliation |
+| 3 | `ValidationRuleStep` | Configure Rules | Attach validation rules per field |
+| 4 | `GovernanceActionsStep` | Finalize & Submit | Submit for approval or save draft |
 
 ### State Handling
 | State | UI Behavior |
@@ -123,12 +108,11 @@ The Schema Mapper Agent is the data normalization backbone of the HCB platform. 
 
 | Test ID | Screen | Scenario | Steps | Expected Result |
 |---------|--------|----------|-------|----------------|
-| SMAP-UI-TC-01 | Wizard | Complete wizard flow | Navigate all steps, submit | Mapping created, approval queue item inserted |
-| SMAP-UI-TC-02 | Wizard Step 2 | AI mapping completes | Upload schema, wait for mapping | Field suggestions shown with confidence scores |
-| SMAP-UI-TC-03 | Wizard Step 4 | PII fields flagged | LLM intelligence step | PII fields highlighted with warning |
+| SMAP-UI-TC-01 | Wizard | Complete 4-step wizard flow | Upload -> Map -> Rules -> Submit | Mapping created, approval queue item inserted |
+| SMAP-UI-TC-02 | Wizard Step 2 | AI mapping completes | Upload schema, wait for Step 2 | Field suggestions shown with confidence scores |
+| SMAP-UI-TC-03 | Wizard Step 2 | PII fields tagged | Review results in Step 2 | PII fields highlighted with Yes/No toggle |
 | SMAP-UI-TC-04 | Registry | Browse schemas | Navigate to schema registry | All registered schemas visible with filters |
-| SMAP-UI-TC-05 | Registry | Filter by source type | Select source type in filter | Only matching schemas shown |
-| SMAP-UI-TC-06 | Wizard | Submit for approval | Complete wizard, click Submit | Approval queue item created |
+| SMAP-UI-TC-06 | Wizard | Submit for approval | Complete Step 4, click Submit | Approval queue item created |
 
 ---
 
@@ -136,437 +120,69 @@ The Schema Mapper Agent is the data normalization backbone of the HCB platform. 
 
 ---
 
-### SMAP-US-001 — Ingest Source Schema File
+### SMAP-US-001 — Ingest Source Schema and Define Metadata (Step 1)
 
 #### 1. Description
 > As a bureau administrator,
-> I want to upload a source schema file,
-> So that the mapping wizard can parse its fields.
+> I want to define the source metadata and upload a schema file in one step,
+> So that the system can begin the mapping process.
 
 #### 2. Acceptance Criteria
-
-```gherkin
-  Scenario: Ingest schema file
-    Given I have a CSV/JSON schema file from a member institution
-    When I POST it to /schema-mapper/ingest
-    Then the file is parsed and fields extracted
-    And a schema_mapper_raw_data entry is created
-    And I receive a rawId for use in subsequent wizard steps
-
-  Scenario: Unsupported file format
-    When I upload an unsupported format
-    Then I receive a 400 error with clear error message
-```
+- User selects **Institution** (Data Submitters only), **Source Type**, **Category**, and **Version**.
+- User uploads CC/JSON/XML file.
+- API `POST /api/v1/schema-mapper/ingest` validates inputs and file.
+- System creates `rawDataId` and `schemaVersionId`.
 
 #### 3. API Requirements
+`POST /api/v1/schema-mapper/ingest`
 
-`POST /api/v1/schema-mapper/ingest` (multipart/form-data)
+**Fields:** `sourceName`, `sourceType`, `dataCategory`, `versionNumber`, `effectiveDate`, `parsedFields`, `fieldStats`, `institutionId` (optional in body if inferred from name).
 
-**Fields:** `file`, `sourceName`, `sourceType`, `institutionId`
+#### 4. Definition of Done
+- [ ] Combined metadata entry and file upload UI completed
+- [ ] Backend creates registry and version entries
+- [ ] Mapping job triggered immediately after successful ingest
+
+---
+
+### SMAP-US-003-US-008 — LLM Field Intelligence and Mapping Review (Step 2)
+
+#### 1. Description
+> As a bureau administrator,
+> I want the AI to suggest mappings, detect PII, and suggest enum reconciliations in a unified view,
+> So that I can review and finalize the schema mapping efficiently.
+
+#### 2. Features Integrated
+- **AI Mapping:** Async heuristic + LLM mapping results (`POST /api/v1/schema-mapper/mappings`)
+- **Review & Edit:** Manual override of canonical field assignments (`PATCH /api/v1/schema-mapper/mappings/:id`)
+- **PII Detection:** Automated flagging and manual Yes/No toggle for PII status
+- **Enum Reconciliation:** Mapping source enum values (e.g., `MORTGAGE`) to canonical (`TERM_LOAN`) via side drawer
+
+#### 3. Definition of Done
+- [ ] Unified review table with source field, canonical mapping, and PII toggle
+- [ ] Enum reconciliation drawer functional for categorical fields
+- [ ] Manual adjustments persisted via PATCH /mappings/:id
+- [ ] Confidence scores and coverage bar update in real-time
+
+---
+
+### SMAP-US-009 — Governance Actions (Step 4)
+
+#### 1. Description
+> As a bureau administrator,
+> I want to review the mapping summary and submit it for approval or save it as a draft,
+> So that the mapping workflow is completed.
+
+#### 2. API Requirements
+`POST /api/v1/schema-mapper/mappings/:id/submit-approval`
 
 **Response (200):**
 ```json
 {
-  "rawId": "raw-uuid-001",
-  "sourceName": "FNB Core Banking",
-  "sourceType": "CBS",
-  "parsedFields": [
-    {"path": "account_number", "dataType": "string", "sampleValues": ["ACC-001"]},
-    {"path": "loan_amount", "dataType": "decimal", "sampleValues": [150000]},
-    {"path": "dpd_days", "dataType": "integer", "sampleValues": [0]}
-  ],
-  "fieldCount": 47
+  "approvalId": "15",
+  "status": "pending_approval"
 }
 ```
-
-#### 4. Database
-
-```sql
-INSERT INTO schema_mapper_raw_data (raw_id, payload)
-VALUES ('raw-uuid-001', '<JSON with parsedFields, sourceName, sourceType>');
-```
-
-#### 5. Business Logic
-- Parser supports: CSV (header row), JSON (flat or nested up to 2 levels), XML (element names)
-- `parsedFields.path` uses dot notation for nested fields (e.g. `address.city`)
-- Sample values extracted from first 10 rows
-- Field count returned for UI progress indicator
-
-#### 6. Definition of Done
-- [ ] POST /schema-mapper/ingest accepts multipart file
-- [ ] Returns parsedFields with paths, data types, and sample values
-- [ ] raw_data entry created in schema_mapper_raw_data table
-- [ ] Unsupported format returns 400
-
----
-
-### SMAP-US-002 — Define Source in Wizard (Step 1)
-
-#### 1. Description
-> As a bureau administrator,
-> I want to specify source name, source type, and source name (institution picker),
-> So that the schema is correctly attributed.
-
-#### 2. API Requirements
-
-`GET /api/v1/schema-mapper/wizard-metadata`
-
-**Response:**
-```json
-{
-  "sourceTypes": ["CBS", "ALT_DATA", "BUREAU", "CUSTOM"],
-  "dataCategories": ["credit", "identity", "alternate"],
-  "canonicalFields": [
-    {"fieldCode": "LOAN_AMOUNT", "fieldName": "Loan Amount", "canonicalDataType": "decimal"}
-  ]
-}
-```
-
-#### 3. UI — Institution Picker
-- Uses `InstitutionFilterSelect` with `GET /api/v1/institutions?role=dataSubmitter`
-- `allowMockFallback: false` — must come from real API
-- Option labels use `institutionDisplayLabel`: legal `name` first, then `tradingName`
-
-#### 4. Definition of Done
-- [ ] Wizard-metadata endpoint returns source types and canonical field list
-- [ ] Institution picker shows only data-submitter institutions
-- [ ] No mock fallback in institution picker
-
----
-
-### SMAP-US-003 — Run AI/LLM Field Mapping (Step 2)
-
-#### 1. Description
-> As a bureau administrator,
-> I want the system to automatically suggest field mappings using AI,
-> So that manual mapping effort is minimised.
-
-#### 2. Acceptance Criteria
-
-```gherkin
-  Scenario: Async mapping with LLM
-    Given I have ingested a schema (rawId exists)
-    When I submit POST /api/v1/schema-mapper/mappings
-    Then the API returns 202 Accepted
-    And I receive a mappingId
-    And the SPA polls GET /api/v1/schema-mapper/mappings/:id until status is complete
-    And field mappings are shown with confidence scores
-
-  Scenario: LLM disabled / unavailable
-    Given OPENAI_API_KEY is not set or hcb.schema-mapper.llm-enabled=false
-    When I submit the mapping request
-    Then heuristic-only mapping is used
-    And confidence scores reflect heuristic quality
-```
-
-#### 3. API Requirements
-
-**Create mapping:** `POST /api/v1/schema-mapper/mappings` (async — 202)
-
-**Request:**
-```json
-{
-  "rawId": "raw-uuid-001",
-  "sourceType": "CBS",
-  "institutionId": 1,
-  "sourceName": "FNB Core Banking"
-}
-```
-
-**Response (202):**
-```json
-{
-  "mappingId": "map-uuid-001",
-  "status": "processing"
-}
-```
-
-**Poll for result:** `GET /api/v1/schema-mapper/mappings/map-uuid-001`
-
-**Completed response:**
-```json
-{
-  "mappingId": "map-uuid-001",
-  "status": "complete",
-  "coveragePercent": 87.5,
-  "fieldMappings": [
-    {
-      "sourceFieldPath": "account_number",
-      "canonicalFieldCode": "ACCOUNT_NUMBER",
-      "confidenceScore": 0.95,
-      "matchType": "EXACT",
-      "containsPii": false
-    },
-    {
-      "sourceFieldPath": "customer_name",
-      "canonicalFieldCode": "FULL_NAME",
-      "confidenceScore": 0.72,
-      "matchType": "FUZZY",
-      "containsPii": true
-    }
-  ]
-}
-```
-
-#### 4. Database
-
-```sql
-INSERT INTO schema_mapper_mapping (mapping_id, payload)
-VALUES ('map-uuid-001', '<JSON with fieldMappings, status, coveragePercent>');
-```
-
-#### 5. Business Logic
-- Mapping worker takes ~400ms for heuristic-only, longer with LLM
-- Heuristics: exact name match, fuzzy name match (Levenshtein), data type match
-- LLM adds: semantic understanding, PII inference, enum value suggestions
-- `coveragePercent = (mapped_fields / total_source_fields) * 100`
-- `SchemaMapperMappingJobService` orchestrates the async job
-
-#### 6. Flowchart
-
-```mermaid
-flowchart TD
-    A[Submit POST /api/v1/schema-mapper/mappings] --> B[Return 202 - mappingId]
-    B --> C[Background: Load rawId fields]
-    C --> D{LLM enabled?}
-    D -->|Yes| E[Call OpenAI API with field context]
-    D -->|No| F[Apply heuristic matching only]
-    E --> G[Merge LLM + heuristic results]
-    F --> G
-    G --> H[Store fieldMappings in schema_mapper_mapping]
-    H --> I[Update status to complete]
-    I --> J[SPA polls GET /mappings/:id]
-    J --> K{Status = complete?}
-    K -->|No| L[Wait 1s, poll again]
-    K -->|Yes| M[Display field mappings in wizard]
-```
-
-#### 7. Definition of Done
-- [ ] POST /mappings returns 202 with mappingId
-- [ ] Polling returns field mappings when complete
-- [ ] Heuristic fallback works when LLM disabled
-- [ ] Coverage percent calculated correctly
-
----
-
-### SMAP-US-004 — Review and Edit Field Mappings (Step 3)
-
-#### 1. Description
-> As a bureau administrator,
-> I want to review AI-suggested mappings and correct any errors,
-> So that data quality is maintained.
-
-#### 2. API Requirements
-
-**Get mapping:** `GET /api/v1/schema-mapper/mappings/:id`
-**Update mapping:** `PATCH /api/v1/schema-mapper/mappings/:id`
-
-**Patch request (example):**
-```json
-{
-  "fieldMappings": [
-    {
-      "sourceFieldPath": "cust_id",
-      "canonicalFieldCode": "NATIONAL_ID",
-      "matchType": "MANUAL",
-      "confidenceScore": 1.0
-    }
-  ]
-}
-```
-
-#### 3. UI Components
-- `MappingCoverageBar` — visual coverage percentage
-- `MappingSummaryBanner` — shows total/mapped/unmapped counts
-- `SchemaTreeView` — source field hierarchy
-- `VersionDiffViewer` — shows changes vs previous version
-- `MasterFieldDrawer` — drawer for selecting canonical field
-
-#### 4. Definition of Done
-- [ ] All field mappings displayed in review table
-- [ ] Admin can change canonical field assignment
-- [ ] Manual changes saved via PATCH /mappings/:id
-- [ ] Coverage bar updates on changes
-
----
-
-### SMAP-US-005 — LLM Field Intelligence and PII Detection (Step 4)
-
-#### 1. Description
-> As a bureau administrator,
-> I want the system to flag PII fields automatically,
-> So that sensitive data is handled with appropriate governance.
-
-#### 2. API Requirements
-
-**Update PII flag:** `PATCH /api/v1/schema-mapper/mappings/:id`
-
-```json
-{
-  "fieldMappings": [
-    {
-      "sourceFieldPath": "customer_name",
-      "containsPii": true
-    }
-  ]
-}
-```
-
-#### 3. Business Logic
-- LLM analyzes field name, data type, and sample values to infer PII
-- PII categories: `name`, `national_id`, `phone`, `email`, `address`, `date_of_birth`
-- Non-PII fields can still be manually flagged as PII by admin
-- PII-flagged fields get `pii_classification='pii'` in canonical field registry
-
-#### 4. Definition of Done
-- [ ] PII fields highlighted in LLM Intelligence step
-- [ ] Admin can toggle PII flag per field
-- [ ] PATCH /mappings/:id persists `containsPii` changes
-
----
-
-### SMAP-US-006 — Configure Validation Rules in Wizard (Step 5)
-
-#### 1. Description
-> As a bureau administrator,
-> I want to attach validation rules to mapped fields,
-> So that incoming data is validated on ingestion.
-
-#### 2. API Requirements
-
-`POST /api/v1/schema-mapper/rules`
-
-```json
-{
-  "mappingId": "map-uuid-001",
-  "ruleType": "FORMAT",
-  "fieldPath": "account_number",
-  "expression": "^[A-Z0-9-]{5,20}$",
-  "severity": "CRITICAL"
-}
-```
-
-**List rules:** `GET /api/v1/schema-mapper/rules?mappingId=map-uuid-001`
-
-#### 3. Database
-
-```sql
-INSERT INTO schema_mapper_validation_rule (rule_id, mapping_id, payload)
-VALUES ('rule-uuid-001', 'map-uuid-001', '<JSON rule definition>');
-```
-
-#### 4. Definition of Done
-- [ ] Validation rules can be added per mapped field
-- [ ] Rules listed in wizard step
-- [ ] Rules persisted to schema_mapper_validation_rule table
-
----
-
-### SMAP-US-007 — Set Storage Visibility and Categories (Step 6)
-
-#### 1. Description
-> As a bureau administrator,
-> I want to configure which mapped fields are stored and at what visibility level,
-> So that data governance is enforced.
-
-#### 2. API Requirements
-
-`PATCH /api/v1/schema-mapper/mappings/:id/storage`
-
-```json
-{
-  "fieldVisibilityConfig": {
-    "account_number": "masked_pii",
-    "loan_amount": "full",
-    "customer_name": "masked_pii"
-  },
-  "dataCategories": ["credit", "identity"]
-}
-```
-
-#### 3. Business Logic
-- Visibility options: `full`, `masked_pii`, `derived` (same as consortium data_visibility)
-- `masked_pii` fields returned with partial masking in API responses
-- `dataCategories` used for product-level filtering in PacketConfigModal
-
-#### 4. Definition of Done
-- [ ] Storage visibility config persisted per mapping
-- [ ] Data categories tagged on mapping
-
----
-
-### SMAP-US-008 — Reconcile Enum Values
-
-#### 1. Description
-> As a bureau administrator,
-> I want to map source enum values to canonical equivalents,
-> So that categorical data is normalised on ingestion.
-
-#### 2. UI Component
-`EnumReconciliationDrawer` — side panel showing source enum values with canonical value picker for each
-
-**Example:**
-| Source Value | Canonical Value |
-|-------------|-----------------|
-| `TERM` | `TERM_LOAN` |
-| `OD` | `OD` |
-| `CC` | `CC` |
-| `MORTGAGE` | `TERM_LOAN` |
-
-#### 3. API Requirements
-
-`PATCH /api/v1/schema-mapper/mappings/:id`
-
-```json
-{
-  "enumReconciliations": {
-    "facility_type": {
-      "TERM": "TERM_LOAN",
-      "MORTGAGE": "TERM_LOAN",
-      "OD": "OD"
-    }
-  }
-}
-```
-
-#### 4. Definition of Done
-- [ ] Enum reconciliation drawer opens for enum-type fields
-- [ ] Source-to-canonical mapping saved
-- [ ] Reconciled enums applied during batch ingestion
-
----
-
-### SMAP-US-009 — Submit Schema Mapping for Approval
-
-#### 1. Description
-> As a bureau administrator,
-> I want to submit a completed mapping for governance review,
-> So that it goes through the approval workflow before production use.
-
-#### 2. API Requirements
-
-`POST /api/v1/schema-mapper/submit-approval`
-
-**Request:**
-```json
-{
-  "mappingId": "map-uuid-001"
-}
-```
-
-**Response (200):**
-```json
-{
-  "approvalItemId": "15",
-  "approvalItemType": "schema_mapping",
-  "approvalWorkflowStatus": "pending"
-}
-```
-
-**Side Effects:**
-- `approval_queue` row inserted with `approval_item_type='schema_mapping'`, `entity_ref_id=<mappingId>`
-- Approving updates mapping status + registry JSON
-- Rejecting/requesting-changes keeps mapping in draft
 
 #### 3. Swimlane Diagram
 
@@ -583,7 +199,7 @@ sequenceDiagram
     API->>DB: UPDATE schema_mapper_mapping status=pending_approval
     API->>AQSVC: enqueueSchemaMapping(mappingId)
     AQSVC->>DB: INSERT INTO approval_queue (schema_mapping, entity_ref_id=mappingId)
-    API-->>FE: 200 {approvalItemId, status: pending}
+    API-->>FE: 200 {approvalId, status: pending_approval}
     FE-->>A: "Submitted for approval" confirmation
 ```
 
@@ -654,14 +270,14 @@ Server caps `size` at **500**.
 
 | Endpoint | Method | Auth | Description | Status |
 |----------|--------|------|-------------|--------|
-| `POST /api/v1/schema-mapper/ingest` | POST | Bearer (Admin/Analyst) | Ingest source schema file | ✅ |
+| `POST /api/v1/schema-mapper/ingest` | POST | Bearer (Admin/Analyst) | Ingest source schema file + metadata | ✅ |
 | `GET /api/v1/schema-mapper/wizard-metadata` | GET | Bearer | Wizard configuration data | ✅ |
 | `POST /api/v1/schema-mapper/mappings` | POST | Bearer (Admin/Analyst) | Create mapping job (async 202) | ✅ |
 | `GET /api/v1/schema-mapper/mappings/:id` | GET | Bearer | Get mapping and field results | ✅ |
 | `PATCH /api/v1/schema-mapper/mappings/:id` | PATCH | Bearer (Admin/Analyst) | Update field mappings, PII, enums | ✅ |
 | `POST /api/v1/schema-mapper/rules` | POST | Bearer (Admin/Analyst) | Add validation rule to mapping | ✅ |
 | `GET /api/v1/schema-mapper/rules` | GET | Bearer | List rules for a mapping | ✅ |
-| `POST /api/v1/schema-mapper/submit-approval` | POST | Bearer (Admin/Analyst) | Submit mapping for approval | ✅ |
+| `POST /api/v1/schema-mapper/mappings/:id/submit-approval` | POST | Bearer (Admin/Analyst) | Submit mapping for approval | ✅ |
 | `GET /api/v1/schema-mapper/schemas` | GET | Bearer | Browse schema registry | ✅ |
 | `GET /api/v1/schema-mapper/schemas/source-types` | GET | Bearer | List available source types | ✅ |
 | `GET /api/v1/schema-mapper/schemas/source-type-fields` | GET | Bearer | Raw fields for source type | ✅ |
@@ -690,17 +306,13 @@ Server caps `size` at **500**.
 
 ### Workflow: New Institution Schema Onboarding
 ```
-Upload source file → POST /ingest (rawId) →
-Create wizard → Step 1: Source definition (institution picker, no mock) →
-POST /mappings (202, async) → Poll until complete →
-Step 3: Review field mappings → Edit incorrect suggestions →
-Step 4: Confirm PII flags → Toggle as needed →
-Step 5: Attach validation rules →
-Step 6: Set storage visibility →
-Step 7: Reconcile enum values →
-Step 8: GovernanceActionsStep → Submit for approval →
-POST /submit-approval → approval_queue item (schema_mapping) →
-Bureau admin approves → Mapping activated → Used in batch ingestion
+Step 1: Upload Source Schema (metadata + file) → POST /ingest (rawDataId, schemaVersionId) →
+System triggers mapping job job → POST /mappings (202, async) → 
+Step 2: LLM Field Intelligence → Poll until complete →
+Review results: edit incorrect suggestions, tag PII (Yes/No), reconcile enums →
+Step 3: Validation Rules → Attach rules per field →
+Step 4: Governance Actions → Submit for approval (POST /mappings/:id/submit-approval) →
+approval_queue item (schema_mapping) → Bureau admin approves → Activated
 ```
 
 ---
