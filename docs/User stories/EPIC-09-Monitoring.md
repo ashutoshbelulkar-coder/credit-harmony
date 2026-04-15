@@ -81,10 +81,12 @@ The Monitoring module provides real-time operational observability over the HCB 
 
 | Screen | Path | Description |
 |--------|------|-------------|
-| Monitoring Overview | `/monitoring` | KPI cards + filter bar |
+| Monitoring (index) | `/monitoring` | Redirects to `/monitoring/data-submission-api` (no standalone overview page) |
 | Data Submission API | `/monitoring/data-submission-api` | API request log |
 | Data Submission Batch | `/monitoring/data-submission-batch` | Batch job log |
 | Inquiry API | `/monitoring/inquiry-api` | Enquiry log |
+| SLA Configuration | `/monitoring/sla-configuration` | SLA thresholds |
+| Alert Engine | `/monitoring/alert-engine` | Alert incidents, rules, SLA breaches |
 
 ### Component Behavior
 - **Status badges:** Normalized via `status-badges.ts` — `success`=green, `failed`=red, `pending`=yellow, `processing`=blue

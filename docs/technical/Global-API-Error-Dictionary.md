@@ -38,7 +38,8 @@ This document defines the **target** error model for HCB platform APIs. The in-r
 
 | Code | HTTP | Retryable | Meaning | Typical client action |
 |------|------|-----------|---------|------------------------|
-| `ERR_UNAUTHORIZED` | 401 | No | Missing or invalid Bearer token | Refresh token or re-login |
+| `ERR_AUTH_REQUIRED` | 401 | No | Missing or invalid Bearer token (Spring `SecurityConfig` `authenticationEntryPoint`) | Refresh token or re-login |
+| `ERR_UNAUTHORIZED` | 401 | No | Alias for `ERR_AUTH_REQUIRED` (legacy / Fastify); prefer `ERR_AUTH_REQUIRED` for new code | Refresh token or re-login |
 | `ERR_AUTH_FAILED` | 401 | No | Wrong credentials | Fix credentials |
 | `ERR_CAPTCHA_REQUIRED` | 400 | No | Turnstile enabled but `captchaToken` missing on login | Complete widget and retry |
 | `ERR_CAPTCHA_INVALID` | 400 | No | Turnstile siteverify reported failure | Retry captcha |
@@ -62,6 +63,7 @@ This document defines the **target** error model for HCB platform APIs. The in-r
 | `ERR_INSTITUTION_DRAFT` | 403 | No | Member institution still in **draft** (onboarding incomplete) | Complete registration and approval |
 | `ERR_INSTITUTION_NOT_ACTIVE` | 403 | No | Member lifecycle status is neither **active** nor one of the specific states above | Fix lifecycle state before calling traffic APIs |
 | `ERR_INSTITUTION_NOT_FOUND` | 403 | No | API key or batch context could not be mapped to a member row (traffic path) | Fix key configuration or institution id |
+| `ERR_INVALID_STATE` | 400 | No | Operation not allowed in the entity's current lifecycle state (e.g. activating an alert rule that is still `pending_approval`) | Wait for approval or fix entity state |
 | `ERR_INTERNAL` | 500 | Yes* | Unexpected server failure | Retry with idempotency; alert ops |
 | `ERR_SERVICE_UNAVAILABLE` | 503 | Yes | Dependency down / maintenance | Backoff |
 

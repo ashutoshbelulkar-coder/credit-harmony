@@ -369,11 +369,11 @@ Each approval item has a `metadata` object with the entity-specific ID:
 | Type | Metadata Key | Deep-Link Path |
 |------|-------------|---------------|
 | `institution` | `metadata.institutionId` | `/institutions/:institutionId` |
-| `product` | `metadata.productId` | `/data-products/:productId` |
+| `product` | `metadata.productId` | `/data-products/products/:productId` |
 | `consortium` | `metadata.consortiumId` | `/consortiums/:consortiumId` |
 | `consortium_membership` | `metadata.consortiumId` | `/consortiums/:consortiumId` |
 | `schema_mapping` | `metadata.mappingId` | `/schema-mapper/wizard/:mappingId` |
-| `alert_rule` | `metadata.alertRuleId` | `/monitoring/alert-engine/rules` |
+| `alert_rule` | `metadata.alertRuleId` | `/monitoring/alert-engine` |
 
 #### 3. API Note
 The `metadata` field is returned as `Record<string, string>` in the approval item — each value is a string representation of the ID.

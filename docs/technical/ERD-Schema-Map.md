@@ -514,7 +514,9 @@ erDiagram
 | MONITORING | 7 | Operational telemetry |
 | SYSTEM | 3 | Workflow and governance |
 | GOVERNANCE | 6 | Schema and data quality |
-| **TOTAL** | **33** | |
+| **TOTAL** | **33** | |\r
+\r
+> **Note (updated 2026-04-15):** The core Mermaid diagram above captures the original 33 tables. Additional operational tables have been added since — including `schema_mapper_registry`, `schema_mapper_mapping`, `schema_mapper_mapping_pairs`, `ingestion_drift_alerts`, `data_policies`, `batch_phase_logs`, `batch_stage_logs`, `batch_error_samples`, and others. See `backend/src/main/resources/db/create_tables.sql` for the authoritative complete DDL.
 
 ---
 

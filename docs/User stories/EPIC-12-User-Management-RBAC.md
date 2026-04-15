@@ -81,9 +81,9 @@ User Management covers the full lifecycle of portal users: invitation, role assi
 
 | Screen | Path | Description |
 |--------|------|-------------|
-| User List | `/user-management` | Paginated user table |
+| User List | `/user-management/users` | Paginated user table |
 | Roles & Permissions | `/user-management/roles` | Role → permission matrix |
-| Activity Log | `/user-management/activity-log` | Platform audit log |
+| Activity Log | `/user-management/activity` | Platform audit log |
 
 ### Component Behavior
 - **User status badge:** `active`=green, `invited`=yellow, `suspended`=orange, `deactivated`=gray

@@ -6,7 +6,7 @@ This repository is a **Hybrid Credit Bureau (HCB) admin portal**: a React 18 + T
 
 A **legacy Fastify** server in `server/` (port **8091**, in-memory) remains for historical comparison and small Node unit tests; it is **not** the default product backend. Remaining contract gaps vs the SPA are tracked in `docs/technical/SPA-Service-Contract-Drift.md` (being closed toward Spring).
 
-**First-time engineers:** read `docs/technical/Developer-Handbook.md` and `AGENTS.md`. **Product / compliance:** `docs/PRD-BRD-HCB-Admin-Portal.md`, `docs/BRD-Hybrid-Credit-Bureau-Admin-Portal.md`.
+**First-time engineers:** read `docs/technical/Developer-Handbook.md` and `AGENTS.md`. **Product / compliance:** `docs/PRD-BRD-HCB-Admin-Portal.md`.
 
 ---
 
@@ -282,7 +282,7 @@ The following features are scoped for backend integration:
 - Consumer data portal (subject access rights)
 - Data lineage and impact analysis
 
-See [`docs/PRD-BRD-HCB-Admin-Portal.md`](docs/PRD-BRD-HCB-Admin-Portal.md) and [`docs/BRD-Hybrid-Credit-Bureau-Admin-Portal.md`](docs/BRD-Hybrid-Credit-Bureau-Admin-Portal.md) for full product and business requirements.
+See [`docs/PRD-BRD-HCB-Admin-Portal.md`](docs/PRD-BRD-HCB-Admin-Portal.md) for full product and business requirements.
 
 ---
 

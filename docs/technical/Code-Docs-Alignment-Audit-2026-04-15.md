@@ -84,7 +84,7 @@
 | Placeholder routes | Yes (route appendix) | Partial | No | No | No | Partial |
 
 Primary doc sources used:
-- PRD/BRD: `docs/PRD-BRD-HCB-Admin-Portal.md`, `docs/BRD-Hybrid-Credit-Bureau-Admin-Portal.md`
+- PRD/BRD: `docs/PRD-BRD-HCB-Admin-Portal.md`
 - API: `docs/openapi/hcb-platform-api.yaml`
 - Parity: `docs/technical/API-UI-Parity-Matrix.md`, `docs/technical/Spring-SPA-Route-Inventory.md`, `docs/technical/Canonical-Backend.md`
 - Design: `docs/design-guidelines.md` (canonical links in epics)
@@ -108,7 +108,7 @@ Primary doc sources used:
 
 ### Phase 1 (P0) — Critical
 1) **Full API contract parity (Spring controllers ↔ OpenAPI ↔ PRD/BRD references)**  
-   - **Update**: `docs/openapi/hcb-platform-api.yaml`, `docs/PRD-BRD-HCB-Admin-Portal.md`, `docs/BRD-Hybrid-Credit-Bureau-Admin-Portal.md`  
+   - **Update**: `docs/openapi/hcb-platform-api.yaml`, `docs/PRD-BRD-HCB-Admin-Portal.md`  
    - **Source-of-truth**: `backend/src/main/java/**/**Controller.java`, `src/services/*.service.ts`, `src/lib/api-client.ts`  
    - **Outcome**: PRD/BRD API callouts reference `/api/v1/*` and match controller params and empty-body mutation semantics.
 

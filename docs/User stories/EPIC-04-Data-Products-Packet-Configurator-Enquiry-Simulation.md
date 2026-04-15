@@ -85,10 +85,11 @@ Data Products are the monetizable units of the HCB credit bureau — defining wh
 
 | Screen | Path | Description |
 |--------|------|-------------|
-| Product List | `/data-products` | Paginated product list |
-| Create Product | `/data-products/create` | Product creation form |
-| Product Detail | `/data-products/:id` | Full product configuration view |
-| Enquiry Simulation | `/agents/enquiry-simulation` | Simulation configuration and execution |
+| Product List | `/data-products/products` | Paginated product list |
+| Create Product | `/data-products/products/create` | Product creation form |
+| Edit Product | `/data-products/products/:id/edit` | Product editing form |
+| Product Detail | `/data-products/products/:id` | Full product configuration view |
+| Enquiry Simulation | `/data-products/enquiry-simulation` | Simulation configuration and execution |
 
 ### Component Behavior
 
@@ -131,7 +132,7 @@ Data Products are the monetizable units of the HCB credit bureau — defining wh
 | PROD-UI-TC-03 | Create | Open PacketConfigModal | Click Configure on a packet row | Modal opens with Raw/Derived/Sources tabs |
 | PROD-UI-TC-04 | Create | Submit for approval | Complete form, click Submit | Product created with pending_approval status |
 | PROD-UI-TC-05 | Detail | View product detail | Click product in list | All configuration details visible |
-| PROD-UI-TC-06 | Simulation | Configure simulation | Navigate to /agents/enquiry-simulation | Simulation configuration form shown |
+| PROD-UI-TC-06 | Simulation | Configure simulation | Navigate to /data-products/enquiry-simulation | Simulation configuration form shown |
 
 ---
 
@@ -204,30 +205,43 @@ Data Products are the monetizable units of the HCB credit bureau — defining wh
 | Field | Type | Options | Required |
 |-------|------|---------|----------|
 | Product Name | text | — | Yes |
-| Product Code | text | — | Yes (unique) |
 | Description | textarea | — | No |
-| Enquiry Impact | select | HARD, SOFT | Yes |
-| Coverage Scope | select | SELF, CONSORTIUM, NETWORK, VERTICAL | Yes |
-| Data Mode | select | LIVE, SANDBOX, TEST | Yes |
-| Pricing Model | select | PER_HIT, SUBSCRIPTION, HYBRID | Yes |
+
+**Enquiry Settings (part of product form, persisted as `enquiryConfig` object):**
+
+| Field | Type | Options | UI Control |
+|-------|------|---------|------------|
+| Data Coverage Scope | select | SELF, NETWORK, CONSORTIUM, VERTICAL | Dropdown |
+| Enquiry Impact Type | toggle | LOW (Soft Pull), HIGH (Hard Pull) | Button pair |
+| Data Mode | toggle | LIVE, SYNTHETIC | Button pair |
+| Enquiry Data Coverage | toggle | LATEST, TRENDED | Button pair |
+
+> **Note:** The EPIC-04 form does **not** include Product Code (`productCode`) or Pricing Model (`pricingModel`) fields — these DDL columns exist in the `products` table but are not exposed in the wizard. Server-side defaults or admin-only direct SQL apply.
 
 #### 4. API Requirements
 
 `POST /api/v1/products`
 
-**Request:**
+**Request (as sent by the SPA form):**
 ```json
 {
-  "productCode": "CREDIT-STD-002",
-  "productName": "Enhanced Credit Profile",
-  "enquiryImpact": "HARD",
-  "coverageScope": "NETWORK",
-  "dataMode": "LIVE",
-  "pricingModel": "PER_HIT",
+  "name": "Enhanced Credit Profile",
+  "description": "Full tradeline + scoring profile",
   "status": "approval_pending",
-  "packetIds": [1, 3, 5],
-  "packetConfigs": {
-    "1": { "rawFields": ["loan_amount", "dpd_days"], "derivedFields": ["credit_score"] }
+  "packetIds": ["pkt-bank-tradeline", "pkt-credit-score"],
+  "packetConfigs": [
+    {
+      "packetId": "pkt-bank-tradeline",
+      "selectedFields": ["loan_amount", "dpd_days"],
+      "disabledFields": [],
+      "selectedDerivedFields": ["credit_score"]
+    }
+  ],
+  "enquiryConfig": {
+    "scope": "NETWORK",
+    "impactType": "HIGH",
+    "mode": "LIVE",
+    "dataType": "LATEST"
   }
 }
 ```

@@ -20,7 +20,7 @@ Consortiums are governed groups of financial institutions that agree to share cr
 - Provides consortium-scoped credit enquiries for subscribers
 
 ### Key Capabilities
-1. Multi-step wizard to create a consortium (type, governance, data policy)
+1. Multi-step wizard to create a consortium (name, members, source-type-driven data policy, review)
 2. Member addition from subscriber institution pool (no mock catalogue)
 3. **CBS members (external):** optional per-consortium list of Core Banking member IDs (separate from institution members), for admin reference and optional Enquiry API `memberId` attribution
 4. Membership role management (Contributor / Consumer / Observer)
@@ -62,7 +62,7 @@ Consortiums are governed groups of financial institutions that agree to share cr
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| Create Consortium Wizard | Type, governance, data policy, members | ✅ Implemented |
+| Create Consortium Wizard | Name, members, data policy, review | ✅ Implemented |
 | Consortium List | Paginated list with status filter | ✅ Implemented |
 | Consortium Detail | Header, data policy, members + CBS members tables | ✅ Implemented |
 | Add Member | Add subscriber institution with role | ✅ Implemented |
@@ -152,25 +152,20 @@ Consortiums are governed groups of financial institutions that agree to share cr
 **Step 1 — Basic Info**
 | Field | Type | Required |
 |-------|------|----------|
-| Consortium Name | text | Yes |
-| Consortium Code | text | Yes (auto-suggested from name) |
-| Consortium Type | select: Closed, Open, Hybrid | Yes |
-| Purpose | text | No |
+| Name | text | Yes |
 | Description | textarea | No |
 
-**Step 2 — Governance**
-| Field | Type | Required |
-|-------|------|----------|
-| Governance Model | select: Centralized, Federated, Hybrid Board | No |
-| Share Loan Data | checkbox | — |
-| Share Repayment History | checkbox | — |
-| Allow Aggregation | checkbox | — |
-| Data Visibility | select: full, masked_pii, derived | No |
-
-**Step 3 — Members**
+**Step 2 — Members**
 - Institution picker loaded from `GET /api/v1/institutions?role=subscriber&page=0&size=200`
 - `allowMockFallback: false` — must come from real API
-- Each selected member gets a role assignment (Contributor / Consumer / Observer)
+- CBS member picker from `GET /api/v1/cbs-member-catalog` (catalog-only, no free-text)
+- At least one member required (wizard blocks submit if `members.length === 0`)
+
+**Step 3 — Data Policy**
+- **Unmask policy** radio: `FULL` (reveal in full) or `PARTIAL` (predefined templates: PAN/Phone/Email/Name)
+- **Data sources** table: lists active master schemas (source types) with version, field count, masked field count
+- **Configure** button per source type opens a drawer for per-field unmask allow-list from master schema definition
+- Data visibility persisted as `dataPolicy: { dataVisibility: "full" | "masked_pii" | "derived" }` in the payload
 
 **Step 4 — Review**
 - Read-only summary of all configuration
@@ -179,20 +174,21 @@ Consortiums are governed groups of financial institutions that agree to share cr
 
 **Endpoint:** `POST /api/v1/consortiums`
 
-**Request:**
+**Request (as sent by the SPA wizard):**
 ```json
 {
-  "consortiumName": "East Africa Retail Credit Consortium",
-  "consortiumCode": "EARCC-001",
-  "consortiumType": "Closed",
-  "governanceModel": "Centralized",
-  "shareLoanData": true,
-  "shareRepaymentHistory": true,
-  "allowAggregation": false,
-  "dataVisibility": "masked_pii",
+  "name": "East Africa Retail Credit Consortium",
+  "description": "Retail lenders in East Africa",
+  "status": "approval_pending",
+  "dataPolicy": {
+    "dataVisibility": "masked_pii"
+  },
   "members": [
-    {"institutionId": 1, "memberRole": "Contributor"},
-    {"institutionId": 2, "memberRole": "Consumer"}
+    {"institutionId": 1},
+    {"institutionId": 2}
+  ],
+  "cbsMembers": [
+    {"catalogId": "CBS-MEM-1001"}
   ]
 }
 ```
@@ -211,6 +207,8 @@ Consortiums are governed groups of financial institutions that agree to share cr
 - `approval_queue` row inserted with `approval_item_type='consortium'`, unless `status: active` explicitly sent
 
 #### 5. Database
+
+> **Note:** The `consortiums` DDL includes columns for `consortium_type`, `governance_model`, `share_loan_data`, etc. The SPA wizard currently sends only `name`, `description`, `status`, `dataPolicy`, `members`, and `cbsMembers`. The remaining columns use DDL defaults or are populated server-side. The SQL below reflects a full-column scenario for reference.
 
 ```sql
 INSERT INTO consortiums (consortium_code, consortium_name, consortium_type,
@@ -232,13 +230,13 @@ VALUES ('consortium', '3', 'East Africa Retail Credit Consortium', 'pending');
 
 ```mermaid
 flowchart TD
-    A[Admin opens Create Consortium wizard] --> B[Fill Basic Info - Step 1]
-    B --> C[Fill Governance - Step 2]
-    C --> D[GET /api/v1/institutions?role=subscriber]
-    D --> E[Select Members - Step 3]
+    A[Admin opens Create Consortium wizard] --> B[Fill Basic Info - Step 1: Name + Description]
+    B --> C[GET /api/v1/institutions?role=subscriber]
+    C --> D[Select Members - Step 2]
+    D --> E[Configure Data Policy - Step 3: Unmask policy + source-type fields]
     E --> F[Review - Step 4]
     F --> G[Submit]
-    G --> H[POST /api/v1/consortiums]
+    G --> H[POST /api/v1/consortiums with status: approval_pending]
     H --> I{Duplicate code?}
     I -->|Yes| J[Return 409]
     I -->|No| K[INSERT consortiums]
@@ -248,7 +246,7 @@ flowchart TD
     M -->|Yes| O[Skip approval queue]
     N --> P[Return 201]
     O --> P
-    P --> Q[Redirect to /consortiums]
+    P --> Q[Redirect to /consortiums/:id]
 ```
 
 #### 7. Swimlane Diagram
@@ -263,16 +261,16 @@ sequenceDiagram
 
     A->>FE: Navigate to /consortiums/create
     A->>FE: Fill Steps 1-4
-    FE->>API: GET /api/v1/institutions?role=subscriber&size=200 (Step 3)
+    FE->>API: GET /api/v1/institutions?role=subscriber&size=200 (Step 2)
     API-->>FE: Subscriber institution list
-    A->>FE: Select members, click Submit
+    A->>FE: Select members, configure data policy, click Submit
     FE->>API: POST /api/v1/consortiums
     API->>DB: INSERT INTO consortiums
     API->>DB: INSERT INTO consortium_members
     API->>AQSVC: enqueueConsortium(consortiumId)
     AQSVC->>DB: INSERT INTO approval_queue
     API-->>FE: 201 {id, status: pending}
-    FE-->>A: Redirect to /consortiums
+    FE-->>A: Redirect to /consortiums/:id
 ```
 
 #### 8. Status / State Management
@@ -288,7 +286,7 @@ sequenceDiagram
 
 | Scenario | Handling |
 |----------|----------|
-| No members selected | Warning shown, wizard allows empty members (members added later) |
+| No members selected | Wizard blocks submission with error: "Add at least one member" |
 | Institution not a subscriber | Not shown in member picker (filtered by role=subscriber) |
 | Member already in consortium | 409 UNIQUE constraint on `(consortium_id, institution_id)` |
 

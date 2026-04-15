@@ -91,15 +91,22 @@
 1. [Executive Summary](#1-executive-summary)
 2. [Business Requirements (BRD)](#2-business-requirements-brd)
 3. [Product Requirements (PRD)](#3-product-requirements-prd)
+   - [3.2 Functional Requirements (FR)](#32-functional-requirements-fr)
 4. [User Personas](#4-user-personas)
 5. [User Journey / Workflow](#5-user-journey--workflow)
 6. [Screen-Level Product Requirements](#6-screen-level-product-requirements)
+   - [6.23 Batch Execution Console](#623-batch-execution-console)
+   - [6.24 Validation Rules](#624-validation-rules)
+   - [6.25 Identity Resolution and Match Review](#625-identity-resolution-and-match-review)
+   - [6.26 Roles and Permissions](#626-roles-and-permissions)
+   - [6.27 SLA Configuration](#627-sla-configuration)
+   - [6.28 Audit Logs](#628-audit-logs)
 7. [Graph / Chart Specifications](#7-graph--chart-specifications)
 8. [Data Logic and Calculations](#8-data-logic-and-calculations)
 9. [Color Tag Conditions](#9-color-tag-conditions)
 10. [Filters and Search](#10-filters-and-search)
 11. [Exception Handling / Edge Cases](#11-exception-handling--edge-cases)
-12. [Performance Requirements](#12-performance-requirements)
+12. [Non-Functional and Performance Requirements](#12-non-functional-and-performance-requirements)
 13. [Technical Architecture](#13-technical-architecture)
 14. [API Specification](#14-api-specification)
 15. [Data Models](#15-data-models)
@@ -369,7 +376,7 @@ flowchart LR
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Data Governance Suite |
-| **Description** | 7 sub-modules: Dashboard (KPIs, trends), Schema Mapper Agent (8-step AI-assisted wizard), Validation Rules (rule builder with versioning), Identity Resolution Agent (match review with dual-approval), Data Quality Monitoring (anomaly detection, drift alerts), **Data Policy Management** (source-type-level masked-field unmasking controls), Governance Audit Logs |
+| **Description** | 7 sub-modules: Dashboard (KPIs, trends), Schema Mapper Agent (8-step AI-assisted wizard), Validation Rules (rule builder with versioning), Identity Resolution Agent (match review with dual-approval), Data Quality Monitoring (anomaly detection, drift alerts), **Data Policy Management** (product-level masked-field unmasking controls), Governance Audit Logs |
 | **Business Value** | Automated data quality management reduces manual effort by 60% |
 | **User Benefit** | AI-suggested mappings with confidence scores; visual rule builder; clear approval workflows |
 
@@ -450,6 +457,70 @@ flowchart LR
 | **User Benefit** | Single queue for all pending approvals; clear status tracking; mandatory reason for rejections ensures accountability |
 
 ---
+
+
+
+### 3.2 Functional Requirements (FR)
+
+### 6.1 Authentication and Session
+
+| ID     | Requirement | Priority | Testable Acceptance Criteria |
+|--------|-------------|----------|------------------------------|
+| FR-A1  | The system shall provide a login page with email and password fields and a submit action. | Must | User can enter email and password and submit; invalid credentials are rejected; valid credentials grant access. |
+| FR-A2  | The system shall restrict access to all routes except `/login` for unauthenticated users and redirect them to `/login`. | Must | Unauthenticated access to any protected route results in redirect to `/login`. |
+| FR-A3  | The system shall persist session state for the duration of the browser session (or until logout). | Must | After login, user remains authenticated across page navigation; refresh keeps session. |
+| FR-A4  | The system shall provide a logout mechanism that clears session and redirects to login. | Must | Logout clears user state and redirects to `/login`. |
+| FR-A5  | The system shall display a consistent header and sidebar when the user is authenticated. | Should | Header and sidebar are visible on all protected pages. |
+
+### 6.2 Dashboard (FR)
+
+| ID     | Requirement | Priority | Testable Acceptance Criteria |
+|--------|-------------|----------|------------------------------|
+| FR-D1  | The system shall display a Dashboard (home) with a page title and short description. | Must | Title "Hybrid Credit Bureau" and description are visible. |
+| FR-D2  | The system shall display KPI cards for API Volume (24h), Error Rate, SLA Health, and Data Quality Score with values and trend indicators. | Must | Four KPI cards present; each shows value and trend. |
+| FR-D3  | The system shall display an API Usage Trend chart (30 days) with volume and error rate. | Must | Chart renders with axes, legend, and tooltip on hover. |
+| FR-D4  | The system shall display Success vs Failure distribution as a donut/pie chart. | Must | Chart renders; segments match defined metrics. |
+| FR-D5  | The system shall display additional charts (mapping accuracy, match confidence, SLA latency, rejection/override, recent activity, top institutions). | Should | Each chart/section is present and readable. |
+
+### 6.3 Member Management — List and Navigation (FR)
+
+| ID     | Requirement | Priority | Testable Acceptance Criteria |
+|--------|-------------|----------|------------------------------|
+| FR-I1  | The system shall provide a top-level navigation item **"Member Management"** linking to the **Member Institutions** list. | Must | Clicking navigates to `/institutions`. |
+| FR-I2  | Under Member Management, sub-navigation shall provide **"Member Institutions"** and **"Consortiums"** links. | Must | Sub-items link to `/institutions` and `/consortiums`; active state is correct. |
+| FR-I3  | The institution list shall display: Institution Name, Type, Status, APIs Enabled, SLA Health, Last Updated. **Institution Name** in list and other **single-label** surfaces reflects the **legal entity name** (`name`); optional **trading name** remains a separate field where collected. | Must | All columns present; legal-first labelling consistent with **API-UI-Parity-Matrix** *Institution display labels*. |
+| FR-I4  | The list shall filter by role (Data Submitters or Subscribers) based on route. | Must | Each list shows only institutions with the correct participation flag. |
+| FR-I5  | The system shall support search and status filter on the institution list. | Should | Filters update results in real time. |
+| FR-I6  | A "Register Institution" action shall navigate to the registration wizard. | Must | Navigates to `/institutions/register`. |
+| FR-I7  | Clicking a list row shall navigate to the institution detail page. | Must | Opens `/institutions/:id`. |
+
+### 6.10 Consortium Management (FR)
+
+| ID      | Requirement | Priority | Testable Acceptance Criteria |
+|---------|-------------|----------|------------------------------|
+| FR-CO1  | The system shall provide a "Consortiums" navigation item in the sidebar. | Must | Clicking navigates to `/consortiums`. |
+| FR-CO2  | The consortium list shall display: Name, Type (Open/Closed), Status (Active/Inactive), Members Count, Data Volume, Last Updated. | Must | All columns/fields present on list cards and/or table. |
+| FR-CO4  | A "Create consortium" action shall navigate to the consortium creation wizard. | Must | Navigates to `/consortiums/create`. |
+| FR-CO10 | The consortium wizard shall have 4 steps: Basic Info, Members, Policy, Review. | Must | Four steps visible; user can navigate Next/Previous. |
+
+### 6.11 Data Products (FR)
+
+| ID      | Requirement | Priority | Testable Acceptance Criteria |
+|---------|-------------|----------|------------------------------|
+| FR-DP1  | The system shall provide a "Data Products" section in the sidebar with sub-items: Product Configurator and Enquiry Simulation. | Must | Both sub-items link to their respective routes. |
+| FR-DP4  | A "Create product" button shall navigate to the product creation form. | Must | Navigates to `/data-products/products/create`. |
+| FR-DP10 | The product create/edit form shall group **data packets by category**; for each category, display **distinct source types** (from Schema Mapper) as a single line, not repeated per packet row. | Should | Source-type lines are deduplicated and sorted; the visible row label is the **source-type name** only. |
+
+### 6.13 Global Navigation and UX (FR)
+
+| ID     | Requirement | Priority | Testable Acceptance Criteria |
+|--------|-------------|----------|------------------------------|
+| FR-N1  | The sidebar shall include: Dashboard, **Member Management** (sub-items: Member Institutions, Consortiums), Data Products (with sub-items), Agents, Data Governance, Monitoring, Reporting, Audit Logs, Approval Queue, User Management. | Must | All items and sub-items link correctly. |
+| FR-N2  | The system shall use a consistent compact typography scale: 10px body/captions, 12px section headings, 19px page titles, explicit pixel values. | Must | No custom token that browser may override. |
+| FR-N3  | The system shall use DashboardLayout for all authenticated pages. | Must | Header, sidebar, and main content area consistent across all pages. |
+| FR-N4  | The system shall be responsive; no horizontal scroll on mobile for main content. | Should | No overflow on standard viewports. |
+| FR-N5  | All buttons globally shall use a compact 32px height (`h-8`), 10px font size, and consistent padding. | Must | Button height and font size consistent across all sections. |
+
 
 ## 4. User Personas
 
@@ -1398,6 +1469,170 @@ flowchart TB
 
 ---
 
+
+
+### 6.23 Batch Execution Console (`/monitoring/batch-pipeline`)
+
+**Purpose:** Inspect the full phase/stage execution tree for a batch ingestion job, including SFTP metadata, error samples, and per-phase record counts.
+
+**Source:** EPIC-14 — Batch Pipeline
+
+#### Job List View
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "Data Submission Batch" | Static |
+| Job Table | Data Table | Columns: Job ID, Institution, File Name, Intake Channel (SFTP/API), Status, Records, Started At, Actions | `GET /api/v1/batch-jobs` |
+| Status Filter | Select | All / Pending / Running / Completed / Failed / Cancelled | Client-side |
+| Retry Button | Icon Button | Visible for `failed` jobs with `institution_id` — calls `POST /api/v1/batch-jobs/:id/retry` (requires institution to be **active**) | Per-row |
+
+#### Batch Detail View (`/monitoring/batch-pipeline/:jobId`)
+
+| Element | Type | Description |
+|---------|------|-------------|
+| Job Header | Summary strip | Job ID, status badge, intake channel, file name, schema registry ID, mapping ID |
+| Phase Tree | Accordion | Collapsible phases (FILE_INTAKE, VALIDATION, TRANSFORMATION, PERSISTENCE); each shows start/end time, processedCount, failedCount |
+| Stage Rows | Nested Table | Stages within each phase: stage name, status, records processed, records failed |
+| Error Samples Table | Data Table | Columns: Row Number, Error Code, Field Name, Field Value, Error Message — up to 100 samples |
+| SFTP Metadata Card | Info Card | SFTP path, file size (bytes), SHA-256 checksum, detected at timestamp — visible only for SFTP-intake jobs |
+| Logs Panel | Log Viewer | Structured log entries with timestamp and level — visible when logs array is non-empty |
+
+**Status Badge Semantics:**
+
+| Status | Badge Color | Description |
+|--------|-------------|-------------|
+| `pending` | Yellow warning | Job queued, not yet started |
+| `running` | Blue info | Currently processing |
+| `completed` | Green success | All phases finished successfully |
+| `failed` | Red danger | One or more stages failed |
+| `cancelled` | Gray muted | Manually cancelled |
+
+> **Note (AGENTS.md):** When `batch_phase_logs` rows exist, `GET /api/v1/batch-jobs/:id/detail` returns the full phase/stage tree (camelCase) via `resolveBatchConsoleData`. Seeded demo job `999901` has a full multi-phase tree. Batch cancel does not apply the institution `active` gate; retry does.
+
+---
+
+### 6.24 Validation Rules (`/data-governance/validation-rules`)
+
+**Purpose:** Create, manage, test, and activate field-level validation rules applied during batch ingestion and API submission.
+
+**Source:** EPIC-07 — Data Validation
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "Validation Rules" | Static |
+| Rule Table | Data Table | Columns: Rule Name, Source Type, Rule Type, Severity, Status, Last Triggered, Actions | `GET /api/v1/validation-rules` |
+| Rule Type Filter | Select | All / FORMAT / RANGE / MANDATORY / CROSS_FIELD / DUPLICATE / ENUM | Client-side |
+| Severity Filter | Select | All / INFO / WARNING / CRITICAL | Client-side |
+| Add Rule Button | Primary Button | Opens creation modal/drawer | N/A |
+| Row Actions | Icon Buttons | Edit, Activate/Deactivate, Test Rule, Delete | Per rule |
+
+**Rule Type Badges:** FORMAT=Blue, RANGE=Purple, MANDATORY=Red, CROSS_FIELD=Orange, DUPLICATE=Yellow, ENUM=Green
+
+**State Handling:** Loading=SkeletonTable; Empty=EmptyState with "Add your first rule" CTA; Test running=spinner; Test pass=green checkmark; Test fail=red indicator.
+
+> **Note (AGENTS.md):** Rule field paths for a selected Schema Mapper source type come from `GET /api/v1/schema-mapper/schemas/source-type-fields?sourceType=<type>`. Member scope for rules uses **data submitter** institutions from the institutions API.
+
+---
+
+### 6.25 Identity Resolution and Match Review (`/data-governance/match-review`)
+
+**Purpose:** Human-in-the-loop review of consumer identity matches produced by the AI resolution engine.
+
+**Source:** EPIC-18 — Identity Resolution Agent
+
+**Routes:** `/data-governance/match-review` (queue) | `/data-governance/identity-resolution` (history)
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Match Cards | Card List | Consumer pair side-by-side; matching fields highlighted | `GET /api/v1/identity-resolution/matches?status=pending_review` |
+| Confidence Meter | Color bar | >=0.95 green, 0.70-0.94 orange, <0.70 gray | Per match |
+| Match Reasons | Pill badges | "National ID Match", "Phone Match", "Email Match", "Fuzzy Name" | Per match |
+| Action Buttons | Button Group | Merge (Same Person), Dismiss (Different People), Flag for Review | Per card |
+| Frozen Consumer Badge | Red Badge | "FROZEN" on records with active credit freeze | Per consumer |
+| History Table | Data Table | Match ID, Consumer A, Consumer B, Confidence, Decision, Resolved By, Resolved At | Resolution history |
+
+**Confidence Thresholds:** >=0.95 Auto-resolved; 0.70-0.94 Human review required; <0.70 No match (distinct consumers).
+
+---
+
+### 6.26 Roles and Permissions (`/user-management/roles`)
+
+**Purpose:** Define and manage platform roles and their associated permission sets.
+
+**Source:** EPIC-12 — User Management and RBAC
+
+> **Roadmap Note:** Advanced RBAC/ABAC features are scoped for V2 (see Appendix F). This section documents the current V1 role configuration UI.
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "Roles and Permissions" | Static |
+| Roles Table | Data Table | Columns: Role Name, Description, User Count, Permissions (count), Actions | `GET /api/v1/roles` |
+| Permission Matrix | Table | Module x (View, Create, Edit, Delete, Export) derived from nav-config sections | Static / config |
+
+**Role Permission Summary:**
+
+| Module | Super Admin | Bureau Admin | Analyst | API User | Viewer |
+|--------|-------------|--------------|---------|----------|--------|
+| Dashboard | Full | Full | Read | None | Read |
+| Member Institutions | Full | Full | Read | None | None |
+| Data Products | Full | Full | Read | None | None |
+| Monitoring | Full | Full | Read | Read | None |
+| Approval Queue | Full | None | None | None | None |
+| User Management | Full | None | None | None | None |
+| Activity Log | Full | Read | Read | None | **Hidden** |
+| Audit Logs | Full | Read | Read | Read | None |
+
+> **Note:** VIEWER role: Activity Log menu item is **hidden** entirely. Role assignment changes take effect immediately; active sessions re-validated within 60 seconds.
+
+---
+
+### 6.27 SLA Configuration (`/monitoring/sla-configuration`)
+
+**Purpose:** Define performance thresholds per API and institution type. Threshold breaches automatically trigger the Alert Engine.
+
+**Source:** EPIC-10 — Alert Engine and SLA
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "SLA Configuration" | Static |
+| SLA Config Table | Data Table | Columns: API Type, Institution Type, P95 Latency (ms), P99 Latency (ms), Max Error Rate (%), Breach Action, Last Updated | `GET /api/v1/sla-configs` |
+| Edit SLA Row | Inline Edit / Modal | Edit threshold values | `PATCH /api/v1/sla-configs/:id` |
+| Create SLA Config | Primary Button | Create a new threshold profile | `POST /api/v1/sla-configs` |
+| Breach Action Select | Select | alert_only / suspend_api_key / notify_institution | Per row |
+
+**State Handling:** No config for a type="Using default thresholds" info badge; Threshold breached=row highlighted red; Config saved=Toast "SLA configuration updated".
+
+---
+
+### 6.28 Audit Logs
+
+**Purpose:** Immutable audit trail surfaced in two contexts — governance actions and user activity.
+
+**Source:** EPIC-06 — Data Governance; EPIC-12 — User Management and RBAC
+
+#### 6.28.1 Governance Audit Logs (`/data-governance/governance-audit-logs`)
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "Governance Audit Logs" | Static |
+| Log Table | Data Table | Columns: Timestamp, Actor, Action Type, Entity Type, Entity ID, Details | `GET /api/v1/audit-logs?category=governance` |
+| Date Range Filter | Date Picker | Filter by event date range | Query param |
+| Action Type Filter | Select | All / SCHEMA_APPROVED / DATA_POLICY_UPDATED / RULE_CREATED / RULE_ACTIVATED | Query param |
+| Detail Drawer | Sheet | Full audit event details on row click | Selected row |
+
+#### 6.28.2 User Activity Log (`/user-management/activity`)
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "Activity Log" | Static |
+| Activity Table | Data Table | Columns: Timestamp, User, Role, Action, Affected Resource, IP Address, Status | `GET /api/v1/audit-logs` |
+| User Filter | Select | Filter by actor user | Query param |
+| Date Range Filter | Date Picker | Filter by event date | Query param |
+| Export Button | Outline Button | Download filtered log as CSV | Client-side |
+
+> **Access Control:** VIEWER role receives **403** from `GET /api/v1/audit-logs` — Activity Log menu item is **hidden** from the sidebar for viewers. ANALYST, BUREAU_ADMIN, and SUPER_ADMIN can access the full log.
+
+
 ## 7. Graph / Chart Specifications
 
 ### 7.1 API Usage Trend (Dashboard)
@@ -1999,7 +2234,7 @@ Example:
 
 ---
 
-## 12. Performance Requirements
+## 12. Non-Functional & Performance Requirements
 
 ### 12.1 Page Load & Navigation
 
@@ -2074,6 +2309,34 @@ Example:
 | Session tokens | Redis | 15 min (access), 7 days (refresh) | Per authenticated user |
 
 ---
+
+
+
+### 12.2 Non-Functional Requirements (NFR)
+
+| ID     | Category        | Requirement | Acceptance Criteria |
+|--------|-----------------|-------------|---------------------|
+| NFR-1  | Performance     | Page load (initial) shall complete within 3 seconds. | Measured with Lighthouse / WebPageTest. |
+| NFR-2  | Performance     | SPA navigation shall feel instant (<300ms). | No full-page reload for in-app routes. |
+| NFR-3  | Availability    | Production target: 99.9% uptime (<=8.7 hours downtime/year). | Monthly uptime report; runbook and SLA document required. |
+| NFR-4  | Throughput      | Backend API layer shall sustain 5 million API calls/day (approx 58 calls/second average; 200+ calls/second peak). | Load test with k6 or Locust at 2x peak load. |
+| NFR-5  | Latency         | P95 API response time <=200ms for enquiry calls; <=500ms for batch status. | Measured at API gateway; P95 latency tracked per endpoint. |
+| NFR-6  | Security        | All authenticated routes require a valid JWT/session; expired tokens must be rejected. | Unauthenticated access denied; expired token returns 401. |
+| NFR-7  | Security        | Sensitive data (API keys, PII, government IDs) shall not appear in client logs, error messages, or non-encrypted channels. | Log review and masking audit; OWASP Top 10 review. |
+| NFR-8  | Security        | RBAC enforced at API gateway level; no frontend-only authorization. | Role-restricted API calls return 403 for unauthorized roles. |
+| NFR-9  | Security        | API keys rotated on schedule; compromised keys revocable in <30 seconds. | Key rotation test; revocation propagation time measured. |
+| NFR-10 | Security        | JWT tokens: RS256 algorithm, 15-minute access token, 7-day refresh token, audience/issuer validation. | Token inspection and expiry test. |
+| NFR-11 | PII Protection  | All PII fields (NIN, MSISDN, DOB) encrypted at rest (AES-256) and masked in API responses to non-privileged roles. | Encryption at rest confirmed; API response audit. |
+| NFR-12 | Consent         | Every subscriber enquiry must carry a valid, non-expired consent record; system shall reject enquiries without consent. | Consent-expired test case returns 403; audit trail entry created. |
+| NFR-13 | Usability       | WCAG 2.1 Level AA where applicable. | Accessibility audit or checklist. |
+| NFR-14 | Maintainability | All mock/fixture data stored in `src/data/*.json` only; no hardcoded values in components or TypeScript files. | Code audit; grep for inline arrays in `.tsx` files returns zero results. |
+| NFR-15 | Maintainability | Code follows project structure; key flows covered by unit and integration tests. | Test coverage >=70% for critical paths. |
+| NFR-16 | Browser support | Chrome, Edge, Firefox, Safari (current versions). | Cross-browser test matrix. |
+| NFR-17 | Typography      | All text rendered at intended size regardless of browser or OS default font settings. | Visual QA across browsers confirms 10px body text. |
+| NFR-18 | Scalability     | System horizontally scalable; no single-instance bottlenecks in API or data layer. | Auto-scaling test; load balanced across >=2 instances. |
+| NFR-19 | Observability   | All API calls emit structured logs (request ID, institution ID, latency, status code); distributed tracing enabled. | Log sampling confirms structured output; trace IDs propagated. |
+| NFR-20 | DR              | RTO <=30 minutes; RPO <=5 minutes for production data. | DR drill conducted quarterly. |
+
 
 ## 13. Technical Architecture
 
@@ -2272,6 +2535,23 @@ The application uses HSL-based CSS custom properties defined in `index.css` with
 | Real-time | Supabase Realtime | Live notifications, SLA alerts |
 
 ---
+
+
+
+### 13.4 Integrations
+
+| Integration Point | Direction | Purpose | In-Scope (BRD) |
+|-------------------|-----------|---------|----------------|
+| Identity / SSO | Inbound | Authentication, user identity | Future phase |
+| Institution / Config API | Outbound | CRUD institutions, config | Assumed for future state |
+| Billing / Usage API | Outbound | Credit balance, usage, pricing | Assumed for subscriber billing |
+| Document Vault | Outbound | Store/retrieve compliance documents | Assumed for onboarding |
+| Audit / Logging | Outbound | Write audit events | Assumed for audit trail |
+| Data Governance backend | Outbound | Mapping, rules, match, quality | Assumed for governance module |
+| Consortium Data API | Outbound | Real-time consortium data sharing counts | Future phase |
+| Bureau Enquiry API (CRIF) | Outbound | Live enquiry calls from Enquiry Simulation | Future phase (mock-only in V1) |
+| CBS | Outbound | Core banking (if applicable) | Out of scope for this BRD |
+
 
 ## 14. API Specification
 

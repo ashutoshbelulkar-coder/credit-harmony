@@ -310,6 +310,8 @@ spring:
 
 ## Phase 8 — Test Execution Report (2026-03-28)
 
+> **Note:** This section is a snapshot from the initial setup phase. The test suite has grown significantly since then — see Phase 10/11/12 sections below for current coverage.
+
 ### Frontend — Vitest Run Results
 
 ```
@@ -367,7 +369,7 @@ Maven is not installed in the local PATH on this machine (Java 8 runtime only de
 | `backend/src/main/java/com/hcb/platform/common/GlobalExceptionHandler.java` | ✅ Present |
 | `backend/src/test/java/com/hcb/platform/HcbPlatformApplicationTest.java` | ✅ Present |
 
-**Total Java source files:** 27 (26 production + 1 test)
+**Total Java source files (Phase 8 snapshot):** 27 (26 production + 1 test). The backend has grown significantly since — controllers for dashboard, schema mapper, approval queue, monitoring, alert rules, SLA, consortiums, products, reports, users, and batch jobs have been added. Run `find backend/src -name "*.java" | wc -l` for the current count.
 
 #### Integration Test Specification (HcbPlatformApplicationTest.java)
 
@@ -397,7 +399,7 @@ The backend test class defines 8 integration tests targeting Spring Boot + MockM
 |----------|--------|
 | `hcb_system_design.yaml` | ✅ Complete — 33-table normalized schema, APIs, action APIs, data flows |
 | `docs/PRD-BRD-HCB-Admin-Portal.md` | ✅ Updated — Section A: Data Normalization Principles |
-| `docs/BRD-Hybrid-Credit-Bureau-Admin-Portal.md` | ✅ Updated — Section B: Business Data Governance Requirements |
+| `docs/PRD-BRD-HCB-Admin-Portal.md` | ✅ Updated — Section B: Business Data Governance Requirements |
 | `docs/technical/ERD-Schema-Map.md` | ✅ Complete — Mermaid ERD, 33 tables, all FKs |
 | `docs/technical/Architecture-Diagram.md` | ✅ Complete — Logical + network architecture, JWT flow |
 | `docs/technical/Data-Flow-Diagram.md` | ✅ Complete — 4 data flows: submission, inquiry, approval, daily simulation |

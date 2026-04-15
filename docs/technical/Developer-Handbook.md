@@ -63,7 +63,9 @@ npm run spring:test
 | `VITE_API_BASE_URL` | `/api` | Browser calls same origin; Vite **proxies** `/api` to the backend |
 | `VITE_API_PROXY_TARGET` | *(unset)* → **`http://127.0.0.1:8090`** | Override proxy target (e.g. `http://127.0.0.1:8091` for legacy Fastify) |
 | `VITE_USE_MOCK_FALLBACK` | `true` in `.env.development` | If API errors/unreachable, SPA may use `src/data/*.json` mocks |
-| `VITE_SHOW_DEMO_AUTH_UI` | `true` in dev unless set `false` | Demo “forgot password / SSO” style rows on login |
+| `VITE_SHOW_DEMO_AUTH_UI` | `true` in dev unless set `false` | Demo "forgot password / SSO" style rows on login |
+| `VITE_TURNSTILE_SITE_KEY` | *(unset)* | Cloudflare Turnstile site key; when set, login form includes a `captchaToken` |
+| `VITE_INSTITUTION_REGISTER_GEOGRAPHY` | *(unset)* | Default geography ID for the institution registration wizard (`form-metadata` + `POST` query param) |
 
 ### Spring API (`backend/`)
 
@@ -73,6 +75,8 @@ npm run spring:test
 | `HCB_DB_PATH` | `./data/hcb_platform.db` | SQLite file (relative to `backend/` working directory when set in dev) |
 | `HCB_JWT_SECRET` | Dev fallback in `application.yml` | **Set a strong secret in any real deployment** |
 | `HCB_DEV_SYNC_SEED_PASSWORDS` | `true` | Dev-only: re-encode known seed passwords with the live `PasswordEncoder` (`DevAuthDataBootstrap`) |
+| `HCB_CAPTCHA_ENABLED` | `false` | When `true`, login requires a Cloudflare Turnstile `captchaToken` in the request body |
+| `HCB_TURNSTILE_SECRET_KEY` | *(unset)* | Cloudflare Turnstile secret key (server-side verification); required when `HCB_CAPTCHA_ENABLED=true` |
 
 ### Legacy Fastify (`server/`)
 
@@ -128,9 +132,9 @@ VITE_USE_MOCK_FALLBACK=false npm run dev
 
 | Email | Password | Notes |
 |-------|----------|-------|
-| `admin@hcb.com` | `Admin@1234` | Primary admin for local testing |
-| `super-admin@hcb.com` | `Admin@1234` | Alternate super-admin |
-| `viewer@hcb.com` | `Admin@1234` | Low-privilege smoke test |
+| `admin@hcb.com` | `Admin@1234` | Primary admin for local testing; **MFA-enabled** — after password check the API returns an MFA challenge; complete with `POST /api/v1/auth/mfa/verify` using OTP **`123456`** (while `hcb.auth.mfa.dummy-otp-enabled=true`, the default in dev) |
+| `super-admin@hcb.com` | `Admin@1234` | Alternate super-admin (no MFA) |
+| `viewer@hcb.com` | `Admin@1234` | Low-privilege smoke test (no MFA) |
 
 **Do not** use these credentials outside isolated dev environments.
 
@@ -229,7 +233,7 @@ On bash, replace `^` with `\` for line continuation.
 
 | Question | Document |
 |----------|----------|
-| Business scope, compliance framing | `docs/BRD-Hybrid-Credit-Bureau-Admin-Portal.md` |
+| Business scope, compliance framing | `docs/PRD-BRD-HCB-Admin-Portal.md` |
 | Product requirements detail | `docs/PRD-BRD-HCB-Admin-Portal.md` |
 | **Which UI actions hit which API** | `docs/technical/API-UI-Parity-Matrix.md` |
 | **Spring ↔ SPA route checklist** | `docs/technical/Spring-SPA-Route-Inventory.md` |

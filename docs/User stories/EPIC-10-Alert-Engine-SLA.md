@@ -82,11 +82,10 @@ The Alert Engine is the proactive health management layer of the HCB platform. I
 
 | Screen | Path | Description |
 |--------|------|-------------|
-| Alert Monitoring Dashboard | `/monitoring/alert-engine` | Active incidents + charts |
-| Alert Rules | `/monitoring/alert-engine/rules` | Rule list and management |
-| SLA Configuration | `/monitoring/alert-engine/sla` | SLA thresholds |
-| SLA Breach History | `/monitoring/alert-engine/sla/breaches` | Breach timeline |
-| Auto-Remediation | `/monitoring/alert-engine/auto-remediation` | Settings stub |
+| Alert Engine (unified) | `/monitoring/alert-engine` | Single page with tabs for incidents, alert rules, SLA breaches, and auto-remediation settings |
+| SLA Configuration | `/monitoring/sla-configuration` | Standalone SLA threshold page (reached from Monitoring sidebar) |
+
+> **Note:** The EPIC originally specified separate sub-routes (`/rules`, `/sla`, `/sla/breaches`, `/auto-remediation`) but the implementation uses a single page with internal tabs at `/monitoring/alert-engine`.
 
 ### Component Behavior
 - **Alert severity badges:** `CRITICAL`=red, `HIGH`=orange, `MEDIUM`=yellow, `LOW`=blue
