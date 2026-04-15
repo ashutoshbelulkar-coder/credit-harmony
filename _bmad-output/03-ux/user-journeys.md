@@ -10,7 +10,7 @@
 | Stage | Operator action | System truth | Friction / mitigation |
 |-------|-----------------|--------------|------------------------|
 | 1 | Start **Register member** from sidebar | Geography-driven form metadata | Long forms → sectioned layout; required vs optional clear |
-| 2 | Submit registration | `POST /institutions` persists row + **enqueues approval** | User understands row exists before approval ([PRD governance semantics](../PRD-BRD-HCB-Admin-Portal.md)) |
+| 2 | Submit registration | `POST /api/v1/institutions` persists row + **enqueues approval** | User understands row exists before approval ([PRD governance semantics](../PRD-BRD-HCB-Admin-Portal.md)) |
 | 3 | Approver acts on queue | Approve/reject/request changes → **204** | Empty success handled; list refresh + invalidation |
 | 4 | Member becomes **active** | Enables traffic APIs per policy | **403** if not active — surface state before member calls |
 

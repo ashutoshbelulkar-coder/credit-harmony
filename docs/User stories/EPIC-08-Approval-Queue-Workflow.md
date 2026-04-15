@@ -231,7 +231,7 @@ The Approval Queue is the central human-in-the-loop governance workflow for the 
 ```mermaid
 flowchart TD
     A[Admin clicks Approve] --> B[Confirmation dialog]
-    B --> C[POST /approvals/:id/approve]
+    B --> C[POST /api/v1/approvals/:id/approve]
     C --> D{Find approval_queue row}
     D -->|Not found| E[404]
     D -->|Found| F{status = pending?}
@@ -277,7 +277,7 @@ sequenceDiagram
 ```
 
 #### 7. Definition of Done
-- [ ] POST /approvals/:id/approve returns 204
+- [ ] POST /api/v1/approvals/:id/approve returns 204
 - [ ] Entity status updated correctly per type
 - [ ] Approval queue item status updated to approved
 - [ ] Audit log written
@@ -317,7 +317,7 @@ sequenceDiagram
 - Minimum reason length: 20 characters
 
 #### 5. Definition of Done
-- [ ] POST /approvals/:id/reject requires non-empty reason
+- [ ] POST /api/v1/approvals/:id/reject requires non-empty reason
 - [ ] Rejection reason stored in DB
 - [ ] Entity status unchanged
 - [ ] Audit log written
@@ -349,7 +349,7 @@ sequenceDiagram
 - Distinct from `rejected` — softer signal that the item is fixable
 
 #### 4. Definition of Done
-- [ ] POST /approvals/:id/request-changes returns 204 with reason stored
+- [ ] POST /api/v1/approvals/:id/request-changes returns 204 with reason stored
 - [ ] Item status = changes_requested
 - [ ] Reason displayed on the approval item
 
@@ -439,11 +439,11 @@ Returns all approval_queue rows for a given entity — both approved and rejecte
 ### Workflow: Institution Registration Approval
 ```
 Admin registers institution →
-  POST /institutions → approval_queue item (institution) →
+  POST /api/v1/institutions → approval_queue item (institution) →
   Bureau admin reviews in /approval-queue →
     Views /institutions/:id for context →
     Clicks Approve →
-    POST /approvals/:id/approve →
+    POST /api/v1/approvals/:id/approve →
     Institution status → active →
     Member can now submit data
 ```
@@ -453,7 +453,7 @@ Admin registers institution →
 Analyst submits schema mapping for approval →
   approval_queue item (schema_mapping) →
   Bureau admin requests changes →
-  POST /approvals/:id/request-changes {reason} →
+  POST /api/v1/approvals/:id/request-changes {reason} →
   Analyst receives notification (future) →
   Analyst corrects mapping and resubmits →
   New approval_queue item created →

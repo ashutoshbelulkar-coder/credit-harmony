@@ -253,7 +253,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 | Story ID | Title | As a… I want to… So that… | API Endpoint | Primary Table | Priority | Status |
 |----------|-------|---------------------------|--------------|---------------|----------|--------|
 | USR-US-001 | View User List | As a bureau admin, I want to browse all platform users with their status and roles so that I can manage access. | `GET /api/v1/users` | `users` | P0 | ✅ Implemented |
-| USR-US-002 | Invite a New User | As a bureau admin, I want to send an invitation to a new user with an assigned role so that they can access the portal. | `POST /api/v1/users/invite` | `users`, `user_role_assignments` | P0 | ✅ Implemented |
+| USR-US-002 | Invite a New User | As a bureau admin, I want to send an invitation to a new user with an assigned role so that they can access the portal. | `POST /api/v1/users/invitations` | `users`, `user_role_assignments` | P0 | ✅ Implemented |
 | USR-US-003 | View User Detail and Assign Roles | As a bureau admin, I want to view a user's profile and manage their role assignments so that access is correct. | `GET /api/v1/users/:id`, `POST /api/v1/users/:id/roles` | `users`, `user_role_assignments` | P0 | ✅ Implemented |
 | USR-US-004 | Suspend or Reactivate a User | As a bureau admin, I want to suspend or reactivate a user account so that access is revoked or restored promptly. | `PATCH /api/v1/users/:id/status` | `users` | P0 | ✅ Implemented |
 | USR-US-005 | View Roles and Permissions Matrix | As a bureau admin, I want to see all roles and their permission assignments so that I understand what each role can do. | `GET /api/v1/roles` | `roles`, `permissions`, `role_permissions` | P1 | ✅ Implemented |

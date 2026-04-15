@@ -673,14 +673,14 @@ All queries use exact column names from `create_tables.sql` (`consortium_name`, 
 ### New Frontend Hooks (Phase 7 — completed)
 
 Added to `src/hooks/api/useInstitutions.ts`:
-- `useConsortiumMemberships(id)` — queries `GET /institutions/{id}/consortium-memberships`
-- `useProductSubscriptions(id)` — queries `GET /institutions/{id}/product-subscriptions`
-- `useBillingSummary(id)` — queries `GET /institutions/{id}/billing-summary`
-- `useMonitoringSummary(id)` — queries `GET /institutions/{id}/monitoring-summary`
+- `useConsortiumMemberships(id)` — queries `GET /api/v1/institutions/{id}/consortium-memberships`
+- `useProductSubscriptions(id)` — queries `GET /api/v1/institutions/{id}/product-subscriptions`
+- `useBillingSummary(id)` — queries `GET /api/v1/institutions/{id}/billing-summary`
+- `useMonitoringSummary(id)` — queries `GET /api/v1/institutions/{id}/monitoring-summary`
 
 Added to `src/api/dashboard.ts`:
-- `useDashboardActivity()` — queries `GET /dashboard/activity`
-- `useDashboardCommandCenter()` — queries `GET /dashboard/command-center`
+- `useDashboardActivity()` — queries `GET /api/v1/dashboard/activity`
+- `useDashboardCommandCenter()` — queries `GET /api/v1/dashboard/command-center`
 
 ### Wired Components (Phase 7-8 — completed)
 
@@ -692,8 +692,8 @@ Added to `src/api/dashboard.ts`:
 | `MonitoringTab` | Static `tabsData` KPIs | `useMonitoringSummary(institutionId)` for live KPI override |
 | `ConsortiumDetailPage` | `useCatalogMock().consortiums` | `useConsortium(id)` + `useConsortiumMembers(id)` |
 | `ProductDetailPage` | `useCatalogMock().products` | `useProduct(id)` hook |
-| `DashboardSnapshot.activity` | 100% mock overlay | Live from `GET /dashboard/activity`; falls back to mock |
-| `DashboardSnapshot.commandCenter` | 100% mock overlay | Enriched with live alert/approval counts from `GET /dashboard/command-center` |
+| `DashboardSnapshot.activity` | 100% mock overlay | Live from `GET /api/v1/dashboard/activity`; falls back to mock |
+| `DashboardSnapshot.commandCenter` | 100% mock overlay | Enriched with live alert/approval counts from `GET /api/v1/dashboard/command-center` |
 
 ### Phase 12 Test Results
 

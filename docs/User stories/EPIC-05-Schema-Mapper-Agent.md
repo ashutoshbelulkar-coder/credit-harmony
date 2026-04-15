@@ -33,7 +33,7 @@ The Schema Mapper Agent is the data normalization backbone of the HCB platform. 
 ## 2. Scope
 
 ### In Scope
-- Schema ingestion endpoint (`POST /schema-mapper/ingest`)
+- Schema ingestion endpoint (`POST /api/v1/schema-mapper/ingest`)
 - Multi-step wizard UI (all 8+ wizard steps in `src/components/schema-mapper/wizard/`)
 - AI/LLM mapping with OpenAI integration (optional)
 - Schema registry CRUD and search
@@ -246,10 +246,10 @@ VALUES ('raw-uuid-001', '<JSON with parsedFields, sourceName, sourceType>');
 ```gherkin
   Scenario: Async mapping with LLM
     Given I have ingested a schema (rawId exists)
-    When I submit POST /schema-mapper/mappings
+    When I submit POST /api/v1/schema-mapper/mappings
     Then the API returns 202 Accepted
     And I receive a mappingId
-    And the SPA polls GET /schema-mapper/mappings/:id until status is complete
+    And the SPA polls GET /api/v1/schema-mapper/mappings/:id until status is complete
     And field mappings are shown with confidence scores
 
   Scenario: LLM disabled / unavailable
@@ -326,7 +326,7 @@ VALUES ('map-uuid-001', '<JSON with fieldMappings, status, coveragePercent>');
 
 ```mermaid
 flowchart TD
-    A[Submit POST /schema-mapper/mappings] --> B[Return 202 - mappingId]
+    A[Submit POST /api/v1/schema-mapper/mappings] --> B[Return 202 - mappingId]
     B --> C[Background: Load rawId fields]
     C --> D{LLM enabled?}
     D -->|Yes| E[Call OpenAI API with field context]
@@ -579,7 +579,7 @@ sequenceDiagram
     participant DB as SQLite
 
     A->>FE: Click Submit for Approval
-    FE->>API: POST /schema-mapper/submit-approval {mappingId}
+    FE->>API: POST /api/v1/schema-mapper/mappings/:id/submit-approval
     API->>DB: UPDATE schema_mapper_mapping status=pending_approval
     API->>AQSVC: enqueueSchemaMapping(mappingId)
     AQSVC->>DB: INSERT INTO approval_queue (schema_mapping, entity_ref_id=mappingId)

@@ -160,7 +160,7 @@ User Management covers the full lifecycle of portal users: invitation, role assi
   Scenario: Invite new user
     Given I fill the invite form with email, name, and role
     When I click Send Invitation
-    Then POST /api/v1/users/invite is called
+    Then POST /api/v1/users/invitations is called
     And the user is created with status "invited"
     And an invitation email is sent (future scope)
 
@@ -171,7 +171,7 @@ User Management covers the full lifecycle of portal users: invitation, role assi
 
 #### 3. API Requirements
 
-`POST /api/v1/users/invite`
+`POST /api/v1/users/invitations`
 
 **Request:**
 ```json
@@ -212,7 +212,7 @@ VALUES (9, 3, NULL);
 | `deactivated` | Permanently disabled | Admin deactivate | Terminal |
 
 #### 6. Definition of Done
-- [ ] POST /users/invite creates user with invited status and role assignment
+- [ ] POST /api/v1/users/invitations creates user with invited status and role assignment
 - [ ] Duplicate email returns 409
 - [ ] New user visible in user list with invited badge
 
@@ -413,7 +413,7 @@ Activity Log menu item is hidden in sidebar for VIEWER.
 | Endpoint | Method | Auth | Description | Status |
 |----------|--------|------|-------------|--------|
 | `GET /api/v1/users` | GET | Bearer (Admin) | List users | ✅ |
-| `POST /api/v1/users/invite` | POST | Bearer (Admin) | Invite new user | ✅ |
+| `POST /api/v1/users/invitations` | POST | Bearer (Admin) | Invite new user | ✅ |
 | `GET /api/v1/users/:id` | GET | Bearer (Admin) | User detail | ✅ |
 | `PATCH /api/v1/users/:id/status` | PATCH | Bearer (Admin) | Update user status | ✅ |
 | `POST /api/v1/users/:id/roles` | POST | Bearer (Admin) | Assign role | ✅ |
@@ -441,7 +441,7 @@ Activity Log menu item is hidden in sidebar for VIEWER.
 ### Workflow: New Staff Onboarding
 ```
 Bureau admin invites new analyst →
-  POST /users/invite {email, roleId: ANALYST} →
+  POST /api/v1/users/invitations {email, roleId: ANALYST} →
   User created with status: invited →
   User accepts invitation (future: email link) →
   User logs in: status → active →

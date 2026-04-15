@@ -182,11 +182,11 @@ VALUES ('Portfolio Summary - Q1 2026', 'portfolio_summary',
 
 | Status | Description | Trigger | Next States |
 |--------|-------------|---------|-------------|
-| `queued` | Submitted, awaiting processing | POST /reports | `processing`, `cancelled` |
+| `queued` | Submitted, awaiting processing | POST /api/v1/reports | `processing`, `failed` |
 | `processing` | Report generation in progress | Background job picks up | `completed`, `failed` |
 | `completed` | Report file generated and available | Job finishes | `cancelled` (no, terminal) |
 | `failed` | Generation failed | Job error | `queued` (via retry) |
-| `cancelled` | Manually cancelled | POST /reports/:id/cancel | Terminal |
+| *(no cancelled state in Spring)* | Cancel action | POST /api/v1/reports/:id/cancel | Moves to `failed` |
 
 #### 7. Flowchart
 
@@ -206,7 +206,7 @@ flowchart TD
 ```
 
 #### 8. Definition of Done
-- [ ] POST /reports creates report with queued status
+- [ ] POST /api/v1/reports creates report with queued status
 - [ ] Report visible in list immediately after submission
 - [ ] Validation prevents invalid date ranges
 
@@ -381,12 +381,12 @@ flowchart TD
 ### Workflow: Report Request to Download
 ```
 Admin fills New Report Request form →
-  POST /reports → status: queued →
+  POST /api/v1/reports → status: queued →
   Background job: generate report data →
   Status: processing →
   Export to PDF/CSV/XLSX →
   Status: completed, file stored →
-  Admin downloads via GET /reports/:id/download
+  Admin downloads via GET /api/v1/reports/:id/download (planned; not implemented in Spring in this repo)
 ```
 
 ---

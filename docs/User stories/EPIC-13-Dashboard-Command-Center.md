@@ -379,9 +379,9 @@ Data Quality Score,94.2%,2026-03-31T14:00:00Z
 ### Workflow: Morning Platform Health Check
 ```
 Admin logs in → Dashboard loads →
-  GET /dashboard/snapshot → KPI cards populate →
-  GET /dashboard/charts → API and quality charts render →
-  GET /batch-jobs?status=processing → Active pipelines shown →
+  GET /api/v1/dashboard/metrics (and charts) → KPI cards populate →
+  GET /api/v1/dashboard/charts → API and quality charts render →
+  GET /api/v1/batch-jobs?status=processing → Active pipelines shown →
   Admin spots 2 failed batches → Navigates to Monitoring (EPIC-09) →
   Investigates and resolves → Dashboard refreshed
 ```

@@ -4,7 +4,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { useQueries } from "@tanstack/react-query";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Button } from "@/components/ui/button";
@@ -37,6 +36,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Popover,
   PopoverContent,
@@ -66,14 +66,14 @@ import {
   useUpdateConsortium,
 } from "@/hooks/api/useConsortiums";
 import { useInstitutions } from "@/hooks/api/useInstitutions";
-import { useProducts } from "@/hooks/api/useProducts";
 import { useAuth } from "@/contexts/AuthContext";
-import { useSaveDataPolicy } from "@/hooks/api/useDataPolicy";
 import { inferPartialTemplate } from "@/data/data-policy-mock";
 import type { InstitutionResponse } from "@/services/institutions.service";
-import { fetchDataPolicy } from "@/services/dataPolicy.service";
-import type { DataPolicy, DataPolicyField, DataPolicyUnmaskType } from "@/types/data-policy";
+import { useMasterSchemaDetail, useMasterSchemasList } from "@/hooks/api/useMasterSchemas";
+import type { DataPolicyUnmaskType } from "@/types/data-policy";
 import type { CbsMemberCatalogEntry } from "@/services/consortiums.service";
+import type { MasterSchema, MasterSchemaField, MasterSchemaListItem, Masking } from "@/types/master-schema";
+import type { SourceType } from "@/types/schema-mapper";
 
 type CbsMemberRow = {
   rowKey: string;
@@ -161,21 +161,51 @@ export default function ConsortiumWizardPage() {
     [institutionsPage]
   );
 
-  // ── Data Policy module state (product-level) ──────────────────────────────
-  const { data: productsPage, isLoading: productsLoading } = useProducts({ status: "active", page: 0, size: 200 });
-  const activeProducts = useMemo(() => {
-    const rows = productsPage?.content ?? [];
-    return rows.filter((p) => String(p.status ?? "").toLowerCase() === "active");
-  }, [productsPage]);
-  const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
-  const selectedProductIdSet = useMemo(() => new Set(selectedProductIds), [selectedProductIds]);
-  const [activeDrawerProductId, setActiveDrawerProductId] = useState<string | null>(null);
+  // ── Data Policy module state (source-type, driven by Master Schema) ───────
+  type SourceTypePolicyField = {
+    fieldName: string;
+    /** Master schema masking classification for the field. */
+    masking: Masking;
+    /** UI metadata for display in the drawer. */
+    dataType?: string;
+    /** Whether this field is considered masked (drives inclusion). */
+    isMasked: boolean;
+    /** Whether consortium allows unmasking this field. */
+    isUnmasked: boolean;
+    /** Consortium-selected unmask type (FULL|PARTIAL) when enabled. */
+    unmaskType: DataPolicyUnmaskType | null;
+  };
 
-  const institutionId = String(user?.institutionId ?? "HCB");
-  const { mutate: savePolicy, isPending: savingPolicy } = useSaveDataPolicy();
+  type SourceTypePolicyDraft = {
+    sourceType: SourceType;
+    masterSchemaId: string;
+    masterSchemaVersion: string;
+    fields: SourceTypePolicyField[];
+  };
+
+  const masterSchemaListParams = useMemo(
+    () => ({ search: "", sourceType: "all" as const, status: "active" as const, page: 0, size: 500 }),
+    []
+  );
+  const { data: masterSchemasPage, isLoading: masterSchemasLoading } = useMasterSchemasList(masterSchemaListParams, {
+    allowMockFallback: true,
+    enabled: true,
+  });
+  const masterSchemaRows: MasterSchemaListItem[] = (masterSchemasPage?.content ?? []) as unknown as MasterSchemaListItem[];
+
+  const activeMasterSchemaRow = useMemo(() => {
+    if (!activeDrawerSourceType) return null;
+    return masterSchemaRows.find((r) => r.sourceType === activeDrawerSourceType) ?? null;
+  }, [activeDrawerSourceType, masterSchemaRows]);
+
+  const { data: activeMasterSchema, isLoading: activeMasterSchemaLoading } = useMasterSchemaDetail(activeMasterSchemaRow?.id, {
+    allowMockFallback: true,
+    enabled: Boolean(activeMasterSchemaRow?.id),
+  });
+
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [draftByProductId, setDraftByProductId] = useState<Record<string, DataPolicy>>({});
-  const [dirtyDraftProductIds, setDirtyDraftProductIds] = useState<Set<string>>(new Set());
+  const [activeDrawerSourceType, setActiveDrawerSourceType] = useState<SourceType | null>(null);
+  const [draftBySourceType, setDraftBySourceType] = useState<Record<string, SourceTypePolicyDraft>>({});
   const [focusFieldName, setFocusFieldName] = useState<string | null>(null);
   const [consortiumUnmaskPolicy, setConsortiumUnmaskPolicy] = useState<DataPolicyUnmaskType>("FULL");
 
@@ -231,41 +261,6 @@ export default function ConsortiumWizardPage() {
       }))
     );
   }, [editId, existingCbsMembers]);
-
-  const policyQueries = useQueries({
-    queries: selectedProductIds.map((productId) => ({
-      queryKey: ["data-policy", institutionId, productId] as const,
-      queryFn: () => fetchDataPolicy({ institutionId, productId }),
-      staleTime: 30_000,
-      enabled: Boolean(institutionId) && Boolean(productId),
-    })),
-  });
-
-  const policyByProductId = useMemo(() => {
-    const map: Record<string, DataPolicy | undefined> = {};
-    for (let i = 0; i < selectedProductIds.length; i += 1) {
-      const pid = selectedProductIds[i];
-      map[pid] = policyQueries[i]?.data;
-    }
-    return map;
-  }, [policyQueries, selectedProductIds]);
-
-  // Seed drafts from fetched policies (only when not dirty).
-  useEffect(() => {
-    setDraftByProductId((prev) => {
-      let next = prev;
-      for (const pid of selectedProductIds) {
-        const fetched = policyByProductId[pid];
-        if (!fetched) continue;
-        if (dirtyDraftProductIds.has(pid)) continue;
-        const existing = prev[pid];
-        if (existing) continue;
-        if (next === prev) next = { ...prev };
-        next[pid] = JSON.parse(JSON.stringify(fetched)) as DataPolicy;
-      }
-      return next;
-    });
-  }, [policyByProductId, selectedProductIds, dirtyDraftProductIds]);
 
   useEffect(() => {
     if (!drawerOpen || !focusFieldName) return;
@@ -334,105 +329,94 @@ export default function ConsortiumWizardPage() {
     setCbsMembers((prev) => prev.filter((r) => r.rowKey !== rowKey));
   };
 
-  const activeDrawerProduct = useMemo(() => {
-    if (!activeDrawerProductId) return undefined;
-    return activeProducts.find((p) => String(p.id) === String(activeDrawerProductId));
-  }, [activeDrawerProductId, activeProducts]);
+  const activePolicyDraft: SourceTypePolicyDraft | null = useMemo(() => {
+    if (!activeDrawerSourceType) return null;
+    return draftBySourceType[activeDrawerSourceType] ?? null;
+  }, [activeDrawerSourceType, draftBySourceType]);
 
-  const activePolicyDraft: DataPolicy | null = useMemo(() => {
-    if (!activeDrawerProductId) return null;
-    return draftByProductId[activeDrawerProductId] ?? null;
-  }, [activeDrawerProductId, draftByProductId]);
-
-  const activePolicyEffective: DataPolicy | null = useMemo(() => {
-    if (!activeDrawerProductId) return null;
-    return activePolicyDraft ?? policyByProductId[activeDrawerProductId] ?? null;
-  }, [activeDrawerProductId, activePolicyDraft, policyByProductId]);
-
-  const maskedFieldsForActiveDrawer: DataPolicyField[] = useMemo(() => {
-    const list = activePolicyEffective?.fields ?? [];
+  const maskedFieldsForActiveDrawer: SourceTypePolicyField[] = useMemo(() => {
+    const list = activePolicyDraft?.fields ?? [];
     return list.filter((f) => Boolean(f.isMasked));
-  }, [activePolicyEffective?.fields]);
+  }, [activePolicyDraft?.fields]);
 
-  // Ensure a draft exists when opening Configure (so edits are always possible).
-  useEffect(() => {
-    if (!drawerOpen || !activeDrawerProductId) return;
-    setDraftByProductId((prev) => {
-      if (prev[activeDrawerProductId]) return prev;
-      const fetched = policyByProductId[activeDrawerProductId];
-      if (!fetched) return prev;
-      return { ...prev, [activeDrawerProductId]: JSON.parse(JSON.stringify(fetched)) as DataPolicy };
-    });
-  }, [drawerOpen, activeDrawerProductId, policyByProductId]);
+  const buildDefaultDraftFromSchema = useCallback(
+    (schema: MasterSchema): SourceTypePolicyDraft => {
+      const masked = (schema.fields ?? []).filter((f) => f.masking !== "none");
+      const schemaFields: SourceTypePolicyField[] = masked.map((f: MasterSchemaField) => ({
+        fieldName: f.name,
+        masking: f.masking,
+        dataType: f.dataType,
+        isMasked: true,
+        isUnmasked: false,
+        unmaskType: null,
+      }));
 
-  const updateField = useCallback(
-    (productId: string, fieldName: string, patch: Partial<DataPolicyField>) => {
-      setDraftByProductId((prev) => {
-        const dp = prev[productId];
-        if (!dp) return prev;
-        const nextFields = dp.fields.map((f) =>
-          f.fieldName === fieldName ? ({ ...f, ...patch } as DataPolicyField) : f
-        );
-        return { ...prev, [productId]: { ...dp, fields: nextFields } };
-      });
-      setDirtyDraftProductIds((prev) => {
-        const next = new Set(prev);
-        next.add(productId);
-        return next;
-      });
+      // Always include Data provider name by default.
+      const dataProviderField: SourceTypePolicyField = {
+        fieldName: "data_provider_name",
+        masking: "partial",
+        dataType: "string",
+        isMasked: true,
+        isUnmasked: false,
+        unmaskType: null,
+      };
+
+      return {
+        sourceType: schema.sourceType,
+        masterSchemaId: schema.id,
+        masterSchemaVersion: schema.version,
+        fields: [dataProviderField, ...schemaFields],
+      };
     },
     []
   );
 
-  const canSelectPartial = useCallback((fieldName: string) => {
-    return inferPartialTemplate(fieldName) != null;
+  // Ensure a draft exists when opening Configure (so edits are always possible).
+  useEffect(() => {
+    if (!drawerOpen || !activeDrawerSourceType) return;
+    if (!activeMasterSchema) return;
+    setDraftBySourceType((prev) => {
+      if (prev[activeDrawerSourceType]) return prev;
+      return { ...prev, [activeDrawerSourceType]: buildDefaultDraftFromSchema(activeMasterSchema) };
+    });
+  }, [activeDrawerSourceType, activeMasterSchema, buildDefaultDraftFromSchema, drawerOpen]);
+
+  const updateField = useCallback((sourceType: SourceType, fieldName: string, patch: Partial<SourceTypePolicyField>) => {
+    setDraftBySourceType((prev) => {
+      const dp = prev[sourceType];
+      if (!dp) return prev;
+      const nextFields = dp.fields.map((f) => (f.fieldName === fieldName ? { ...f, ...patch } : f));
+      return { ...prev, [sourceType]: { ...dp, fields: nextFields } };
+    });
   }, []);
 
   // Apply consortium-level unmask policy to existing checked fields.
   useEffect(() => {
-    setDraftByProductId((prev) => {
+    setDraftBySourceType((prev) => {
       let next = prev;
-      for (const pid of selectedProductIds) {
-        const dp = prev[pid];
-        if (!dp) continue;
+      for (const [st, dp] of Object.entries(prev)) {
         const updatedFields = dp.fields.map((f) => {
           if (!f.isMasked || !f.isUnmasked) return f;
-          const partialTpl = inferPartialTemplate(f.fieldName);
-          const canPartial = partialTpl != null;
-
+          const canPartial = inferPartialTemplate(f.fieldName) != null;
           const desired: DataPolicyUnmaskType = consortiumUnmaskPolicy;
-
           if (desired === "PARTIAL" && !canPartial) {
             // Can't honor PARTIAL for this field; leave as-is rather than silently breaking.
             return f;
           }
-
-          const nextUnmaskType = desired;
-          const nextPartialConfig = nextUnmaskType === "PARTIAL" ? partialTpl ?? f.partialConfig : undefined;
-          if (f.unmaskType === nextUnmaskType && (nextUnmaskType !== "PARTIAL" || f.partialConfig === nextPartialConfig)) {
-            return f;
-          }
-          return { ...f, unmaskType: nextUnmaskType, partialConfig: nextPartialConfig };
+          if (f.unmaskType === desired) return f;
+          return { ...f, unmaskType: desired };
         });
-
-        // Only write if something changed.
         const changed = updatedFields.some((f, idx) => f !== dp.fields[idx]);
         if (!changed) continue;
         if (next === prev) next = { ...prev };
-        next[pid] = { ...dp, fields: updatedFields };
+        next[st] = { ...dp, fields: updatedFields };
       }
-      return next;
-    });
-    // Mark selected product drafts as dirty if we changed their checked fields.
-    setDirtyDraftProductIds((prev) => {
-      const next = new Set(prev);
-      for (const pid of selectedProductIds) next.add(pid);
       return next;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [consortiumUnmaskPolicy]);
 
-  const validatePolicyBeforeSave = useCallback((policy: DataPolicy) => {
+  const validatePolicyBeforeSave = useCallback((policy: SourceTypePolicyDraft) => {
     const fields = (policy.fields ?? []).filter((f) => Boolean(f.isMasked));
     const maskedRemain = fields.some((f) => f.isUnmasked !== true);
     if (!maskedRemain) return "At least 1 field must remain masked";
@@ -440,12 +424,24 @@ export default function ConsortiumWizardPage() {
     for (const f of fields) {
       if (!f.isUnmasked) continue;
       if (f.unmaskType === "PARTIAL") {
-        const tpl = inferPartialTemplate(f.fieldName);
-        if (!tpl) return `Partial masking template not available for ${f.fieldName}`;
+        const ok = inferPartialTemplate(f.fieldName) != null;
+        if (!ok) return `Partial masking template not available for ${f.fieldName}`;
       }
     }
     return null;
   }, []);
+
+  const policySummaries = useMemo(() => {
+    const rows: { sourceType: SourceType; label: string; maskedCount: number; unmaskAllowedCount: number }[] = [];
+    for (const dp of Object.values(draftBySourceType)) {
+      const masked = (dp.fields ?? []).filter((f) => f.isMasked).length;
+      const allowed = (dp.fields ?? []).filter((f) => f.isMasked && f.isUnmasked).length;
+      const label = masterSchemaRows.find((r) => r.sourceType === dp.sourceType)?.name ?? dp.sourceType;
+      rows.push({ sourceType: dp.sourceType, label, maskedCount: masked, unmaskAllowedCount: allowed });
+    }
+    rows.sort((a, b) => a.label.localeCompare(b.label));
+    return rows;
+  }, [draftBySourceType, masterSchemaRows]);
 
   const handleNext = async () => {
     if (currentStep === 0) {
@@ -925,94 +921,73 @@ export default function ConsortiumWizardPage() {
 
             <Card className="border-0 shadow-none">
               <CardHeader className="px-0 pb-3">
-                <CardTitle className="text-h4 font-medium">Products</CardTitle>
+                <CardTitle className="text-h4 font-medium">Data sources</CardTitle>
                 <p className="text-caption text-muted-foreground mt-0.5">
-                  Select one or more <span className="font-medium text-foreground">active</span> products, then click{" "}
-                  <span className="font-medium text-foreground">Configure</span> to manage masked fields.
+                  Select a source type, then click <span className="font-medium text-foreground">Configure</span> to manage masked fields
+                  from the master schema definition.
                 </p>
               </CardHeader>
               <CardContent className="px-0 space-y-4">
-                {productsLoading ? (
+                {masterSchemasLoading ? (
                   <div className="rounded-xl border border-border bg-muted/20 p-6 text-sm text-muted-foreground">
-                    Loading products…
+                    Loading source types…
                   </div>
-                ) : activeProducts.length === 0 ? (
+                ) : masterSchemaRows.length === 0 ? (
                   <div className="rounded-xl border border-border bg-muted/20 p-6 text-sm text-muted-foreground">
-                    No active products found.
+                    No active master schemas found.
                   </div>
                 ) : (
-                  <ul className="space-y-1.5">
-                    {activeProducts.map((p) => {
-                      const pid = String(p.id);
-                      const selected = selectedProductIdSet.has(pid);
-                      const pol = draftByProductId[pid] ?? policyByProductId[pid];
-                      const maskedCount = (pol?.fields ?? []).filter((f) => Boolean(f.isMasked)).length;
-                      const queryIdx = selectedProductIds.indexOf(pid);
-                      const isPolicyLoading = selected && queryIdx >= 0 ? Boolean(policyQueries[queryIdx]?.isLoading) : false;
-                      const isPolicyError =
-                        selected &&
-                        queryIdx >= 0 &&
-                        Boolean(policyQueries[queryIdx]?.isError) &&
-                        pol == null;
-                      const chkId = `dp-prod-${pid}`;
-                      return (
-                        <li
-                          key={pid}
-                          className={cn(
-                            "flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors",
-                            selected
-                              ? "border-primary/30 bg-primary/5"
-                              : "border-border/80 bg-transparent hover:bg-muted/30"
-                          )}
-                        >
-                          <Checkbox
-                            id={chkId}
-                            checked={selected}
-                            onCheckedChange={() => {
-                              setSelectedProductIds((prev) =>
-                                prev.includes(pid) ? prev.filter((x) => x !== pid) : [...prev, pid]
-                              );
-                            }}
-                            className="shrink-0"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <label
-                              htmlFor={chkId}
-                              className="text-[11px] text-muted-foreground cursor-pointer leading-tight block"
-                            >
-                              {p.name}
-                            </label>
-                            {selected ? (
-                              <p className="text-caption text-muted-foreground mt-0.5">
-                                Masked fields:{" "}
-                                <span className="font-mono text-[10px]">
-                                  {isPolicyLoading ? "…" : isPolicyError ? "—" : maskedCount}
-                                </span>
-                              </p>
-                            ) : null}
-                          </div>
-
-                          {selected ? (
-                            <div className="flex shrink-0 items-center min-w-[7rem]">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 gap-1.5 px-2 justify-start text-caption leading-snug overflow-visible"
-                                onClick={() => {
-                                  setActiveDrawerProductId(pid);
-                                  setDrawerOpen(true);
-                                  setFocusFieldName(null);
-                                }}
-                              >
-                                <span className="min-w-0">Configure</span>
-                              </Button>
-                            </div>
-                          ) : null}
-                        </li>
-                      );
-                    })}
-                  </ul>
+                  <div className="bg-card rounded-xl border border-border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className={cn(tableHeaderClasses, "min-w-[220px]")}>Source type name</TableHead>
+                          <TableHead className={cn(tableHeaderClasses, "min-w-[80px] text-center")}>Version</TableHead>
+                          <TableHead className={cn(tableHeaderClasses, "min-w-[140px] text-center")}># fields</TableHead>
+                          <TableHead className={cn(tableHeaderClasses, "min-w-[140px] text-center")}># masked</TableHead>
+                          <TableHead className={cn(tableHeaderClasses, "min-w-[140px] text-center")}>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {masterSchemaRows.map((r) => {
+                          const draft = draftBySourceType[r.sourceType];
+                          const maskedInSchema = (draft?.fields ?? []).filter((f) => f.isMasked).length;
+                          return (
+                            <TableRow key={r.id} className="group">
+                              <TableCell>
+                                <div className="min-w-0">
+                                  <p className="text-body font-medium text-foreground truncate">{r.name}</p>
+                                  <p className="text-[9px] leading-[12px] text-muted-foreground">ID: {r.id}</p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center text-body font-medium tabular-nums text-foreground">
+                                {r.version}
+                              </TableCell>
+                              <TableCell className="text-center text-body tabular-nums text-foreground">{r.fieldCount}</TableCell>
+                              <TableCell className="text-center text-body tabular-nums text-foreground">
+                                {draft ? maskedInSchema : "—"}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-border"
+                                  onClick={() => {
+                                    setActiveDrawerSourceType(r.sourceType);
+                                    setDrawerOpen(true);
+                                    setFocusFieldName(null);
+                                  }}
+                                >
+                                  Configure
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -1022,7 +997,7 @@ export default function ConsortiumWizardPage() {
               onOpenChange={(open) => {
                 setDrawerOpen(open);
                 if (!open) {
-                  setActiveDrawerProductId(null);
+                  setActiveDrawerSourceType(null);
                   setFocusFieldName(null);
                 }
               }}
@@ -1030,7 +1005,7 @@ export default function ConsortiumWizardPage() {
               <SheetContent side="right" className="w-full sm:max-w-2xl">
                 <SheetHeader>
                   <SheetTitle>
-                    Configure Data Policy – {activeDrawerProduct?.name ?? "Product"}
+                    Configure masked fields – {activeMasterSchema?.name ?? "Source type"}
                   </SheetTitle>
                   <SheetDescription>
                     Choose which masked fields can be unmasked. Unmask policy is configured at the consortium level.
@@ -1038,69 +1013,85 @@ export default function ConsortiumWizardPage() {
                 </SheetHeader>
 
                 <div className="mt-6 space-y-4">
-                  {!activeDrawerProductId || !activePolicyEffective ? (
+                  {!activeDrawerSourceType || activeMasterSchemaLoading || !activePolicyDraft ? (
                     <div className="rounded-xl border border-border bg-muted/20 p-6 text-sm text-muted-foreground">
-                      Select a product and click Configure.
+                      {activeMasterSchemaLoading ? "Loading schema…" : "Select a source type and click Configure."}
                     </div>
                   ) : (
                     <>
                       <div className="rounded-xl border border-border bg-card overflow-hidden">
-                        <div className="grid grid-cols-[1fr_90px] gap-4 px-4 py-3 border-b border-border bg-muted/60">
-                          <span className={cn(tableHeaderClasses)}>Field</span>
-                          <span className={cn(tableHeaderClasses)}>Type</span>
+                        <div className="px-4 py-3 border-b border-border bg-muted/60">
+                          <Table>
+                            <TableHeader>
+                              <TableRow className="hover:bg-transparent">
+                                <TableHead className={cn(tableHeaderClasses, "min-w-[240px]")}>Field</TableHead>
+                                <TableHead className={cn(tableHeaderClasses, "min-w-[90px] text-center")}>Masking</TableHead>
+                                <TableHead className={cn(tableHeaderClasses, "min-w-[140px] text-center")}>Allow unmask</TableHead>
+                                <TableHead className={cn(tableHeaderClasses, "min-w-[110px] text-center")}>Unmask type</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                          </Table>
                         </div>
 
                         <ScrollArea className="h-[55vh]">
-                          <div className="divide-y divide-border">
-                            {maskedFieldsForActiveDrawer.length === 0 ? (
-                              <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-                                No masked fields found for this product.
-                              </div>
-                            ) : maskedFieldsForActiveDrawer.map((f) => {
-                              const partialTpl = inferPartialTemplate(f.fieldName);
-                              const canPartial = partialTpl != null;
-                              const rowId = `dp-field-${encodeURIComponent(f.fieldName)}`;
-                              return (
-                                <div
-                                  key={f.fieldName}
-                                  id={rowId}
-                                  className={cn("px-4 py-3", focusFieldName === f.fieldName && "bg-primary/5")}
-                                >
-                                  <div className="grid grid-cols-[1fr_90px] gap-4 items-start">
-                                    <div className="flex items-start gap-3">
-                                      <Checkbox
-                                        checked={Boolean(f.isUnmasked)}
-                                        onCheckedChange={(v) => {
-                                          const checked = Boolean(v);
-                                          if (!checked) {
-                                            updateField(activeDrawerProductId, f.fieldName, { isUnmasked: false, unmaskType: null, partialConfig: undefined });
-                                            return;
-                                          }
-                                          const desired: DataPolicyUnmaskType = consortiumUnmaskPolicy;
-                                          if (desired === "PARTIAL" && !canPartial) {
-                                            toast.error("Partial masking template not available for this field");
-                                            return;
-                                          }
-                                          updateField(activeDrawerProductId, f.fieldName, {
-                                            isUnmasked: true,
-                                            unmaskType: desired,
-                                            partialConfig: desired === "PARTIAL" ? partialTpl : undefined,
-                                          });
-                                        }}
-                                      />
-                                      <div className="min-w-0">
-                                        <p className="text-body font-medium text-foreground truncate">{f.fieldName}</p>
-                                        <p className="text-caption text-muted-foreground">
-                                          Masked · {f.dataType ?? "—"}
-                                        </p>
-                                      </div>
-                                    </div>
-                                    <div className="text-body text-foreground pt-0.5">{f.dataType ?? "—"}</div>
-                                  </div>
-                                </div>
-                              );
-                            })}
-                          </div>
+                          <Table>
+                            <TableBody>
+                              {maskedFieldsForActiveDrawer.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={4} className="h-28 text-center text-sm text-muted-foreground">
+                                    No masked fields found for this source type.
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                maskedFieldsForActiveDrawer.map((f) => {
+                                  const canPartial = inferPartialTemplate(f.fieldName) != null;
+                                  const rowId = `dp-field-${encodeURIComponent(f.fieldName)}`;
+                                  const desired: DataPolicyUnmaskType = consortiumUnmaskPolicy;
+                                  const unmaskTypeLabel = f.isUnmasked ? desired : "—";
+                                  return (
+                                    <TableRow
+                                      key={f.fieldName}
+                                      id={rowId}
+                                      className={cn(focusFieldName === f.fieldName && "bg-primary/5")}
+                                    >
+                                      <TableCell className="text-body font-medium text-foreground">
+                                        <div className="min-w-0">
+                                          <p className="truncate">{f.fieldName}</p>
+                                          <p className="text-caption text-muted-foreground">
+                                            {f.dataType ?? "—"}
+                                            {desired === "PARTIAL" && !canPartial ? " · Partial not available" : ""}
+                                          </p>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-center text-body text-foreground capitalize">
+                                        {f.masking}
+                                      </TableCell>
+                                      <TableCell className="text-center">
+                                        <Checkbox
+                                          aria-label={`Allow unmask for ${f.fieldName}`}
+                                          checked={Boolean(f.isUnmasked)}
+                                          onCheckedChange={(v) => {
+                                            const checked = Boolean(v);
+                                            if (!activeDrawerSourceType) return;
+                                            if (!checked) {
+                                              updateField(activeDrawerSourceType, f.fieldName, { isUnmasked: false, unmaskType: null });
+                                              return;
+                                            }
+                                            if (desired === "PARTIAL" && !canPartial) {
+                                              toast.error("Partial masking template not available for this field");
+                                              return;
+                                            }
+                                            updateField(activeDrawerSourceType, f.fieldName, { isUnmasked: true, unmaskType: desired });
+                                          }}
+                                        />
+                                      </TableCell>
+                                      <TableCell className="text-center text-body text-foreground">{unmaskTypeLabel}</TableCell>
+                                    </TableRow>
+                                  );
+                                })
+                              )}
+                            </TableBody>
+                          </Table>
                         </ScrollArea>
                       </div>
 
@@ -1111,43 +1102,17 @@ export default function ConsortiumWizardPage() {
                         <Button
                           type="button"
                           className="flex-1"
-                          disabled={savingPolicy}
                           onClick={() => {
-                            const draft = activePolicyDraft ?? activePolicyEffective;
-                            if (!draft) return;
-                            const err = validatePolicyBeforeSave(draft);
+                            if (!activePolicyDraft) return;
+                            const err = validatePolicyBeforeSave(activePolicyDraft);
                             if (err) {
                               toast.error(err);
                               return;
                             }
-                            const payload: DataPolicy = {
-                              ...draft,
-                              institutionId,
-                              productId: activeDrawerProductId,
-                              // Strip any legacy sensitivity metadata that might still exist in stored JSON.
-                              fields: (draft.fields ?? []).map((f) => {
-                                const { sensitivityTag: _s, ...rest } = f as DataPolicyField & { sensitivityTag?: unknown };
-                                return {
-                                  ...rest,
-                                  isUnmasked: rest.isUnmasked === true,
-                                };
-                              }),
-                              updatedBy: user?.email ?? "system",
-                              updatedAt: new Date().toISOString(),
-                            };
-                            savePolicy(payload, {
-                              onSuccess: () => {
-                                setDrawerOpen(false);
-                                setDirtyDraftProductIds((prev) => {
-                                  const next = new Set(prev);
-                                  next.delete(activeDrawerProductId);
-                                  return next;
-                                });
-                              },
-                            });
+                            setDrawerOpen(false);
                           }}
                         >
-                          {savingPolicy ? "Saving…" : "Save"}
+                          Save
                         </Button>
                       </div>
                     </>
@@ -1172,6 +1137,30 @@ export default function ConsortiumWizardPage() {
               {watchedDescription ? (
                 <p className="text-caption text-muted-foreground">{watchedDescription}</p>
               ) : null}
+              <div className="space-y-2">
+                <p className="text-caption text-muted-foreground uppercase tracking-wider">Data policy (masked fields)</p>
+                {policySummaries.length === 0 ? (
+                  <p className="text-caption text-muted-foreground">No source types configured yet.</p>
+                ) : (
+                  <ul className="space-y-2 list-none m-0 p-0">
+                    {policySummaries.map((s) => (
+                      <li
+                        key={s.sourceType}
+                        className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+                      >
+                        <span className="text-[10px] font-medium leading-[14px] text-foreground block truncate">
+                          {s.label}
+                        </span>
+                        <span className="text-caption text-muted-foreground block mt-0.5">
+                          Masked fields:{" "}
+                          <span className="font-mono text-[10px]">{s.maskedCount}</span> · Allow unmask:{" "}
+                          <span className="font-mono text-[10px]">{s.unmaskAllowedCount}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               <div className="space-y-2">
                 <p className="text-caption text-muted-foreground uppercase tracking-wider">Members</p>
                 <ul className="space-y-2 list-none m-0 p-0">

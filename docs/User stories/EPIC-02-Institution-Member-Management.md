@@ -21,7 +21,7 @@ Institution Management is the foundational module of the HCB platform. It govern
 - Sub-tab detail views give bureau admins a 360-degree view of each member
 
 ### Key Capabilities
-1. Multi-step registration wizard driven by `GET /institutions/form-metadata?geography=`
+1. Multi-step registration wizard driven by `GET /api/v1/institutions/form-metadata?geography=`
 2. Compliance document upload (per `requiredComplianceDocuments` config)
 3. Institution list with search, sort, filter, and pagination
 4. Detail page with 9 sub-tabs: Overview, Monitoring, API Access, Consent, Products, Consortiums, Users, Audit Trail, Billing
@@ -34,7 +34,7 @@ Institution Management is the foundational module of the HCB platform. It govern
 
 ### In Scope
 - Institution CRUD (create via wizard, read, update lifecycle status)
-- Geography-driven form metadata from `GET /institutions/form-metadata`
+- Geography-driven form metadata from `GET /api/v1/institutions/form-metadata`
 - Compliance document upload and verification
 - Institution list page with filters (status, type, role, jurisdiction, search)
 - Institution detail page and all sub-tabs
@@ -47,7 +47,7 @@ Institution Management is the foundational module of the HCB platform. It govern
 - Monitoring summary sub-tab
 - Audit trail sub-tab
 - Billing sub-tab (partial stub)
-- Approval queue enqueue on `POST /institutions` (type: `institution`)
+- Approval queue enqueue on `POST /api/v1/institutions` (type: `institution`)
 
 ### Out of Scope
 - Third-party KYC/KYB verification (regulatory check is manual)
@@ -249,7 +249,7 @@ Registering a new institution is the entry point for all member activity. The re
 | Status | Description | Trigger | Next States |
 |--------|-------------|---------|-------------|
 | `draft` | Created but not submitted | Default on creation | `pending` |
-| `pending` | Submitted, awaiting approval | POST /institutions submit | `active`, `rejected` (via approval queue) |
+| `pending` | Submitted, awaiting approval | POST /api/v1/institutions submit | `active`, `rejected` (via approval queue) |
 | `active` | Approved and operational | Approval queue approve action | `suspended`, `deactivated` |
 | `suspended` | Temporarily blocked | Admin suspend action | `active`, `deactivated` |
 | `deactivated` | Permanently disabled | Admin deactivate action | Terminal |
@@ -359,7 +359,7 @@ VALUES ('institution', '6', 'First National Bank', 1, 'pending');
 
 ```mermaid
 flowchart TD
-    A[Admin opens Register Wizard] --> B[GET /institutions/form-metadata]
+    A[Admin opens Register Wizard] --> B[GET /api/v1/institutions/form-metadata]
     B --> C[Render Step 1 form fields]
     C --> D{Step 1 valid?}
     D -->|No| E[Show field errors]
@@ -391,7 +391,7 @@ sequenceDiagram
     participant DB as SQLite
 
     A->>FE: Navigate to /institutions/register
-    FE->>API: GET /institutions/form-metadata?geography=KE
+    FE->>API: GET /api/v1/institutions/form-metadata?geography=KE
     API-->>FE: {registerForm, institutionTypes, activeConsortiums, requiredComplianceDocuments}
     A->>FE: Fill Step 1 fields
     A->>FE: Click Next (Steps 2, 3)
@@ -441,7 +441,7 @@ sequenceDiagram
 
 #### 18. Definition of Done
 - [ ] Wizard renders correct fields for selected geography
-- [ ] POST /institutions creates institution with `pending` status
+- [ ] POST /api/v1/institutions creates institution with `pending` status
 - [ ] Approval queue item created on registration
 - [ ] Redirect to /institutions on success
 - [ ] Duplicate registration number returns 409
@@ -452,7 +452,7 @@ sequenceDiagram
 ### INST-US-002 — Geography-Driven Form Configuration
 
 #### 1. Business Context
-Different jurisdictions have different regulatory fields. The form configuration is served dynamically from `GET /institutions/form-metadata?geography=<id>` rather than being hard-coded in the SPA. This allows the bureau to support multiple geographies without SPA changes.
+Different jurisdictions have different regulatory fields. The form configuration is served dynamically from `GET /api/v1/institutions/form-metadata?geography=<id>` rather than being hard-coded in the SPA. This allows the bureau to support multiple geographies without SPA changes.
 
 #### 2. Description
 > As a bureau administrator,
@@ -887,7 +887,7 @@ Returns: recent API request counts, batch job summary, success rates, last activ
 ### Workflow 1: Full Onboarding
 ```
 Admin registers institution (wizard) →
-  POST /institutions → status: pending →
+  POST /api/v1/institutions → status: pending →
   Approval queue item created →
   Bureau admin approves →
     status: active →

@@ -23,7 +23,7 @@ Provide a secure, role-aware authentication and session management layer for all
 3. Secure logout with refresh token revocation
 4. Current user profile retrieval (`/me`) for personalization
 5. Role-based page and API access gating (SUPER_ADMIN, BUREAU_ADMIN, ANALYST, VIEWER, API_USER)
-6. Optional Cloudflare Turnstile on the credential step (`captchaToken` on `POST /auth/login` when enabled server-side)
+6. Optional Cloudflare Turnstile on the credential step (`captchaToken` on `POST /api/v1/auth/login` when enabled server-side)
 7. Email OTP MFA after successful password for users with `mfa_enabled=1` (`mfa_login_challenges`, verify/resend endpoints)
 
 ---
@@ -355,7 +355,7 @@ flowchart TD
     Mfa -->|Yes| M1[Create MFA challenge]
     M1 --> M2[200 mfaRequired + challengeId]
     M2 --> M3[User enters OTP]
-    M3 --> M4[POST /auth/mfa/verify]
+    M3 --> M4[POST /api/v1/auth/mfa/verify]
     M4 --> M5{OTP valid?}
     M5 -->|No| M6[401 ERR_MFA_INVALID]
     M5 -->|Yes| I[Load roles]
@@ -549,7 +549,7 @@ Access tokens have a 15-minute TTL to limit the blast radius of a compromised to
 flowchart TD
     A[API call returns 401] --> B{Refresh in progress?}
     B -->|Yes| C[Queue this request]
-    B -->|No| D[Call POST /auth/refresh]
+    B -->|No| D[Call POST /api/v1/auth/refresh]
     D --> E{Refresh success?}
     E -->|Yes| F[Update access token in memory]
     F --> G[Retry queued requests with new token]
@@ -675,7 +675,7 @@ Different user roles have different levels of access. The portal must enforce bo
 ```gherkin
   Scenario: VIEWER tries to access admin-only feature
     Given I am logged in with VIEWER role
-    When I attempt to call a mutation endpoint (e.g. POST /institutions)
+    When I attempt to call a mutation endpoint (e.g. POST /api/v1/institutions)
     Then the API returns 403 Forbidden
     And the UI hides mutation controls from me
 
@@ -756,10 +756,10 @@ Different user roles have different levels of access. The portal must enforce bo
 ### Workflow 1: Full Login → Session → Logout
 ```
 Open portal → Redirect to /login
-→ Enter credentials (+ Turnstile if configured) → POST /login
-→ If mfaRequired: OTP step → POST /auth/mfa/verify (optional POST /auth/mfa/resend after cooldown)
+→ Enter credentials (+ Turnstile if configured) → POST /api/v1/auth/login
+→ If mfaRequired: OTP step → POST /api/v1/auth/mfa/verify (optional POST /api/v1/auth/mfa/resend after cooldown)
 → Receive JWT pair → Store tokens
-→ GET /auth/me → Populate AuthContext
+→ GET /api/v1/auth/me → Populate AuthContext
 → Access protected pages (token refreshed silently as needed)
 → Click Logout → POST /logout → Tokens cleared → Back to /login
 ```

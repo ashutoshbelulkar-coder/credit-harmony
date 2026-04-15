@@ -25,7 +25,7 @@
 
 ## Priority (API-first)
 
-1. **P0 — Done:** Monitoring layout KPI banners → `GET /monitoring/kpis` via `useMonitoringKpis`.
+1. **P0 — Done:** Monitoring layout KPI banners → `GET /api/v1/monitoring/kpis` via `useMonitoringKpis`.
 2. **P1:** Monitoring — **Data Submission Live Request** table filters use **`InstitutionFilterSelect`** + API (`DataSubmissionApiSection`); toolbar uses the same pattern. Remaining **`institutions-mock`** usage is mainly for display name resolution on rows until unified with query cache — resolution uses **`institutionDisplayLabel`** (legal **`name`** first, then **`tradingName`**), aligned with Spring dashboard labels.
 3. **P1:** Consortium wizard — keep mock for static option lists until `GET /config/consortiums` or similar exists.
 4. **P2:** `InstitutionList` — move `statusStyles` to a shared module or API-driven config. **`RegisterInstitution` institution types:** done — API **`form-metadata`** + seed `institutions.json` `institutionTypes`.

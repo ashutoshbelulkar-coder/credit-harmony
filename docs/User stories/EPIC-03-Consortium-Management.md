@@ -234,7 +234,7 @@ VALUES ('consortium', '3', 'East Africa Retail Credit Consortium', 'pending');
 flowchart TD
     A[Admin opens Create Consortium wizard] --> B[Fill Basic Info - Step 1]
     B --> C[Fill Governance - Step 2]
-    C --> D[GET /institutions?role=subscriber]
+    C --> D[GET /api/v1/institutions?role=subscriber]
     D --> E[Select Members - Step 3]
     E --> F[Review - Step 4]
     F --> G[Submit]
@@ -263,7 +263,7 @@ sequenceDiagram
 
     A->>FE: Navigate to /consortiums/create
     A->>FE: Fill Steps 1-4
-    FE->>API: GET /institutions?role=subscriber&size=200 (Step 3)
+    FE->>API: GET /api/v1/institutions?role=subscriber&size=200 (Step 3)
     API-->>FE: Subscriber institution list
     A->>FE: Select members, click Submit
     FE->>API: POST /api/v1/consortiums
@@ -309,7 +309,7 @@ sequenceDiagram
 | CONS-US-001-FTC-02 | POST with status:active | 201, status active, no approval queue item |
 | CONS-US-001-FTC-03 | Duplicate consortium_code | 409 |
 | CONS-US-001-FTC-04 | Missing required fields | 400 |
-| CONS-US-001-FTC-05 | Approval queue created | GET /approvals → new item with type consortium |
+| CONS-US-001-FTC-05 | Approval queue created | GET /api/v1/approvals → new item with type consortium |
 
 #### 12. Definition of Done
 - [ ] POST /consortiums creates consortium with pending status by default
