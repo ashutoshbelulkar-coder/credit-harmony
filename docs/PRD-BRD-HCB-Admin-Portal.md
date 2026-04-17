@@ -182,7 +182,7 @@ The Hybrid Credit Bureau (HCB) Admin Portal is a centralized enterprise administ
 
 ### 2.2 Business Context
 
-The HCB operates in the East African fintech ecosystem (Kenya, Uganda, Tanzania, Rwanda) as a hybrid credit bureau serving:
+The HCB operates in the fintech ecosystem as a alternate data serving:
 - **Data Submitters**: Institutions that submit credit data (loan accounts, repayment history)
 - **Subscribers**: Institutions that consume credit reports for lending decisions
 - **Dual-role Institutions**: Institutions that both submit and consume data
