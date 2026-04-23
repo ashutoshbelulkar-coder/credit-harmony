@@ -50,7 +50,7 @@ The Batch Pipeline is the bulk data ingestion pathway of the HCB credit bureau. 
 
 ### In Scope
 
-- `BatchJobController` — HTTP API for batch job management
+- `BatchJobController` - HTTP API for batch job administration (retry/cancel)
 - `SftpPollerService` — scheduled SFTP folder watcher (new)
 - `FileFormatDetectorService` — auto-detect CSV / JSON / fixed-width / XML (new)
 - `DailySimulationService` — demo batch simulation (for seed data)
