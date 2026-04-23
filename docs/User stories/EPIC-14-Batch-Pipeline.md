@@ -14,7 +14,6 @@
 
 The Batch Pipeline is the bulk data ingestion pathway of the HCB credit bureau. Member institutions submit credit data files in **any format** (CSV, JSON, fixed-width, XML) by placing them in a **designated SFTP folder** assigned to their institution. The platform **automatically picks up the file**, detects its format, resolves the institution's active schema mapping from the Schema Mapper registry, and processes every record through the full pipeline — Pre-Processing, Validation, Data Standardization, Identity Resolution, Data Load, and Post-Processing — without the member needing to conform to any bureau-defined structure.
 
-Files may also be submitted via multipart HTTP POST (secondary intake path). Both intake channels converge at the same internal pipeline after intake. **SFTP is the primary intake channel; HTTP is the secondary channel.**
 
 ### What "Schemaless Batch" Means Here
 
@@ -33,7 +32,6 @@ Files may also be submitted via multipart HTTP POST (secondary intake path). Bot
 ### Key Capabilities
 
 1. **SFTP file drop (primary)** — institution places file in `/sftp/institutions/{institution_id}/incoming/`
-2. **HTTP multipart upload (secondary)** — alternative intake via `POST /api/v1/batch-jobs`
 3. **Format auto-detection** — CSV, JSON (array or JSONL), fixed-width, XML
 4. **Schema detection** from `schema_mapper_registry` (institution + source type)
 5. **Per-record field validation** against `validation_rules` — L1 (field-level mandatory + format checks), with L2 cross-field validation after standardization
@@ -149,7 +147,6 @@ The pipeline follows a **Phase → Stage → Record** hierarchy:
 
 ```
 ┌─────────────────────────────┐     ┌─────────────────────────────┐
-│  SFTP INTAKE (Primary)      │     │  HTTP INTAKE (Secondary)    │
 │  SftpPollerService          │     │  POST /api/v1/batch-jobs    │
 │  (scheduled, every 30s)     │     │  (multipart/form-data)      │
 └──────────────┬──────────────┘     └──────────────┬──────────────┘
@@ -158,7 +155,6 @@ The pipeline follows a **Phase → Stage → Record** hierarchy:
         ┌──────────────────────────────────────────────────────────┐
         │   PHASE_01_PRE_PROCESSING                                │
         │   STG_01_01_BATCH_CREATION                               │
-        │   • Record batch_sftp_events or HTTP source              │
         │   • Create batch job (status: PENDING)                   │
         │   • Assign metadata (institution_id, filename, ts)       │
         │   STG_01_02_FILE_INTEGRITY                               │
@@ -488,8 +484,6 @@ CREATE INDEX idx_sftp_events_checksum ON batch_sftp_events(checksum_sha256, inst
 #### 6. Extended `batch_jobs` Table Columns (New)
 
 ```sql
-ALTER TABLE batch_jobs ADD COLUMN intake_channel TEXT DEFAULT 'HTTP';
--- HTTP | SFTP
 
 ALTER TABLE batch_jobs ADD COLUMN sftp_event_id INTEGER;
 -- FK to batch_sftp_events.id
@@ -1522,7 +1516,6 @@ CREATE INDEX idx_bts_batch_job ON batch_tracking_snapshots(batch_job_id);
 
 | Endpoint | Method | Auth | Description | Status |
 |----------|--------|------|-------------|--------|
-| `POST /api/v1/batch-jobs` | POST | API Key | Submit batch file via HTTP (202) | ✅ |
 | `GET /api/v1/batch-jobs` | GET | Bearer | List batch jobs with filters | ✅ |
 | `GET /api/v1/batch-jobs/kpis` | GET | Bearer | Batch KPI metrics (extended with SFTP) | ⚠️ Partial |
 | `GET /api/v1/batch-jobs/charts` | GET | Bearer | Batch charts (volume, success rate) | ✅ |
@@ -1696,7 +1689,6 @@ Institution accidentally drops same CSV twice
 
 | Phase | Stories | Description |
 |-------|---------|-------------|
-| Phase 1 | BATCH-US-001, 003, 004, 006, 007, 008, 009 | Implemented — HTTP intake (secondary channel), PHASE_02 validation, PHASE_03 standardization, PHASE_05 load, logging, retry/cancel |
 | Phase 2 | BATCH-US-010 | SFTP intake (primary channel): poller service, folder structure, `batch_sftp_events` table, PHASE_01_PRE_PROCESSING file lifecycle |
 | Phase 3 | BATCH-US-011 | Multi-format parsers (`STG_01_04_RECORD_PARSING`): JSON/JSONL (easy), XML (SAX), fixed-width (layout from registry) |
 | Phase 4 | BATCH-US-012 | Schema auto-detection (`STG_01_03_SCHEMA_LOOKUP`): filename hints, header matching (Jaccard), fallback |
