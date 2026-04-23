@@ -261,6 +261,10 @@ Phase: PHASE_06_POST_PROCESSING
   └── Stage: STG_06_03_NOTIFICATION_TRIGGER
 ```
 
+### Concurrency Management
+
+To prevent split-identity cluster generation during `PHASE_04_IDENTITY_RESOLUTION`, batch jobs for the same `institution_id` are executed strictly **serially**. The Job Scheduler will leave a job in `queued` status if another job from the same institution is currently in `processing` status.
+
 ---
 
 ## 6. Batch Console Data Model
@@ -404,7 +408,6 @@ When no `batch_phase_logs` exist (legacy job), the API returns legacy flat `stag
   "batchJobStatus": "queued",
   "institutionId": 1,
   "intakeChannel": "HTTP",
-  "totalRecords": 5000,
   "detectedFormat": "CSV",
   "correlationId": "BATCH-COR-2026-001",
   "submittedAt": "2026-03-31T10:00:00Z"
@@ -433,7 +436,7 @@ VALUES (
 - `is_data_submitter` must be `true` — `403 ERR_INSTITUTION_SUBMISSION_DISABLED` if not
 - `STG_01_02_FILE_INTEGRITY`: checksum verified if provided (`400 ERR_CHECKSUM_MISMATCH` on failure); file encoding and readability validated
 - `STG_01_03_SCHEMA_LOOKUP`: format auto-detected if not obvious from Content-Type; schema resolved from `schema_mapper_registry` — `QUARANTINE` if not found
-- `STG_01_04_RECORD_PARSING`: file parsed for row count to populate `total_records`
+- `STG_01_04_RECORD_PARSING`: executes asynchronously during `PHASE_01` along with the rest of the pipeline. The 202 Accepted response is returned immediately before parsing begins to avoid 504 Gateway Timeouts on large files.
 - `queued` status means file received; pipeline not yet started
 - File stored in temp dir during pipeline execution; not persisted after completion
 
@@ -808,8 +811,9 @@ ON CONFLICT(national_id_hash) DO UPDATE SET updated_at = CURRENT_TIMESTAMP;
 -- Insert tradeline
 INSERT INTO tradelines (consumer_id, account_number, facility_type,
   loan_amount, outstanding_balance, dpd_days, reporting_period,
-  reporting_institution_id, batch_job_id, source_type, correlation_id)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+  reporting_institution_id, batch_job_id, source_type, correlation_id,
+  additional_metadata_json)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 ```
 
 #### 4. Tracking Points Written
@@ -955,6 +959,7 @@ SPA: `resolveBatchConsoleData()` in `src/lib/batch-console-from-api.ts`
 - `completed` jobs cannot be cancelled (data already loaded)
 - Cancel does NOT apply the institution active status gate
 - Pipeline checks for cancellation flag between stages
+- **Transactional boundaries:** `PHASE_05` executes bulk inserts in chunks (e.g., 500 records). Cancellation during `PHASE_05` will **not** rollback committed chunks. The job enters `cancelled` state. Upon resubmission, idempotency (UPSERT) safely overwrites the partial previous load.
 - For SFTP jobs: file moved from `processing/` to `failed/` with `_CANCELLED` suffix
 
 #### 4. Definition of Done
@@ -991,6 +996,7 @@ For each institution WHERE is_data_submitter = true AND institution_lifecycle_st
     2. Check file is fully written (size stable across 2 polls OR .done marker file present)
     3. Compute SHA-256 checksum
     4. Check batch_sftp_events for duplicate checksum (same institution, last 24h)
+       WHERE event_status IN ('QUEUED', 'PROCESSING', 'PROCESSED', 'FAILED')
        → If duplicate: INSERT batch_sftp_events (DUPLICATE, is_duplicate=1), move to quarantine/, skip
     5. If new file — DB writes FIRST, file move LAST (prevents stranding):
        a. INSERT batch_sftp_events (status: DETECTED, checksum, original_filename)  ← DB first
@@ -1297,7 +1303,11 @@ If no strategy succeeds:
   Move file to /quarantine/
 ```
 
-#### 4. Confidence Scoring
+#### 4. Limitations and Edge Cases
+
+> **Fixed-Width limitations:** Strategy 3 (Header matching) calculates Jaccard similarity based on extracted column names. Fixed-width files contain no headers. Thus, header-based detection for fixed-width physically cannot work. **Fixed-width files MUST be explicitly registered via `FILENAME_HINT` (SFTP) or `EXPLICIT` (HTTP) strategies.** If omitted, detection drops to Fallback, which fails if the institution has more than one mapping.
+
+#### 5. Confidence Scoring
 
 ```sql
 -- Record detection confidence alongside method
@@ -1542,6 +1552,54 @@ CREATE INDEX idx_bts_batch_job ON batch_tracking_snapshots(batch_job_id);
 
 ---
 
+### BATCH-US-014 — Post-Processing Stage
+
+#### 1. Description
+> As the batch pipeline,
+> I want to execute PHASE_06_POST_PROCESSING,
+> So that errors are consolidated, tracking snapshots are recorded, notifications are sent, and SFTP folders are managed.
+
+#### 2. Pipeline Logic
+
+`PHASE_06_POST_PROCESSING` executes terminally, regardless of whether the pipeline succeeded, failed, or partially completed.
+
+```
+STG_06_01_ERROR_REPORT:
+  Query batch_error_samples for this batch_job_id
+  Generate structured JSON error report
+  Store report internally; generate pre-signed URL/token for download
+
+STG_06_02_DATA_QUALITY_REPORT:
+  Analyze validation_failure_rate and mapping_coverage_percent
+  Write terminal batch_tracking_snapshots row (JOB_COMPLETE | JOB_FAILED | JOB_PARTIAL)
+
+STG_06_03_NOTIFICATION_TRIGGER:
+  1. Determine outcome template: SUCCESS | PARTIAL | FAILED | QUARANTINED
+  2. Send webhook/email to institution's registered endpoints containing:
+     [job_id, outcome, processed_count, failed_count, error_report_url]
+  3. Update batch_jobs.notification_status (SENT | FAILED)
+  4. SFTP File Lifecycle:
+     If intake was SFTP:
+       If success/partial: move file from processing/ → processed/
+       If failed: move file from processing/ → failed/
+       UPDATE batch_sftp_events SET event_status = PROCESSED | FAILED
+```
+
+#### 3. Tracking Points Written
+- Stage logs for all 3 `PHASE_06` stages
+- Final `batch_phase_logs` for `PHASE_06`
+- Terminal `batch_tracking_snapshots` entry (Point 36)
+- Event status update on `batch_sftp_events` (Point 37)
+- Completion audit log (Point 39)
+
+#### 4. Definition of Done
+- [ ] Error report generated and link persisted
+- [ ] Terminal tracking snapshot generated
+- [ ] Notification dispatched to institution and `notification_status` updated
+- [ ] File moved to final outcome folder in SFTP (processed/failed)
+
+---
+
 ## 8. Epic API Summary
 
 | Endpoint | Method | Auth | Description | Status |
@@ -1726,6 +1784,6 @@ Institution accidentally drops same CSV twice
 | Phase 2 | BATCH-US-010 | SFTP intake (primary channel): poller service, folder structure, `batch_sftp_events` table, PHASE_01_PRE_PROCESSING file lifecycle |
 | Phase 3 | BATCH-US-011 | Multi-format parsers (`STG_01_04_RECORD_PARSING`): JSON/JSONL (easy), XML (SAX), fixed-width (layout from registry) |
 | Phase 4 | BATCH-US-012 | Schema auto-detection (`STG_01_03_SCHEMA_LOOKUP`): filename hints, header matching (Jaccard), fallback |
-| Phase 5 | BATCH-US-013 | Full KPI tracking integration: `batch_tracking_snapshots`, extended `batch_jobs` columns, SFTP monitoring endpoints, alert thresholds in EPIC-10 |
+| Phase 5 | BATCH-US-013, 014 | Full KPI tracking integration: `batch_tracking_snapshots`, extended `batch_jobs` columns, SFTP monitoring endpoints, alert thresholds in EPIC-10; Implementation of `PHASE_06_POST_PROCESSING` reports and notifications |
 | Phase 6 | BATCH-US-005 | Complete PHASE_04_IDENTITY_RESOLUTION with full cluster assignment; complete `STG_03_02_BUSINESS_TRANSFORMATION` PII encryption (AES at rest) |
 | Phase 7 | — | Retry from last failed stage, streaming batch support, S3/GCS archival |
