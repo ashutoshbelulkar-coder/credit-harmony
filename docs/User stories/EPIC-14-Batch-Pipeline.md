@@ -291,15 +291,15 @@ When `batch_phase_logs` rows exist for a job, `GET /api/v1/batch-jobs/:id/detail
       "startedAt": "2026-03-31T10:00:05Z",
       "completedAt": "2026-03-31T10:00:45Z",
       "processedCount": 5000,
-      "failedCount": 23
+      "failedCount": 20         // L1 mandatory + format + duplicate only
     },
     {
       "phaseName": "PHASE_03_DATA_STANDARDIZATION",
       "phaseStatus": "completed",
       "startedAt": "2026-03-31T10:00:46Z",
       "completedAt": "2026-03-31T10:01:10Z",
-      "processedCount": 4977,
-      "failedCount": 0
+      "processedCount": 4980,   // records passing PHASE_02
+      "failedCount": 3          // L2 cross-field failures in STG_03_03
     },
     {
       "phaseName": "PHASE_04_IDENTITY_RESOLUTION",
@@ -340,7 +340,14 @@ When `batch_phase_logs` rows exist for a job, `GET /api/v1/batch-jobs/:id/detail
       "phaseName": "PHASE_02_VALIDATION",
       "stageStatus": "completed",
       "recordsProcessed": 5000,
-      "recordsFailed": 3
+      "recordsFailed": 20       // field-level L1 failures (truncated sample shown)
+    },
+    {
+      "stageName": "STG_03_03_L2_VALIDATION",
+      "phaseName": "PHASE_03_DATA_STANDARDIZATION",
+      "stageStatus": "completed",
+      "recordsProcessed": 4980,
+      "recordsFailed": 3        // cross-field L2 failures on canonical typed values
     }
   ],
   "flowSegments": [],
@@ -445,10 +452,11 @@ VALUES (
 | Status | Description | Trigger | Next States |
 |--------|-------------|---------|-------------|
 | `queued` | File received, pipeline not started | POST /batch-jobs or SFTP poller | `processing` |
-| `processing` | Pipeline executing phases/stages | Job scheduler picks up | `completed`, `failed`, `cancelled` |
+| `processing` | Pipeline executing phases/stages | Job scheduler picks up | `completed`, `failed`, `cancelled`, `quarantined` |
 | `completed` | All records processed | PHASE_06 done | Terminal |
 | `failed` | Pipeline error, processing stopped | Stage error or failure rate ≥ 30% | `queued` (via retry) |
 | `partially_completed` | Some records processed, some failed | PHASE_05 with failures | Terminal or retry |
+| `quarantined` | File rejected at intake (schema not found, format invalid, file too large) | `STG_01_02` or `STG_01_03` failure | Terminal — not retryable; institution must re-register schema and re-drop file |
 | `cancelled` | Manually cancelled | POST /batch-jobs/:id/cancel | Terminal |
 
 #### 7. Definition of Done
@@ -583,8 +591,15 @@ VALUES ('999902', 147, 'VALIDATION_L1_FORMAT_FAILED',
 #### 5. Partial Success Handling
 - If `failed_count / total_records < FAILURE_THRESHOLD` (default 30%): job continues with valid records only, status = `partially_completed`
 - If `failed_count / total_records >= 30%`: job fails entirely, status = `failed`
-- FAILURE_THRESHOLD configurable per institution in `api_access_json`
-- Additional L2 cross-field failures (PHASE_03 / `STG_03_03_L2_VALIDATION`) further reduce the valid record set but do not re-evaluate the 30% threshold
+- FAILURE_THRESHOLD configurable per institution in `api_access_json` (stored as decimal ratio, e.g. `0.30` = 30%)
+- `validation_failure_rate` stored on `batch_jobs` as a `REAL` decimal ratio (e.g. `0.046` = 4.6%) — **not** a percentage integer
+- **Second gate (PHASE_03):** After `STG_03_03_L2_VALIDATION` completes, a combined failure rate is evaluated:
+  ```
+  combined_failure_rate = (phase02_failed + l2_failed) / total_records
+  If combined_failure_rate >= FAILURE_THRESHOLD:
+    → FAIL JOB (write PHASE_03 phase log with phase_status='failed', reason='L2_THRESHOLD_EXCEEDED')
+    → Skip PHASE_04, PHASE_05; proceed directly to PHASE_06_POST_PROCESSING
+  ```
 
 #### 6. Definition of Done
 - [ ] All three PHASE_02 stages executed in order (MANDATORY_CHECK → L1_VALIDATION → DUPLICATE_RECORD_CHECK)
@@ -592,6 +607,7 @@ VALUES ('999902', 147, 'VALIDATION_L1_FORMAT_FAILED',
 - [ ] CRITICAL failures mark records as failed; WARNING records flagged but proceed
 - [ ] Phase log and stage logs and error samples written
 - [ ] Partial success logic applied: failure rate < 30% continues; ≥ 30% fails job
+- [ ] L2 combined failure rate gate evaluated at end of `STG_03_03_L2_VALIDATION`; job fails if combined rate ≥ 30%
 
 ---
 
@@ -640,11 +656,27 @@ STG_03_03_L2_VALIDATION (Cross-Field, on canonically typed values):
 #### 3. Database
 
 ```sql
--- STG_03_01_SCHEMA_CONVERSION: resolve mapping pairs
+-- STG_03_01_SCHEMA_CONVERSION: resolve mapping pairs (pinned to version resolved at intake)
 SELECT mp.source_field_path, mp.canonical_field_code, mp.enum_reconciliation_json
 FROM mapping_pairs mp
 WHERE mp.schema_mapper_mapping_id = ?
   AND mp.is_approved = 1;
+-- NOTE: mapping_id and mapping_version are locked at STG_01_03_SCHEMA_LOOKUP time
+-- and stored on batch_jobs. PHASE_03 must use the pinned version to prevent drift.
+
+-- ingestion_drift_alerts DDL (write target for STG_03_01_SCHEMA_CONVERSION)
+CREATE TABLE IF NOT EXISTS ingestion_drift_alerts (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    batch_job_id        TEXT NOT NULL,
+    institution_id      TEXT NOT NULL,
+    mapping_id          TEXT,
+    unmapped_field_path TEXT,         -- the new/unrecognized source field
+    unmapped_ratio      REAL,         -- ratio at time of trigger (decimal, e.g. 0.083)
+    threshold_used      REAL,         -- configured threshold (decimal)
+    detected_at         DATETIME DEFAULT (datetime('now')),
+    resolved_at         DATETIME,
+    alert_status        TEXT DEFAULT 'OPEN'  -- OPEN | ACK | RESOLVED
+);
 ```
 
 #### 4. PII Hashing Contract (STG_03_02_BUSINESS_TRANSFORMATION)
@@ -818,12 +850,14 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 #### 2. Logging Contract (Full)
 
 **`batch_phase_logs` columns:**
-`batch_job_id`, `phase_name`, `phase_status`, `started_at`, `completed_at`, `processed_count`, `failed_count`, `skipped_count`, `mapped_count`, `unmapped_count`, `error_message`
+`batch_job_id`, `phase_name`, `phase_status`, `started_at`, `completed_at`, `processed_count`, `failed_count`, `skipped_count`, `mapped_count`, `unmapped_count`, `error_message`, `retry_attempt`
+
+> **Retry isolation:** `retry_attempt` mirrors `batch_jobs.retry_count` at the time of writing. Execution console and EPIC-09 queries must filter by `WHERE retry_attempt = (SELECT retry_count FROM batch_jobs WHERE batch_job_id = ?)` to show only the current run.
 
 **Phase names (canonical):** `PHASE_01_PRE_PROCESSING`, `PHASE_02_VALIDATION`, `PHASE_03_DATA_STANDARDIZATION`, `PHASE_04_IDENTITY_RESOLUTION`, `PHASE_05_DATA_LOAD`, `PHASE_06_POST_PROCESSING`
 
 **`batch_stage_logs` columns:**
-`batch_job_id`, `phase_name`, `stage_name`, `stage_status`, `records_input`, `records_output`, `records_failed`, `started_at`, `completed_at`, `stage_metadata_json`
+`batch_job_id`, `phase_name`, `stage_name`, `stage_status`, `records_input`, `records_output`, `records_failed`, `started_at`, `completed_at`, `stage_metadata_json`, `retry_attempt`
 
 **Stage names (canonical):**
 - PHASE_01: `STG_01_01_BATCH_CREATION`, `STG_01_02_FILE_INTEGRITY`, `STG_01_03_SCHEMA_LOOKUP`, `STG_01_04_RECORD_PARSING`
@@ -834,7 +868,9 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 - PHASE_06: `STG_06_01_ERROR_REPORT`, `STG_06_02_DATA_QUALITY_REPORT`, `STG_06_03_NOTIFICATION_TRIGGER`
 
 **`batch_error_samples` columns:**
-`batch_job_id`, `row_number`, `source_record_json`, `error_code`, `error_message`, `field_name`, `field_value`, `error_type`, `severity`
+`batch_job_id`, `row_number`, `source_record_json`, `error_code`, `error_message`, `field_name`, `field_value`, `error_type`, `severity`, `correlation_id`
+
+> `correlation_id` propagated from `batch_jobs.correlation_id` to allow direct cross-table tracing without join chains.
 
 **Sampling limit:** Maximum 100 error samples stored per batch job
 
@@ -879,11 +915,11 @@ SPA: `resolveBatchConsoleData()` in `src/lib/batch-console-from-api.ts`
 ```
 
 #### 3. Business Logic
-- Only `failed` jobs can be retried
+- Only `failed` jobs can be retried; `quarantined` jobs are **not** retryable
 - `partially_completed` jobs may be retried (reprocesses failed records only — future)
 - Institution must be `active` at retry time
-- `retry_count` incremented on each retry
-- Phase logs from previous run preserved; new run appends new phase logs
+- `retry_count` incremented on each retry **before** new phase/stage logs are written
+- Phase/stage logs from previous runs are preserved; new run appends rows with `retry_attempt = new retry_count` — ensuring run isolation in monitoring queries
 - For SFTP jobs: file must still be in `processing/` or `failed/` folder; if missing, return `400 ERR_BATCH_FILE_NOT_FOUND`
 
 #### 4. Definition of Done
@@ -942,21 +978,32 @@ SPA: `resolveBatchConsoleData()` in `src/lib/batch-console-from-api.ts`
 
 ```
 SftpPollerService (Spring @Scheduled, fixedDelay = 30s, configurable via hcb.sftp.poll-interval-ms)
+Alert threshold: hcb.sftp.alert-after-consecutive-failures = 3 (configurable)
+  → After 3 consecutive poll failures: emit alert to EPIC-10 alert system + EPIC-13 health endpoint
 
 For each institution WHERE is_data_submitter = true AND institution_lifecycle_status = 'active':
   Connect to SFTP server (or local mount)
   List files in /sftp/institutions/{institution_id}/incoming/
   For each file:
-    1. Check file is fully written (size stable across 2 polls OR .done marker file present)
-    2. Compute SHA-256 checksum
-    3. Check batch_sftp_events for duplicate checksum (same institution, last 24h)
-    4. If duplicate: move to quarantine/, log ERR_DUPLICATE_FILE, skip
-    5. If new:
-       a. INSERT batch_sftp_events (status: DETECTED)
-       b. Move file: incoming/ → processing/{UUID}_{original_filename}
-       c. INSERT batch_jobs (status: queued, intake_channel: SFTP, sftp_event_id: ?)
-       d. UPDATE batch_sftp_events (batch_job_id: ?, status: QUEUED)
+    1. Enforce max file size: hcb.sftp.max-file-size-bytes (default: 500 MB)
+       → If exceeded: move to quarantine/, INSERT batch_sftp_events (QUARANTINED),
+         error_code='ERR_FILE_TOO_LARGE'. No batch_jobs created.
+    2. Check file is fully written (size stable across 2 polls OR .done marker file present)
+    3. Compute SHA-256 checksum
+    4. Check batch_sftp_events for duplicate checksum (same institution, last 24h)
+       → If duplicate: INSERT batch_sftp_events (DUPLICATE, is_duplicate=1), move to quarantine/, skip
+    5. If new file — DB writes FIRST, file move LAST (prevents stranding):
+       a. INSERT batch_sftp_events (status: DETECTED, checksum, original_filename)  ← DB first
+       b. INSERT batch_jobs (status: queued, intake_channel: SFTP)                  ← DB consistent
+       c. Move file: incoming/ → processing/{UUID}_{original_filename}              ← file move last
+       d. UPDATE batch_sftp_events (batch_job_id: ?, status: QUEUED, processing_path: ?)
        e. Enqueue job for async processing
+
+Recovery mechanism (runs every 5 minutes as part of SftpPollerService):
+  SELECT * FROM batch_sftp_events
+  WHERE event_status = 'DETECTED' AND detected_at < datetime('now', '-2 minutes')
+  → These events have a DB row but no confirmed file move (possible crash between steps a and c)
+  → Log warning; surface in EPIC-13 sftp-health endpoint for manual triage or re-queue
 ```
 
 #### 4. SFTP Stable-File Detection
@@ -1050,7 +1097,12 @@ ALTER TABLE batch_jobs ADD COLUMN new_consumers_created INTEGER DEFAULT 0;
 ALTER TABLE batch_jobs ADD COLUMN existing_consumers_updated INTEGER DEFAULT 0;
 ALTER TABLE batch_jobs ADD COLUMN tradelines_inserted INTEGER DEFAULT 0;
 ALTER TABLE batch_jobs ADD COLUMN validation_failure_rate REAL;
+-- Stored as decimal ratio: 0.046 = 4.6%. Threshold comparison: validation_failure_rate >= 0.30
 ALTER TABLE batch_jobs ADD COLUMN drift_alert_triggered INTEGER DEFAULT 0;
+ALTER TABLE batch_jobs ADD COLUMN notification_status TEXT DEFAULT 'NOT_APPLICABLE';
+-- SENT | FAILED | NOT_APPLICABLE
+-- FAILED = STG_06_03 notification attempted but channel unavailable.
+-- Job status remains 'completed'; EPIC-13 surfaces jobs where notification_status='FAILED'.
 ```
 
 #### 7. Tracking Points Written
