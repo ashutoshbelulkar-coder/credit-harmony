@@ -193,7 +193,7 @@ The pipeline follows a **Phase → Stage → Record** hierarchy:
         │   • Map source schema → canonical schema                 │
         │   STG_03_02_BUSINESS_TRANSFORMATION                      │
         │   • Apply domain-specific transformations                │
-        │   • PII hashing, type casting, date/value normalisation  │
+        │   • Type casting, date/value normalisation               │
         │   • Enum normalization (categorical → canonical values)   │
         │   STG_03_03_L2_VALIDATION                                │
         │   • Cross-field validation on typed canonical values      │
@@ -639,7 +639,6 @@ STG_03_01_SCHEMA_CONVERSION:
 
 STG_03_02_BUSINESS_TRANSFORMATION:
   Apply domain-specific transformations and enum normalization:
-    PII Hashing: SHA-256 hash national_id, phone, email before storage
     Type Casting: String → native DB type (decimal, integer, date)
     Date Normalisation: Various formats → ISO 8601
     String Trimming: Remove leading/trailing whitespace
@@ -682,16 +681,7 @@ CREATE TABLE IF NOT EXISTS ingestion_drift_alerts (
 );
 ```
 
-#### 4. PII Hashing Contract (STG_03_02_BUSINESS_TRANSFORMATION)
-
-```java
-// Hash before insert to consumers table
-String nationalIdHash = DigestUtils.sha256Hex(nationalId.trim().toUpperCase());
-String phoneHash = DigestUtils.sha256Hex(normalizedPhone);
-String emailHash = DigestUtils.sha256Hex(email.trim().toLowerCase());
-```
-
-#### 5. Tracking Points Written
+#### 4. Tracking Points Written
 
 | Tracking Point | Table | Column(s) |
 |---------------|-------|-----------|
@@ -699,20 +689,18 @@ String emailHash = DigestUtils.sha256Hex(email.trim().toLowerCase());
 | Per-stage results | `batch_stage_logs` | one row per: `STG_03_01_SCHEMA_CONVERSION`, `STG_03_02_BUSINESS_TRANSFORMATION`, `STG_03_03_L2_VALIDATION` |
 | Unmapped field paths | `batch_jobs` | `unmapped_field_paths_json` (JSON array) |
 | Mapping coverage | `batch_jobs` | `mapping_coverage_percent` |
-| PII fields hashed | `batch_jobs` | `pii_fields_hashed_count` |
 | Transformation errors | `batch_error_samples` | `error_type='TRANSFORMATION'` |
 | L2 cross-field failures | `batch_error_samples` | `error_type='CROSS_FIELD'`, `error_code='VALIDATION_L2_CROSS_FIELD_FAILED'`, `severity='CRITICAL'` |
 | Drift trigger | `ingestion_drift_alerts` | inserted when unmapped ratio > threshold |
 
-#### 6. Definition of Done
+#### 5. Definition of Done
 - [ ] All approved mapping_pairs applied per record (`STG_03_01_SCHEMA_CONVERSION`)
-- [ ] PII fields hashed before storage in consumers table (`STG_03_02_BUSINESS_TRANSFORMATION`)
 - [ ] Type casting applied based on canonical field data types
 - [ ] Enum normalization applied within `STG_03_02_BUSINESS_TRANSFORMATION` for all categorical fields
 - [ ] Cross-field L2 validation applied on typed canonical values (`STG_03_03_L2_VALIDATION`)
 - [ ] Unmapped field action applied per `UnmappedAction` configuration
 - [ ] PHASE_03 phase log and all three stage logs written
-- [ ] `mapping_coverage_percent` and `pii_fields_hashed_count` stored on batch_jobs
+- [ ] `mapping_coverage_percent` stored on batch_jobs
 
 ---
 
@@ -1096,7 +1084,6 @@ ALTER TABLE batch_jobs ADD COLUMN schema_detection_method TEXT;
 -- Field mapping metrics
 ALTER TABLE batch_jobs ADD COLUMN mapping_coverage_percent REAL;
 ALTER TABLE batch_jobs ADD COLUMN unmapped_field_paths_json TEXT;
-ALTER TABLE batch_jobs ADD COLUMN pii_fields_hashed_count INTEGER DEFAULT 0;
 
 -- Load outcome metrics
 ALTER TABLE batch_jobs ADD COLUMN new_consumers_created INTEGER DEFAULT 0;
@@ -1375,8 +1362,7 @@ The following table defines every tracking point written during a batch job's li
 | 19 | Mapping coverage | STG_03_01_SCHEMA_CONVERSION | `batch_jobs` | `mapping_coverage_percent` | Avg mapping coverage by institution/source type |
 | 20 | Unmapped field paths | STG_03_01_SCHEMA_CONVERSION | `batch_jobs` | `unmapped_field_paths_json` | Unmapped field rate; new field drift detection |
 | 21 | Drift alert triggered | STG_03_01_SCHEMA_CONVERSION | `batch_jobs` | `drift_alert_triggered=1`; `ingestion_drift_alerts` | Drift alerts per day |
-| 22 | Enum normalization + PII hashing | STG_03_02_BUSINESS_TRANSFORMATION | `batch_jobs` | `pii_fields_hashed_count` | PII compliance metric |
-| 23 | L2 cross-field validation failures | STG_03_03_L2_VALIDATION | `batch_error_samples` | `error_type='CROSS_FIELD'`, per row | Cross-field logic failure rate |
+| 22 | L2 cross-field validation failures | STG_03_03_L2_VALIDATION | `batch_error_samples` | `error_type='CROSS_FIELD'`, per row | Cross-field logic failure rate |
 | 24 | PHASE_04_IDENTITY_RESOLUTION start/end | PHASE_04 | `batch_phase_logs` | `phase_name='PHASE_04_IDENTITY_RESOLUTION'`, timings | Identity resolution duration |
 | 25 | Consumer cluster matched/created | STG_04_01_CLUSTER_ASSIGNMENT | `batch_jobs` | `new_consumers_created`, `existing_consumers_updated` | Consumer growth rate |
 | 26 | PHASE_05_DATA_LOAD start/end | PHASE_05 | `batch_phase_logs` | `phase_name='PHASE_05_DATA_LOAD'`, timings | Load duration, throughput (records/min) |
@@ -1420,7 +1406,6 @@ CREATE TABLE IF NOT EXISTS batch_tracking_snapshots (
     tradelines_inserted         INTEGER DEFAULT 0,
     new_consumers_created       INTEGER DEFAULT 0,
     existing_consumers_updated  INTEGER DEFAULT 0,
-    pii_fields_hashed_count     INTEGER DEFAULT 0,
 
     -- Quality metrics
     validation_failure_rate     REAL,
@@ -1497,7 +1482,6 @@ CREATE INDEX idx_bts_batch_job ON batch_tracking_snapshots(batch_job_id);
 | Mapping coverage by source type | `AVG(mapping_coverage_percent) GROUP BY source_type` | `batch_jobs` |
 | Schema detection method breakdown | `COUNT(*) GROUP BY schema_detection_method` | `batch_jobs` |
 | Explicit vs auto-detected ratio | explicit_count / total * 100 | `batch_jobs` |
-| PII fields hashed per day | `SUM(pii_fields_hashed_count) GROUP BY date(submitted_at)` | `batch_jobs` |
 
 **KPI Group 5 — Drift & Governance**
 
@@ -1658,7 +1642,7 @@ Institution drops FNB_bank_2026-03-31.csv to /sftp/institutions/1/incoming/
 
   PHASE_03_DATA_STANDARDIZATION:
     STG_03_01_SCHEMA_CONVERSION: 4980 records mapped; coverage 91.7%
-    STG_03_02_BUSINESS_TRANSFORMATION: PII hashed (3 fields × 4980 = 14,940 hashes); enum values normalized
+    STG_03_02_BUSINESS_TRANSFORMATION: enum values normalized
     STG_03_03_L2_VALIDATION: 4980 records; 3 failed (cross-field inconsistencies) → 4977 pass
 
   PHASE_04_IDENTITY_RESOLUTION:
@@ -1752,7 +1736,6 @@ Institution accidentally drops same CSV twice
 | File partially uploaded when poller fires | Corrupt parse | Stable-size check across 2 polls + `.done` marker option |
 | SFTP server unavailable | Poller silently fails | Poller emits alert after N consecutive failures; health endpoint exposes status |
 | Schema detection mismatches on similar schemas | Wrong mapping applied | Confidence threshold + WARNING log; require EXPLICIT for production institutions |
-| PII partially encrypted (transformation partial) | Compliance risk | Complete PII hashing before production; block deployment gate |
 | Large batches lock SQLite | Performance | Use PostgreSQL with connection pooling in production |
 | Duplicate file checksum window too short | Double-processing | Default 24h; extend to 7 days for high-risk institutions |
 | Fixed-width layout not in registry | Parse failure | Validation at schema registration time; reject registration without layout metadata |
@@ -1769,7 +1752,6 @@ Institution accidentally drops same CSV twice
 | `batch_sftp_events` table does not exist | BATCH-US-010 | High |
 | `batch_tracking_snapshots` table does not exist | BATCH-US-013 | High |
 | `batch_jobs` missing SFTP/schema/mapping tracking columns | BATCH-US-010, 013 | High |
-| PII transformation partially implemented | BATCH-US-005 | Critical |
 | Retry from last failed stage (not full restart) | BATCH-US-008 | Medium |
 | SFTP monitoring endpoints missing | BATCH-US-013 | Medium |
 | `source_type` not on batch_jobs; schema not linked to batch | BATCH-US-002 | High |
@@ -1785,5 +1767,5 @@ Institution accidentally drops same CSV twice
 | Phase 3 | BATCH-US-011 | Multi-format parsers (`STG_01_04_RECORD_PARSING`): JSON/JSONL (easy), XML (SAX), fixed-width (layout from registry) |
 | Phase 4 | BATCH-US-012 | Schema auto-detection (`STG_01_03_SCHEMA_LOOKUP`): filename hints, header matching (Jaccard), fallback |
 | Phase 5 | BATCH-US-013, 014 | Full KPI tracking integration: `batch_tracking_snapshots`, extended `batch_jobs` columns, SFTP monitoring endpoints, alert thresholds in EPIC-10; Implementation of `PHASE_06_POST_PROCESSING` reports and notifications |
-| Phase 6 | BATCH-US-005 | Complete PHASE_04_IDENTITY_RESOLUTION with full cluster assignment; complete `STG_03_02_BUSINESS_TRANSFORMATION` PII encryption (AES at rest) |
+| Phase 6 | BATCH-US-005 | Complete PHASE_04_IDENTITY_RESOLUTION with full cluster assignment |
 | Phase 7 | — | Retry from last failed stage, streaming batch support, S3/GCS archival |
