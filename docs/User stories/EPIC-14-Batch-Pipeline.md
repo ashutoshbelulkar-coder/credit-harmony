@@ -531,7 +531,7 @@ ALTER TABLE batch_jobs ADD COLUMN notification_status TEXT DEFAULT 'NOT_APPLICAB
 | Checksum computed | `batch_sftp_events` | `checksum_sha256` |
 | Duplicate file check | `batch_sftp_events` | `is_duplicate`, `original_sftp_event_id` |
 | File moved to processing | `batch_sftp_events` | `processing_path`, `event_status='QUEUED'` |
-| Batch job created | `batch_jobs` | `intake_channel='SFTP'`, `sftp_event_id` |
+| Batch job created | `batch_jobs` | `sftp_event_id` |
 | SFTP to queue latency | `batch_jobs` | computed: `queued_at - detected_at` |
 
 #### 8. Flowchart
@@ -691,7 +691,7 @@ FileFormatDetectorService.detect(File file, String declaredFormat):
 SchemaAutoDetectorService.resolve(institutionId, file, parsedHeaders):
 
 Strategy 1 — Explicit sourceType (highest priority):
-  If sourceType present in batch_jobs (from HTTP form field or filename pattern):
+  If sourceType present in batch_jobs (from filename pattern):
     → Use institution + sourceType to query schema_mapper_registry
     → Return EXPLICIT detection method
 
@@ -720,7 +720,7 @@ If no strategy succeeds:
 
 #### 4. Limitations and Edge Cases
 
-> **Fixed-Width limitations:** Strategy 3 (Header matching) calculates Jaccard similarity based on extracted column names. Fixed-width files contain no headers. Thus, header-based detection for fixed-width physically cannot work. **Fixed-width files MUST be explicitly registered via `FILENAME_HINT` (SFTP) or `EXPLICIT` (HTTP) strategies.** If omitted, detection drops to Fallback, which fails if the institution has more than one mapping.
+> **Fixed-Width limitations:** Strategy 3 (Header matching) calculates Jaccard similarity based on extracted column names. Fixed-width files contain no headers. Thus, header-based detection for fixed-width physically cannot work. **Fixed-width files MUST be explicitly registered via `FILENAME_HINT` (SFTP) strategy.** If omitted, detection drops to Fallback, which fails if the institution has more than one mapping.
 
 #### 5. Confidence Scoring
 
@@ -771,7 +771,7 @@ Schema detection (`STG_01_03_SCHEMA_LOOKUP`) is part of `PHASE_01_PRE_PROCESSING
 
 ```
 STG_01_03_SCHEMA_LOOKUP:
-1. Use sourceType from batch_jobs row (from SFTP event metadata or HTTP form field)
+1. Use sourceType from batch_jobs row (from SFTP event metadata)
 2. Look up schema_mapper_registry WHERE institution_id = ? AND schema_status = 'active'
    AND source_type = ?
 3. If found: use registered mapping_pairs for this institution + source type
@@ -1539,7 +1539,7 @@ CREATE INDEX idx_bts_batch_job ON batch_tracking_snapshots(batch_job_id);
 
 | Table | Key Fields | Notes |
 |-------|------------|-------|
-| `batch_jobs` | `batch_job_id`, `institution_id`, `job_status`, `intake_channel`, `detected_format`, `source_type`, `mapping_id`, `mapping_coverage_percent`, `total_records`, `processed_records`, `failed_records`, `tradelines_inserted` | Core job tracking — extended for SFTP and mapping quality metrics |
+| `batch_jobs` | `batch_job_id`, `institution_id`, `job_status`, `detected_format`, `source_type`, `mapping_id`, `mapping_coverage_percent`, `total_records`, `processed_records`, `failed_records`, `tradelines_inserted` | Core job tracking — extended for SFTP and mapping quality metrics |
 | `batch_sftp_events` | `institution_id`, `original_filename`, `sftp_path`, `checksum_sha256`, `detected_format`, `event_status`, `batch_job_id` | New — SFTP file arrival and lifecycle tracking |
 | `batch_phase_logs` | `batch_job_id`, `phase_name`, `phase_status`, `processed_count`, `failed_count` | Phase-level logging (6 canonical phases: PHASE_01 through PHASE_06) |
 | `batch_stage_logs` | `batch_job_id`, `phase_name`, `stage_name`, `stage_status`, `records_failed`, `stage_metadata_json` | Stage-level logging (canonical stage IDs STG_01_01 through STG_06_03) |
