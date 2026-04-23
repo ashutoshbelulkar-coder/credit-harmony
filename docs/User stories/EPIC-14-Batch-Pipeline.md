@@ -1,10 +1,10 @@
 # EPIC-14 — Batch Pipeline (Schemaless SFTP Ingestion)
 
-> **Epic Code:** BATCH | **Story Range:** BATCH-US-002–014
+> **Epic Code:** BATCH | **Story Range:** BATCH-US-001–013
 > **Owner:** Data Engineering / Platform Engineering | **Priority:** P0
-> **Implementation Status:** ⚠️ Partial (BATCH-US-001–009 mostly implemented; BATCH-US-010–013 new design)
+> **Implementation Status:** ⚠️ Partial (BATCH-US-001–009 mostly implemented; BATCH-US-001–013 new design)
 > **Note:** This epic has **no UI screens**. It documents the backend batch processing pipeline as an engineering and compliance contract.
-> **Revision:** Added schemaless SFTP intake (BATCH-US-010), multi-format file parsing (BATCH-US-011), schema auto-detection (BATCH-US-012), and full monitoring KPI tracking (BATCH-US-013). Updated to canonical 6-phase pipeline scheme: PRE_PROCESSING → VALIDATION → DATA_STANDARDIZATION → IDENTITY_RESOLUTION → DATA_LOAD → POST_PROCESSING.
+> **Revision:** Added schemaless SFTP intake (BATCH-US-001), multi-format file parsing (BATCH-US-002), schema auto-detection (BATCH-US-003), and full monitoring KPI tracking (BATCH-US-011). Updated to canonical 6-phase pipeline scheme: PRE_PROCESSING → VALIDATION → DATA_STANDARDIZATION → IDENTITY_RESOLUTION → DATA_LOAD → POST_PROCESSING.
 
 ---
 
@@ -378,7 +378,7 @@ When no `batch_phase_logs` exist (legacy job), the API returns legacy flat `stag
 
 ---
 
-### BATCH-US-010 — SFTP File Drop and Auto-Detection
+### BATCH-US-001 — SFTP File Drop and Auto-Detection
 
 #### 1. Description
 > As a member institution,
@@ -584,7 +584,7 @@ hcb:
 
 ---
 
-### BATCH-US-011 — Multi-Format File Parsing
+### BATCH-US-002 — Multi-Format File Parsing
 
 #### 1. Description
 > As the batch pipeline,
@@ -669,7 +669,7 @@ FileFormatDetectorService.detect(File file, String declaredFormat):
 
 ---
 
-### BATCH-US-012 — Schema Auto-Detection and Mapping Resolution
+### BATCH-US-003 — Schema Auto-Detection and Mapping Resolution
 
 #### 1. Description
 > As the batch pipeline,
@@ -750,7 +750,7 @@ WHERE batch_job_id = ?;
 
 ---
 
-### BATCH-US-002 — Schema Detection Stage
+### BATCH-US-004 — Schema Detection Stage
 
 #### 1. Description
 > As the batch pipeline,
@@ -759,7 +759,7 @@ WHERE batch_job_id = ?;
 
 #### 2. Status: ⚠️ Partial
 
-Schema detection (`STG_01_03_SCHEMA_LOOKUP`) is part of `PHASE_01_PRE_PROCESSING`. It relies on the institution having a registered schema in `schema_mapper_registry` for the submitted source type. Full header-based auto-detection from file content is now designed in BATCH-US-012.
+Schema detection (`STG_01_03_SCHEMA_LOOKUP`) is part of `PHASE_01_PRE_PROCESSING`. It relies on the institution having a registered schema in `schema_mapper_registry` for the submitted source type. Full header-based auto-detection from file content is now designed in BATCH-US-003.
 
 #### 3. Pipeline Logic
 
@@ -807,7 +807,7 @@ LIMIT 1;
 
 ---
 
-### BATCH-US-003 — Field Validation Stage
+### BATCH-US-005 — Field Validation Stage
 
 #### 1. Description
 > As the batch pipeline,
@@ -896,7 +896,7 @@ VALUES ('999902', 147, 'VALIDATION_L1_FORMAT_FAILED',
 
 ---
 
-### BATCH-US-004 — Data Standardization Stage
+### BATCH-US-006 — Data Standardization Stage
 
 #### 1. Description
 > As the batch pipeline,
@@ -988,7 +988,7 @@ CREATE TABLE IF NOT EXISTS ingestion_drift_alerts (
 
 ---
 
-### BATCH-US-005 — Identity Resolution Stage
+### BATCH-US-007 — Identity Resolution Stage
 
 #### 1. Description
 > As the batch pipeline,
@@ -1050,7 +1050,7 @@ WHERE national_id_hash = ?
 
 ---
 
-### BATCH-US-006 — Data Load Stage
+### BATCH-US-008 — Data Load Stage
 
 #### 1. Description
 > As the batch pipeline,
@@ -1120,7 +1120,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 ---
 
-### BATCH-US-014 — Post-Processing Stage
+### BATCH-US-009 — Post-Processing Stage
 
 #### 1. Description
 > As the batch pipeline,
@@ -1170,7 +1170,7 @@ STG_06_03_NOTIFICATION_TRIGGER:
 
 ---
 
-### BATCH-US-007 — Phase and Stage Logging
+### BATCH-US-010 — Phase and Stage Logging
 
 #### 1. Description
 > As an operations engineer,
@@ -1224,7 +1224,7 @@ SPA: `resolveBatchConsoleData()` in `src/lib/batch-console-from-api.ts`
 
 ---
 
-### BATCH-US-013 — Batch Job Tracking and Monitoring KPI Integration
+### BATCH-US-011 — Batch Job Tracking and Monitoring KPI Integration
 
 #### 1. Description
 > As an operations engineer,
@@ -1436,7 +1436,7 @@ CREATE INDEX idx_bts_batch_job ON batch_tracking_snapshots(batch_job_id);
 
 ---
 
-### BATCH-US-008 — Retry a Failed Batch Job
+### BATCH-US-012 — Retry a Failed Batch Job
 
 #### 1. Description
 > As a member institution operator,
@@ -1477,7 +1477,7 @@ CREATE INDEX idx_bts_batch_job ON batch_tracking_snapshots(batch_job_id);
 
 ---
 
-### BATCH-US-009 — Cancel an In-Progress Batch Job
+### BATCH-US-013 — Cancel an In-Progress Batch Job
 
 #### 1. Description
 > As a bureau administrator,
@@ -1673,15 +1673,15 @@ Institution accidentally drops same CSV twice
 
 | Gap | Story | Severity |
 |-----|-------|----------|
-| SFTP intake not implemented | BATCH-US-010 | High |
-| Multi-format parser (fixed-width, XML) not implemented | BATCH-US-011 | High |
-| Schema auto-detection from file headers not fully implemented | BATCH-US-012 | High |
-| `batch_sftp_events` table does not exist | BATCH-US-010 | High |
-| `batch_tracking_snapshots` table does not exist | BATCH-US-013 | High |
-| `batch_jobs` missing SFTP/schema/mapping tracking columns | BATCH-US-010, 013 | High |
-| Retry from last failed stage (not full restart) | BATCH-US-008 | Medium |
-| SFTP monitoring endpoints missing | BATCH-US-013 | Medium |
-| `source_type` not on batch_jobs; schema not linked to batch | BATCH-US-002 | High |
+| SFTP intake not implemented | BATCH-US-001 | High |
+| Multi-format parser (fixed-width, XML) not implemented | BATCH-US-002 | High |
+| Schema auto-detection from file headers not fully implemented | BATCH-US-003 | High |
+| `batch_sftp_events` table does not exist | BATCH-US-001 | High |
+| `batch_tracking_snapshots` table does not exist | BATCH-US-011 | High |
+| `batch_jobs` missing SFTP/schema/mapping tracking columns | BATCH-US-001, 013 | High |
+| Retry from last failed stage (not full restart) | BATCH-US-012 | Medium |
+| SFTP monitoring endpoints missing | BATCH-US-011 | Medium |
+| `source_type` not on batch_jobs; schema not linked to batch | BATCH-US-004 | High |
 
 ---
 
@@ -1689,9 +1689,9 @@ Institution accidentally drops same CSV twice
 
 | Phase | Stories | Description |
 |-------|---------|-------------|
-| Phase 2 | BATCH-US-010 | SFTP intake (primary channel): poller service, folder structure, `batch_sftp_events` table, PHASE_01_PRE_PROCESSING file lifecycle |
-| Phase 3 | BATCH-US-011 | Multi-format parsers (`STG_01_04_RECORD_PARSING`): JSON/JSONL (easy), XML (SAX), fixed-width (layout from registry) |
-| Phase 4 | BATCH-US-012 | Schema auto-detection (`STG_01_03_SCHEMA_LOOKUP`): filename hints, header matching (Jaccard), fallback |
-| Phase 5 | BATCH-US-013, 014 | Full KPI tracking integration: `batch_tracking_snapshots`, extended `batch_jobs` columns, SFTP monitoring endpoints, alert thresholds in EPIC-10; Implementation of `PHASE_06_POST_PROCESSING` reports and notifications |
-| Phase 6 | BATCH-US-005 | Complete PHASE_04_IDENTITY_RESOLUTION with full cluster assignment |
+| Phase 2 | BATCH-US-001 | SFTP intake (primary channel): poller service, folder structure, `batch_sftp_events` table, PHASE_01_PRE_PROCESSING file lifecycle |
+| Phase 3 | BATCH-US-002 | Multi-format parsers (`STG_01_04_RECORD_PARSING`): JSON/JSONL (easy), XML (SAX), fixed-width (layout from registry) |
+| Phase 4 | BATCH-US-003 | Schema auto-detection (`STG_01_03_SCHEMA_LOOKUP`): filename hints, header matching (Jaccard), fallback |
+| Phase 5 | BATCH-US-011, 014 | Full KPI tracking integration: `batch_tracking_snapshots`, extended `batch_jobs` columns, SFTP monitoring endpoints, alert thresholds in EPIC-10; Implementation of `PHASE_06_POST_PROCESSING` reports and notifications |
+| Phase 6 | BATCH-US-007 | Complete PHASE_04_IDENTITY_RESOLUTION with full cluster assignment |
 | Phase 7 | — | Retry from last failed stage, streaming batch support, S3/GCS archival |
