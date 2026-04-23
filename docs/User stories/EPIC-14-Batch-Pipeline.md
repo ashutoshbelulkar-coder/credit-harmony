@@ -143,15 +143,15 @@ The pipeline follows a **Phase → Stage → Record** hierarchy:
 - **Stage** = Atomic processing step
 - **Record** = Individual data unit
 
-### Dual-Intake Stage Sequence
+### Intake Sequence
 
 ```
-┌─────────────────────────────┐     ┌─────────────────────────────┐
-│  SftpPollerService          │     │  POST /api/v1/batch-jobs    │
-│  (scheduled, every 30s)     │     │  (multipart/form-data)      │
-└──────────────┬──────────────┘     └──────────────┬──────────────┘
-               │                                   │
-               ▼                                   ▼
+┌─────────────────────────────┐
+│  SFTP Poller Service        │
+│  (scheduled, every 30s)     │
+└──────────────┬──────────────┘
+               │
+               ▼
         ┌──────────────────────────────────────────────────────────┐
         │   PHASE_01_PRE_PROCESSING                                │
         │   STG_01_01_BATCH_CREATION                               │
