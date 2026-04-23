@@ -1,10 +1,10 @@
 # EPIC-14 — Batch Pipeline (Schemaless SFTP Ingestion)
 
-> **Epic Code:** BATCH | **Story Range:** BATCH-US-001–013
+> **Epic Code:** BATCH | **Story Range:** BATCH-US-001–012
 > **Owner:** Data Engineering / Platform Engineering | **Priority:** P0
 > **Implementation Status:** ⚠️ Partial (BATCH-US-001–009 mostly implemented; BATCH-US-001–013 new design)
 > **Note:** This epic has **no UI screens**. It documents the backend batch processing pipeline as an engineering and compliance contract.
-> **Revision:** Added schemaless SFTP intake (BATCH-US-001), multi-format file parsing (BATCH-US-002), schema auto-detection (BATCH-US-003), and full monitoring KPI tracking (BATCH-US-011). Updated to canonical 6-phase pipeline scheme: PRE_PROCESSING → VALIDATION → DATA_STANDARDIZATION → IDENTITY_RESOLUTION → DATA_LOAD → POST_PROCESSING.
+> **Revision:** Added schemaless SFTP intake (BATCH-US-001), multi-format file parsing (BATCH-US-002), schema auto-detection (BATCH-US-003), and full monitoring KPI tracking (BATCH-US-010). Updated to canonical 6-phase pipeline scheme: PRE_PROCESSING → VALIDATION → DATA_STANDARDIZATION → IDENTITY_RESOLUTION → DATA_LOAD → POST_PROCESSING.
 
 ---
 
@@ -669,23 +669,25 @@ FileFormatDetectorService.detect(File file, String declaredFormat):
 
 ---
 
-### BATCH-US-003 — Schema Auto-Detection and Mapping Resolution
+### BATCH-US-003 — Schema Auto-Detection and Mapping Resolution (STG_01_03)
 
 #### 1. Description
 > As the batch pipeline,
-> I want to automatically resolve the correct schema mapping for the submitted file,
+> I want to detect the source schema of the submitted file during `STG_01_03_SCHEMA_LOOKUP` and resolve the correct mapping,
 > Even when the source type is not explicitly provided in the filename or metadata,
-> So that member institutions do not need to tag their files.
+> So that the correct field mapping is applied without requiring manual tagging from members.
 
-#### 2. Status: ❌ Missing
+#### 2. Status: ⚠️ Partial
 
-#### 3. Detection Strategy
+Schema detection (`STG_01_03_SCHEMA_LOOKUP`) relies on the institution having a registered schema in `schema_mapper_registry`. 
+
+#### 3. Pipeline Logic & Detection Strategy
 
 ```
-SchemaAutoDetectorService.resolve(institutionId, file, parsedHeaders):
+STG_01_03_SCHEMA_LOOKUP:
 
 Strategy 1 — Explicit sourceType (highest priority):
-  If sourceType present in batch_jobs (from filename pattern):
+  If sourceType present in batch_jobs (from SFTP metadata or explicit directory):
     → Use institution + sourceType to query schema_mapper_registry
     → Return EXPLICIT detection method
 
@@ -712,70 +714,7 @@ If no strategy succeeds:
   Move file to /quarantine/
 ```
 
-#### 4. Limitations and Edge Cases
-
-> **Fixed-Width limitations:** Strategy 3 (Header matching) calculates Jaccard similarity based on extracted column names. Fixed-width files contain no headers. Thus, header-based detection for fixed-width physically cannot work. **Fixed-width files MUST be explicitly registered via `FILENAME_HINT` (SFTP) strategy.** If omitted, detection drops to Fallback, which fails if the institution has more than one mapping.
-
-#### 5. Confidence Scoring
-
-```sql
--- Record detection confidence alongside method
-UPDATE batch_jobs SET
-  schema_detection_method = ?,     -- EXPLICIT | FILENAME_HINT | HEADER_MATCH | FALLBACK
-  schema_detection_confidence = ?, -- 1.0 for EXPLICIT; Jaccard score for HEADER_MATCH
-  schema_registry_id = ?,
-  mapping_id = ?
-WHERE batch_job_id = ?;
-```
-
-#### 5. Tracking Points Written
-
-| Tracking Point | Table | Column(s) |
-|---------------|-------|-----------|
-| Detection method | `batch_jobs` | `schema_detection_method` |
-| Detection confidence | `batch_jobs` | `schema_detection_confidence` |
-| Schema lookup stage | `batch_stage_logs` | `stage_name='STG_01_03_SCHEMA_LOOKUP'`, `phase_name='PHASE_01_PRE_PROCESSING'` |
-| Low-confidence detection | `batch_error_samples` | `error_type='SCHEMA_DETECTION'`, `severity='WARNING'` when confidence 0.60–0.75 |
-| Schema detection failure | `batch_sftp_events` | `event_status='QUARANTINED'`, `error_code='ERR_SCHEMA_NOT_REGISTERED'` |
-
-#### 6. Definition of Done
-- [ ] All four detection strategies implemented in priority order
-- [ ] Institution filename pattern configuration supported
-- [ ] Header matching with configurable Jaccard threshold
-- [ ] Confidence score stored on batch_jobs
-- [ ] Jobs with confidence 0.60–0.75 proceed but log warning
-- [ ] Jobs with no schema fail with ERR_SCHEMA_NOT_REGISTERED; file quarantined
-
----
-
----
-
-### BATCH-US-004 — Schema Detection Stage
-
-#### 1. Description
-> As the batch pipeline,
-> I want to detect the source schema of the submitted file during `STG_01_03_SCHEMA_LOOKUP`,
-> So that the correct field mapping is applied.
-
-#### 2. Status: ⚠️ Partial
-
-Schema detection (`STG_01_03_SCHEMA_LOOKUP`) is part of `PHASE_01_PRE_PROCESSING`. It relies on the institution having a registered schema in `schema_mapper_registry` for the submitted source type. Full header-based auto-detection from file content is now designed in BATCH-US-003.
-
-#### 3. Pipeline Logic
-
-```
-STG_01_03_SCHEMA_LOOKUP:
-1. Use sourceType from batch_jobs row (from SFTP event metadata)
-2. Look up schema_mapper_registry WHERE institution_id = ? AND schema_status = 'active'
-   AND source_type = ?
-3. If found: use registered mapping_pairs for this institution + source type
-4. If not found by sourceType:
-   a. Attempt header-based detection (CSV column names → fuzzy match against canonical fields)
-   b. If detection confidence > 0.70: use detected sourceType + mapping
-   c. If detection fails: move file to /quarantine/ → fail job with ERR_SCHEMA_NOT_REGISTERED
-```
-
-#### 4. Database
+#### 4. Database Lookup
 
 ```sql
 SELECT sr.registry_id, sr.source_type, sm.mapping_id, sm.payload as mapping_payload, sm.version
@@ -789,25 +728,46 @@ ORDER BY sm.version DESC
 LIMIT 1;
 ```
 
-#### 5. Tracking Points Written
+#### 5. Limitations and Edge Cases
+
+> **Fixed-Width limitations:** Strategy 3 (Header matching) calculates Jaccard similarity based on extracted column names. Fixed-width files contain no headers. Thus, header-based detection for fixed-width physically cannot work. **Fixed-width files MUST be explicitly registered via `FILENAME_HINT` (SFTP) strategy.** If omitted, detection drops to Fallback, which fails if the institution has more than one mapping.
+
+#### 6. Confidence Scoring
+
+```sql
+-- Record detection confidence alongside method
+UPDATE batch_jobs SET
+  schema_detection_method = ?,     -- EXPLICIT | FILENAME_HINT | HEADER_MATCH | FALLBACK
+  schema_detection_confidence = ?, -- 1.0 for EXPLICIT; Jaccard score for HEADER_MATCH
+  schema_registry_id = ?,
+  mapping_id = ?,
+  mapping_version = ?
+WHERE batch_job_id = ?;
+```
+
+#### 7. Tracking Points Written
 
 | Tracking Point | Table | Column(s) |
 |---------------|-------|-----------|
 | Schema resolved | `batch_jobs` | `schema_registry_id`, `mapping_id`, `mapping_version` |
-| Schema detection outcome | `batch_phase_logs` | `phase_name='PHASE_01_PRE_PROCESSING'`, `stage_name='STG_01_03_SCHEMA_LOOKUP'` |
 | Detection method used | `batch_jobs` | `schema_detection_method` (`EXPLICIT` / `HEADER_MATCH` / `FALLBACK`) |
+| Detection confidence | `batch_jobs` | `schema_detection_confidence` |
+| Schema lookup stage | `batch_phase_logs` | `stage_name='STG_01_03_SCHEMA_LOOKUP'`, `phase_name='PHASE_01_PRE_PROCESSING'` |
+| Low-confidence detection | `batch_error_samples` | `error_type='SCHEMA_DETECTION'`, `severity='WARNING'` when confidence 0.60–0.75 |
+| Schema detection failure | `batch_sftp_events` | `event_status='QUARANTINED'`, `error_code='ERR_SCHEMA_NOT_REGISTERED'` |
 
-#### 6. Definition of Done
-- [ ] Schema looked up from schema_mapper_registry by institution + sourceType (`STG_01_03_SCHEMA_LOOKUP`)
-- [ ] Fallback header detection for when sourceType not provided
+#### 8. Definition of Done
+- [ ] Schema looked up from schema_mapper_registry by institution + sourceType
+- [ ] All four detection strategies implemented in priority order
+- [ ] Institution filename pattern configuration supported
+- [ ] Header matching with configurable Jaccard threshold
+- [ ] Confidence score stored on batch_jobs
+- [ ] Jobs with confidence 0.60–0.75 proceed but log warning
 - [ ] Job quarantined with ERR_SCHEMA_NOT_REGISTERED if no approved mapping available
-- [ ] `schema_registry_id` and `mapping_id` stored on batch_jobs row
 
 ---
 
----
-
-### BATCH-US-005 — Field Validation Stage
+### BATCH-US-004 — Field Validation Stage
 
 #### 1. Description
 > As the batch pipeline,
@@ -896,7 +856,7 @@ VALUES ('999902', 147, 'VALIDATION_L1_FORMAT_FAILED',
 
 ---
 
-### BATCH-US-006 — Data Standardization Stage
+### BATCH-US-005 — Data Standardization Stage
 
 #### 1. Description
 > As the batch pipeline,
@@ -988,7 +948,7 @@ CREATE TABLE IF NOT EXISTS ingestion_drift_alerts (
 
 ---
 
-### BATCH-US-007 — Identity Resolution Stage
+### BATCH-US-006 — Identity Resolution Stage
 
 #### 1. Description
 > As the batch pipeline,
@@ -1050,7 +1010,7 @@ WHERE national_id_hash = ?
 
 ---
 
-### BATCH-US-008 — Data Load Stage
+### BATCH-US-007 — Data Load Stage
 
 #### 1. Description
 > As the batch pipeline,
@@ -1120,7 +1080,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 ---
 
-### BATCH-US-009 — Post-Processing Stage
+### BATCH-US-008 — Post-Processing Stage
 
 #### 1. Description
 > As the batch pipeline,
@@ -1170,7 +1130,7 @@ STG_06_03_NOTIFICATION_TRIGGER:
 
 ---
 
-### BATCH-US-010 — Phase and Stage Logging
+### BATCH-US-009 — Phase and Stage Logging
 
 #### 1. Description
 > As an operations engineer,
@@ -1224,7 +1184,7 @@ SPA: `resolveBatchConsoleData()` in `src/lib/batch-console-from-api.ts`
 
 ---
 
-### BATCH-US-011 — Batch Job Tracking and Monitoring KPI Integration
+### BATCH-US-010 — Batch Job Tracking and Monitoring KPI Integration
 
 #### 1. Description
 > As an operations engineer,
@@ -1436,7 +1396,7 @@ CREATE INDEX idx_bts_batch_job ON batch_tracking_snapshots(batch_job_id);
 
 ---
 
-### BATCH-US-012 — Retry a Failed Batch Job
+### BATCH-US-011 — Retry a Failed Batch Job
 
 #### 1. Description
 > As a member institution operator,
@@ -1477,7 +1437,7 @@ CREATE INDEX idx_bts_batch_job ON batch_tracking_snapshots(batch_job_id);
 
 ---
 
-### BATCH-US-013 — Cancel an In-Progress Batch Job
+### BATCH-US-012 — Cancel an In-Progress Batch Job
 
 #### 1. Description
 > As a bureau administrator,
@@ -1677,10 +1637,10 @@ Institution accidentally drops same CSV twice
 | Multi-format parser (fixed-width, XML) not implemented | BATCH-US-002 | High |
 | Schema auto-detection from file headers not fully implemented | BATCH-US-003 | High |
 | `batch_sftp_events` table does not exist | BATCH-US-001 | High |
-| `batch_tracking_snapshots` table does not exist | BATCH-US-011 | High |
+| `batch_tracking_snapshots` table does not exist | BATCH-US-010 | High |
 | `batch_jobs` missing SFTP/schema/mapping tracking columns | BATCH-US-001, 013 | High |
-| Retry from last failed stage (not full restart) | BATCH-US-012 | Medium |
-| SFTP monitoring endpoints missing | BATCH-US-011 | Medium |
+| Retry from last failed stage (not full restart) | BATCH-US-011 | Medium |
+| SFTP monitoring endpoints missing | BATCH-US-010 | Medium |
 | `source_type` not on batch_jobs; schema not linked to batch | BATCH-US-004 | High |
 
 ---
@@ -1692,6 +1652,6 @@ Institution accidentally drops same CSV twice
 | Phase 2 | BATCH-US-001 | SFTP intake (primary channel): poller service, folder structure, `batch_sftp_events` table, PHASE_01_PRE_PROCESSING file lifecycle |
 | Phase 3 | BATCH-US-002 | Multi-format parsers (`STG_01_04_RECORD_PARSING`): JSON/JSONL (easy), XML (SAX), fixed-width (layout from registry) |
 | Phase 4 | BATCH-US-003 | Schema auto-detection (`STG_01_03_SCHEMA_LOOKUP`): filename hints, header matching (Jaccard), fallback |
-| Phase 5 | BATCH-US-011, 014 | Full KPI tracking integration: `batch_tracking_snapshots`, extended `batch_jobs` columns, SFTP monitoring endpoints, alert thresholds in EPIC-10; Implementation of `PHASE_06_POST_PROCESSING` reports and notifications |
-| Phase 6 | BATCH-US-007 | Complete PHASE_04_IDENTITY_RESOLUTION with full cluster assignment |
+| Phase 5 | BATCH-US-010, 014 | Full KPI tracking integration: `batch_tracking_snapshots`, extended `batch_jobs` columns, SFTP monitoring endpoints, alert thresholds in EPIC-10; Implementation of `PHASE_06_POST_PROCESSING` reports and notifications |
+| Phase 6 | BATCH-US-006 | Complete PHASE_04_IDENTITY_RESOLUTION with full cluster assignment |
 | Phase 7 | — | Retry from last failed stage, streaming batch support, S3/GCS archival |

@@ -54,7 +54,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 | EPIC-11 | RPT | Reporting | Report request, queue, export | 5 | RPT-US-001–005 | [EPIC-11](./EPIC-11-Reporting.md) | ✅ Implemented | ✅ Implemented | ✅ Implemented |
 | EPIC-12 | USR | User Management & RBAC | Invite, roles, permissions, activity log | 7 | USR-US-001–007 | [EPIC-12](./EPIC-12-User-Management-RBAC.md) | ✅ Implemented | ✅ Implemented | ✅ Implemented |
 | EPIC-13 | DASH | Dashboard & Command Center | KPI row, charts, pipeline, anomaly feed | 6 | DASH-US-001–006 | [EPIC-13](./EPIC-13-Dashboard-Command-Center.md) | ⚠️ Partial | ✅ Implemented | ✅ Implemented |
-| EPIC-14 | BATCH | Batch Pipeline (non-UI) | Schemaless SFTP intake → format detection → schema auto-mapping → all stages → KPI tracking | 13 | BATCH-US-001–013 | [EPIC-14](./EPIC-14-Batch-Pipeline.md) | N/A | ⚠️ Partial | ⚠️ Partial |
+| EPIC-14 | BATCH | Batch Pipeline (non-UI) | Schemaless SFTP intake → format detection → schema auto-mapping → all stages → KPI tracking | 13 | BATCH-US-001–012 | [EPIC-14](./EPIC-14-Batch-Pipeline.md) | N/A | ⚠️ Partial | ⚠️ Partial |
 | EPIC-15 | DSAPI | Data Submission API | API-first real-time tradeline submission | 7 | DSAPI-US-001–007 | [EPIC-15](./EPIC-15-Data-Submission-API.md) | N/A | ❌ Missing | ✅ Implemented |
 | EPIC-16 | ENQ | Enquiry API | API-first credit enquiry with consent | 7 | ENQ-US-001–007 | [EPIC-16](./EPIC-16-Enquiry-API.md) | N/A | ❌ Missing | ✅ Implemented |
 | EPIC-17 | AGNT | Agents | Agent catalogue, workspace, bureau ops | 8 | AGNT-US-001–008 | [EPIC-17](./EPIC-17-Agents.md) | ⚠️ Partial | ❌ Missing | ❌ Missing |
@@ -285,17 +285,16 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 |----------|-------|---------------------------|---------------|---------------|----------|--------|
 | BATCH-US-001 | SFTP File Drop and Auto-Detection | As a member institution, I want to place a data file in my designated SFTP folder so that the bureau automatically picks it up and begins processing without any API call. | `SftpPollerService` (scheduled) | `batch_sftp_events`, `batch_jobs` | P0 | ❌ Missing |
 | BATCH-US-002 | Multi-Format File Parsing | As the pipeline, I want to parse files in CSV, JSON, JSONL, fixed-width, and XML formats so that member institutions can submit in their native format. | Internal pipeline stage | `batch_sftp_events`, `batch_stage_logs` | P0 | ❌ Missing |
-| BATCH-US-003 | Schema Auto-Detection and Mapping Resolution | As the pipeline, I want to automatically resolve the correct schema mapping for a submitted file even when no sourceType is provided so that members do not need to tag their files. | Internal pipeline stage | `batch_jobs`, `schema_mapper_registry` | P0 | ❌ Missing |
-| BATCH-US-004 | Schema Detection Stage | As the pipeline, I want to detect the source schema of the submitted file so that the correct field mapping is applied. | Internal pipeline stage | `batch_jobs`, `schema_mapper_registry` | P0 | ⚠️ Partial |
-| BATCH-US-005 | Field Validation Stage | As the pipeline, I want to validate every record against the configured validation rules so that only quality data proceeds. | Internal pipeline stage | `batch_phase_logs`, `validation_rules` | P0 | ✅ Implemented |
-| BATCH-US-006 | Field Mapping Stage | As the pipeline, I want to map source fields to canonical fields using the approved schema mapping so that data is normalised. | Internal pipeline stage | `batch_phase_logs`, `mapping_pairs` | P0 | ✅ Implemented |
-| BATCH-US-007 | Identity Resolution Stage | As the pipeline, I want to apply clustering to consumer identities so that a single view of the consumer is achieved across institutions. | Internal pipeline stage | `consumers`, `tradelines` | P0 | ⚠️ Partial |
-| BATCH-US-008 | Data Load Stage | As the pipeline, I want to insert validated and mapped records into tradelines and consumers so that data is durably stored. | Internal pipeline stage | `tradelines`, `consumers`, `credit_profiles` | P0 | ✅ Implemented |
-| BATCH-US-009 | Post-Processing Stage | As the system, I want to generate processing reports and notify the institution so that the file lifecycle is completed. | Internal pipeline stage | `batch_jobs`, `notifications` | P0 | ❌ Missing |
-| BATCH-US-010 | Phase and Stage Logging | As an operations engineer, I want every pipeline phase and stage to be logged with status, timing, and record counts so that the execution console has full visibility. | Internal, writes to DB | `batch_phase_logs`, `batch_stage_logs`, `batch_error_samples` | P0 | ✅ Implemented |
-| BATCH-US-011 | Batch Job Tracking and Monitoring KPI Integration | As an operations engineer, I want every batch job's full lifecycle tracked with granular metrics so that monitoring dashboards have real-time KPI data from batch processing. | Internal, writes to DB | `batch_tracking_snapshots`, `batch_jobs`, `batch_sftp_events` | P0 | ❌ Missing |
-| BATCH-US-012 | Retry a Failed Batch Job | As a member institution operator, I want to retry a failed batch job so that transient failures are recoverable. | `POST /api/v1/batch-jobs/:id/retry` | `batch_jobs` | P1 | ✅ Implemented |
-| BATCH-US-013 | Cancel an In-Progress Batch Job | As a bureau admin, I want to cancel an in-progress batch job so that erroneous submissions are stopped before full load. | `POST /api/v1/batch-jobs/:id/cancel` | `batch_jobs` | P1 | ✅ Implemented |
+| BATCH-US-003 | Schema Auto-Detection and Mapping Resolution | As the batch pipeline, I want to detect the source schema of the submitted file and resolve the correct mapping... | Internal pipeline stage | `batch_jobs`, `schema_mapper_registry` | P0 | ⚠️ Partial |
+| BATCH-US-004 | Field Validation Stage | As the pipeline, I want to validate every record against the configured validation rules so that only quality data proceeds. | Internal pipeline stage | `batch_phase_logs`, `validation_rules` | P0 | ✅ Implemented |
+| BATCH-US-005 | Field Mapping Stage | As the pipeline, I want to map source fields to canonical fields using the approved schema mapping so that data is normalised. | Internal pipeline stage | `batch_phase_logs`, `mapping_pairs` | P0 | ✅ Implemented |
+| BATCH-US-006 | Identity Resolution Stage | As the pipeline, I want to apply clustering to consumer identities so that a single view of the consumer is achieved across institutions. | Internal pipeline stage | `consumers`, `tradelines` | P0 | ⚠️ Partial |
+| BATCH-US-007 | Data Load Stage | As the pipeline, I want to insert validated and mapped records into tradelines and consumers so that data is durably stored. | Internal pipeline stage | `tradelines`, `consumers`, `credit_profiles` | P0 | ✅ Implemented |
+| BATCH-US-008 | Post-Processing Stage | As the system, I want to generate processing reports and notify the institution so that the file lifecycle is completed. | Internal pipeline stage | `batch_jobs`, `notifications` | P0 | ❌ Missing |
+| BATCH-US-009 | Phase and Stage Logging | As an operations engineer, I want every pipeline phase and stage to be logged with status, timing, and record counts so that the execution console has full visibility. | Internal, writes to DB | `batch_phase_logs`, `batch_stage_logs`, `batch_error_samples` | P0 | ✅ Implemented |
+| BATCH-US-010 | Batch Job Tracking and Monitoring KPI Integration | As an operations engineer, I want every batch job's full lifecycle tracked with granular metrics so that monitoring dashboards have real-time KPI data from batch processing. | Internal, writes to DB | `batch_tracking_snapshots`, `batch_jobs`, `batch_sftp_events` | P0 | ❌ Missing |
+| BATCH-US-011 | Retry a Failed Batch Job | As a member institution operator, I want to retry a failed batch job so that transient failures are recoverable. | `POST /api/v1/batch-jobs/:id/retry` | `batch_jobs` | P1 | ✅ Implemented |
+| BATCH-US-012 | Cancel an In-Progress Batch Job | As a bureau admin, I want to cancel an in-progress batch job so that erroneous submissions are stopped before full load. | `POST /api/v1/batch-jobs/:id/cancel` | `batch_jobs` | P1 | ✅ Implemented |
 
 ### EPIC-15 — Data Submission API (DSAPI) — API-First
 
@@ -384,7 +383,7 @@ The **Hybrid Credit Bureau (HCB) Admin Portal** is a React 18 SPA (Vite + TypeSc
 | GAP-016 | BATCH-US-001 | SFTP file drop intake not implemented; `SftpPollerService`, `batch_sftp_events` table, and SFTP folder lifecycle all missing | Missing API | P0 |
 | GAP-017 | BATCH-US-002 | Multi-format file parsers (fixed-width layout, XML SAX) not implemented; JSON/CSV partial only | Missing API | P0 |
 | GAP-018 | BATCH-US-003 | Schema auto-detection from file headers (Jaccard similarity) and filename hints not implemented | Missing API | P0 |
-| GAP-019 | BATCH-US-011 | `batch_tracking_snapshots` table missing; `batch_jobs` lacks SFTP/schema/mapping quality columns; SFTP monitoring endpoints absent | Missing API + DB | P0 |
+| GAP-019 | BATCH-US-010 | `batch_tracking_snapshots` table missing; `batch_jobs` lacks SFTP/schema/mapping quality columns; SFTP monitoring endpoints absent | Missing API + DB | P0 |
 
 ---
 
