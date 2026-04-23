@@ -767,7 +767,7 @@ WHERE batch_job_id = ?;
 
 ---
 
-### BATCH-US-004 — Field Validation Stage
+### BATCH-US-004 — Validation Stage
 
 #### 1. Description
 > As the batch pipeline,
