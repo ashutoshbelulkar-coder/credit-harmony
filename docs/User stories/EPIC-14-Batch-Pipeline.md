@@ -36,8 +36,8 @@ Files may also be submitted via multipart HTTP POST (secondary intake path). Bot
 2. **HTTP multipart upload (secondary)** — alternative intake via `POST /api/v1/batch-jobs`
 3. **Format auto-detection** — CSV, JSON (array or JSONL), fixed-width, XML
 4. **Schema detection** from `schema_mapper_registry` (institution + source type)
-5. **Per-record field validation** against `validation_rules` — L1 (field-level) and L2 (cross-field)
-6. **Data standardization** — schema conversion, business transformation, enum normalization
+5. **Per-record field validation** against `validation_rules` — L1 (field-level mandatory + format checks), with L2 cross-field validation after standardization
+6. **Data standardization** — schema conversion, business transformation (incl. enum normalization), L2 cross-field validation
 7. **Identity resolution** — cluster assignment to unify consumer identities
 8. **PII encryption** and data normalisation
 9. **Durable load** to `tradelines`, `consumers`, `credit_profiles`
@@ -181,9 +181,7 @@ The pipeline follows a **Phase → Stage → Record** hierarchy:
         │   • Validate required fields presence                    │
         │   STG_02_02_L1_VALIDATION                                │
         │   • Field-level validation (format, regex, type)         │
-        │   STG_02_03_L2_VALIDATION                                │
-        │   • Cross-field validation (logical consistency)         │
-        │   STG_02_04_DUPLICATE_RECORD_CHECK                       │
+        │   STG_02_03_DUPLICATE_RECORD_CHECK                       │
         │   • Detect duplicate records within batch                │
         │   Decision: failure rate ≥ 30% → FAIL JOB               │
         └──────────────────────┬───────────────────────────────────┘
@@ -196,8 +194,10 @@ The pipeline follows a **Phase → Stage → Record** hierarchy:
         │   STG_03_02_BUSINESS_TRANSFORMATION                      │
         │   • Apply domain-specific transformations                │
         │   • PII hashing, type casting, date/value normalisation  │
-        │   STG_03_03_ENUM_NORMALIZATION                           │
-        │   • Normalize categorical values via enum reconciliation  │
+        │   • Enum normalization (categorical → canonical values)   │
+        │   STG_03_03_L2_VALIDATION                                │
+        │   • Cross-field validation on typed canonical values      │
+        │   • e.g. outstanding_balance ≤ loan_amount, dpd_days ≥ 0 │
         └──────────────────────┬───────────────────────────────────┘
                                │
                                ▼
@@ -242,13 +242,12 @@ Phase: PHASE_01_PRE_PROCESSING
 Phase: PHASE_02_VALIDATION
   └── Stage: STG_02_01_MANDATORY_CHECK
   └── Stage: STG_02_02_L1_VALIDATION
-  └── Stage: STG_02_03_L2_VALIDATION
-  └── Stage: STG_02_04_DUPLICATE_RECORD_CHECK
+  └── Stage: STG_02_03_DUPLICATE_RECORD_CHECK
 
 Phase: PHASE_03_DATA_STANDARDIZATION
   └── Stage: STG_03_01_SCHEMA_CONVERSION
-  └── Stage: STG_03_02_BUSINESS_TRANSFORMATION
-  └── Stage: STG_03_03_ENUM_NORMALIZATION
+  └── Stage: STG_03_02_BUSINESS_TRANSFORMATION  (incl. enum normalization)
+  └── Stage: STG_03_03_L2_VALIDATION
 
 Phase: PHASE_04_IDENTITY_RESOLUTION
   └── Stage: STG_04_01_CLUSTER_ASSIGNMENT
@@ -521,8 +520,8 @@ LIMIT 1;
 
 #### 1. Description
 > As the batch pipeline,
-> I want to validate every record across all PHASE_02_VALIDATION stages,
-> So that only quality data proceeds to standardization and load.
+> I want to validate every record across PHASE_02_VALIDATION stages (L1 mandatory + format checks, duplicate check),
+> So that structurally invalid records are rejected before standardization.
 
 #### 2. Pipeline Execution
 
@@ -540,12 +539,7 @@ STG_02_02_L1_VALIDATION (Field-Level):
     If WARNING failure: mark record as flagged, proceed
     If INFO failure: log only, proceed
 
-STG_02_03_L2_VALIDATION (Cross-Field):
-  Apply logical consistency rules across related fields:
-    e.g. outstanding_balance ≤ loan_amount, dpd_days ≥ 0
-    CRITICAL failures mark record as failed
-
-STG_02_04_DUPLICATE_RECORD_CHECK:
+STG_02_03_DUPLICATE_RECORD_CHECK:
   Detect duplicate records within the batch (same account_number + reporting_period)
   Duplicates marked as failed
 
@@ -554,6 +548,9 @@ Decision: failure rate ≥ 30% → FAIL JOB entirely
 
 Write phase log: PHASE_02_VALIDATION completed/failed
 Write stage logs: one row per stage type
+
+Note: Cross-field (L2) validation executes in PHASE_03 as STG_03_03_L2_VALIDATION,
+after records are mapped to canonical types — ensuring comparisons operate on typed values.
 ```
 
 #### 3. Logging Contract
@@ -563,21 +560,14 @@ Write stage logs: one row per stage type
 INSERT INTO batch_phase_logs (batch_job_id, phase_name, phase_status,
   started_at, completed_at, processed_count, failed_count)
 VALUES ('999902', 'PHASE_02_VALIDATION', 'completed',
-  '2026-03-31T10:00:05Z', '2026-03-31T10:00:45Z', 5000, 23);
+  '2026-03-31T10:00:05Z', '2026-03-31T10:00:45Z', 5000, 20);
 
--- Error sample — L1 validation failure (up to 100 per job)
+-- Error sample — L1 field-level validation failure (up to 100 per job)
 INSERT INTO batch_error_samples (batch_job_id, row_number,
   error_code, error_message, field_name, field_value, error_type, severity)
 VALUES ('999902', 147, 'VALIDATION_L1_FORMAT_FAILED',
   'account_number does not match ^[A-Z0-9-]{5,20}$',
   'account_number', 'INVALID', 'FORMAT', 'CRITICAL');
-
--- Error sample — L2 cross-field validation failure
-INSERT INTO batch_error_samples (batch_job_id, row_number,
-  error_code, error_message, field_name, field_value, error_type, severity)
-VALUES ('999902', 203, 'VALIDATION_L2_CROSS_FIELD_FAILED',
-  'outstanding_balance exceeds loan_amount',
-  'outstanding_balance', '150000', 'CROSS_FIELD', 'CRITICAL');
 ```
 
 #### 4. Tracking Points Written
@@ -586,19 +576,20 @@ VALUES ('999902', 203, 'VALIDATION_L2_CROSS_FIELD_FAILED',
 |---------------|-------|-----------|
 | Validation phase start/end | `batch_phase_logs` | `phase_name='PHASE_02_VALIDATION'`, `started_at`, `completed_at` |
 | Records processed | `batch_phase_logs` | `processed_count`, `failed_count` |
-| Per-stage results | `batch_stage_logs` | one row per stage: `STG_02_01_MANDATORY_CHECK`, `STG_02_02_L1_VALIDATION`, `STG_02_03_L2_VALIDATION`, `STG_02_04_DUPLICATE_RECORD_CHECK` |
-| Error samples | `batch_error_samples` | max 100 per job |
+| Per-stage results | `batch_stage_logs` | one row per stage: `STG_02_01_MANDATORY_CHECK`, `STG_02_02_L1_VALIDATION`, `STG_02_03_DUPLICATE_RECORD_CHECK` |
+| Error samples (L1) | `batch_error_samples` | max 100 per job; `error_type='FORMAT'` / `'MANDATORY'` |
 | Failure threshold check | `batch_jobs` | `validation_failure_rate` |
 
 #### 5. Partial Success Handling
 - If `failed_count / total_records < FAILURE_THRESHOLD` (default 30%): job continues with valid records only, status = `partially_completed`
 - If `failed_count / total_records >= 30%`: job fails entirely, status = `failed`
 - FAILURE_THRESHOLD configurable per institution in `api_access_json`
+- Additional L2 cross-field failures (PHASE_03 / `STG_03_03_L2_VALIDATION`) further reduce the valid record set but do not re-evaluate the 30% threshold
 
 #### 6. Definition of Done
-- [ ] All four PHASE_02 stages executed in order (MANDATORY_CHECK → L1_VALIDATION → L2_VALIDATION → DUPLICATE_RECORD_CHECK)
-- [ ] L1 field-level and L2 cross-field rules both applied
-- [ ] CRITICAL failures mark records as failed
+- [ ] All three PHASE_02 stages executed in order (MANDATORY_CHECK → L1_VALIDATION → DUPLICATE_RECORD_CHECK)
+- [ ] L1 field-level format and type rules applied per record
+- [ ] CRITICAL failures mark records as failed; WARNING records flagged but proceed
 - [ ] Phase log and stage logs and error samples written
 - [ ] Partial success logic applied: failure rate < 30% continues; ≥ 30% fails job
 
@@ -608,8 +599,8 @@ VALUES ('999902', 203, 'VALIDATION_L2_CROSS_FIELD_FAILED',
 
 #### 1. Description
 > As the batch pipeline,
-> I want to execute PHASE_03_DATA_STANDARDIZATION — schema conversion, business transformation, and enum normalization —
-> So that all data is converted to the canonical bureau format before identity resolution and storage.
+> I want to execute PHASE_03_DATA_STANDARDIZATION — schema conversion, business transformation (incl. enum normalization), and L2 cross-field validation —
+> So that all data is canonically formatted, logically consistent, and ready for identity resolution and storage.
 
 #### 2. Pipeline Logic
 
@@ -628,16 +619,22 @@ STG_03_01_SCHEMA_CONVERSION:
       FAIL: reject record
 
 STG_03_02_BUSINESS_TRANSFORMATION:
-  Apply domain-specific transformations:
+  Apply domain-specific transformations and enum normalization:
     PII Hashing: SHA-256 hash national_id, phone, email before storage
     Type Casting: String → native DB type (decimal, integer, date)
     Date Normalisation: Various formats → ISO 8601
     String Trimming: Remove leading/trailing whitespace
     Null Standardisation: Empty string → NULL
+    Enum Normalisation: Apply enum_reconciliation_json for all categorical fields;
+      map institution-specific enum values → canonical bureau enum values
 
-STG_03_03_ENUM_NORMALIZATION:
-  Apply enum_reconciliation_json for all categorical fields
-  Map institution-specific enum values → canonical bureau enum values
+STG_03_03_L2_VALIDATION (Cross-Field, on canonically typed values):
+  Apply logical consistency rules across related canonical fields:
+    e.g. outstanding_balance ≤ loan_amount (both now decimal type)
+         dpd_days ≥ 0 (integer check on cast value)
+         repayment_date ≥ disbursement_date (date comparison on ISO values)
+  CRITICAL failures mark record as failed; excluded from PHASE_04 onward
+  Write error samples with error_type='CROSS_FIELD', error_code='VALIDATION_L2_CROSS_FIELD_FAILED'
 ```
 
 #### 3. Database
@@ -664,20 +661,22 @@ String emailHash = DigestUtils.sha256Hex(email.trim().toLowerCase());
 | Tracking Point | Table | Column(s) |
 |---------------|-------|-----------|
 | Standardization phase start/end | `batch_phase_logs` | `phase_name='PHASE_03_DATA_STANDARDIZATION'`, `processed_count`, `mapped_count`, `unmapped_count` |
-| Per-stage results | `batch_stage_logs` | one row per: `STG_03_01_SCHEMA_CONVERSION`, `STG_03_02_BUSINESS_TRANSFORMATION`, `STG_03_03_ENUM_NORMALIZATION` |
+| Per-stage results | `batch_stage_logs` | one row per: `STG_03_01_SCHEMA_CONVERSION`, `STG_03_02_BUSINESS_TRANSFORMATION`, `STG_03_03_L2_VALIDATION` |
 | Unmapped field paths | `batch_jobs` | `unmapped_field_paths_json` (JSON array) |
 | Mapping coverage | `batch_jobs` | `mapping_coverage_percent` |
 | PII fields hashed | `batch_jobs` | `pii_fields_hashed_count` |
 | Transformation errors | `batch_error_samples` | `error_type='TRANSFORMATION'` |
+| L2 cross-field failures | `batch_error_samples` | `error_type='CROSS_FIELD'`, `error_code='VALIDATION_L2_CROSS_FIELD_FAILED'`, `severity='CRITICAL'` |
 | Drift trigger | `ingestion_drift_alerts` | inserted when unmapped ratio > threshold |
 
 #### 6. Definition of Done
 - [ ] All approved mapping_pairs applied per record (`STG_03_01_SCHEMA_CONVERSION`)
 - [ ] PII fields hashed before storage in consumers table (`STG_03_02_BUSINESS_TRANSFORMATION`)
 - [ ] Type casting applied based on canonical field data types
-- [ ] Enum reconciliation applied for enum-type fields (`STG_03_03_ENUM_NORMALIZATION`)
+- [ ] Enum normalization applied within `STG_03_02_BUSINESS_TRANSFORMATION` for all categorical fields
+- [ ] Cross-field L2 validation applied on typed canonical values (`STG_03_03_L2_VALIDATION`)
 - [ ] Unmapped field action applied per `UnmappedAction` configuration
-- [ ] PHASE_03 phase log and stage logs written
+- [ ] PHASE_03 phase log and all three stage logs written
 - [ ] `mapping_coverage_percent` and `pii_fields_hashed_count` stored on batch_jobs
 
 ---
@@ -828,8 +827,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 **Stage names (canonical):**
 - PHASE_01: `STG_01_01_BATCH_CREATION`, `STG_01_02_FILE_INTEGRITY`, `STG_01_03_SCHEMA_LOOKUP`, `STG_01_04_RECORD_PARSING`
-- PHASE_02: `STG_02_01_MANDATORY_CHECK`, `STG_02_02_L1_VALIDATION`, `STG_02_03_L2_VALIDATION`, `STG_02_04_DUPLICATE_RECORD_CHECK`
-- PHASE_03: `STG_03_01_SCHEMA_CONVERSION`, `STG_03_02_BUSINESS_TRANSFORMATION`, `STG_03_03_ENUM_NORMALIZATION`
+- PHASE_02: `STG_02_01_MANDATORY_CHECK`, `STG_02_02_L1_VALIDATION`, `STG_02_03_DUPLICATE_RECORD_CHECK`
+- PHASE_03: `STG_03_01_SCHEMA_CONVERSION`, `STG_03_02_BUSINESS_TRANSFORMATION` (incl. enum normalization), `STG_03_03_L2_VALIDATION`
 - PHASE_04: `STG_04_01_CLUSTER_ASSIGNMENT`
 - PHASE_05: `STG_05_01_DATA_LOAD_DB`
 - PHASE_06: `STG_06_01_ERROR_REPORT`, `STG_06_02_DATA_QUALITY_REPORT`, `STG_06_03_NOTIFICATION_TRIGGER`
@@ -1309,13 +1308,13 @@ The following table defines every tracking point written during a batch job's li
 | 14 | PHASE_02_VALIDATION start/end | PHASE_02 | `batch_phase_logs` | `phase_name='PHASE_02_VALIDATION'`, timings | Validation duration per job |
 | 15 | Mandatory check failures | STG_02_01_MANDATORY_CHECK | `batch_phase_logs` | `failed_count` | Validation failure rate % |
 | 16 | L1 field-level validation failures | STG_02_02_L1_VALIDATION | `batch_error_samples` | per row | Top error codes, field-level failure heatmap |
-| 17 | L2 cross-field validation failures | STG_02_03_L2_VALIDATION | `batch_error_samples` | per row | Cross-field logic failure rate |
-| 18 | Validation failure rate vs threshold | PHASE_02 decision | `batch_jobs` | `validation_failure_rate` | Jobs above failure threshold (partial/failed) |
-| 19 | PHASE_03_DATA_STANDARDIZATION start/end | PHASE_03 | `batch_phase_logs` | `phase_name='PHASE_03_DATA_STANDARDIZATION'`, timings | Standardization duration |
-| 20 | Mapping coverage | STG_03_01_SCHEMA_CONVERSION | `batch_jobs` | `mapping_coverage_percent` | Avg mapping coverage by institution/source type |
-| 21 | Unmapped field paths | STG_03_01_SCHEMA_CONVERSION | `batch_jobs` | `unmapped_field_paths_json` | Unmapped field rate; new field drift detection |
-| 22 | Drift alert triggered | STG_03_01_SCHEMA_CONVERSION | `batch_jobs` | `drift_alert_triggered=1`; `ingestion_drift_alerts` | Drift alerts per day |
-| 23 | PII fields hashed | STG_03_02_BUSINESS_TRANSFORMATION | `batch_jobs` | `pii_fields_hashed_count` | PII compliance metric |
+| 17 | Validation failure rate vs threshold (PHASE_02) | PHASE_02 decision | `batch_jobs` | `validation_failure_rate` | Jobs above failure threshold (partial/failed) |
+| 18 | PHASE_03_DATA_STANDARDIZATION start/end | PHASE_03 | `batch_phase_logs` | `phase_name='PHASE_03_DATA_STANDARDIZATION'`, timings | Standardization duration |
+| 19 | Mapping coverage | STG_03_01_SCHEMA_CONVERSION | `batch_jobs` | `mapping_coverage_percent` | Avg mapping coverage by institution/source type |
+| 20 | Unmapped field paths | STG_03_01_SCHEMA_CONVERSION | `batch_jobs` | `unmapped_field_paths_json` | Unmapped field rate; new field drift detection |
+| 21 | Drift alert triggered | STG_03_01_SCHEMA_CONVERSION | `batch_jobs` | `drift_alert_triggered=1`; `ingestion_drift_alerts` | Drift alerts per day |
+| 22 | Enum normalization + PII hashing | STG_03_02_BUSINESS_TRANSFORMATION | `batch_jobs` | `pii_fields_hashed_count` | PII compliance metric |
+| 23 | L2 cross-field validation failures | STG_03_03_L2_VALIDATION | `batch_error_samples` | `error_type='CROSS_FIELD'`, per row | Cross-field logic failure rate |
 | 24 | PHASE_04_IDENTITY_RESOLUTION start/end | PHASE_04 | `batch_phase_logs` | `phase_name='PHASE_04_IDENTITY_RESOLUTION'`, timings | Identity resolution duration |
 | 25 | Consumer cluster matched/created | STG_04_01_CLUSTER_ASSIGNMENT | `batch_jobs` | `new_consumers_created`, `existing_consumers_updated` | Consumer growth rate |
 | 26 | PHASE_05_DATA_LOAD start/end | PHASE_05 | `batch_phase_logs` | `phase_name='PHASE_05_DATA_LOAD'`, timings | Load duration, throughput (records/min) |
@@ -1543,15 +1542,14 @@ Institution drops FNB_bank_2026-03-31.csv to /sftp/institutions/1/incoming/
   PHASE_02_VALIDATION:
     STG_02_01_MANDATORY_CHECK: 5000 records checked, 0 missing mandatory fields
     STG_02_02_L1_VALIDATION: 5000 records; 20 failed (field-level format errors)
-    STG_02_03_L2_VALIDATION: 4980 records; 3 failed (cross-field inconsistencies)
-    STG_02_04_DUPLICATE_RECORD_CHECK: 4977 records pass; 0 intra-batch duplicates
-    → failure rate: 23/5000 = 0.46% (< 30% threshold)
+    STG_02_03_DUPLICATE_RECORD_CHECK: 4980 records; 0 intra-batch duplicates
+    → failure rate: 20/5000 = 0.40% (< 30% threshold)
     → status: partially_completed for failed records; valid records continue
 
   PHASE_03_DATA_STANDARDIZATION:
-    STG_03_01_SCHEMA_CONVERSION: 4977 records mapped; coverage 91.7%
-    STG_03_02_BUSINESS_TRANSFORMATION: PII hashed (3 fields × 4977 = 14,931 hashes)
-    STG_03_03_ENUM_NORMALIZATION: categorical values normalized
+    STG_03_01_SCHEMA_CONVERSION: 4980 records mapped; coverage 91.7%
+    STG_03_02_BUSINESS_TRANSFORMATION: PII hashed (3 fields × 4980 = 14,940 hashes); enum values normalized
+    STG_03_03_L2_VALIDATION: 4980 records; 3 failed (cross-field inconsistencies) → 4977 pass
 
   PHASE_04_IDENTITY_RESOLUTION:
     STG_04_01_CLUSTER_ASSIGNMENT: 312 new consumers; 4665 existing matched
@@ -1587,8 +1585,8 @@ Institution drops report_2026-03.csv (no source type in name)
 ### Workflow C — Failed Batch Recovery (SFTP)
 ```
 PHASE_02_VALIDATION:
-  STG_02_02_L1_VALIDATION + STG_02_03_L2_VALIDATION: 35% records fail (above 30% threshold)
-  → Decision: FAIL JOB
+  STG_02_02_L1_VALIDATION: 35% records fail L1 field-level checks (above 30% threshold)
+  → Decision: FAIL JOB at PHASE_02 threshold gate (L2 not reached)
   → Job status: failed
   → Error samples stored (max 100)
   → File remains in processing/ (NOT moved to failed/ until confirmed terminal)
