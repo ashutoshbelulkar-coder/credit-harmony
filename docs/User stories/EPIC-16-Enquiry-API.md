@@ -237,51 +237,45 @@ stateDiagram-v2
 
 ---
 
-## 8. Data Processing Pipeline
+## 8. Data Processing Pipeline (Enterprise 7-Stage Architecture)
 
-```
-POST /api/v1/enquiries
-    ↓
-[INTAKE] Validate API key → Resolve subscriber institution → Active + subscriber check
-    ↓
-[PRODUCT CHECK] Verify institution has active subscription to productId
-    ↓
-[IDEMPOTENCY] Check idempotency key / duplicate in last 1h
-    ↓
-[202 ACCEPTED] Return enquiryId immediately; status = INITIATED
-    ↓
-[ASYNC PROCESSING]
-    ↓
-[CONSENT VALIDATION]
-  If consent_config enabled: validate consentReference against AA platform
-  If invalid: status = FAILED (ERR_CONSENT_INVALID)
-    ↓
-[CONSUMER LOOKUP]
-  Hash nationalId → SHA-256
-  SELECT consumers WHERE national_id_hash = ? AND national_id_type = ?
-  If not found: status = COMPLETED with consumerFound = false
-    ↓
-[CREDIT PROFILE FETCH]
-  SELECT tradelines WHERE consumer_id = ? (filtered by product's coverage_scope)
-  Apply consortium/network data sharing rules based on product config
-    ↓
-[PRODUCT ENRICHMENT]
-  Apply product packet rules (raw fields → selected; derived fields → calculated)
-  Calculate credit_score, dpd_band, total_exposure
-    ↓
-[FOOTPRINT CREATION] (HARD enquiries only)
-  INSERT enquiries record (creates credit footprint visible in future enquiries)
-    ↓
-[RESPONSE ASSEMBLY]
-  Build structured response per product field configuration
-  Filter to requestedFields if provided
-    ↓
-[AUDIT LOG]
-  INSERT audit_logs (ENQUIRY_COMPLETED or ENQUIRY_FAILED)
-  UPDATE enquiries record (status, completedAt, responseTimeMs)
-    ↓
-[STATUS UPDATE] status = COMPLETED
-```
+This architectural flow standardizes Enquiry Processing into 7 distinct stages. It ensures enterprise-grade observability by adopting system logging standards (`Sys OK/KO`, `Biz OK/KO`, `Log UID`). The flow aligns with the 202-async processing pattern.
+
+### Stage 1: Request Intake (Reception)
+- **Action**: Receives `POST /api/v1/enquiries` payload.
+- **Processing**: Allocates a unique `Log UID` (Transaction Reference Number). Applies API Key checks and initial rate limiting.
+- **Output**: Returns `202 Accepted` immediately with `enquiryId` and `status = INITIATED`.
+- **Logs**: `Sys OK` (Payload accepted) or `Sys KO` (Malformed).
+
+### Stage 2: Auth & Access (Authorization)
+- **Action**: Verifies caller entitlements.
+- **Processing**: Resolves subscriber institution. Checks `is_subscriber=true` and active status. Validates Product Subscription (`productId`).
+- **Logs**: `Biz OK` (Entitlement valid) or `Biz KO` (ERR_PRODUCT_NOT_SUBSCRIBED).
+
+### Stage 3: Structural/L1 Validation
+- **Action**: Deep validation of payload semantics.
+- **Processing**: Validates Consent Reference (if `require_consent=true` against AA platform). Checks idempotency constraints (duplicate in 1h).
+- **Logs**: `Biz OK` (Validation passed) or `Biz KO` (ERR_CONSENT_INVALID).
+
+### Stage 4: Identity Resolution (Matching)
+- **Action**: Identifies the exact consumer.
+- **Processing**: Hashes `nationalId` to SHA-256. Queries `consumers` table (`national_id_hash`, `national_id_type`).
+- **Logs**: `Biz OK` (Match found) or `Biz OK` (No Match - transitions to COMPLETED with `consumerFound=false`).
+
+### Stage 5: Data Retrieval (Extraction)
+- **Action**: Fetches raw tradelines and associated records.
+- **Processing**: Selects `tradelines` linked to `consumer_id` respecting product's `coverage_scope` (Self, Consortium, Network). Applies reciprocity exclusion filters if applicable.
+- **Logs**: `Sys OK` (DB Extraction successful) or `Sys KO` (DB Timeout).
+
+### Stage 6: Data Processing (Enrichment)
+- **Action**: Applies business rules and calculates scores.
+- **Processing**: Calculates derived fields (`credit_score`, `total_exposure`, `dpd_band`). Filters data based on product configuration (`packetConfigs.rawFields`).
+- **Logs**: `Sys OK` (Scoring/Enrichment successful) or `Biz KO` (Rule execution failed).
+
+### Stage 7: Response Assembly
+- **Action**: Finalizes the credit response and stores footprints.
+- **Processing**: Formats response schema. If `HARD` enquiry, writes footprint to `enquiries` table. Updates audit logs (`action_type = 'ENQUIRY_COMPLETED'`).
+- **Logs**: `Sys OK` (End of pipeline - status COMPLETED).
 
 ---
 
