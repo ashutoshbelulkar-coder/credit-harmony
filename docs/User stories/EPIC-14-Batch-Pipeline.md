@@ -153,61 +153,61 @@ The pipeline follows a **Phase → Stage → Record** hierarchy:
                │
                ▼
         ┌──────────────────────────────────────────────────────────┐
-        │   PHASE_01_PRE_PROCESSING                                │
-        │   STG_01_01_BATCH_CREATION                               │
+        │   P1_PRE_PROCS                                │
+        │   S11_BTCH_CRE                               │
         │   • Create batch job (status: PENDING)                   │
         │   • Assign metadata (institution_id, filename, ts)       │
-        │   STG_01_02_FILE_INTEGRITY                               │
+        │   S12_FILE_INT                               │
         │   • Compute SHA-256 checksum                             │
         │   • Validate file completeness, encoding, readability    │
         │   • Duplicate file check                                 │
-        │   STG_01_03_SCHEMA_LOOKUP                                │
-        │   • Identify schema (institution_id + format/sourceType) │
-        │   • If not found → QUARANTINE                            │
-        │   STG_01_04_RECORD_PARSING                               │
+        │   S13_REC_PARS                               │
         │   • Convert file → structured records                    │
         │   • Supports CSV, JSON, JSONL, Fixed-width, XML          │
+        │   S14_SCHM_LKP                                │
+        │   • Identify schema (institution_id + format/sourceType) │
+        │   • If not found → QUARANTINE                            │
         │   • Move file: incoming/ → processing/                   │
         └──────────────────────┬───────────────────────────────────┘
                                │
                                ▼
         ┌──────────────────────────────────────────────────────────┐
-        │   PHASE_02_VALIDATION                                    │
-        │   STG_02_01_MANDATORY_CHECK                              │
+        │   P2_VALIDTION                                    │
+        │   S21_MAND_CHK                              │
         │   • Validate required fields presence                    │
-        │   STG_02_02_L1_VALIDATION                                │
+        │   S22_L1_VALID                                │
         │   • Field-level validation (format, regex, type)         │
-        │   STG_02_03_DUPLICATE_RECORD_CHECK                       │
+        │   S23_DUPE_CHK                       │
         │   • Detect duplicate records within batch                │
         │   Decision: failure rate ≥ 30% → FAIL JOB               │
         └──────────────────────┬───────────────────────────────────┘
                                │
                                ▼
         ┌──────────────────────────────────────────────────────────┐
-        │   PHASE_03_DATA_STANDARDIZATION                          │
-        │   STG_03_01_SCHEMA_CONVERSION                            │
+        │   P3_STANDARZN                          │
+        │   S31_SCHM_CNV                            │
         │   • Map source schema → canonical schema                 │
-        │   STG_03_02_BUSINESS_TRANSFORMATION                      │
+        │   S32_BIZ_XFRM                      │
         │   • Apply domain-specific transformations                │
         │   • Type casting, date/value normalisation               │
         │   • Enum normalization (categorical → canonical values)   │
-        │   STG_03_03_L2_VALIDATION                                │
+        │   S33_L2_VALID                                │
         │   • Cross-field validation on typed canonical values      │
         │   • e.g. outstanding_balance ≤ loan_amount, dpd_days ≥ 0 │
         └──────────────────────┬───────────────────────────────────┘
                                │
                                ▼
         ┌──────────────────────────────────────────────────────────┐
-        │   PHASE_04_IDENTITY_RESOLUTION                           │
-        │   STG_04_01_CLUSTER_ASSIGNMENT                           │
+        │   P4_IDENT_RES                           │
+        │   S41_CLST_ASN                           │
         │   • Match records to existing consumers                  │
         │   • Create new identity cluster if unmatched             │
         └──────────────────────┬───────────────────────────────────┘
                                │
                                ▼
         ┌──────────────────────────────────────────────────────────┐
-        │   PHASE_05_DATA_LOAD                                     │
-        │   STG_05_01_DATA_LOAD_DB                                 │
+        │   P5_DATA_LOAD                                     │
+        │   S51_DATA_LOD                                 │
         │   • UPSERT consumers                                     │
         │   • INSERT tradelines                                    │
         │   • UPDATE credit_profiles summary fields                │
@@ -215,12 +215,12 @@ The pipeline follows a **Phase → Stage → Record** hierarchy:
                                │
                                ▼
         ┌──────────────────────────────────────────────────────────┐
-        │   PHASE_06_POST_PROCESSING                               │
-        │   STG_06_01_ERROR_REPORT                                 │
+        │   P6_POST_PROC                               │
+        │   S61_ERR_REPT                                 │
         │   • Generate failed records report                       │
-        │   STG_06_02_DATA_QUALITY_REPORT                          │
+        │   S62_DQ_REPRT                          │
         │   • Generate validation metrics / drift check            │
-        │   STG_06_03_NOTIFICATION_TRIGGER                         │
+        │   S63_NOTIF_TR                         │
         │   • Notify institution/admin                             │
         │   • SFTP file archive: processing/ → processed/failed/   │
         └──────────────────────────────────────────────────────────┘
@@ -229,37 +229,37 @@ The pipeline follows a **Phase → Stage → Record** hierarchy:
 ### Phase / Stage Hierarchy
 
 ```
-Phase: PHASE_01_PRE_PROCESSING
-  └── Stage: STG_01_01_BATCH_CREATION
-  └── Stage: STG_01_02_FILE_INTEGRITY
-  └── Stage: STG_01_03_SCHEMA_LOOKUP
-  └── Stage: STG_01_04_RECORD_PARSING
+Phase: P1_PRE_PROCS
+  └── Stage: S11_BTCH_CRE
+  └── Stage: S12_FILE_INT
+  └── Stage: S13_REC_PARS
+  └── Stage: S14_SCHM_LKP
 
-Phase: PHASE_02_VALIDATION
-  └── Stage: STG_02_01_MANDATORY_CHECK
-  └── Stage: STG_02_02_L1_VALIDATION
-  └── Stage: STG_02_03_DUPLICATE_RECORD_CHECK
+Phase: P2_VALIDTION
+  └── Stage: S21_MAND_CHK
+  └── Stage: S22_L1_VALID
+  └── Stage: S23_DUPE_CHK
 
-Phase: PHASE_03_DATA_STANDARDIZATION
-  └── Stage: STG_03_01_SCHEMA_CONVERSION
-  └── Stage: STG_03_02_BUSINESS_TRANSFORMATION  (incl. enum normalization)
-  └── Stage: STG_03_03_L2_VALIDATION
+Phase: P3_STANDARZN
+  └── Stage: S31_SCHM_CNV
+  └── Stage: S32_BIZ_XFRM  (incl. enum normalization)
+  └── Stage: S33_L2_VALID
 
-Phase: PHASE_04_IDENTITY_RESOLUTION
-  └── Stage: STG_04_01_CLUSTER_ASSIGNMENT
+Phase: P4_IDENT_RES
+  └── Stage: S41_CLST_ASN
 
-Phase: PHASE_05_DATA_LOAD
-  └── Stage: STG_05_01_DATA_LOAD_DB
+Phase: P5_DATA_LOAD
+  └── Stage: S51_DATA_LOD
 
-Phase: PHASE_06_POST_PROCESSING
-  └── Stage: STG_06_01_ERROR_REPORT
-  └── Stage: STG_06_02_DATA_QUALITY_REPORT
-  └── Stage: STG_06_03_NOTIFICATION_TRIGGER
+Phase: P6_POST_PROC
+  └── Stage: S61_ERR_REPT
+  └── Stage: S62_DQ_REPRT
+  └── Stage: S63_NOTIF_TR
 ```
 
 ### Concurrency Management
 
-To prevent split-identity cluster generation during `PHASE_04_IDENTITY_RESOLUTION`, batch jobs for the same `institution_id` are executed strictly **serially**. The Job Scheduler will leave a job in `queued` status if another job from the same institution is currently in `processing` status.
+To prevent split-identity cluster generation during `P4_IDENT_RES`, batch jobs for the same `institution_id` are executed strictly **serially**. The Job Scheduler will leave a job in `queued` status if another job from the same institution is currently in `processing` status.
 
 ---
 
@@ -278,7 +278,7 @@ When `batch_phase_logs` rows exist for a job, `GET /api/v1/batch-jobs/:id/detail
   "mappingId": "MAP-FNB-BANK-v3",
   "phases": [
     {
-      "phaseName": "PHASE_01_PRE_PROCESSING",
+      "phaseName": "P1_PRE_PROCS",
       "phaseStatus": "completed",
       "startedAt": "2026-03-31T10:00:00Z",
       "completedAt": "2026-03-31T10:00:02Z",
@@ -286,7 +286,7 @@ When `batch_phase_logs` rows exist for a job, `GET /api/v1/batch-jobs/:id/detail
       "failedCount": 0
     },
     {
-      "phaseName": "PHASE_02_VALIDATION",
+      "phaseName": "P2_VALIDTION",
       "phaseStatus": "completed",
       "startedAt": "2026-03-31T10:00:05Z",
       "completedAt": "2026-03-31T10:00:45Z",
@@ -294,7 +294,7 @@ When `batch_phase_logs` rows exist for a job, `GET /api/v1/batch-jobs/:id/detail
       "failedCount": 20         // L1 mandatory + format + duplicate only
     },
     {
-      "phaseName": "PHASE_03_DATA_STANDARDIZATION",
+      "phaseName": "P3_STANDARZN",
       "phaseStatus": "completed",
       "startedAt": "2026-03-31T10:00:46Z",
       "completedAt": "2026-03-31T10:01:10Z",
@@ -302,7 +302,7 @@ When `batch_phase_logs` rows exist for a job, `GET /api/v1/batch-jobs/:id/detail
       "failedCount": 3          // L2 cross-field failures in STG_03_03
     },
     {
-      "phaseName": "PHASE_04_IDENTITY_RESOLUTION",
+      "phaseName": "P4_IDENT_RES",
       "phaseStatus": "completed",
       "startedAt": "2026-03-31T10:01:11Z",
       "completedAt": "2026-03-31T10:01:30Z",
@@ -310,7 +310,7 @@ When `batch_phase_logs` rows exist for a job, `GET /api/v1/batch-jobs/:id/detail
       "failedCount": 0
     },
     {
-      "phaseName": "PHASE_05_DATA_LOAD",
+      "phaseName": "P5_DATA_LOAD",
       "phaseStatus": "completed",
       "startedAt": "2026-03-31T10:01:31Z",
       "completedAt": "2026-03-31T10:02:00Z",
@@ -318,7 +318,7 @@ When `batch_phase_logs` rows exist for a job, `GET /api/v1/batch-jobs/:id/detail
       "failedCount": 0
     },
     {
-      "phaseName": "PHASE_06_POST_PROCESSING",
+      "phaseName": "P6_POST_PROC",
       "phaseStatus": "completed",
       "startedAt": "2026-03-31T10:02:01Z",
       "completedAt": "2026-03-31T10:02:05Z",
@@ -328,23 +328,23 @@ When `batch_phase_logs` rows exist for a job, `GET /api/v1/batch-jobs/:id/detail
   ],
   "stages": [
     {
-      "stageName": "STG_01_04_RECORD_PARSING",
-      "phaseName": "PHASE_01_PRE_PROCESSING",
+      "stageName": "S13_REC_PARS",
+      "phaseName": "P1_PRE_PROCS",
       "stageStatus": "completed",
       "recordsProcessed": 1,
       "recordsFailed": 0,
       "metadata": { "detectedFormat": "CSV", "delimiter": ",", "headerRow": true, "columnCount": 11 }
     },
     {
-      "stageName": "STG_02_02_L1_VALIDATION",
-      "phaseName": "PHASE_02_VALIDATION",
+      "stageName": "S22_L1_VALID",
+      "phaseName": "P2_VALIDTION",
       "stageStatus": "completed",
       "recordsProcessed": 5000,
       "recordsFailed": 20       // field-level L1 failures (truncated sample shown)
     },
     {
-      "stageName": "STG_03_03_L2_VALIDATION",
-      "phaseName": "PHASE_03_DATA_STANDARDIZATION",
+      "stageName": "S33_L2_VALID",
+      "phaseName": "P3_STANDARZN",
       "stageStatus": "completed",
       "recordsProcessed": 4980,
       "recordsFailed": 3        // cross-field L2 failures on canonical typed values
@@ -535,19 +535,19 @@ flowchart TD
     A[Institution drops file to /incoming/] --> B[SftpPoller detects file every 30s]
     B --> C{File size stable OR .done marker?}
     C -->|No| D[Wait next poll cycle]
-    C -->|Yes| E[PHASE_01: STG_01_02_FILE_INTEGRITY - Compute SHA-256 checksum]
+    C -->|Yes| E[PHASE_01: S12_FILE_INT - Compute SHA-256 checksum]
     E --> F{Duplicate checksum in last 24h?}
     F -->|Yes| G[Move to /quarantine/ - log ERR_DUPLICATE_FILE]
     F -->|No| H[Move to /processing/UUID_filename]
     H --> I[INSERT batch_sftp_events - status: QUEUED]
     I --> J{Institution active AND is_data_submitter?}
     J -->|No| K[Move to /failed/ - ERR_INSTITUTION_NOT_ACTIVE]
-    J -->|Yes| L[STG_01_01_BATCH_CREATION: INSERT batch_jobs - status: queued]
-    L --> L2[STG_01_03_SCHEMA_LOOKUP: Resolve schema from registry]
-    L2 --> L3{Schema found?}
-    L3 -->|No| L4[Move to /quarantine/ - ERR_SCHEMA_NOT_REGISTERED]
-    L3 -->|Yes| L5[STG_01_04_RECORD_PARSING: Parse file to records]
-    L5 --> M[Enqueue for pipeline processing]
+    J -->|Yes| L[S11_BTCH_CRE: INSERT batch_jobs - status: queued]
+    L --> L2[S13_REC_PARS: Parse file to records]
+    L2 --> L3[S14_SCHM_LKP: Resolve schema from registry]
+    L3 --> L4{Schema found?}
+    L4 -->|No| L5[Move to /quarantine/ - ERR_SCHEMA_NOT_REGISTERED]
+    L4 -->|Yes| M[Enqueue for pipeline processing]
     M --> N[PHASE_02 → PHASE_03 → PHASE_04 → PHASE_05 → PHASE_06]
     N --> O{Pipeline success?}
     O -->|Yes| P[Move to /processed/ - UPDATE event PROCESSED]
@@ -588,7 +588,7 @@ hcb:
 
 #### 1. Description
 > As the batch pipeline,
-> I want to parse files in CSV, JSON, JSONL, fixed-width, and XML formats during `STG_01_04_RECORD_PARSING`,
+> I want to parse files in CSV, JSON, JSONL, fixed-width, and XML formats during `S13_REC_PARS`,
 > So that member institutions can submit in their native format without transformation.
 
 #### 2. Status: ❌ Missing
@@ -652,12 +652,12 @@ FileFormatDetectorService.detect(File file, String declaredFormat):
 | Tracking Point | Table | Column(s) |
 |---------------|-------|-----------|
 | Format detection outcome | `batch_sftp_events` | `detected_format`, `format_detection_method` |
-| Parser metadata | `batch_stage_logs` | `stage_name='STG_01_04_RECORD_PARSING'`, `stage_metadata_json` |
+| Parser metadata | `batch_stage_logs` | `stage_name='S13_REC_PARS'`, `stage_metadata_json` |
 | Parse errors | `batch_error_samples` | `error_type='PARSE'`, `severity='CRITICAL'` |
 | Column/field count | `batch_jobs` | `total_records` updated after parse |
 
 #### 6. Definition of Done
-- [ ] CSV parsed with auto-delimiter detection (`STG_01_04_RECORD_PARSING`)
+- [ ] CSV parsed with auto-delimiter detection (`S13_REC_PARS`)
 - [ ] JSON array and JSONL parsed
 - [ ] Fixed-width parsed using layout from schema registry metadata
 - [ ] XML parsed with SAX streaming; record element from registry metadata
@@ -669,22 +669,22 @@ FileFormatDetectorService.detect(File file, String declaredFormat):
 
 ---
 
-### BATCH-US-003 — Schema Auto-Detection and Mapping Resolution (STG_01_03)
+### BATCH-US-003 — Schema Auto-Detection and Mapping Resolution (S14_SCHM_LKP)
 
 #### 1. Description
 > As the batch pipeline,
-> I want to detect the source schema of the submitted file during `STG_01_03_SCHEMA_LOOKUP` and resolve the correct mapping,
+> I want to detect the source schema of the submitted file during `S14_SCHM_LKP` and resolve the correct mapping,
 > Even when the source type is not explicitly provided in the filename or metadata,
 > So that the correct field mapping is applied without requiring manual tagging from members.
 
 #### 2. Status: ⚠️ Partial
 
-Schema detection (`STG_01_03_SCHEMA_LOOKUP`) relies on the institution having a registered schema in `schema_mapper_registry`. 
+Schema detection (`S14_SCHM_LKP`) relies on the institution having a registered schema in `schema_mapper_registry`. 
 
 #### 3. Pipeline Logic & Detection Strategy
 
 ```
-STG_01_03_SCHEMA_LOOKUP:
+S14_SCHM_LKP:
 
 Strategy 1 — Explicit sourceType (highest priority):
   If sourceType present in batch_jobs (from SFTP metadata or explicit directory):
@@ -752,7 +752,7 @@ WHERE batch_job_id = ?;
 | Schema resolved | `batch_jobs` | `schema_registry_id`, `mapping_id`, `mapping_version` |
 | Detection method used | `batch_jobs` | `schema_detection_method` (`EXPLICIT` / `HEADER_MATCH` / `FALLBACK`) |
 | Detection confidence | `batch_jobs` | `schema_detection_confidence` |
-| Schema lookup stage | `batch_phase_logs` | `stage_name='STG_01_03_SCHEMA_LOOKUP'`, `phase_name='PHASE_01_PRE_PROCESSING'` |
+| Schema lookup stage | `batch_phase_logs` | `stage_name='S14_SCHM_LKP'`, `phase_name='P1_PRE_PROCS'` |
 | Low-confidence detection | `batch_error_samples` | `error_type='SCHEMA_DETECTION'`, `severity='WARNING'` when confidence 0.60–0.75 |
 | Schema detection failure | `batch_sftp_events` | `event_status='QUARANTINED'`, `error_code='ERR_SCHEMA_NOT_REGISTERED'` |
 
@@ -771,36 +771,36 @@ WHERE batch_job_id = ?;
 
 #### 1. Description
 > As the batch pipeline,
-> I want to validate every record across PHASE_02_VALIDATION stages (L1 mandatory + format checks, duplicate check),
+> I want to validate every record across P2_VALIDTION stages (L1 mandatory + format checks, duplicate check),
 > So that structurally invalid records are rejected before standardization.
 
 #### 2. Pipeline Execution
 
 ```
-PHASE_02_VALIDATION — executed in stage order:
+P2_VALIDTION — executed in stage order:
 
-STG_02_01_MANDATORY_CHECK:
+S21_MAND_CHK:
   Validate required fields presence on each record
   If mandatory field missing → CRITICAL failure
 
-STG_02_02_L1_VALIDATION (Field-Level):
+S22_L1_VALID (Field-Level):
   For each active validation_rule (format, regex, type):
     Apply rule expression to field value
     If CRITICAL failure: mark record as failed, add to batch_error_samples
     If WARNING failure: mark record as flagged, proceed
     If INFO failure: log only, proceed
 
-STG_02_03_DUPLICATE_RECORD_CHECK:
+S23_DUPE_CHK:
   Detect duplicate records within the batch (same account_number + reporting_period)
   Duplicates marked as failed
 
 Decision: failure rate ≥ 30% → FAIL JOB entirely
          failure rate < 30% → continue with valid records (partially_completed)
 
-Write phase log: PHASE_02_VALIDATION completed/failed
+Write phase log: P2_VALIDTION completed/failed
 Write stage logs: one row per stage type
 
-Note: Cross-field (L2) validation executes in PHASE_03 as STG_03_03_L2_VALIDATION,
+Note: Cross-field (L2) validation executes in PHASE_03 as S33_L2_VALID,
 after records are mapped to canonical types — ensuring comparisons operate on typed values.
 ```
 
@@ -810,7 +810,7 @@ after records are mapped to canonical types — ensuring comparisons operate on 
 -- Phase log
 INSERT INTO batch_phase_logs (batch_job_id, phase_name, phase_status,
   started_at, completed_at, processed_count, failed_count)
-VALUES ('999902', 'PHASE_02_VALIDATION', 'completed',
+VALUES ('999902', 'P2_VALIDTION', 'completed',
   '2026-03-31T10:00:05Z', '2026-03-31T10:00:45Z', 5000, 20);
 
 -- Error sample — L1 field-level validation failure (up to 100 per job)
@@ -825,9 +825,9 @@ VALUES ('999902', 147, 'VALIDATION_L1_FORMAT_FAILED',
 
 | Tracking Point | Table | Column(s) |
 |---------------|-------|-----------|
-| Validation phase start/end | `batch_phase_logs` | `phase_name='PHASE_02_VALIDATION'`, `started_at`, `completed_at` |
+| Validation phase start/end | `batch_phase_logs` | `phase_name='P2_VALIDTION'`, `started_at`, `completed_at` |
 | Records processed | `batch_phase_logs` | `processed_count`, `failed_count` |
-| Per-stage results | `batch_stage_logs` | one row per stage: `STG_02_01_MANDATORY_CHECK`, `STG_02_02_L1_VALIDATION`, `STG_02_03_DUPLICATE_RECORD_CHECK` |
+| Per-stage results | `batch_stage_logs` | one row per stage: `S21_MAND_CHK`, `S22_L1_VALID`, `S23_DUPE_CHK` |
 | Error samples (L1) | `batch_error_samples` | max 100 per job; `error_type='FORMAT'` / `'MANDATORY'` |
 | Failure threshold check | `batch_jobs` | `validation_failure_rate` |
 
@@ -836,12 +836,12 @@ VALUES ('999902', 147, 'VALIDATION_L1_FORMAT_FAILED',
 - If `failed_count / total_records >= 30%`: job fails entirely, status = `failed`
 - FAILURE_THRESHOLD configurable per institution in `api_access_json` (stored as decimal ratio, e.g. `0.30` = 30%)
 - `validation_failure_rate` stored on `batch_jobs` as a `REAL` decimal ratio (e.g. `0.046` = 4.6%) — **not** a percentage integer
-- **Second gate (PHASE_03):** After `STG_03_03_L2_VALIDATION` completes, a combined failure rate is evaluated:
+- **Second gate (PHASE_03):** After `S33_L2_VALID` completes, a combined failure rate is evaluated:
   ```
   combined_failure_rate = (phase02_failed + l2_failed) / total_records
   If combined_failure_rate >= FAILURE_THRESHOLD:
     → FAIL JOB (write PHASE_03 phase log with phase_status='failed', reason='L2_THRESHOLD_EXCEEDED')
-    → Skip PHASE_04, PHASE_05; proceed directly to PHASE_06_POST_PROCESSING
+    → Skip PHASE_04, PHASE_05; proceed directly to P6_POST_PROC
   ```
 
 #### 6. Definition of Done
@@ -850,7 +850,7 @@ VALUES ('999902', 147, 'VALIDATION_L1_FORMAT_FAILED',
 - [ ] CRITICAL failures mark records as failed; WARNING records flagged but proceed
 - [ ] Phase log and stage logs and error samples written
 - [ ] Partial success logic applied: failure rate < 30% continues; ≥ 30% fails job
-- [ ] L2 combined failure rate gate evaluated at end of `STG_03_03_L2_VALIDATION`; job fails if combined rate ≥ 30%
+- [ ] L2 combined failure rate gate evaluated at end of `S33_L2_VALID`; job fails if combined rate ≥ 30%
 
 ---
 
@@ -860,15 +860,15 @@ VALUES ('999902', 147, 'VALIDATION_L1_FORMAT_FAILED',
 
 #### 1. Description
 > As the batch pipeline,
-> I want to execute PHASE_03_DATA_STANDARDIZATION — schema conversion, business transformation (incl. enum normalization), and L2 cross-field validation —
+> I want to execute P3_STANDARZN — schema conversion, business transformation (incl. enum normalization), and L2 cross-field validation —
 > So that all data is canonically formatted, logically consistent, and ready for identity resolution and storage.
 
 #### 2. Pipeline Logic
 
 ```
-PHASE_03_DATA_STANDARDIZATION — executed in stage order:
+P3_STANDARZN — executed in stage order:
 
-STG_03_01_SCHEMA_CONVERSION:
+S31_SCHM_CNV:
   For each record:
     For each sourceFieldPath in detected schema:
       Look up canonical_field_code from mapping_pairs
@@ -879,7 +879,7 @@ STG_03_01_SCHEMA_CONVERSION:
       FLAG: include field with 'unmapped_' prefix, log warning
       FAIL: reject record
 
-STG_03_02_BUSINESS_TRANSFORMATION:
+S32_BIZ_XFRM:
   Apply domain-specific transformations and enum normalization:
     Type Casting: String → native DB type (decimal, integer, date)
     Date Normalisation: Various formats → ISO 8601
@@ -888,7 +888,7 @@ STG_03_02_BUSINESS_TRANSFORMATION:
     Enum Normalisation: Apply enum_reconciliation_json for all categorical fields;
       map institution-specific enum values → canonical bureau enum values
 
-STG_03_03_L2_VALIDATION (Cross-Field, on canonically typed values):
+S33_L2_VALID (Cross-Field, on canonically typed values):
   Apply logical consistency rules across related canonical fields:
     e.g. outstanding_balance ≤ loan_amount (both now decimal type)
          dpd_days ≥ 0 (integer check on cast value)
@@ -900,15 +900,15 @@ STG_03_03_L2_VALIDATION (Cross-Field, on canonically typed values):
 #### 3. Database
 
 ```sql
--- STG_03_01_SCHEMA_CONVERSION: resolve mapping pairs (pinned to version resolved at intake)
+-- S31_SCHM_CNV: resolve mapping pairs (pinned to version resolved at intake)
 SELECT mp.source_field_path, mp.canonical_field_code, mp.enum_reconciliation_json
 FROM mapping_pairs mp
 WHERE mp.schema_mapper_mapping_id = ?
   AND mp.is_approved = 1;
--- NOTE: mapping_id and mapping_version are locked at STG_01_03_SCHEMA_LOOKUP time
+-- NOTE: mapping_id and mapping_version are locked at S14_SCHM_LKP time
 -- and stored on batch_jobs. PHASE_03 must use the pinned version to prevent drift.
 
--- ingestion_drift_alerts DDL (write target for STG_03_01_SCHEMA_CONVERSION)
+-- ingestion_drift_alerts DDL (write target for S31_SCHM_CNV)
 CREATE TABLE IF NOT EXISTS ingestion_drift_alerts (
     id                  INTEGER PRIMARY KEY AUTOINCREMENT,
     batch_job_id        TEXT NOT NULL,
@@ -927,8 +927,8 @@ CREATE TABLE IF NOT EXISTS ingestion_drift_alerts (
 
 | Tracking Point | Table | Column(s) |
 |---------------|-------|-----------|
-| Standardization phase start/end | `batch_phase_logs` | `phase_name='PHASE_03_DATA_STANDARDIZATION'`, `processed_count`, `mapped_count`, `unmapped_count` |
-| Per-stage results | `batch_stage_logs` | one row per: `STG_03_01_SCHEMA_CONVERSION`, `STG_03_02_BUSINESS_TRANSFORMATION`, `STG_03_03_L2_VALIDATION` |
+| Standardization phase start/end | `batch_phase_logs` | `phase_name='P3_STANDARZN'`, `processed_count`, `mapped_count`, `unmapped_count` |
+| Per-stage results | `batch_stage_logs` | one row per: `S31_SCHM_CNV`, `S32_BIZ_XFRM`, `S33_L2_VALID` |
 | Unmapped field paths | `batch_jobs` | `unmapped_field_paths_json` (JSON array) |
 | Mapping coverage | `batch_jobs` | `mapping_coverage_percent` |
 | Transformation errors | `batch_error_samples` | `error_type='TRANSFORMATION'` |
@@ -936,10 +936,10 @@ CREATE TABLE IF NOT EXISTS ingestion_drift_alerts (
 | Drift trigger | `ingestion_drift_alerts` | inserted when unmapped ratio > threshold |
 
 #### 5. Definition of Done
-- [ ] All approved mapping_pairs applied per record (`STG_03_01_SCHEMA_CONVERSION`)
+- [ ] All approved mapping_pairs applied per record (`S31_SCHM_CNV`)
 - [ ] Type casting applied based on canonical field data types
-- [ ] Enum normalization applied within `STG_03_02_BUSINESS_TRANSFORMATION` for all categorical fields
-- [ ] Cross-field L2 validation applied on typed canonical values (`STG_03_03_L2_VALIDATION`)
+- [ ] Enum normalization applied within `S32_BIZ_XFRM` for all categorical fields
+- [ ] Cross-field L2 validation applied on typed canonical values (`S33_L2_VALID`)
 - [ ] Unmapped field action applied per `UnmappedAction` configuration
 - [ ] PHASE_03 phase log and all three stage logs written
 - [ ] `mapping_coverage_percent` stored on batch_jobs
@@ -952,7 +952,7 @@ CREATE TABLE IF NOT EXISTS ingestion_drift_alerts (
 
 #### 1. Description
 > As the batch pipeline,
-> I want to execute PHASE_04_IDENTITY_RESOLUTION — cluster assignment — after standardization,
+> I want to execute P4_IDENT_RES — cluster assignment — after standardization,
 > So that consumer identities are resolved and unified before data is loaded.
 
 #### 2. Status: ⚠️ Partial
@@ -962,9 +962,9 @@ Consumer identity resolution via cluster assignment is in-progress. Currently th
 #### 3. Identity Resolution Logic
 
 ```
-PHASE_04_IDENTITY_RESOLUTION:
+P4_IDENT_RES:
 
-STG_04_01_CLUSTER_ASSIGNMENT:
+S41_CLST_ASN:
   For each standardized record:
     1. Compute match key: SHA-256(national_id_hash + reporting_institution_id)
     2. Lookup existing consumer cluster in consumers table
@@ -981,7 +981,7 @@ STG_04_01_CLUSTER_ASSIGNMENT:
 #### 4. Database
 
 ```sql
--- Cluster lookup during STG_04_01_CLUSTER_ASSIGNMENT
+-- Cluster lookup during S41_CLST_ASN
 SELECT consumer_id FROM consumers
 WHERE national_id_hash = ?
   AND reporting_institution_id = ?;
@@ -994,13 +994,13 @@ WHERE national_id_hash = ?
 
 | Tracking Point | Table | Column(s) |
 |---------------|-------|-----------|
-| Identity resolution phase | `batch_phase_logs` | `phase_name='PHASE_04_IDENTITY_RESOLUTION'` |
+| Identity resolution phase | `batch_phase_logs` | `phase_name='P4_IDENT_RES'` |
 | New identities detected | `batch_jobs` | `new_consumers_created` (pre-counted) |
 | Existing identities matched | `batch_jobs` | `existing_consumers_updated` (pre-counted) |
-| Cluster assignment stage | `batch_stage_logs` | `stage_name='STG_04_01_CLUSTER_ASSIGNMENT'` |
+| Cluster assignment stage | `batch_stage_logs` | `stage_name='S41_CLST_ASN'` |
 
 #### 6. Definition of Done
-- [ ] `STG_04_01_CLUSTER_ASSIGNMENT` executes after PHASE_03 for each valid record
+- [ ] `S41_CLST_ASN` executes after PHASE_03 for each valid record
 - [ ] Existing consumer clusters matched via national_id_hash
 - [ ] New identity clusters pre-allocated for unmatched records
 - [ ] PHASE_04 phase log and stage log written
@@ -1014,15 +1014,15 @@ WHERE national_id_hash = ?
 
 #### 1. Description
 > As the batch pipeline,
-> I want to insert identity-resolved, standardized records into the core system via `STG_05_01_DATA_LOAD_DB`,
+> I want to insert identity-resolved, standardized records into the core system via `S51_DATA_LOD`,
 > So that data is durably stored in the credit bureau.
 
 #### 2. Load Sequence
 
 ```
-PHASE_05_DATA_LOAD:
+P5_DATA_LOAD:
 
-STG_05_01_DATA_LOAD_DB:
+S51_DATA_LOD:
   For each valid record (with consumer_id assigned in PHASE_04):
     1. UPSERT consumers (using pre-resolved consumer_id from CLUSTER_ASSIGNMENT)
     2. INSERT credit_profiles (if new consumer)
@@ -1054,8 +1054,8 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 | Tracking Point | Table | Column(s) |
 |---------------|-------|-----------|
-| Load phase results | `batch_phase_logs` | `phase_name='PHASE_05_DATA_LOAD'`, `processed_count`, `failed_count` |
-| Stage results | `batch_stage_logs` | `stage_name='STG_05_01_DATA_LOAD_DB'` |
+| Load phase results | `batch_phase_logs` | `phase_name='P5_DATA_LOAD'`, `processed_count`, `failed_count` |
+| Stage results | `batch_stage_logs` | `stage_name='S51_DATA_LOD'` |
 | Records inserted | `batch_jobs` | `processed_records`, `failed_records`, `new_consumers_created`, `existing_consumers_updated` |
 | Tradelines stored | `batch_jobs` | `tradelines_inserted` |
 | KPI counters | `api_requests` | `records_processed`, `api_request_status` |
@@ -1072,7 +1072,7 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 #### 6. Definition of Done
 - [ ] Consumers upserted using pre-resolved consumer_id from PHASE_04 CLUSTER_ASSIGNMENT
 - [ ] Tradelines inserted with correct attribution + `source_type` + `correlation_id`
-- [ ] PHASE_05 phase log and `STG_05_01_DATA_LOAD_DB` stage log written with success/fail counts
+- [ ] PHASE_05 phase log and `S51_DATA_LOD` stage log written with success/fail counts
 - [ ] Duplicate tradelines handled idempotently
 - [ ] `new_consumers_created` and `tradelines_inserted` stored on batch_jobs
 
@@ -1084,24 +1084,24 @@ VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 #### 1. Description
 > As the batch pipeline,
-> I want to execute PHASE_06_POST_PROCESSING,
+> I want to execute P6_POST_PROC,
 > So that errors are consolidated, tracking snapshots are recorded, notifications are sent, and SFTP folders are managed.
 
 #### 2. Pipeline Logic
 
-`PHASE_06_POST_PROCESSING` executes terminally, regardless of whether the pipeline succeeded, failed, or partially completed.
+`P6_POST_PROC` executes terminally, regardless of whether the pipeline succeeded, failed, or partially completed.
 
 ```
-STG_06_01_ERROR_REPORT:
+S61_ERR_REPT:
   Query batch_error_samples for this batch_job_id
   Generate structured JSON error report
   Store report internally; generate pre-signed URL/token for download
 
-STG_06_02_DATA_QUALITY_REPORT:
+S62_DQ_REPRT:
   Analyze validation_failure_rate and mapping_coverage_percent
   Write terminal batch_tracking_snapshots row (JOB_COMPLETE | JOB_FAILED | JOB_PARTIAL)
 
-STG_06_03_NOTIFICATION_TRIGGER:
+S63_NOTIF_TR:
   1. Determine outcome template: SUCCESS | PARTIAL | FAILED | QUARANTINED
   2. Send webhook/email to institution's registered endpoints containing:
      [job_id, outcome, processed_count, failed_count, error_report_url]
@@ -1144,18 +1144,18 @@ STG_06_03_NOTIFICATION_TRIGGER:
 
 > **Retry isolation:** `retry_attempt` mirrors `batch_jobs.retry_count` at the time of writing. Execution console and EPIC-09 queries must filter by `WHERE retry_attempt = (SELECT retry_count FROM batch_jobs WHERE batch_job_id = ?)` to show only the current run.
 
-**Phase names (canonical):** `PHASE_01_PRE_PROCESSING`, `PHASE_02_VALIDATION`, `PHASE_03_DATA_STANDARDIZATION`, `PHASE_04_IDENTITY_RESOLUTION`, `PHASE_05_DATA_LOAD`, `PHASE_06_POST_PROCESSING`
+**Phase names (canonical):** `P1_PRE_PROCS`, `P2_VALIDTION`, `P3_STANDARZN`, `P4_IDENT_RES`, `P5_DATA_LOAD`, `P6_POST_PROC`
 
 **`batch_stage_logs` columns:**
 `batch_job_id`, `phase_name`, `stage_name`, `stage_status`, `records_input`, `records_output`, `records_failed`, `started_at`, `completed_at`, `stage_metadata_json`, `retry_attempt`
 
 **Stage names (canonical):**
-- PHASE_01: `STG_01_01_BATCH_CREATION`, `STG_01_02_FILE_INTEGRITY`, `STG_01_03_SCHEMA_LOOKUP`, `STG_01_04_RECORD_PARSING`
-- PHASE_02: `STG_02_01_MANDATORY_CHECK`, `STG_02_02_L1_VALIDATION`, `STG_02_03_DUPLICATE_RECORD_CHECK`
-- PHASE_03: `STG_03_01_SCHEMA_CONVERSION`, `STG_03_02_BUSINESS_TRANSFORMATION` (incl. enum normalization), `STG_03_03_L2_VALIDATION`
-- PHASE_04: `STG_04_01_CLUSTER_ASSIGNMENT`
-- PHASE_05: `STG_05_01_DATA_LOAD_DB`
-- PHASE_06: `STG_06_01_ERROR_REPORT`, `STG_06_02_DATA_QUALITY_REPORT`, `STG_06_03_NOTIFICATION_TRIGGER`
+- PHASE_01: `S11_BTCH_CRE`, `S12_FILE_INT`, `S13_REC_PARS`, `S14_SCHM_LKP`
+- PHASE_02: `S21_MAND_CHK`, `S22_L1_VALID`, `S23_DUPE_CHK`
+- PHASE_03: `S31_SCHM_CNV`, `S32_BIZ_XFRM` (incl. enum normalization), `S33_L2_VALID`
+- PHASE_04: `S41_CLST_ASN`
+- PHASE_05: `S51_DATA_LOD`
+- PHASE_06: `S61_ERR_REPT`, `S62_DQ_REPRT`, `S63_NOTIF_TR`
 
 **`batch_error_samples` columns:**
 `batch_job_id`, `row_number`, `source_record_json`, `error_code`, `error_message`, `field_name`, `field_value`, `error_type`, `severity`, `correlation_id`
@@ -1201,40 +1201,40 @@ The following table defines every tracking point written during a batch job's li
 |---|----------------|--------------|-------|-----------|----------------------------|
 | 1 | File detected in SFTP | PHASE_01 | `batch_sftp_events` | `detected_at`, `event_status` | Files received per institution per day |
 | 2 | File size stable / upload complete | PHASE_01 / STG_01_02 | `batch_sftp_events` | `stable_confirmed_at` | SFTP upload completion latency |
-| 3 | Checksum computed | STG_01_02_FILE_INTEGRITY | `batch_sftp_events` | `checksum_sha256` | — (integrity) |
-| 4 | Duplicate file rejected | STG_01_02_FILE_INTEGRITY | `batch_sftp_events` | `is_duplicate=1` | Duplicate file rate per institution |
-| 5 | File format detected | STG_01_03_SCHEMA_LOOKUP | `batch_sftp_events` | `detected_format` | Format breakdown chart (CSV/JSON/XML %) |
-| 6 | Schema resolved / detection method | STG_01_03_SCHEMA_LOOKUP | `batch_jobs` | `schema_detection_method`, `schema_detection_confidence` | Schema detection success rate; auto-detection vs explicit % |
-| 7 | Schema detection failure | STG_01_03_SCHEMA_LOOKUP | `batch_sftp_events` | `event_status='QUARANTINED'` | Schema-not-registered alert count |
-| 8 | Job created (queued) | STG_01_01_BATCH_CREATION | `batch_jobs` | `job_status='queued'`, `submitted_at` | Jobs queued per hour |
+| 3 | Checksum computed | S12_FILE_INT | `batch_sftp_events` | `checksum_sha256` | — (integrity) |
+| 4 | Duplicate file rejected | S12_FILE_INT | `batch_sftp_events` | `is_duplicate=1` | Duplicate file rate per institution |
+| 5 | File format detected | S14_SCHM_LKP | `batch_sftp_events` | `detected_format` | Format breakdown chart (CSV/JSON/XML %) |
+| 6 | Schema resolved / detection method | S14_SCHM_LKP | `batch_jobs` | `schema_detection_method`, `schema_detection_confidence` | Schema detection success rate; auto-detection vs explicit % |
+| 7 | Schema detection failure | S14_SCHM_LKP | `batch_sftp_events` | `event_status='QUARANTINED'` | Schema-not-registered alert count |
+| 8 | Job created (queued) | S11_BTCH_CRE | `batch_jobs` | `job_status='queued'`, `submitted_at` | Jobs queued per hour |
 | 9 | SFTP-to-queue latency | PHASE_01 | computed | `queued_at - detected_at` | P95 SFTP intake latency |
 | 10 | Pipeline started (processing) | PHASE_01 complete | `batch_jobs` | `job_status='processing'`, `started_at` | Active pipelines count |
-| 11 | PHASE_01_PRE_PROCESSING start/end | PHASE_01 | `batch_phase_logs` | `phase_name='PHASE_01_PRE_PROCESSING'`, timings | Intake phase duration |
-| 12 | Record parsing stage | STG_01_04_RECORD_PARSING | `batch_stage_logs` | `stage_name='STG_01_04_RECORD_PARSING'` | — |
-| 13 | Schema lookup stage | STG_01_03_SCHEMA_LOOKUP | `batch_stage_logs` | `stage_name='STG_01_03_SCHEMA_LOOKUP'`, `started_at`, `completed_at` | Schema lookup P95 latency |
-| 14 | PHASE_02_VALIDATION start/end | PHASE_02 | `batch_phase_logs` | `phase_name='PHASE_02_VALIDATION'`, timings | Validation duration per job |
-| 15 | Mandatory check failures | STG_02_01_MANDATORY_CHECK | `batch_phase_logs` | `failed_count` | Validation failure rate % |
-| 16 | L1 field-level validation failures | STG_02_02_L1_VALIDATION | `batch_error_samples` | per row | Top error codes, field-level failure heatmap |
+| 11 | P1_PRE_PROCS start/end | PHASE_01 | `batch_phase_logs` | `phase_name='P1_PRE_PROCS'`, timings | Intake phase duration |
+| 12 | Record parsing stage | S13_REC_PARS | `batch_stage_logs` | `stage_name='S13_REC_PARS'` | — |
+| 13 | Schema lookup stage | S14_SCHM_LKP | `batch_stage_logs` | `stage_name='S14_SCHM_LKP'`, `started_at`, `completed_at` | Schema lookup P95 latency |
+| 14 | P2_VALIDTION start/end | PHASE_02 | `batch_phase_logs` | `phase_name='P2_VALIDTION'`, timings | Validation duration per job |
+| 15 | Mandatory check failures | S21_MAND_CHK | `batch_phase_logs` | `failed_count` | Validation failure rate % |
+| 16 | L1 field-level validation failures | S22_L1_VALID | `batch_error_samples` | per row | Top error codes, field-level failure heatmap |
 | 17 | Validation failure rate vs threshold (PHASE_02) | PHASE_02 decision | `batch_jobs` | `validation_failure_rate` | Jobs above failure threshold (partial/failed) |
-| 18 | PHASE_03_DATA_STANDARDIZATION start/end | PHASE_03 | `batch_phase_logs` | `phase_name='PHASE_03_DATA_STANDARDIZATION'`, timings | Standardization duration |
-| 19 | Mapping coverage | STG_03_01_SCHEMA_CONVERSION | `batch_jobs` | `mapping_coverage_percent` | Avg mapping coverage by institution/source type |
-| 20 | Unmapped field paths | STG_03_01_SCHEMA_CONVERSION | `batch_jobs` | `unmapped_field_paths_json` | Unmapped field rate; new field drift detection |
-| 21 | Drift alert triggered | STG_03_01_SCHEMA_CONVERSION | `batch_jobs` | `drift_alert_triggered=1`; `ingestion_drift_alerts` | Drift alerts per day |
-| 22 | L2 cross-field validation failures | STG_03_03_L2_VALIDATION | `batch_error_samples` | `error_type='CROSS_FIELD'`, per row | Cross-field logic failure rate |
-| 24 | PHASE_04_IDENTITY_RESOLUTION start/end | PHASE_04 | `batch_phase_logs` | `phase_name='PHASE_04_IDENTITY_RESOLUTION'`, timings | Identity resolution duration |
-| 25 | Consumer cluster matched/created | STG_04_01_CLUSTER_ASSIGNMENT | `batch_jobs` | `new_consumers_created`, `existing_consumers_updated` | Consumer growth rate |
-| 26 | PHASE_05_DATA_LOAD start/end | PHASE_05 | `batch_phase_logs` | `phase_name='PHASE_05_DATA_LOAD'`, timings | Load duration, throughput (records/min) |
-| 27 | Records processed | STG_05_01_DATA_LOAD_DB | `batch_jobs` | `processed_records` | Records ingested per hour/day |
-| 28 | Records failed (load) | STG_05_01_DATA_LOAD_DB | `batch_jobs` | `failed_records` | Failed record rate % |
-| 29 | Tradelines inserted | STG_05_01_DATA_LOAD_DB | `batch_jobs` | `tradelines_inserted` | Tradeline volume per day |
+| 18 | P3_STANDARZN start/end | PHASE_03 | `batch_phase_logs` | `phase_name='P3_STANDARZN'`, timings | Standardization duration |
+| 19 | Mapping coverage | S31_SCHM_CNV | `batch_jobs` | `mapping_coverage_percent` | Avg mapping coverage by institution/source type |
+| 20 | Unmapped field paths | S31_SCHM_CNV | `batch_jobs` | `unmapped_field_paths_json` | Unmapped field rate; new field drift detection |
+| 21 | Drift alert triggered | S31_SCHM_CNV | `batch_jobs` | `drift_alert_triggered=1`; `ingestion_drift_alerts` | Drift alerts per day |
+| 22 | L2 cross-field validation failures | S33_L2_VALID | `batch_error_samples` | `error_type='CROSS_FIELD'`, per row | Cross-field logic failure rate |
+| 24 | P4_IDENT_RES start/end | PHASE_04 | `batch_phase_logs` | `phase_name='P4_IDENT_RES'`, timings | Identity resolution duration |
+| 25 | Consumer cluster matched/created | S41_CLST_ASN | `batch_jobs` | `new_consumers_created`, `existing_consumers_updated` | Consumer growth rate |
+| 26 | P5_DATA_LOAD start/end | PHASE_05 | `batch_phase_logs` | `phase_name='P5_DATA_LOAD'`, timings | Load duration, throughput (records/min) |
+| 27 | Records processed | S51_DATA_LOD | `batch_jobs` | `processed_records` | Records ingested per hour/day |
+| 28 | Records failed (load) | S51_DATA_LOD | `batch_jobs` | `failed_records` | Failed record rate % |
+| 29 | Tradelines inserted | S51_DATA_LOD | `batch_jobs` | `tradelines_inserted` | Tradeline volume per day |
 | 30 | Job completed | PHASE_06 done | `batch_jobs` | `job_status='completed'`, `completed_at` | Batch success rate |
 | 31 | Job failed | Any phase | `batch_jobs` | `job_status='failed'`, `failed_at` | Batch failure rate, MTTR |
 | 32 | Job partially completed | PHASE_05 with failures | `batch_jobs` | `job_status='partially_completed'` | Partial completion rate |
 | 33 | Job cancelled | Any phase | `batch_jobs` | `job_status='cancelled'`, `cancelled_at` | Cancellation rate |
 | 34 | End-to-end latency | All phases | `batch_jobs` | `completed_at - submitted_at` | P95 batch processing time |
 | 35 | Stage-level latency | Per stage | `batch_stage_logs` | `completed_at - started_at` per stage | Per-stage latency breakdown |
-| 36 | PHASE_06: data quality report | STG_06_02_DATA_QUALITY_REPORT | `batch_phase_logs` | `stage_name='STG_06_02_DATA_QUALITY_REPORT'` | Validation metrics |
-| 37 | PHASE_06: SFTP file archive | STG_06_03_NOTIFICATION_TRIGGER | `batch_sftp_events` | `outcome_path`, `event_status` | SFTP folder health |
+| 36 | PHASE_06: data quality report | S62_DQ_REPRT | `batch_phase_logs` | `stage_name='S62_DQ_REPRT'` | Validation metrics |
+| 37 | PHASE_06: SFTP file archive | S63_NOTIF_TR | `batch_sftp_events` | `outcome_path`, `event_status` | SFTP folder health |
 | 38 | Retry triggered | Any phase | `batch_jobs` | `retry_count` incremented | Retry rate, retry success rate |
 | 39 | Audit log entry | PHASE_06 | `audit_logs` | `action='BATCH_JOB_COMPLETED'` | Compliance audit trail |
 | 40 | KPI row (backward-compat) | PHASE_05 | `api_requests` | `records_processed`, `api_request_status` | EPIC-09 MonitoringController KPIs |
@@ -1512,36 +1512,36 @@ CREATE INDEX idx_bts_batch_job ON batch_tracking_snapshots(batch_job_id);
 Institution drops FNB_bank_2026-03-31.csv to /sftp/institutions/1/incoming/
   → SftpPoller detects file (30s interval)
 
-  PHASE_01_PRE_PROCESSING:
-    STG_01_01_BATCH_CREATION: batch_sftp_events INSERT (QUEUED)
-    STG_01_02_FILE_INTEGRITY: file size stable; SHA-256 computed; no duplicate
+  P1_PRE_PROCS:
+    S11_BTCH_CRE: batch_sftp_events INSERT (QUEUED)
+    S12_FILE_INT: file size stable; SHA-256 computed; no duplicate
       → File moved: incoming/ → processing/
-    STG_01_03_SCHEMA_LOOKUP: EXPLICIT (sourceType=bank), MAP-FNB-BANK-v3
+    S13_REC_PARS: CSV, delimiter=comma, 11 columns, 5000 records parsed
+    S14_SCHM_LKP: EXPLICIT (sourceType=bank), MAP-FNB-BANK-v3
       → batch_jobs INSERT (queued, intake_channel=SFTP)
-    STG_01_04_RECORD_PARSING: CSV, delimiter=comma, 11 columns, 5000 records parsed
 
-  PHASE_02_VALIDATION:
-    STG_02_01_MANDATORY_CHECK: 5000 records checked, 0 missing mandatory fields
-    STG_02_02_L1_VALIDATION: 5000 records; 20 failed (field-level format errors)
-    STG_02_03_DUPLICATE_RECORD_CHECK: 4980 records; 0 intra-batch duplicates
+  P2_VALIDTION:
+    S21_MAND_CHK: 5000 records checked, 0 missing mandatory fields
+    S22_L1_VALID: 5000 records; 20 failed (field-level format errors)
+    S23_DUPE_CHK: 4980 records; 0 intra-batch duplicates
     → failure rate: 20/5000 = 0.40% (< 30% threshold)
     → status: partially_completed for failed records; valid records continue
 
-  PHASE_03_DATA_STANDARDIZATION:
-    STG_03_01_SCHEMA_CONVERSION: 4980 records mapped; coverage 91.7%
-    STG_03_02_BUSINESS_TRANSFORMATION: enum values normalized
-    STG_03_03_L2_VALIDATION: 4980 records; 3 failed (cross-field inconsistencies) → 4977 pass
+  P3_STANDARZN:
+    S31_SCHM_CNV: 4980 records mapped; coverage 91.7%
+    S32_BIZ_XFRM: enum values normalized
+    S33_L2_VALID: 4980 records; 3 failed (cross-field inconsistencies) → 4977 pass
 
-  PHASE_04_IDENTITY_RESOLUTION:
-    STG_04_01_CLUSTER_ASSIGNMENT: 312 new consumers; 4665 existing matched
+  P4_IDENT_RES:
+    S41_CLST_ASN: 312 new consumers; 4665 existing matched
 
-  PHASE_05_DATA_LOAD:
-    STG_05_01_DATA_LOAD_DB: 4977 tradelines inserted; 312 new consumers created
+  P5_DATA_LOAD:
+    S51_DATA_LOD: 4977 tradelines inserted; 312 new consumers created
 
-  PHASE_06_POST_PROCESSING:
-    STG_06_01_ERROR_REPORT: failed records report generated
-    STG_06_02_DATA_QUALITY_REPORT: unmapped ratio 8.3% < 20%; no drift alert
-    STG_06_03_NOTIFICATION_TRIGGER: institution notified
+  P6_POST_PROC:
+    S61_ERR_REPT: failed records report generated
+    S62_DQ_REPRT: unmapped ratio 8.3% < 20%; no drift alert
+    S63_NOTIF_TR: institution notified
       → File moved: processing/ → processed/
       → batch_sftp_events UPDATE (PROCESSED)
       → batch_tracking_snapshots INSERT (JOB_COMPLETE)
@@ -1553,8 +1553,8 @@ Institution drops FNB_bank_2026-03-31.csv to /sftp/institutions/1/incoming/
 Institution drops report_2026-03.csv (no source type in name)
   → SftpPoller detects, no explicit sourceType
 
-  PHASE_01_PRE_PROCESSING:
-    STG_01_03_SCHEMA_LOOKUP:
+  P1_PRE_PROCS:
+    S14_SCHM_LKP:
       → HEADER_MATCH: headers ["acct_no","pan_number","mobile","outstanding","dpd"]
       → Jaccard similarity against MAP-FNB-BANK-v3 source paths = 0.82 (> 0.60 threshold)
       → schema_detection_method = HEADER_MATCH, confidence = 0.82
@@ -1565,16 +1565,16 @@ Institution drops report_2026-03.csv (no source type in name)
 
 ### Workflow C — Failed Batch Recovery (SFTP)
 ```
-PHASE_02_VALIDATION:
-  STG_02_02_L1_VALIDATION: 35% records fail L1 field-level checks (above 30% threshold)
+P2_VALIDTION:
+  S22_L1_VALID: 35% records fail L1 field-level checks (above 30% threshold)
   → Decision: FAIL JOB at PHASE_02 threshold gate (L2 not reached)
   → Job status: failed
   → Error samples stored (max 100)
   → File remains in processing/ (NOT moved to failed/ until confirmed terminal)
 
-PHASE_06_POST_PROCESSING:
-  STG_06_01_ERROR_REPORT: generated with sampled errors
-  STG_06_03_NOTIFICATION_TRIGGER: admin notified
+P6_POST_PROC:
+  S61_ERR_REPT: generated with sampled errors
+  S63_NOTIF_TR: admin notified
 
   → Admin views execution console → investigates error samples by phase/stage
   → Institution fixes source data (re-generates CSV)
@@ -1589,8 +1589,8 @@ PHASE_06_POST_PROCESSING:
 Institution accidentally drops same CSV twice
   → Second drop: SftpPoller detects file
 
-  PHASE_01_PRE_PROCESSING:
-    STG_01_02_FILE_INTEGRITY:
+  P1_PRE_PROCS:
+    S12_FILE_INT:
       → SHA-256 matches existing batch_sftp_events (last 24h)
       → batch_sftp_events INSERT (is_duplicate=1, original_sftp_event_id=?, event_status=QUARANTINED)
       → File moved: incoming/ → quarantine/
@@ -1649,9 +1649,9 @@ Institution accidentally drops same CSV twice
 
 | Phase | Stories | Description |
 |-------|---------|-------------|
-| Phase 2 | BATCH-US-001 | SFTP intake (primary channel): poller service, folder structure, `batch_sftp_events` table, PHASE_01_PRE_PROCESSING file lifecycle |
-| Phase 3 | BATCH-US-002 | Multi-format parsers (`STG_01_04_RECORD_PARSING`): JSON/JSONL (easy), XML (SAX), fixed-width (layout from registry) |
-| Phase 4 | BATCH-US-003 | Schema auto-detection (`STG_01_03_SCHEMA_LOOKUP`): filename hints, header matching (Jaccard), fallback |
-| Phase 5 | BATCH-US-010, 014 | Full KPI tracking integration: `batch_tracking_snapshots`, extended `batch_jobs` columns, SFTP monitoring endpoints, alert thresholds in EPIC-10; Implementation of `PHASE_06_POST_PROCESSING` reports and notifications |
-| Phase 6 | BATCH-US-006 | Complete PHASE_04_IDENTITY_RESOLUTION with full cluster assignment |
+| Phase 2 | BATCH-US-001 | SFTP intake (primary channel): poller service, folder structure, `batch_sftp_events` table, P1_PRE_PROCS file lifecycle |
+| Phase 3 | BATCH-US-002 | Multi-format parsers (`S13_REC_PARS`): JSON/JSONL (easy), XML (SAX), fixed-width (layout from registry) |
+| Phase 4 | BATCH-US-003 | Schema auto-detection (`S14_SCHM_LKP`): filename hints, header matching (Jaccard), fallback |
+| Phase 5 | BATCH-US-010, 014 | Full KPI tracking integration: `batch_tracking_snapshots`, extended `batch_jobs` columns, SFTP monitoring endpoints, alert thresholds in EPIC-10; Implementation of `P6_POST_PROC` reports and notifications |
+| Phase 6 | BATCH-US-006 | Complete P4_IDENT_RES with full cluster assignment |
 | Phase 7 | — | Retry from last failed stage, streaming batch support, S3/GCS archival |
