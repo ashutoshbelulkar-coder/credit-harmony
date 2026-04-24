@@ -10,10 +10,10 @@
 ## 1. Executive Summary
 
 ### Purpose
-The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscriber institutions use this API to request credit bureau data for a specific consumer, referencing a data product and providing a consent artefact. The API validates the consent, retrieves and enriches the consumer's credit profile, applies product-level scoring rules, and returns a structured credit response. This is the commercial value delivery mechanism of the bureau.
+The Enquiry API is the alternate data retrieval gateway of the HCB platform. Subscriber institutions use this API to request alternate data for a specific consumer, referencing a data product and providing a consent artefact. The API validates the consent, retrieves and enriches the consumer's customer profile, applies product-level scoring rules, and returns a structured data response. This is the commercial value delivery mechanism of the HCB platform.
 
 ### Business Value
-- Instant credit decisions enable real-time loan origination by subscriber institutions
+- Instant data-driven decisions enable real-time loan origination by subscriber institutions
 - Product-scoped responses ensure subscribers only receive data they have entitlement to
 - Consent validation enforces AA (Account Aggregator) compliance
 - Every enquiry creates an auditable footprint for regulatory purposes
@@ -21,9 +21,9 @@ The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscr
 
 ### Key Capabilities
 1. API key authentication with subscriber institution resolution
-2. Credit enquiry submission with consumer identity and product reference
+2. Data enquiry submission with consumer identity and product reference
 3. AA consent reference validation before data retrieval
-4. Consumer credit profile fetch via hash-based identity matching
+4. Consumer customer profile fetch via hash-based identity matching
 5. Product-level scoring and field enrichment
 6. Enquiry lifecycle: INITIATED → FETCHING → ENRICHING → COMPLETED | FAILED
 7. Rate limiting per API key
@@ -34,12 +34,12 @@ The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscr
 ## 2. Scope
 
 ### In Scope
-- Real-time credit enquiry for a single consumer
+- Real-time data enquiry for a single consumer
 - API key authentication (subscriber institution)
 - Consent reference validation
 - Consumer lookup by hashed identity
 - Product entitlement check
-- Credit profile aggregation from tradelines
+- Customer profile aggregation from data records
 - Product-rule based scoring and field selection
 - Enquiry lifecycle management
 - Rate limiting
@@ -49,7 +49,7 @@ The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscr
 - Bulk/batch enquiries
 - Consumer-initiated self-enquiry portal
 - Negative data sharing (blacklist-only responses)
-- Cross-bureau enquiry federation
+- Cross-platform enquiry federation
 
 ---
 
@@ -57,10 +57,10 @@ The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscr
 
 | Persona | Role | Needs |
 |---------|------|-------|
-| Subscriber Institution System | API_USER (API key, subscriber) | Request consumer credit data |
+| Subscriber Institution System | API_USER (API key, subscriber) | Request consumer alternate data |
 | HCB Platform | Internal | Validate, fetch, enrich, respond |
-| Bureau Administrator | BUREAU_ADMIN | Monitor enquiry volume and failures |
-| Compliance Officer | BUREAU_ADMIN | Audit trail of all credit enquiries |
+| HCB Administrator | HCB_ADMIN | Monitor enquiry volume and failures |
+| Compliance Officer | HCB_ADMIN | Audit trail of all credit enquiries |
 
 ---
 
@@ -70,7 +70,7 @@ The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscr
 
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
-| `POST /api/v1/enquiries` | POST | Submit a credit enquiry request |
+| `POST /api/v1/enquiries` | POST | Submit a data enquiry request |
 | `GET /api/v1/enquiries/:enquiryId/status` | GET | Poll enquiry processing status |
 | `GET /api/v1/enquiries/:enquiryId/response` | GET | Retrieve completed enquiry response |
 
@@ -82,7 +82,7 @@ The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscr
 
 ### Idempotency
 - `Idempotency-Key` header: duplicate enquiries within 1 hour return original response
-- Hard enquiries (`enquiry_type=HARD`) create a **credit footprint** — idempotency prevents duplicate footprints
+- Hard enquiries (`enquiry_type=HARD`) create a **enquiry footprint** — idempotency prevents duplicate footprints
 - Soft enquiries (`enquiry_type=SOFT`): no footprint, idempotency less critical
 
 ### Rate Limits
@@ -106,7 +106,7 @@ The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscr
     "phone": "+254700000001",
     "email": "consumer@example.com"
   },
-  "requestedFields": ["credit_score", "total_exposure", "dpd_band", "active_accounts"],
+  "requestedFields": ["alternate_data_score", "total_exposure", "dpd_band", "active_accounts"],
   "idempotencyKey": "FIN-ENQ-2026-001",
   "memberId": "CBS-MEM-1001"
 }
@@ -148,7 +148,7 @@ The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscr
   "enquiryStatus": "COMPLETED",
   "enquiryType": "HARD",
   "consumerFound": true,
-  "creditScore": 720,
+  "alternateDataScore": 720,
   "creditBand": "GOOD",
   "totalExposure": 850000.00,
   "activeAccounts": 3,
@@ -162,9 +162,9 @@ The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscr
   },
   "productResponse": {
     "productId": 1,
-    "productName": "Standard Credit Report",
+    "productName": "Standard Alternate Data Report",
     "fields": {
-      "credit_score": 720,
+      "alternate_data_score": 720,
       "total_exposure": 850000.00,
       "dpd_band": "0",
       "active_accounts": 3
@@ -172,8 +172,8 @@ The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscr
   },
   "consumerMetadata": {
     "reportingInstitutionCount": 3,
-    "oldestTradeline": "2019-04-01",
-    "newestTradeline": "2026-03-01"
+    "oldestData record": "2019-04-01",
+    "newestData record": "2026-03-01"
   },
   "completedAt": "2026-03-31T14:00:03Z",
   "footprintCreated": true
@@ -187,8 +187,8 @@ The Enquiry API is the credit data retrieval gateway of the HCB platform. Subscr
   "enquiryId": "ENQ-2026-031-002",
   "enquiryStatus": "COMPLETED",
   "consumerFound": false,
-  "creditScore": null,
-  "message": "No credit history found for the provided consumer identity"
+  "alternateDataScore": null,
+  "message": "No customer history found for the provided consumer identity"
 }
 ```
 
@@ -239,43 +239,241 @@ stateDiagram-v2
 
 ## 8. Data Processing Pipeline (Enterprise 7-Stage Architecture)
 
-This architectural flow standardizes Enquiry Processing into 7 distinct stages. It ensures enterprise-grade observability by adopting system logging standards (`Sys OK/KO`, `Biz OK/KO`, `Log UID`). The flow aligns with the 202-async processing pattern.
+This architectural flow standardizes Enquiry Processing into 7 distinct stages for the HCB alternate data API. It ensures enterprise-grade observability by adopting system logging standards (`Sys OK/KO`, `Biz OK/KO`, `Log UID`). The API operates synchronously to return real-time alternate data responses.
 
-### Stage 1: Request Intake (Reception)
-- **Action**: Receives `POST /api/v1/enquiries` payload.
-- **Processing**: Allocates a unique `Log UID` (Transaction Reference Number). Applies API Key checks and initial rate limiting.
-- **Output**: Returns `202 Accepted` immediately with `enquiryId` and `status = INITIATED`.
-- **Logs**: `Sys OK` (Payload accepted) or `Sys KO` (Malformed).
+```text
+Request → Auth → Validation → Identity Resolution → Data Fetch → Processing → Response
+```
 
-### Stage 2: Auth & Access (Authorization)
-- **Action**: Verifies caller entitlements.
-- **Processing**: Resolves subscriber institution. Checks `is_subscriber=true` and active status. Validates Product Subscription (`productId`).
-- **Logs**: `Biz OK` (Entitlement valid) or `Biz KO` (ERR_PRODUCT_NOT_SUBSCRIBED).
+### Stage 1: Request Intake
 
-### Stage 3: Structural/L1 Validation
-- **Action**: Deep validation of payload semantics.
-- **Processing**: Validates Consent Reference (if `require_consent=true` against AA platform). Checks idempotency constraints (duplicate in 1h).
-- **Logs**: `Biz OK` (Validation passed) or `Biz KO` (ERR_CONSENT_INVALID).
+**a. Objective**
+Safely receive the incoming data enquiry payload, allocate tracking identifiers, and protect the platform from volumetric attacks.
 
-### Stage 4: Identity Resolution (Matching)
-- **Action**: Identifies the exact consumer.
-- **Processing**: Hashes `nationalId` to SHA-256. Queries `consumers` table (`national_id_hash`, `national_id_type`).
-- **Logs**: `Biz OK` (Match found) or `Biz OK` (No Match - transitions to COMPLETED with `consumerFound=false`).
+**b. Input**
+- Raw HTTP `POST /api/v1/enquiries` payload.
+- HTTP Headers (including `X-API-Key`).
 
-### Stage 5: Data Retrieval (Extraction)
-- **Action**: Fetches raw tradelines and associated records.
-- **Processing**: Selects `tradelines` linked to `consumer_id` respecting product's `coverage_scope` (Self, Consortium, Network). Applies reciprocity exclusion filters if applicable.
-- **Logs**: `Sys OK` (DB Extraction successful) or `Sys KO` (DB Timeout).
+**c. Processing Logic**
+1. Intercept the incoming request at the API Gateway.
+2. Generate a unique `Log UID` (Transaction Reference Number) for end-to-end traceability.
+3. Apply preliminary rate-limiting checks.
+4. Route the request to the Inquiry Processing engine.
 
-### Stage 6: Data Processing (Enrichment)
-- **Action**: Applies business rules and calculates scores.
-- **Processing**: Calculates derived fields (`credit_score`, `total_exposure`, `dpd_band`). Filters data based on product configuration (`packetConfigs.rawFields`).
-- **Logs**: `Sys OK` (Scoring/Enrichment successful) or `Biz KO` (Rule execution failed).
+**d. Key Validations / Rules**
+- API Key presence.
+- Gateway rate limit adherence (e.g., max requests per minute).
 
-### Stage 7: Response Assembly
-- **Action**: Finalizes the credit response and stores footprints.
-- **Processing**: Formats response schema. If `HARD` enquiry, writes footprint to `enquiries` table. Updates audit logs (`action_type = 'ENQUIRY_COMPLETED'`).
-- **Logs**: `Sys OK` (End of pipeline - status COMPLETED).
+**e. Output**
+- Request payload with attached `Log UID`.
+
+**f. Failure Scenarios**
+- **System failure**: Gateway timeout (`Sys KO`).
+- **Business validation failure**: Rate limit exceeded (`Biz KO` - 429 Too Many Requests).
+
+**g. Logging / Observability Mapping**
+- `Action`: Gateway.ReceiveRequest
+- `Log UID`: `[Allocated_UID]`
+- `Status`: `Sys OK` (Payload accepted)
+
+---
+
+### Stage 2: Authentication & Access Control
+
+**a. Objective**
+Verify caller identity, resolve the subscriber institution, and confirm entitlement to the requested data product.
+
+**b. Input**
+- Request payload with `Log UID`.
+- `X-API-Key`.
+- Caller IP address.
+
+**c. Processing Logic**
+1. Validate credentials against the identity store.
+2. Verify IP against the institution's whitelist.
+3. Check `is_subscriber=true` and confirm the institution is active.
+4. Validate the institution's subscription to the specified `productId`.
+
+**d. Key Validations / Rules**
+- API Key must be active and mapped to a valid institution.
+- IP address must be whitelisted.
+- Institution must have an active subscription for the requested product.
+
+**e. Output**
+- Authenticated Context object (Institution ID, Entitlements).
+
+**f. Failure Scenarios**
+- **System failure**: Auth service unreachable (`Sys KO`).
+- **Business validation failure**: Invalid Key, IP not whitelisted, Product not subscribed (`Biz KO` - 401/403).
+
+**g. Logging / Observability Mapping**
+- `Action`: Auth.ValidateAccess
+- `Log UID`: `[Allocated_UID]`
+- `Status`: `Biz OK` (Access granted) or `Biz KO` (ERR_PRODUCT_NOT_SUBSCRIBED).
+
+---
+
+### Stage 3: Validation Layer (Structural + L1)
+
+**a. Objective**
+Ensure the payload is well-formed, contains all mandatory fields, and adheres to semantic business rules.
+
+**b. Input**
+- Raw Request Payload.
+- Authenticated Context.
+
+**c. Processing Logic**
+1. Execute Structural Validation (JSON schema, data types).
+2. Execute L1 Validation (Mandatory fields, length, specific formats).
+3. Validate member institution mapping.
+4. Validate idempotency constraints (duplicate check within time window).
+
+**d. Key Validations / Rules**
+- `consumerIdentity` fields must meet exact length and character sets.
+- `productId` must exist.
+- Consent reference must be provided if required.
+
+**e. Output**
+- Validated Enquiry Object.
+
+**f. Failure Scenarios**
+- **System failure**: Schema registry unavailable (`Sys KO`).
+- **Business validation failure**: Missing mandatory fields, Malformed JSON, Idempotency conflict (`Biz KO` - 400 Bad Request / 409 Conflict).
+
+**g. Logging / Observability Mapping**
+- `Action`: Validation.PerformL1Checks
+- `Log UID`: `[Allocated_UID]`
+- `Status`: `Biz OK` (Validation passed) or `Biz KO` (ERR_VALIDATION).
+
+---
+
+### Stage 4: Identity Resolution
+
+**a. Objective**
+Unambiguously identify the consumer within the HCB platform and retrieve their unified cluster identifier.
+
+**b. Input**
+- Validated `consumerIdentity` object (e.g., National ID, Phone, Email).
+
+**c. Processing Logic**
+1. Pass identity attributes to the Identity Resolution module.
+2. Hash primary identifiers (e.g., SHA-256 for National ID) to preserve PII during lookup.
+3. Execute deterministic or probabilistic matching against the consumer registry.
+4. Return the corresponding `Cluster ID`.
+
+**d. Key Validations / Rules**
+- Identifier format must be correct prior to hashing.
+- Match confidence must meet the platform's minimum threshold.
+
+**e. Output**
+- `Cluster ID` mapping to the consumer's alternate data profile.
+
+**f. Failure Scenarios**
+- **System failure**: Identity resolution service timeout (`Sys KO`).
+- **Business validation failure**: No Match Found (Transitions to Stage 7 with `consumerFound=false`) (`Biz OK`).
+
+**g. Logging / Observability Mapping**
+- `Action`: Identity.ResolveConsumer
+- `Log UID`: `[Allocated_UID]`
+- `Status`: `Biz OK` (Match found: Cluster ID retrieved) or `Biz OK` (No match).
+
+---
+
+### Stage 5: Data Retrieval
+
+**a. Objective**
+Fetch all relevant alternate data records linked to the consumer's Cluster ID.
+
+**b. Input**
+- `Cluster ID`.
+- Product configuration (`coverage_scope`).
+
+**c. Processing Logic**
+1. Query the alternate data repositories using the `Cluster ID`.
+2. Apply the product's `coverage_scope` (Self, Consortium, or Network-wide retrieval).
+3. Aggregate the raw data records.
+
+**d. Key Validations / Rules**
+- Data fetched must strictly adhere to the institution's coverage entitlement.
+- Apply reciprocity rules (e.g., exclude data from non-reciprocal contributors).
+
+**e. Output**
+- Unfiltered, aggregated raw data records.
+
+**f. Failure Scenarios**
+- **System failure**: Database timeout or connection failure (`Sys KO`).
+- **Business validation failure**: Data retrieval blocked by reciprocity rules (`Biz OK` with empty subset).
+
+**g. Logging / Observability Mapping**
+- `Action`: DataStore.FetchRecords
+- `Log UID`: `[Allocated_UID]`
+- `Status`: `Sys OK` (Records fetched) or `Sys KO` (DB Error).
+
+---
+
+### Stage 6: Data Processing (Filtering, Masking, Unmasking)
+
+**a. Objective**
+Enrich the raw data, compute scores, and apply strict data visibility and masking rules to assemble the authorized product payload.
+
+**b. Input**
+- Unfiltered raw data records.
+- Product `packetConfigs` and global masking rules.
+
+**c. Processing Logic**
+1. **Filtering**: Select only the fields authorized by the requested product.
+2. **Enrichment**: Calculate derived fields (e.g., `alternate_data_score`, `total_exposure`).
+3. **Data Masking**: Apply global platform masking rules (e.g., obscure PII, redact specific source origins).
+4. **Data Unmasking**: Apply consortium-specific unmasking rules if the subscriber and data contributor are in the same trusted consortium.
+
+**d. Key Validations / Rules**
+- Scoring models must execute successfully.
+- Final payload must never contain fields outside the product's defined packet.
+
+**e. Output**
+- Processed, scored, and masked alternate data profile.
+
+**f. Failure Scenarios**
+- **System failure**: Scoring engine failure (`Sys KO`).
+- **Business validation failure**: Rule execution error due to missing dependent fields (`Biz KO`).
+
+**g. Logging / Observability Mapping**
+- `Action`: Enrichment.ApplyProductRules
+- `Log UID`: `[Allocated_UID]`
+- `Status`: `Sys OK` (Processing complete) or `Biz KO` (Scoring failed).
+
+---
+
+### Stage 7: Response Assembly (Synchronous API)
+
+**a. Objective**
+Construct the final API response, record the enquiry footprint, and return the data synchronously to the caller.
+
+**b. Input**
+- Processed alternate data profile.
+- Enquiry metadata.
+
+**c. Processing Logic**
+1. Map the processed data into the final output JSON schema.
+2. Write the enquiry footprint to the `enquiries` table (for HARD enquiries).
+3. Commit the final state to `audit_logs` (`action_type = 'ENQUIRY_COMPLETED'`).
+4. Return the HTTP 200 response with the payload.
+
+**d. Key Validations / Rules**
+- Response schema must perfectly match the API contract.
+- Audit log commit must be durable.
+
+**e. Output**
+- Synchronous HTTP 200 / 201 Response to the subscriber.
+
+**f. Failure Scenarios**
+- **System failure**: Audit log commit failure (triggers alert, but response may still be sent) (`Sys KO`).
+- **Business validation failure**: None at this stage.
+
+**g. Logging / Observability Mapping**
+- `Action`: Gateway.ReturnResponse
+- `Log UID`: `[Allocated_UID]`
+- `Status`: `Sys OK` (Response sent - Pipeline Completed).
 
 ---
 
@@ -315,7 +513,7 @@ WHERE ps.institution_id = ? AND ps.product_id = ?
 
 ---
 
-### ENQ-US-002 — Submit a Credit Enquiry Request
+### ENQ-US-002 — Submit a Data Enquiry Request
 
 #### 1. Description
 > As a subscriber institution,
@@ -400,12 +598,12 @@ If institution.consent_config.require_consent = false:
 
 ---
 
-### ENQ-US-004 — Fetch Consumer Credit Profile
+### ENQ-US-004 — Fetch Consumer Customer Profile
 
 #### 1. Description
 > As the API platform,
-> I want to look up the consumer by hashed identity and return their credit profile,
-> So that the enquiry is fulfilled with accurate bureau data.
+> I want to look up the consumer by hashed identity and return their customer profile,
+> So that the enquiry is fulfilled with accurate alternate data.
 
 #### 2. Status: ❌ Missing
 
@@ -421,13 +619,13 @@ FROM consumers c
 WHERE c.national_id_hash = ? AND c.national_id_type = ?
 LIMIT 1;
 
--- If found, fetch tradelines within coverage scope
-SELECT t.* FROM tradelines t
+-- If found, fetch data records within coverage scope
+SELECT t.* FROM data records t
 WHERE t.consumer_id = ?
   AND (
-    -- SELF: only requesting institution's tradelines
-    -- CONSORTIUM: requesting institution's consortium members' tradelines
-    -- NETWORK: all active institutions' tradelines
+    -- SELF: only requesting institution's data records
+    -- CONSORTIUM: requesting institution's consortium members' data records
+    -- NETWORK: all active institutions' data records
     <coverage_scope_filter>
   )
 ORDER BY t.reporting_period DESC;
@@ -436,7 +634,7 @@ ORDER BY t.reporting_period DESC;
 #### 4. Definition of Done
 - [ ] Consumer looked up by hashed national_id
 - [ ] Consumer not found returns COMPLETED with consumerFound=false
-- [ ] Tradelines fetched according to product's coverage_scope
+- [ ] Data records fetched according to product's coverage_scope
 
 ---
 
@@ -444,7 +642,7 @@ ORDER BY t.reporting_period DESC;
 
 #### 1. Description
 > As the API platform,
-> I want to apply product-level rules and scoring to the credit profile,
+> I want to apply product-level rules and scoring to the customer profile,
 > So that the response contains exactly the data the subscriber has entitlement to.
 
 #### 2. Status: ❌ Missing
@@ -452,10 +650,10 @@ ORDER BY t.reporting_period DESC;
 #### 3. Enrichment Logic
 
 ```
-Given: consumer tradelines + product configuration (packetIds, packetConfigs)
+Given: consumer data records + product configuration (packetIds, packetConfigs)
 
 1. Calculate derived fields:
-   credit_score = scoring_model(tradelines)
+   alternate_data_score = scoring_model(data records)
    total_exposure = SUM(outstanding_balance WHERE account_status != 'CLOSED')
    active_accounts = COUNT(*) WHERE account_status = 'ACTIVE'
    dpd_band = bucket(MAX(dpd_days))
@@ -468,7 +666,7 @@ Given: consumer tradelines + product configuration (packetIds, packetConfigs)
 ```
 
 #### 4. Definition of Done
-- [ ] Derived fields calculated correctly from tradelines
+- [ ] Derived fields calculated correctly from data records
 - [ ] Product field selection filters response correctly
 - [ ] Data visibility rules applied
 
@@ -499,7 +697,7 @@ Given: consumer tradelines + product configuration (packetIds, packetConfigs)
 
 **Full response:** `GET /api/v1/enquiries/:enquiryId/response`
 
-Returns full credit response (see §6 Response Design).
+Returns full data response (see §6 Response Design).
 
 #### 4. Definition of Done
 - [ ] Status poll returns current lifecycle state
@@ -526,7 +724,7 @@ Every enquiry must write to `audit_logs`:
 - `description = "Enquiry for consumer [nationalIdHash] via product [productName] by institution [institutionName]"`
 - `audit_outcome = 'success' | 'failure'`
 
-Additionally, every enquiry is recorded in the `enquiries` table (the credit footprint for HARD enquiries).
+Additionally, every enquiry is recorded in the `enquiries` table (the enquiry footprint for HARD enquiries).
 
 #### 4. Rate Limiting
 
@@ -536,7 +734,7 @@ Daily hard enquiry limit: 10,000 per institution
 
 #### 5. Definition of Done
 - [ ] Every enquiry (success or failure) written to audit_logs
-- [ ] HARD enquiries write to enquiries table (credit footprint)
+- [ ] HARD enquiries write to enquiries table (enquiry footprint)
 - [ ] Rate limit headers included in all responses
 - [ ] 429 includes Retry-After header
 
@@ -547,7 +745,7 @@ Daily hard enquiry limit: 10,000 per institution
 | Metric | Target |
 |--------|--------|
 | Enquiry API response time (P95) | < 500ms (SOFT) / < 2s (HARD) |
-| Enquiry throughput | 5,000 enquiries/min per bureau |
+| Enquiry throughput | 5,000 enquiries/min per platform |
 | Concurrent connections | 500 |
 | Consumer lookup latency | < 10ms (indexed national_id_hash) |
 
@@ -590,10 +788,10 @@ Daily hard enquiry limit: 10,000 per institution
 
 | Table | Key Fields | Notes |
 |-------|------------|-------|
-| `enquiries` | `id`, `institution_id`, `product_id`, `enquiry_type`, `enquiry_status`, `consent_reference`, `consumer_national_id_hash` | Credit enquiry log + footprint |
+| `enquiries` | `id`, `institution_id`, `product_id`, `enquiry_type`, `enquiry_status`, `consent_reference`, `consumer_national_id_hash` | Data enquiry log + footprint |
 | `consumers` | `national_id_hash`, `national_id_type` | Consumer registry |
-| `tradelines` | `consumer_id`, `facility_type`, `outstanding_balance`, `dpd_days` | Credit history |
-| `credit_profiles` | `consumer_id`, `credit_score`, `total_exposure` | Aggregated profile |
+| `data records` | `consumer_id`, `facility_type`, `outstanding_balance`, `dpd_days` | Credit history |
+| `customer_profiles` | `consumer_id`, `alternate_data_score`, `total_exposure` | Aggregated profile |
 | `products` | `id`, `coverage_scope`, `packet_ids_json`, `packet_configs_json` | Product config |
 | `product_subscriptions` | `institution_id`, `product_id` | Entitlement |
 
@@ -605,7 +803,7 @@ Daily hard enquiry limit: 10,000 per institution
 |-----|-------|----------|
 | `POST /api/v1/enquiries` not implemented in Spring | ENQ-US-002 | Critical |
 | Consent validation not implemented | ENQ-US-003 | Critical |
-| Consumer credit profile fetch not implemented | ENQ-US-004 | Critical |
+| Consumer customer profile fetch not implemented | ENQ-US-004 | Critical |
 | Product enrichment engine not implemented | ENQ-US-005 | Critical |
 | Status poll and response retrieval missing | ENQ-US-006 | High |
 | Rate limiting and audit logging missing | ENQ-US-007 | High |
