@@ -105,7 +105,221 @@ The Reporting module provides bureau administrators with on-demand report genera
 
 ---
 
-## 7. Story-Centric Requirements
+## 7. Detailed MIS Report Types and Variables
+
+### 7.1. Operational & System Performance MIS
+
+#### API Usage & Performance Report
+* **Description:** Details on API consumption, latency, and error rates per endpoint and institution.
+* **Variables:** `Date`, `Institution Name`, `Endpoint`, `Total Requests`, `Success Rate (%)`, `Avg Latency (ms)`, `P95 Latency (ms)`, `4xx Error Count`, `5xx Error Count`.
+* **Sample Data:**
+  ```json
+  {
+    "date": "2026-03-01",
+    "institutionName": "Global Bank",
+    "endpoint": "/api/v1/enquiry",
+    "totalRequests": 15000,
+    "successRate": 99.8,
+    "avgLatency": 120,
+    "p95Latency": 185,
+    "4xxErrorCount": 25,
+    "5xxErrorCount": 5
+  }
+  ```
+
+#### Batch Processing SLA Report
+* **Description:** Metrics on the asynchronous batch ingestion pipeline performance.
+* **Variables:** `Batch ID`, `Date`, `Submitter Institution`, `Total Records`, `Successfully Processed Records`, `Failed Records`, `Total Processing Time`, `Status`, `SLA Met (Yes/No)`.
+* **Sample Data:**
+  ```json
+  {
+    "batchId": "BATCH-20260301-001",
+    "date": "2026-03-01",
+    "submitterInstitution": "TechFin Credit",
+    "totalRecords": 500000,
+    "successfullyProcessedRecords": 499800,
+    "failedRecords": 200,
+    "totalProcessingTime": "00:45:12",
+    "status": "COMPLETED",
+    "slaMet": "Yes"
+  }
+  ```
+
+#### SLA Performance & Incidents Report
+* **Description:** Overview of system downtime, SLA breaches, and resolution times.
+* **Variables:** `Incident ID`, `Time of Breach`, `Affected Module`, `Severity`, `Time to Resolve (MTTR)`, `Root Cause`.
+* **Sample Data:**
+  ```json
+  {
+    "incidentId": "INC-8892",
+    "timeOfBreach": "2026-03-02T14:32:00Z",
+    "affectedModule": "Data Submission API",
+    "severity": "HIGH",
+    "timeToResolve": "00:15:30",
+    "rootCause": "Database connection pool exhaustion"
+  }
+  ```
+
+### 7.2. Data Governance & Quality MIS
+
+#### Data Quality Scorecard
+* **Description:** Tracks the health and completeness of data submitted by institutions.
+* **Variables:** `Institution Name`, `Source Type`, `Total Records Submitted`, `Validation Error Count`, `Missing Mandatory Fields Count`, `Data Quality Score (%)`.
+* **Sample Data:**
+  ```json
+  {
+    "institutionName": "Apex Telecom",
+    "sourceType": "Telecom",
+    "totalRecordsSubmitted": 1200000,
+    "validationErrorCount": 450,
+    "missingMandatoryFieldsCount": 120,
+    "dataQualityScore": 98.5
+  }
+  ```
+
+#### Schema Mapping Accuracy Report
+* **Description:** Evaluates the AI mapping efficiency and manual override rates.
+* **Variables:** `Institution Name`, `Source Type`, `Total Fields Mapped`, `Auto-Mapped Fields (%)`, `User Override Count`, `AI Confidence Average (%)`.
+* **Sample Data:**
+  ```json
+  {
+    "institutionName": "FinServe Group",
+    "sourceType": "Banking",
+    "totalFieldsMapped": 85,
+    "autoMappedFieldsPercent": 92.0,
+    "userOverrideCount": 7,
+    "aiConfidenceAverage": 94.5
+  }
+  ```
+
+#### Identity Resolution & Match Rate Report
+* **Description:** Effectiveness of the identity matching engine across bureau enquiries.
+* **Variables:** `Date`, `Total Enquiries`, `Exact Matches Found`, `Fuzzy Matches Found`, `Multiple Matches Detected`, `No Match Found (Thin File)`, `Match Confidence Average (%)`.
+* **Sample Data:**
+  ```json
+  {
+    "date": "2026-03-05",
+    "totalEnquiries": 45000,
+    "exactMatchesFound": 38000,
+    "fuzzyMatchesFound": 4500,
+    "multipleMatchesDetected": 1200,
+    "noMatchFound": 1300,
+    "matchConfidenceAverage": 96.2
+  }
+  ```
+
+### 7.3. Bureau Business & Commercial MIS
+
+#### Member Activity & Enquiry Volume
+* **Description:** Tracks subscriber usage for billing and utilization analysis.
+* **Variables:** `Subscriber Institution`, `Product Name`, `Enquiry Scope`, `Total Enquiries`, `Unique Customers Enquired`, `Hit Rate (%)`.
+* **Sample Data:**
+  ```json
+  {
+    "subscriberInstitution": "Urban Bank",
+    "productName": "Comprehensive Bureau Report",
+    "enquiryScope": "NETWORK",
+    "totalEnquiries": 12500,
+    "uniqueCustomersEnquired": 11800,
+    "hitRate": 89.5
+  }
+  ```
+
+#### Portfolio Summary (Data Contribution)
+* **Description:** Summary of the credit portfolio data contributed by a submitter.
+* **Variables:** `Submitter Institution`, `Total Active Accounts`, `Total Closed Accounts`, `Total Exposure Amount`, `Delinquent Accounts Count`, `Data Update Frequency`.
+* **Sample Data:**
+  ```json
+  {
+    "submitterInstitution": "Capital Finance",
+    "totalActiveAccounts": 250000,
+    "totalClosedAccounts": 180000,
+    "totalExposureAmount": 4500000000.00,
+    "delinquentAccountsCount": 12500,
+    "dataUpdateFrequency": "Daily"
+  }
+  ```
+
+#### Alternate Data Utilization Report
+* **Description:** Analyzes the usage and hit rates of alternate data packets.
+* **Variables:** `Product/Packet Name`, `Total Hits`, `Successful Hits (Data Found)`, `Hit Rate (%)`, `Average Data Points Returned`.
+* **Sample Data:**
+  ```json
+  {
+    "productPacketName": "Telecom Repayment History",
+    "totalHits": 8500,
+    "successfulHits": 6200,
+    "hitRate": 72.9,
+    "averageDataPointsReturned": 14
+  }
+  ```
+
+#### Consortium Sharing & Exposure Report
+* **Description:** Details data sharing activities within specific consortiums.
+* **Variables:** `Consortium Name`, `Total Members`, `Total Shared Records`, `Aggregated Exposure Amount`, `Total Access Requests`.
+* **Sample Data:**
+  ```json
+  {
+    "consortiumName": "Auto Lenders Network",
+    "totalMembers": 12,
+    "totalSharedRecords": 850000,
+    "aggregatedExposureAmount": 12000000000.00,
+    "totalAccessRequests": 45000
+  }
+  ```
+
+### 7.4. Compliance & Regulatory MIS
+
+#### User Audit & Access Log Report
+* **Description:** Audit trail of user activities for security and compliance.
+* **Variables:** `Date/Time`, `User Name`, `Role`, `Action Performed`, `Entity Accessed`, `IP Address`.
+* **Sample Data:**
+  ```json
+  {
+    "dateTime": "2026-03-10T09:15:22Z",
+    "userName": "jdoe@hcb.local",
+    "role": "BUREAU_ADMIN",
+    "actionPerformed": "OVERRIDE_MAPPING",
+    "entityAccessed": "SchemaMapping-402",
+    "ipAddress": "192.168.1.105"
+  }
+  ```
+
+#### Compliance & Dispute Resolution Report
+* **Description:** Tracks regulatory compliance regarding customer data disputes and consent.
+* **Variables:** `Date`, `Institution Name`, `Total Disputes Raised`, `Disputes Resolved`, `Average Time to Resolve (Days)`, `Pending Disputes`.
+* **Sample Data:**
+  ```json
+  {
+    "date": "2026-03-01",
+    "institutionName": "Global Bank",
+    "totalDisputesRaised": 45,
+    "disputesResolved": 38,
+    "averageTimeToResolve": 4.2,
+    "pendingDisputes": 7
+  }
+  ```
+
+### 7.5. Financial & Billing MIS
+
+#### Monthly Billing & Usage Volume Report
+* **Description:** Data used by the finance team to invoice institutions based on their API usage volumes.
+* **Variables:** `Billing Period`, `Institution Name`, `Total API Hits`, `Total Enquiries Volume`, `Batch Submissions Volume`, `Total Data Contribution Volume`.
+* **Sample Data:**
+  ```json
+  {
+    "billingPeriod": "2026-03",
+    "institutionName": "Urban Bank",
+    "totalApiHits": 150000,
+    "totalEnquiriesVolume": 12000,
+    "batchSubmissionsVolume": 4,
+    "totalDataContributionVolume": 850000
+  }
+  ```
+
+---
+
+## 8. Story-Centric Requirements
 
 ---
 
@@ -135,7 +349,7 @@ The Reporting module provides bureau administrators with on-demand report genera
 
 | Field | Type | Options | Required |
 |-------|------|---------|----------|
-| Report Type | select | Portfolio Summary, Member Activity, Data Quality, Compliance, SLA Performance, API Usage | Yes |
+| Report Type | select | API Usage & Performance, Batch Processing SLA, SLA Performance & Incidents, Data Quality Scorecard, Schema Mapping Accuracy, Identity Resolution & Match Rate, Member Activity & Enquiry Volume, Portfolio Summary, Alternate Data Utilization, Consortium Sharing & Exposure, User Audit & Access Log, Compliance & Dispute Resolution, Monthly Billing & Usage Volume | Yes |
 | Date From | date picker | — | Yes |
 | Date To | date picker | — | Yes |
 | Institution | select | All or specific institution | No |
@@ -355,7 +569,7 @@ flowchart TD
 
 ---
 
-## 8. Epic API Summary
+## 9. Epic API Summary
 
 | Endpoint | Method | Auth | Description | Status |
 |----------|--------|------|-------------|--------|
@@ -368,7 +582,7 @@ flowchart TD
 
 ---
 
-## 9. Database Summary
+## 10. Database Summary
 
 | Table | Key Fields | Notes |
 |-------|------------|-------|
@@ -376,7 +590,7 @@ flowchart TD
 
 ---
 
-## 10. Epic Workflows
+## 11. Epic Workflows
 
 ### Workflow: Report Request to Download
 ```
@@ -391,7 +605,7 @@ Admin fills New Report Request form →
 
 ---
 
-## 11. KPIs
+## 12. KPIs
 
 | KPI | Target |
 |-----|--------|
@@ -401,7 +615,7 @@ Admin fills New Report Request form →
 
 ---
 
-## 12. Risks
+## 13. Risks
 
 | Risk | Impact | Mitigation |
 |------|--------|-----------|
@@ -410,7 +624,7 @@ Admin fills New Report Request form →
 
 ---
 
-## 13. Gap Analysis
+## 14. Gap Analysis
 
 | Gap | Story | Severity |
 |-----|-------|----------|
@@ -419,7 +633,7 @@ Admin fills New Report Request form →
 
 ---
 
-## 14. Execution Roadmap
+## 15. Execution Roadmap
 
 | Phase | Stories | Description |
 |-------|---------|-------------|

@@ -45,3 +45,12 @@ test-results/
 
 # Maven build artifacts
 backend/target/
+
+# Temporary scripts and documents
+SRS_CRIMSPhilippines_Enquiry Processes (2) (1).docx
+docx_content.txt
+extract_docx.py
+inject_section_8.py
+replace_credit.py
+node-v24.11.1-win-x64/
+backend/data/hcb_platform.db

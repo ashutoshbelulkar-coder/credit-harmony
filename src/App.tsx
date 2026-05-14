@@ -37,6 +37,7 @@ const AutoMappingReview = lazy(() => import("./pages/data-governance/AutoMapping
 const ValidationRules = lazy(() => import("./pages/data-governance/ValidationRules"));
 const MatchReview = lazy(() => import("./pages/data-governance/MatchReview"));
 const DataQualityMonitoring = lazy(() => import("./pages/data-governance/DataQualityMonitoring"));
+const DataManagement = lazy(() => import("./pages/data-governance/data-management/DataManagement"));
 const MasterSchemaRegistryPage = lazy(() =>
   import("./pages/data-governance/master-schema/MasterSchemaRegistryPage").then((m) => ({ default: m.MasterSchemaRegistryPage }))
 );
@@ -164,6 +165,7 @@ function AppRoutes() {
             <Route path="validation-rules" element={<ValidationRules />} />
             <Route path="match-review" element={<MatchReview />} />
             <Route path="data-quality-monitoring" element={<DataQualityMonitoring />} />
+            <Route path="data-management" element={<DataManagement />} />
             <Route path="governance-audit-logs" element={<GovernanceAuditLogs />} />
           </Route>
           <Route path="/monitoring" element={<ProtectedRoute><MonitoringLayout /></ProtectedRoute>}>

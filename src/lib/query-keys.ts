@@ -142,6 +142,17 @@ export const QK = {
     wizardMetadata: () => ["schema-mapper", "wizard-metadata"] as const,
   },
 
+  // ── Data Management (subject-centric) ─────────────────────────────────────
+  dataManagement: {
+    all: () => ["data-management"] as const,
+    subjects: (params?: Record<string, unknown>) =>
+      ["data-management", "subjects", params ?? {}] as const,
+    subject: (id: string) => ["data-management", "subject", id] as const,
+    availableSources: (subjectId: string, query?: string) =>
+      ["data-management", "subject", subjectId, "available-sources", query ?? ""] as const,
+    audit: (subjectId: string) => ["data-management", "subject", subjectId, "audit"] as const,
+  },
+
   // ── Master Schema Management ───────────────────────────────────────────────
   masterSchemas: {
     all: () => ["master-schemas"] as const,

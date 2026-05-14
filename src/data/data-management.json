@@ -1,0 +1,191 @@
+{
+  "subjects": [
+    {
+      "subjectId": "123e4567-e89b-12d3-a456-426614174000",
+      "firstName": "Alice",
+      "lastName": "Smith",
+      "dateOfBirth": "1985-07-12",
+      "govIdType": "PAN",
+      "govIdNumber": "ABCDE1234X",
+      "email": "alice@example.com",
+      "phone": "+91-9876543210",
+      "address": "12 MG Road, Bangalore 560001",
+      "status": "ACTIVE",
+      "createdBy": "system@hcb.io",
+      "createdAt": "2025-12-01T08:30:00.000Z",
+      "updatedBy": "system@hcb.io",
+      "updatedAt": "2026-04-22T11:12:00.000Z",
+      "version": 3
+    },
+    {
+      "subjectId": "223e4567-e89b-12d3-a456-426614174001",
+      "firstName": "Bob",
+      "lastName": "Kumar",
+      "dateOfBirth": "1990-11-05",
+      "govIdType": "AADHAAR",
+      "govIdNumber": "XYZ67890Z",
+      "email": "bob.kumar@example.com",
+      "phone": "+91-9123456780",
+      "address": "44 Park Street, Kolkata 700016",
+      "status": "INACTIVE",
+      "createdBy": "system@hcb.io",
+      "createdAt": "2025-11-19T14:10:00.000Z",
+      "updatedBy": "bureau@hcb.io",
+      "updatedAt": "2026-03-08T09:45:00.000Z",
+      "version": 2
+    },
+    {
+      "subjectId": "323e4567-e89b-12d3-a456-426614174002",
+      "firstName": "Priya",
+      "lastName": "Iyer",
+      "dateOfBirth": "1992-02-28",
+      "govIdType": "PAN",
+      "govIdNumber": "PQRST5678Z",
+      "email": "priya.iyer@example.com",
+      "phone": "+91-9988776655",
+      "address": "8 Marine Drive, Mumbai 400020",
+      "status": "ACTIVE",
+      "createdBy": "system@hcb.io",
+      "createdAt": "2026-01-04T07:00:00.000Z",
+      "updatedBy": "system@hcb.io",
+      "updatedAt": "2026-05-02T16:00:00.000Z",
+      "version": 1
+    },
+    {
+      "subjectId": "423e4567-e89b-12d3-a456-426614174003",
+      "firstName": "Daniel",
+      "lastName": "Fernandes",
+      "dateOfBirth": "1978-09-21",
+      "govIdType": "PASSPORT",
+      "govIdNumber": "Z1234567",
+      "email": "daniel.f@example.com",
+      "phone": "+91-9000011112",
+      "address": "21 Brigade Road, Bangalore 560025",
+      "status": "PENDING",
+      "createdBy": "system@hcb.io",
+      "createdAt": "2026-02-14T10:00:00.000Z",
+      "updatedBy": "system@hcb.io",
+      "updatedAt": "2026-02-14T10:00:00.000Z",
+      "version": 1
+    }
+  ],
+  "sources": [
+    {
+      "sourceId": "S-001",
+      "name": "Bank of India Statement",
+      "type": "BankAccount",
+      "provider": "BankOfIndia",
+      "lastUpdated": "2026-05-01T00:00:00.000Z",
+      "details": { "accountNumber": "00112233445566", "currency": "INR" },
+      "status": "ACTIVE"
+    },
+    {
+      "sourceId": "S-002",
+      "name": "Aadhaar Verification",
+      "type": "Government",
+      "provider": "UIDAI",
+      "lastUpdated": "2026-04-20T00:00:00.000Z",
+      "details": { "documentType": "Aadhaar", "verifiedAt": "2026-04-20" },
+      "status": "ACTIVE"
+    },
+    {
+      "sourceId": "S-003",
+      "name": "Telco Subscription",
+      "type": "Telecom",
+      "provider": "RelianceTel",
+      "lastUpdated": "2026-03-15T00:00:00.000Z",
+      "details": { "msisdn": "+91-9876543210", "plan": "Postpaid" },
+      "status": "ACTIVE"
+    },
+    {
+      "sourceId": "S-004",
+      "name": "HDFC Credit Card Statement",
+      "type": "Financial",
+      "provider": "HDFCBank",
+      "lastUpdated": "2026-04-29T00:00:00.000Z",
+      "details": { "cardLast4": "4421", "currency": "INR" },
+      "status": "ACTIVE"
+    },
+    {
+      "sourceId": "S-005",
+      "name": "Onboarding KYC Check",
+      "type": "KYC",
+      "provider": "HyperVerge",
+      "lastUpdated": "2026-04-12T00:00:00.000Z",
+      "details": { "checkType": "Full KYC", "result": "Verified" },
+      "status": "ACTIVE"
+    },
+    {
+      "sourceId": "S-006",
+      "name": "Salesforce CRM Record",
+      "type": "CRM",
+      "provider": "Salesforce",
+      "lastUpdated": "2026-04-18T00:00:00.000Z",
+      "details": { "accountId": "001ABCDEF", "segment": "Retail" },
+      "status": "ACTIVE"
+    },
+    {
+      "sourceId": "S-007",
+      "name": "Axis Savings Account",
+      "type": "BankAccount",
+      "provider": "AxisBank",
+      "lastUpdated": "2026-03-29T00:00:00.000Z",
+      "details": { "accountNumber": "9988776655", "currency": "INR" },
+      "status": "INACTIVE"
+    }
+  ],
+  "links": [
+    { "subjectId": "123e4567-e89b-12d3-a456-426614174000", "sourceId": "S-001", "linkedAt": "2025-12-04T10:00:00.000Z", "linkedBy": "system@hcb.io" },
+    { "subjectId": "123e4567-e89b-12d3-a456-426614174000", "sourceId": "S-002", "linkedAt": "2025-12-04T10:05:00.000Z", "linkedBy": "system@hcb.io" },
+    { "subjectId": "123e4567-e89b-12d3-a456-426614174000", "sourceId": "S-005", "linkedAt": "2026-01-15T13:20:00.000Z", "linkedBy": "bureau@hcb.io" },
+    { "subjectId": "223e4567-e89b-12d3-a456-426614174001", "sourceId": "S-002", "linkedAt": "2025-11-21T11:00:00.000Z", "linkedBy": "system@hcb.io" },
+    { "subjectId": "223e4567-e89b-12d3-a456-426614174001", "sourceId": "S-003", "linkedAt": "2025-11-21T11:15:00.000Z", "linkedBy": "system@hcb.io" },
+    { "subjectId": "323e4567-e89b-12d3-a456-426614174002", "sourceId": "S-004", "linkedAt": "2026-01-05T09:00:00.000Z", "linkedBy": "system@hcb.io" },
+    { "subjectId": "323e4567-e89b-12d3-a456-426614174002", "sourceId": "S-006", "linkedAt": "2026-01-05T09:10:00.000Z", "linkedBy": "system@hcb.io" }
+  ],
+  "auditLog": [
+    {
+      "logId": "log-001",
+      "entityType": "Subject",
+      "entityId": "123e4567-e89b-12d3-a456-426614174000",
+      "action": "CREATE",
+      "comment": "Initial onboarding from KYC pipeline",
+      "performedBy": "system@hcb.io",
+      "performedAt": "2025-12-01T08:30:00.000Z"
+    },
+    {
+      "logId": "log-002",
+      "entityType": "SubjectSourceLink",
+      "entityId": "123e4567-e89b-12d3-a456-426614174000",
+      "relatedSourceId": "S-001",
+      "action": "LINK",
+      "comment": "Linked primary bank statement",
+      "performedBy": "system@hcb.io",
+      "performedAt": "2025-12-04T10:00:00.000Z"
+    },
+    {
+      "logId": "log-003",
+      "entityType": "Subject",
+      "entityId": "123e4567-e89b-12d3-a456-426614174000",
+      "action": "UPDATE",
+      "changes": [
+        { "field": "address", "oldValue": "9 Brigade Rd, Bangalore", "newValue": "12 MG Road, Bangalore 560001" }
+      ],
+      "comment": "Updated address per customer call",
+      "performedBy": "bureau@hcb.io",
+      "performedAt": "2026-04-22T11:12:00.000Z"
+    },
+    {
+      "logId": "log-004",
+      "entityType": "Subject",
+      "entityId": "223e4567-e89b-12d3-a456-426614174001",
+      "action": "UPDATE",
+      "changes": [
+        { "field": "status", "oldValue": "ACTIVE", "newValue": "INACTIVE" }
+      ],
+      "comment": "Inactive due to dormant accounts >12 months",
+      "performedBy": "bureau@hcb.io",
+      "performedAt": "2026-03-08T09:45:00.000Z"
+    }
+  ]
+}
