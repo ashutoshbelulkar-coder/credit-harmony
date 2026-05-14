@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Button } from "@/components/ui/button";
 import { useCommandPalette } from "@/components/CommandPalette";
 import notificationsData from "@/data/app-notifications.json";
 
@@ -97,7 +98,13 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
       {/* Notifications */}
       <Popover>
         <PopoverTrigger asChild>
-          <button className="relative flex h-9 w-9 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 items-center justify-center rounded-lg hover:bg-muted transition-colors duration-200" aria-label="Notifications">
+          <button
+            type="button"
+            className="relative flex h-9 w-9 min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 items-center justify-center rounded-lg hover:bg-muted transition-colors duration-200"
+            aria-label={
+              unreadCount > 0 ? `${unreadCount} unread notifications` : "Notifications, no unread items"
+            }
+          >
             <Bell className="w-5 h-5 text-muted-foreground" />
             {unreadCount > 0 && (
               <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] rounded-full bg-destructive text-destructive-foreground text-[10px] font-bold flex items-center justify-center px-1 ring-2 ring-card">
@@ -108,9 +115,11 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
         </PopoverTrigger>
         <PopoverContent align="end" className="w-80 p-0">
           <div className="flex items-center justify-between px-4 py-3 border-b">
-            <h4 className="text-sm font-semibold text-foreground">Notifications</h4>
+            <h4 className="text-h4 font-semibold text-foreground">Notifications</h4>
             {unreadCount > 0 && (
-              <button onClick={markAllRead} className="text-xs text-primary hover:underline">Mark all read</button>
+              <Button type="button" variant="link" className="h-auto p-0 text-caption text-primary" onClick={markAllRead}>
+                Mark all read
+              </Button>
             )}
           </div>
           <div className="max-h-[360px] overflow-y-auto divide-y">

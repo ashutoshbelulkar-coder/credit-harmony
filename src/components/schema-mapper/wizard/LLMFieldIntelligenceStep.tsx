@@ -1,5 +1,5 @@
-import { useState, useCallback } from "react";
-import { ArrowRight, Pencil, Check } from "lucide-react";
+import { useState, useCallback, useEffect } from "react";
+import { ArrowRight, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -46,7 +46,11 @@ function flattenMasterFields(fields: MasterSchemaField[]): { id: string; label: 
 interface LLMFieldIntelligenceStepProps {
   initialRows: LLMFieldIntelligenceRow[];
   initialEnums: EnumReconciliation[];
-  onComplete: (rows: LLMFieldIntelligenceRow[], enums: EnumReconciliation[]) => void;
+  /** When API-backed mapping job finishes, rows sync from server field mappings */
+  apiSyncedRows?: LLMFieldIntelligenceRow[] | null;
+  /** Mapping job status from API (`queued` | `processing` | …) */
+  mappingJobStatus?: string | null;
+  onComplete: (rows: LLMFieldIntelligenceRow[], enums: EnumReconciliation[]) => void | Promise<void>;
 }
 
 const ACTION_OPTIONS: { value: LLMFieldAction; label: string }[] = [
@@ -58,10 +62,18 @@ const ACTION_OPTIONS: { value: LLMFieldAction; label: string }[] = [
 export function LLMFieldIntelligenceStep({
   initialRows,
   initialEnums,
+  apiSyncedRows,
+  mappingJobStatus,
   onComplete,
 }: LLMFieldIntelligenceStepProps) {
   const [rows, setRows] = useState<LLMFieldIntelligenceRow[]>(initialRows);
   const [enums, setEnums] = useState<EnumReconciliation[]>(initialEnums);
+
+  useEffect(() => {
+    if (apiSyncedRows && apiSyncedRows.length > 0) {
+      setRows(apiSyncedRows);
+    }
+  }, [apiSyncedRows]);
   const [editingRowId, setEditingRowId] = useState<string | null>(null);
   const [masterFieldDrawerOpen, setMasterFieldDrawerOpen] = useState(false);
   const [enumDrawerOpen, setEnumDrawerOpen] = useState(false);
@@ -86,6 +98,10 @@ export function LLMFieldIntelligenceStep({
 
   const handleActionChange = useCallback((rowId: string, action: LLMFieldAction) => {
     setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, action } : r)));
+  }, []);
+
+  const handlePiiChange = useCallback((rowId: string, pii: boolean) => {
+    setRows((prev) => prev.map((r) => (r.id === rowId ? { ...r, pii } : r)));
   }, []);
 
   const openCreateNewDrawer = useCallback((rowId: string) => {
@@ -124,8 +140,16 @@ export function LLMFieldIntelligenceStep({
     ? Math.round((rows.filter((r) => r.canonicalMatch != null).length / rows.length) * 100)
     : telecomMappingSummary.coveragePercent;
 
+  const jobPending =
+    mappingJobStatus === "queued" || mappingJobStatus === "processing";
+
   return (
     <div className="space-y-3 animate-fade-in">
+      {jobPending && (
+        <p className="text-caption text-muted-foreground rounded-lg border border-border bg-muted/30 px-3 py-2">
+          AI mapping job running… suggestions will appear when complete (typically under a few seconds).
+        </p>
+      )}
       <MappingSummaryBanner
         summary={{
           ...telecomMappingSummary,
@@ -133,7 +157,7 @@ export function LLMFieldIntelligenceStep({
         }}
       />
 
-      <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card shadow-sm">
         <p className="p-3 text-caption font-medium uppercase tracking-wider text-muted-foreground">
           LLM Field Intelligence
         </p>
@@ -156,7 +180,7 @@ export function LLMFieldIntelligenceStep({
                 <TableHead className={cn(tableHeaderClasses, "min-w-[80px] w-[80px] px-4 align-middle text-right")}>
                   Confidence
                 </TableHead>
-                <TableHead className={cn(tableHeaderClasses, "min-w-[56px] w-[56px] px-4 align-middle text-center")}>
+                <TableHead className={cn(tableHeaderClasses, "min-w-[76px] w-[76px] px-2 align-middle text-center")}>
                   PII
                 </TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[160px] px-4 align-middle text-left")}>
@@ -221,7 +245,24 @@ export function LLMFieldIntelligenceStep({
                     <TableCell className="tabular-nums font-medium px-4 align-middle py-2 text-right w-[80px]">
                       {row.confidence > 0 ? `${row.confidence}%` : "—"}
                     </TableCell>
-                    <TableCell className="px-4 align-middle py-2 text-center w-[56px]">{row.pii ? "Yes" : "No"}</TableCell>
+                    <TableCell className="px-2 align-middle py-2 text-center w-[76px]">
+                      <Select
+                        value={row.pii ? "yes" : "no"}
+                        onValueChange={(v) => handlePiiChange(row.id, v === "yes")}
+                      >
+                        <SelectTrigger className="h-6 text-[9px] w-full min-w-0 font-medium" aria-label={`PII for ${row.sourceField}`}>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="yes" className="text-caption">
+                            Yes
+                          </SelectItem>
+                          <SelectItem value="no" className="text-caption">
+                            No
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
                     <TableCell className="px-4 align-middle py-2 text-left">
                       {row.canonicalMatch == null ? (
                         <Select
@@ -252,7 +293,7 @@ export function LLMFieldIntelligenceStep({
       </div>
 
       {enums.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
           <p className="text-body font-medium text-foreground mb-1.5">Enum Reconciliation Required</p>
           <div className="space-y-1.5">
             {enums.map((e) => (
@@ -276,8 +317,13 @@ export function LLMFieldIntelligenceStep({
       )}
 
       <div className="flex justify-end pt-1">
-        <Button size="sm" onClick={() => onComplete(rows, enums)} className="gap-1.5">
-          Confirm & Generate Rules
+        <Button
+          size="sm"
+          onClick={() => void Promise.resolve(onComplete(rows, enums))}
+          className="gap-1.5"
+          disabled={jobPending && rows.length === 0}
+        >
+          Proceed
           <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       </div>

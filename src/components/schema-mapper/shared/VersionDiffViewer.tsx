@@ -75,7 +75,7 @@ export function VersionDiffViewer({ onBack }: VersionDiffViewerProps) {
       </div>
 
       {/* Version History Timeline */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <h3 className="text-h4 font-semibold text-foreground mb-3">Version History</h3>
         <div className="space-y-2">
           {mappingVersionHistory.map((ver) => (
@@ -109,7 +109,7 @@ export function VersionDiffViewer({ onBack }: VersionDiffViewerProps) {
       </div>
 
       {/* Diff Comparison */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-4">
           <div className="flex items-center gap-2">
             <GitCompare className="h-4 w-4 text-muted-foreground" />
@@ -149,7 +149,7 @@ export function VersionDiffViewer({ onBack }: VersionDiffViewerProps) {
             <TableHeader>
               <TableRow className="hover:bg-transparent">
                 <TableHead className={cn(tableHeaderClasses, "min-w-[50px]")}>Change</TableHead>
-                <TableHead className={cn(tableHeaderClasses, "min-w-[80px]")}>Category</TableHead>
+                <TableHead className={cn(tableHeaderClasses, "min-w-[80px]")}>Data Category</TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[150px]")}>Field / Item</TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[150px]")}>Previous</TableHead>
                 <TableHead className={cn(tableHeaderClasses, "min-w-[150px]")}>New</TableHead>

@@ -23,12 +23,10 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
-import { useReporting } from "./ReportingLayout";
 import { useAuth } from "@/contexts/AuthContext";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
-import { institutions } from "@/data/institutions-mock";
-import { configuredProducts } from "@/data/data-products-mock";
-import { formatDateRange } from "./reporting-store";
+import { useCreateReport } from "@/hooks/api/useReports";
+import { useInstitutions } from "@/hooks/api/useInstitutions";
+import { useProducts } from "@/hooks/api/useProducts";
 
 const reportRequestSchema = z.object({
   reportType: z.string().min(1, "Report type is required"),
@@ -52,15 +50,13 @@ const OUTPUT_FORMAT_OPTIONS = [
 
 export function NewReportRequestPage() {
   const navigate = useNavigate();
-  const { addReport } = useReporting();
   const { user } = useAuth();
-  const { products } = useCatalogMock();
+  const { mutate: createReport, isPending } = useCreateReport();
+  const { data: institutionsPage } = useInstitutions({ size: 50 });
+  const { data: productsPage } = useProducts({ size: 50 });
 
-  const productOptions = Array.from(
-    new Map(
-      [...configuredProducts, ...products].map((p) => [p.id, { value: p.id, label: p.name }])
-    ).values()
-  );
+  const institutionList = institutionsPage?.content ?? [];
+  const productOptions = (productsPage?.content ?? []).map((p) => ({ value: p.id, label: p.name }));
 
   const form = useForm<ReportRequestFormData>({
     resolver: zodResolver(reportRequestSchema),
@@ -76,24 +72,30 @@ export function NewReportRequestPage() {
   });
 
   const onSubmit = (data: ReportRequestFormData) => {
-    const dateRange = formatDateRange(data.dateFrom, data.dateTo);
     const institutionLabel = data.institution && data.institution !== "all"
-      ? institutions.find((i) => i.id === data.institution)?.name ?? data.institution
+      ? institutionList.find((i) => String(i.id) === data.institution)?.name ?? data.institution
       : undefined;
     const productLabel = data.productType && data.productType !== "all"
       ? productOptions.find((o) => o.value === data.productType)?.label ?? data.productType
       : undefined;
 
-    addReport({
-      reportType: data.reportType,
-      dateRange,
-      createdBy: user?.email ?? "risk.analyst@bank.com",
-      outputFormat: data.outputFormat,
-      institution: institutionLabel,
-      productType: productLabel,
-    });
-    navigate("/reporting");
-    toast.success("Report request submitted successfully.");
+    createReport(
+      {
+        type: data.reportType,
+        name: `${data.reportType} — ${data.dateFrom} to ${data.dateTo}`,
+        dateFrom: data.dateFrom,
+        dateTo: data.dateTo,
+        parameters: {
+          ...(institutionLabel ? { institution: institutionLabel } : {}),
+          ...(productLabel ? { productType: productLabel } : {}),
+          outputFormat: data.outputFormat ?? "Excel",
+          requestedBy: user?.email ?? "",
+        },
+      },
+      {
+        onSuccess: () => navigate("/reporting"),
+      }
+    );
   };
 
   return (
@@ -105,7 +107,7 @@ export function NewReportRequestPage() {
         </p>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
@@ -154,17 +156,17 @@ export function NewReportRequestPage() {
               name="institution"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text-caption">Institution (Optional)</FormLabel>
+                  <FormLabel className="text-caption">Source name (Optional)</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value ?? "all"}>
                     <FormControl>
                       <SelectTrigger className="h-9 text-caption">
-                        <SelectValue placeholder="All Institutions" />
+                        <SelectValue placeholder="All institutions" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="all" className="text-caption">All Institutions</SelectItem>
-                      {institutions.map((inst) => (
-                        <SelectItem key={inst.id} value={inst.id} className="text-caption">
+                      <SelectItem value="all" className="text-caption">All institutions</SelectItem>
+                      {institutionList.map((inst) => (
+                        <SelectItem key={inst.id} value={String(inst.id)} className="text-caption">
                           {inst.name}
                         </SelectItem>
                       ))}
@@ -258,8 +260,8 @@ export function NewReportRequestPage() {
             />
 
             <div className="flex gap-3 pt-2">
-              <Button type="submit" variant="default" size="sm">
-                Submit
+              <Button type="submit" variant="default" size="sm" disabled={isPending}>
+                {isPending ? "Submitting…" : "Submit"}
               </Button>
               <Button
                 type="button"

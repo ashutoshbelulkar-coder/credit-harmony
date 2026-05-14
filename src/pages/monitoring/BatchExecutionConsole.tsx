@@ -61,7 +61,7 @@ import type {
 } from "@/data/monitoring-mock";
 import { toast } from "@/hooks/use-toast";
 
-const CARD = "rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]";
+const CARD = "rounded-xl border border-border bg-card shadow-sm";
 
 const statusStyles: Record<BatchStatus, string> = {
   Completed: "bg-success/15 text-success",
@@ -69,6 +69,7 @@ const statusStyles: Record<BatchStatus, string> = {
   Failed: "bg-destructive/15 text-destructive",
   Queued: "bg-muted text-muted-foreground",
   Suspended: "bg-warning/15 text-warning",
+  Cancelled: "bg-muted text-muted-foreground",
 };
 
 const statusDotColors: Record<BatchStatus, string> = {
@@ -77,6 +78,7 @@ const statusDotColors: Record<BatchStatus, string> = {
   Failed: "bg-destructive",
   Queued: "bg-muted-foreground",
   Suspended: "bg-warning",
+  Cancelled: "bg-muted-foreground",
 };
 
 const phaseStatusStyles: Record<string, string> = {
@@ -85,6 +87,7 @@ const phaseStatusStyles: Record<string, string> = {
   Failed: "bg-destructive/15 text-destructive",
   Queued: "bg-muted text-muted-foreground",
   Suspended: "bg-warning/15 text-warning",
+  Cancelled: "bg-muted text-muted-foreground",
 };
 
 export interface BatchExecutionConsoleProps {

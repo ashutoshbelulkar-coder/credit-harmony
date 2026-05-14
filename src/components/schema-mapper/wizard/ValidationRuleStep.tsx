@@ -81,7 +81,7 @@ export function ValidationRuleStep({ initialRules, onComplete }: ValidationRuleS
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="text-h4 font-semibold text-foreground">Validation Rules Proposed by AI</h3>
@@ -195,7 +195,7 @@ export function ValidationRuleStep({ initialRules, onComplete }: ValidationRuleS
       {/* Proceed */}
       <div className="flex justify-end">
         <Button onClick={() => onComplete(rules)} className="gap-1.5">
-          Proceed to Semantic Insights
+          Proceed
           <ArrowRight className="h-3.5 w-3.5" />
         </Button>
       </div>

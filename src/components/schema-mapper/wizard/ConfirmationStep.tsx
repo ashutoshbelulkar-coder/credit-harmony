@@ -52,7 +52,7 @@ export function ConfirmationStep({
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Summary KPI cards */}
-      <div className="rounded-xl border border-border bg-card p-3.5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-4">
+      <div className="rounded-xl border border-border bg-card p-3.5 shadow-sm xl:p-4">
         <p className="text-caption font-medium uppercase tracking-[0.08em] text-muted-foreground mb-3">
           Mapping Summary
         </p>
@@ -76,7 +76,7 @@ export function ConfirmationStep({
       </div>
 
       {/* Checklist */}
-      <div className="rounded-xl border border-border bg-card p-3.5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-4">
+      <div className="rounded-xl border border-border bg-card p-3.5 shadow-sm xl:p-4">
         <p className="text-caption font-medium uppercase tracking-[0.08em] text-muted-foreground mb-3">
           Pre-Submission Checklist
         </p>
@@ -102,7 +102,7 @@ export function ConfirmationStep({
       </div>
 
       {/* Approval Timeline */}
-      <div className="rounded-xl border border-border bg-card p-3.5 shadow-[0_1px_3px_rgba(15,23,42,0.06)] xl:p-4">
+      <div className="rounded-xl border border-border bg-card p-3.5 shadow-sm xl:p-4">
         <div className="flex items-center gap-2 mb-3">
           <Clock className="h-3.5 w-3.5 text-muted-foreground" />
           <p className="text-caption font-medium uppercase tracking-[0.08em] text-muted-foreground">

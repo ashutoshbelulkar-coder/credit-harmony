@@ -47,11 +47,8 @@ export type DiffChangeType = "added" | "removed" | "modified";
 
 export type WizardStep =
   | "source_ingestion"
-  | "multi_schema_matching"
   | "llm_field_intelligence"
   | "auto_rule_preview"
-  | "semantic_insights"
-  | "storage_visibility"
   | "governance_actions";
 
 // ─── Schema Registry ───────────────────────────────────────────────────────
@@ -60,6 +57,8 @@ export interface SchemaRegistryEntry {
   id: string;
   sourceName: string;
   sourceType: SourceType;
+  /** Wizard data category persisted with the registered schema (ingest / seed). */
+  dataCategory?: string;
   masterSchemaVersion: string;
   mappingCoverage: number;
   unmappedFields: number;
@@ -78,8 +77,11 @@ export type SourceCategory = "telecom" | "utility" | "bank" | "gst" | "custom";
 
 export interface SimilarSchemaEntry {
   schemaId: string;
+  /** Source type label from wizard metadata. */
   label: string;
-  category: SourceCategory;
+  sourceType: SourceType;
+  /** Distinct data categories on registry schemas for this source type. */
+  dataCategories: string[];
   similarityPercent: number;
   sharedFieldsCount: number;
   recommended: boolean;
@@ -89,6 +91,8 @@ export interface IngestedSourceMetadata {
   sourceName: string;
   sourceType: SourceType;
   sourceCategory: SourceCategory;
+  /** Selected wizard data category for this ingest. */
+  dataCategory?: string;
   detectionConfidence: number;
   similarSchemas: SimilarSchemaEntry[];
   institutionScope: string[];

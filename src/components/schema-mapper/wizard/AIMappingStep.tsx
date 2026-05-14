@@ -190,7 +190,7 @@ export function AIMappingStep({
                 return (
                   <div
                     key={r.id}
-                    className="rounded-xl border border-border bg-card p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] hover:border-primary/20 transition-colors"
+                    className="rounded-xl border border-border bg-card p-3 shadow-sm hover:border-primary/20 transition-colors"
                     onMouseEnter={() => handleRowHover(r)}
                   >
                     {/* Row 1: Source ──> Target side-by-side */}
@@ -301,7 +301,7 @@ export function AIMappingStep({
 
         {/* TAB: Source Schema Tree */}
         <TabsContent value="source" className="mt-3">
-          <div className="rounded-xl border border-border bg-card p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
             <p className="mb-2 text-caption font-medium uppercase tracking-[0.08em] text-muted-foreground">
               Source Schema
             </p>
@@ -317,7 +317,7 @@ export function AIMappingStep({
 
         {/* TAB: Master Schema Tree */}
         <TabsContent value="master" className="mt-3">
-          <div className="rounded-xl border border-border bg-card p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
             <p className="mb-2 text-caption font-medium uppercase tracking-[0.08em] text-muted-foreground">
               HCB Master Schema
             </p>
@@ -333,7 +333,7 @@ export function AIMappingStep({
 
       {/* Unmapped Fields — collapsible */}
       {unmappedResults.length > 0 && (
-        <div className="rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="rounded-xl border border-border bg-card shadow-sm">
           <button
             type="button"
             onClick={() => setShowUnmapped(!showUnmapped)}
@@ -417,7 +417,7 @@ export function AIMappingStep({
 
       {/* Enum reconciliation */}
       {enums.length > 0 && (
-        <div className="rounded-xl border border-border bg-card p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="rounded-xl border border-border bg-card p-3 shadow-sm">
           <p className="text-body font-medium text-foreground mb-1.5">Enum Reconciliation Required</p>
           <div className="space-y-1.5">
             {enums.map((e) => (

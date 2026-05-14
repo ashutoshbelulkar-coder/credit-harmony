@@ -4,8 +4,14 @@
  * AI-mapping-specific objects (telecomMappingResults, validationRules, etc.) remain inline.
  */
 import data from "./schema-mapper.json";
+import {
+  normaliseWizardLabeledOptions,
+  FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS,
+  FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS,
+} from "@/lib/schema-mapper-wizard-metadata";
 
 import type {
+  SourceType,
   SchemaRegistryEntry,
   MasterSchemaVersion,
   MasterSchemaField,
@@ -26,6 +32,20 @@ import type {
   LineageEntry,
   GovernanceSummary,
 } from "@/types/schema-mapper";
+
+const dataRecord = data as Record<string, unknown>;
+
+/** Wizard Step 1 dropdowns — same normalisation as Fastify `GET …/wizard-metadata` mock fallback. */
+export const wizardMetadataFromSeed = {
+  sourceTypeOptions: normaliseWizardLabeledOptions(
+    dataRecord.wizardSourceTypeOptions,
+    FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS
+  ),
+  dataCategoryOptions: normaliseWizardLabeledOptions(
+    dataRecord.wizardDataCategoryOptions,
+    FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS
+  ),
+};
 
 // ─── Schema Registry ───────────────────────────────────────────────────────
 export const schemaRegistryEntries = data.schemaRegistryEntries as SchemaRegistryEntry[];
@@ -51,6 +71,17 @@ export const previouslyIngestedSchemas = data.previouslyIngestedSchemas as { id:
 // ─── Utility Source Schema (parsed) ──────────────────────────────────────
 export const utilityParsedFields = data.utilityParsedFields as ParsedSourceField[];
 export const utilityFieldStatistics = data.utilityFieldStatistics as SourceFieldStatistics;
+
+// ─── Bank / GST / Custom — reference sample parsed fields (same JSON as Fastify seed) ──
+export const bankParsedFields = (data as { bankParsedFields?: ParsedSourceField[] }).bankParsedFields ?? [];
+export const bankFieldStatistics = (data as { bankFieldStatistics?: SourceFieldStatistics }).bankFieldStatistics ??
+  data.telecomFieldStatistics;
+export const gstParsedFields = (data as { gstParsedFields?: ParsedSourceField[] }).gstParsedFields ?? [];
+export const gstFieldStatistics = (data as { gstFieldStatistics?: SourceFieldStatistics }).gstFieldStatistics ??
+  data.telecomFieldStatistics;
+export const customParsedFields = (data as { customParsedFields?: ParsedSourceField[] }).customParsedFields ?? [];
+export const customFieldStatistics = (data as { customFieldStatistics?: SourceFieldStatistics })
+  .customFieldStatistics ?? data.telecomFieldStatistics;
 
 // ─── LLM Field Intelligence Rows (Telecom) ─────────────────────────────────
 export const llmFieldIntelligenceRowsTelecom: LLMFieldIntelligenceRow[] = [
@@ -231,3 +262,159 @@ export const institutionOptions = [
   "GST Portal",
   "NPCI",
 ];
+
+/** Flat paths from parsed source fields (Schema Mapper raw ingest). */
+function pathsFromParsedFields(fields: ParsedSourceField[]): string[] {
+  const out: string[] = [];
+  const walk = (f: ParsedSourceField) => {
+    out.push(f.path || f.name);
+    f.children?.forEach(walk);
+  };
+  fields.forEach(walk);
+  return out;
+}
+
+function pathsFromMasterTree(nodes: MasterSchemaField[]): string[] {
+  const out: string[] = [];
+  const walk = (n: MasterSchemaField) => {
+    out.push(n.path);
+    n.children?.forEach(walk);
+  };
+  nodes.forEach(walk);
+  return out;
+}
+
+/** Master schema as parsed-source shape — same path set as `pathsFromMasterTree(masterSchemaTree)`. */
+function masterFieldsToParsedSourceFields(nodes: MasterSchemaField[]): ParsedSourceField[] {
+  return nodes.map((n) => ({
+    id: n.id,
+    name: n.name,
+    dataType: n.dataType,
+    path: n.path,
+    depth: n.depth,
+    sampleValues: [],
+    nullFrequency: 0,
+    isEnumCandidate: !!(n.enumValues && n.enumValues.length),
+    detectedEnumValues: n.enumValues ?? [],
+    distinctCount: undefined,
+    children: n.children?.length ? masterFieldsToParsedSourceFields(n.children) : undefined,
+  }));
+}
+
+const masterSchemaAsParsedSourceFields: ParsedSourceField[] = masterFieldsToParsedSourceFields(masterSchemaTree);
+
+function aggregateStatsFromParsedTree(nodes: ParsedSourceField[]): SourceFieldStatistics {
+  let totalFields = 0;
+  let nestedFields = 0;
+  let enumCandidates = 0;
+  let numericFields = 0;
+  let stringFields = 0;
+  let dateFields = 0;
+
+  const walk = (f: ParsedSourceField) => {
+    totalFields += 1;
+    if (f.path.includes(".")) nestedFields += 1;
+    if (f.isEnumCandidate) enumCandidates += 1;
+    const dt = (f.dataType || "").toLowerCase();
+    if (dt === "number") numericFields += 1;
+    else if (dt === "date") dateFields += 1;
+    else stringFields += 1;
+    f.children?.forEach(walk);
+  };
+  nodes.forEach(walk);
+
+  return {
+    totalFields,
+    nestedFields,
+    enumCandidates,
+    numericFields,
+    stringFields,
+    dateFields,
+  };
+}
+
+const masterSchemaFieldStatistics: SourceFieldStatistics =
+  aggregateStatsFromParsedTree(masterSchemaAsParsedSourceFields);
+
+/**
+ * Parsed field tree shown in Schema Mapper for a source type — aligns with
+ * {@link getRawIngestedFieldKeysForSourceType} (same paths as Product packet Raw tab).
+ */
+export function getParsedSourceFieldsForSourceType(sourceType: SourceType): ParsedSourceField[] {
+  switch (sourceType) {
+    case "telecom":
+      return telecomParsedFields;
+    case "utility":
+      return utilityParsedFields;
+    case "bank":
+    case "gst":
+    case "custom":
+    default:
+      return masterSchemaAsParsedSourceFields;
+  }
+}
+
+/**
+ * Field statistics for {@link getParsedSourceFieldsForSourceType} (mock aggregates).
+ */
+export function getSourceFieldStatisticsForSourceType(sourceType: SourceType): SourceFieldStatistics {
+  switch (sourceType) {
+    case "telecom":
+      return telecomFieldStatistics;
+    case "utility":
+      return utilityFieldStatistics;
+    case "bank":
+    case "gst":
+    case "custom":
+    default:
+      return masterSchemaFieldStatistics;
+  }
+}
+
+export type SchemaIngestionInputMode = "upload_json" | "upload_csv" | "paste_json" | "select_previous";
+
+/**
+ * When loading a named previous sample, use that sample’s tree; otherwise use the
+ * catalogue for the selected {@link SourceType} (same as Data Products packet config).
+ */
+export function getParsedSourceFieldsForIngestionScenario(
+  sourceType: SourceType,
+  schemaInput: SchemaIngestionInputMode,
+  selectedPreviousId: string,
+): ParsedSourceField[] {
+  if (schemaInput === "select_previous") {
+    if (selectedPreviousId === "utility-sample") return utilityParsedFields;
+    if (selectedPreviousId === "telecom-sample") return telecomParsedFields;
+  }
+  return getParsedSourceFieldsForSourceType(sourceType);
+}
+
+export function getSourceFieldStatisticsForIngestionScenario(
+  sourceType: SourceType,
+  schemaInput: SchemaIngestionInputMode,
+  selectedPreviousId: string,
+): SourceFieldStatistics {
+  if (schemaInput === "select_previous") {
+    if (selectedPreviousId === "utility-sample") return utilityFieldStatistics;
+    if (selectedPreviousId === "telecom-sample") return telecomFieldStatistics;
+  }
+  return getSourceFieldStatisticsForSourceType(sourceType);
+}
+
+/**
+ * All raw ingested field keys exposed by Schema Mapper for a given Source Type.
+ * Used by Product Configurator packet configuration (Raw Data section).
+ */
+export function getRawIngestedFieldKeysForSourceType(sourceType: SourceType): string[] {
+  switch (sourceType) {
+    case "telecom":
+      return pathsFromParsedFields(telecomParsedFields);
+    case "utility":
+      return pathsFromParsedFields(utilityParsedFields);
+    case "bank":
+    case "gst":
+    case "custom":
+    default:
+      return pathsFromMasterTree(masterSchemaTree);
+  }
+}

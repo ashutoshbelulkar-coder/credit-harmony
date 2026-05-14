@@ -1,0 +1,941 @@
+# Hand-maintained snapshot of the in-repo Fastify API (server/src/index.ts).
+# Version drift: compare with code and docs/technical/API-UI-Parity-Matrix.md before relying on codegen.
+openapi: 3.0.3
+info:
+  title: HCB Admin Portal — Fastify dev API
+  version: "1.0.0"
+  description: |
+    Development surrogate; in-memory state seeded from src/data/*.json.
+    Not all response schemas are fully specified here.
+servers:
+  - url: http://127.0.0.1:8091/api
+    description: Default local (npm run server)
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Subscriber institution API key (Enquiry API; canonical implementation TBD)
+  schemas:
+    ErrorBody:
+      type: object
+      properties:
+        error: { type: string }
+        message: { type: string }
+    PagedInstitutions:
+      type: object
+      properties:
+        content: { type: array, items: { type: object } }
+        totalElements: { type: integer }
+        totalPages: { type: integer }
+        page: { type: integer }
+        size: { type: integer }
+    MonitoringKpis:
+      type: object
+      properties:
+        totalCallsToday: { type: number }
+        successRatePercent: { type: number }
+        p95LatencyMs: { type: number }
+        avgProcessingTimeMs: { type: number }
+        rejectionRatePercent: { type: number }
+        activeApiKeys: { type: integer }
+    MonitoringEnquiry:
+      type: object
+      description: Normalised enquiry row (seed from monitoring.json enquiryLogEntries).
+      properties:
+        enquiryId: { type: string }
+        institution: { type: string }
+        status: { type: string }
+        responseTimeMs: { type: number }
+        enquiryType: { type: string }
+        timestamp: { type: string }
+        consumerId: { type: string }
+        productId: { type: string }
+        productName: { type: string }
+        alternateDataUsed: { type: integer, default: 0 }
+    PagedMonitoringEnquiries:
+      type: object
+      properties:
+        content:
+          type: array
+          items:
+            $ref: "#/components/schemas/MonitoringEnquiry"
+        totalElements: { type: integer }
+        totalPages: { type: integer }
+        page: { type: integer }
+        size: { type: integer }
+    ProductCatalogLifecycleStatus:
+      type: string
+      description: |
+        Catalogue product lifecycle for Fastify dev API. Create defaults to approval_pending when omitted.
+        Reject or request-changes on the linked approval sets draft.
+      enum:
+        - approval_pending
+        - pending
+        - active
+        - draft
+    ConsortiumLifecycleStatus:
+      type: string
+      description: |
+        Consortium row status. Omitting status on POST defaults to approval_pending (enqueues approval).
+        POST with status active skips the queue.
+      enum:
+        - approval_pending
+        - pending
+        - active
+        - inactive
+    CbsMemberCatalogRow:
+      type: object
+      properties:
+        id: { type: string }
+        memberId: { type: string, description: "Catalog member_code" }
+        displayName: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    ConsortiumCbsMemberInput:
+      type: object
+      required: [catalogId]
+      properties:
+        catalogId:
+          type: integer
+          description: FK to cbs_member_catalog.id
+    ConsortiumCbsMemberRow:
+      type: object
+      properties:
+        id: { type: string, description: "Junction row id" }
+        catalogId: { type: string }
+        memberId: { type: string }
+        displayName: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+    EnquirySubmitRequest:
+      type: object
+      description: |
+        Documented Enquiry API contract (canonical Spring implementation TBD). Optional memberId ties to consortium CBS list in Admin.
+      required: [productId, enquiryType, enquiryPurpose, consumerIdentity]
+      properties:
+        productId: { type: integer }
+        enquiryType: { type: string, enum: [HARD, SOFT] }
+        enquiryPurpose: { type: string }
+        consentReference: { type: string }
+        consumerIdentity: { type: object }
+        requestedFields:
+          type: array
+          items: { type: string }
+        idempotencyKey: { type: string }
+        memberId:
+          type: string
+          description: Optional CBS member id (consortium-configured); audit attribution when Enquiry API persists enquiries.
+    DataPolicyUnmaskType:
+      type: string
+      enum: [FULL, PARTIAL]
+    DataPolicyPartialConfig:
+      type: object
+      required: [type, value]
+      properties:
+        type:
+          type: string
+          enum: [LAST_N, FIRST_N, MASK_DOMAIN]
+        value:
+          type: integer
+    DataPolicyField:
+      type: object
+      required: [fieldName, isMasked, isUnmasked, unmaskType]
+      properties:
+        fieldName: { type: string }
+        isMasked: { type: boolean }
+        isUnmasked: { type: boolean }
+        unmaskType:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DataPolicyUnmaskType"
+        partialConfig:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/DataPolicyPartialConfig"
+        dataType:
+          type: string
+          nullable: true
+          description: Optional UI metadata returned by the API (e.g. string/date/number)
+    DataPolicy:
+      type: object
+      required: [id, institutionId, sourceType, fields, updatedBy, updatedAt]
+      properties:
+        id: { type: string }
+        institutionId: { type: string }
+        sourceType: { type: string }
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataPolicyField"
+        updatedBy: { type: string }
+        updatedAt: { type: string }
+paths:
+  /v1/health:
+    get:
+      summary: Liveness probe
+      security: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string, example: ok }
+                  service: { type: string }
+  /v1/auth/login:
+    post:
+      summary: Login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, password]
+              properties:
+                email: { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: Tokens + user
+        "401":
+          description: Invalid credentials
+  /v1/auth/refresh:
+    post:
+      security: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token: { type: string }
+      responses:
+        "200":
+          description: New tokens
+  /v1/auth/logout:
+    post:
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: Logged out
+  /v1/data-policy:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Get or create a source-type data policy (masked-field unmask allow-list)
+      parameters:
+        - in: query
+          name: institutionId
+          required: true
+          schema: { type: string }
+        - in: query
+          name: sourceType
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Data policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataPolicy"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: Authentication required
+    post:
+      security:
+        - bearerAuth: []
+      summary: Upsert a data policy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DataPolicy"
+      responses:
+        "200":
+          description: Updated policy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataPolicy"
+        "400":
+          description: Validation error (at least one field must remain masked; partial requires a predefined template)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBody"
+        "401":
+          description: Authentication required
+  /v1/institutions:
+    get:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum: [dataSubmitter, subscriber]
+          description: >-
+            Optional filter by participation. Value dataSubmitter returns institutions with isDataSubmitter.
+            Value subscriber returns institutions with isSubscriber (includes dual-role with data submission).
+            Consortium wizard member picker and Data Governance Validation Rules “Applicable members” use dataSubmitter with allowMockFallback false in the SPA when wired to the live API.
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: size
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paged institution list
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PagedInstitutions"
+    post:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: geography
+          schema: { type: string }
+          description: Optional. When set, POST body is validated against the register-member form configuration for that geography (see GET …/form-metadata?geography=).
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Standard institution fields plus optional consortiumIds (active consortiums only; SPA sends when subscriber)
+              properties:
+                consortiumIds:
+                  type: array
+                  items: { type: string }
+                  description: Optional; creates pending consortium memberships when provided
+      responses:
+        "200":
+          description: Created institution
+  /v1/institutions/form-metadata:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Register wizard — geography-specific registerForm + institution types + active consortiums + optional compliance doc checklist
+      parameters:
+        - in: query
+          name: geography
+          schema: { type: string }
+          description: Configuration key (e.g. default, kenya). Unknown values fall back to defaultGeography in server config.
+      responses:
+        "200":
+          description: geography metadata, registerForm.sections (Step 1 field definitions and resolved options), institutionTypes, activeConsortiums, requiredComplianceDocuments
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [geographyId, registerForm, institutionTypes, activeConsortiums, requiredComplianceDocuments]
+                properties:
+                  geographyId: { type: string }
+                  geographyLabel: { type: string }
+                  geographyDescription: { type: string }
+                  registerForm:
+                    type: object
+                    required: [sections]
+                    description: SPA renders Step 1 from sections (fields include inputType, selectionMode, options, visibleWhen, etc.)
+                    properties:
+                      sections:
+                        type: array
+                        items:
+                          type: object
+                  institutionTypes:
+                    type: array
+                    items: { type: string }
+                  activeConsortiums:
+                    type: array
+                    items:
+                      type: object
+                      required: [id, name, type]
+                      properties:
+                        id: { type: string }
+                        name: { type: string }
+                        type: { type: string }
+                  requiredComplianceDocuments:
+                    type: array
+                    nullable: true
+                    description: When null or empty on the server, the Register member wizard skips the compliance upload step. documentName is sent as multipart documentName on POST …/documents.
+                    items:
+                      type: object
+                      required: [documentName, label]
+                      properties:
+                        documentName: { type: string }
+                        label: { type: string }
+                        hint: { type: string }
+                        maxSizeBytes: { type: integer }
+                        accept: { type: string }
+                        requiredWhen:
+                          type: string
+                          enum: [data_submitter, subscriber]
+                          description: Optional; when set, the row applies only if that participation type is selected on step 1.
+  /v1/institutions/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Institution
+    patch:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated
+    delete:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Soft-deleted
+  /v1/monitoring/kpis:
+    get:
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Monitoring KPI snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MonitoringKpis"
+  /v1/monitoring/enquiries:
+    get:
+      summary: Paged enquiry log (optional filters)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: institutionId
+          schema: { type: string }
+          description: Filter by institution id (matches row institution_id; legacy name match fallback)
+        - in: query
+          name: status
+          schema: { type: string }
+          description: Exact match on row status (e.g. Success, Failed)
+        - in: query
+          name: dateFrom
+          schema: { type: string }
+          description: Inclusive lower bound yyyy-MM-dd (timestamp column)
+        - in: query
+          name: dateTo
+          schema: { type: string }
+          description: Inclusive upper bound yyyy-MM-dd (timestamp column)
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: size
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paged enquiry log rows
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PagedMonitoringEnquiries"
+  /v1/institutions/{id}/monitoring/enquiries:
+    get:
+      summary: Same as GET /v1/monitoring/enquiries with institutionId from path
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: size
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paged enquiry log rows for institution
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PagedMonitoringEnquiries"
+  /v1/users:
+    get:
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Paged users (same shape as institutions list)
+  /v1/users/{id}/deactivate:
+    post:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deactivated
+  /v1/approvals:
+    get:
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Paged approvals
+  /v1/reports:
+    get:
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Paged reports
+    post:
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Report row created
+  /v1/products:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Paged product catalogue
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: size
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paged products
+    post:
+      security:
+        - bearerAuth: []
+      summary: Create catalogue product
+      description: |
+        Requires non-empty `name`. Optional body fields include `description`, `status`, `price`, `pricingModel`,
+        `packetIds`, `packetConfigs`, `enquiryConfig`.
+        If `status` is `approval_pending` (or `pending`), the server also prepends an approvals item with
+        `type: product` and `metadata.productId` pointing at the new id, and records `PRODUCT_CREATE` in the audit log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                description: { type: string }
+                status:
+                  $ref: "#/components/schemas/ProductCatalogLifecycleStatus"
+                packetIds:
+                  type: array
+                  items: { type: string }
+                packetConfigs: { type: array, items: { type: object } }
+                enquiryConfig: { type: object }
+      responses:
+        "200":
+          description: Created product (summary fields + id)
+        "400":
+          description: Validation (e.g. missing name)
+  /v1/products/packet-catalog:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Data product packet catalogue (Schema Mapper source types)
+      description: |
+        Returns `productCatalogPacketOptions` from the dev seed (`data-products.json`): each packet has a
+        Schema Mapper `sourceType`, `category` group, field list, **`derivedFields`** (Configure → Derived tab),
+        and `previewKey`. The create/edit product form uses this payload (with client-side filtering) so labels
+        align with the Schema Mapper agent. Per-packet **Configure** in the SPA loads **raw paths** from
+        `GET /v1/schema-mapper/schemas/source-type-fields` (merged with packet-only `fields` from this catalogue)
+        and **Sources** from `GET /v1/schema-mapper/schemas?sourceType=`.
+      responses:
+        "200":
+          description: Packet option list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  options:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        label: { type: string }
+                        description: { type: string }
+                        category: { type: string }
+                        sourceType: { type: string }
+                        previewKey: { type: string }
+                        fields:
+                          type: array
+                          items: { type: string }
+                        derivedFields:
+                          type: array
+                          items: { type: string }
+                          description: Derived field names for this catalogue packet (product form Configure modal)
+  /v1/products/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Product detail
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Product including packetIds/packetConfigs/enquiryConfig when stored
+    patch:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated product
+    delete:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+  /v1/consortiums:
+    get:
+      security:
+        - bearerAuth: []
+      summary: Paged consortium list
+      parameters:
+        - in: query
+          name: search
+          schema: { type: string }
+        - in: query
+          name: page
+          schema: { type: integer }
+        - in: query
+          name: size
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paged consortiums
+    post:
+      security:
+        - bearerAuth: []
+      summary: Create consortium
+      description: |
+        Requires `name`. Default `status` is `approval_pending` when omitted, which prepends an approvals row
+        with `type: consortium` and `metadata.consortiumId`. Send `status: active` to skip the queue.
+        Optional `members` (`institutionId` only), optional `cbsMembers` (`catalogId` from `GET /v1/cbs-member-catalog`), and `dataPolicy` (`dataVisibility` only: `full` \| `masked_pii` \| `derived`) are persisted on **Spring** (`8090`); Fastify may ignore `cbsMembers`. `shareLoanData`, `shareRepaymentHistory`, and `allowAggregation` in the body are ignored. Members populate `state.consortiumMembers` on Fastify.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string }
+                description: { type: string }
+                status:
+                  $ref: "#/components/schemas/ConsortiumLifecycleStatus"
+                dataPolicy:
+                  type: object
+                  description: Only dataVisibility is stored; other keys ignored.
+                  properties:
+                    dataVisibility:
+                      type: string
+                      enum: [full, masked_pii, derived]
+                members:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      institutionId: { type: integer }
+                cbsMembers:
+                  type: array
+                  items:
+                    $ref: "#/components/schemas/ConsortiumCbsMemberInput"
+      responses:
+        "200":
+          description: Created consortium row
+        "400":
+          description: Validation (e.g. missing name)
+  /v1/consortiums/{id}:
+    get:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Consortium detail
+    patch:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Updated consortium
+    delete:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "204":
+          description: Deleted
+  /v1/consortiums/{id}/members:
+    get:
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Member rows for consortium
+  /v1/cbs-member-catalog:
+    get:
+      security:
+        - bearerAuth: []
+      summary: CBS member master catalog (picker source)
+      description: |
+        Canonical **Spring** (`8090`). All rows from `cbs_member_catalog`; consortium wizard selects from this list (no free-text create in UI).
+      responses:
+        "200":
+          description: Catalog rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CbsMemberCatalogRow"
+  /v1/consortiums/{id}/cbs-members:
+    get:
+      security:
+        - bearerAuth: []
+      summary: CBS members linked to a consortium
+      description: |
+        Canonical **Spring** (`8090`). Joins `consortium_cbs_members` with `cbs_member_catalog`.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: CBS member rows
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConsortiumCbsMemberRow"
+  /v1/enquiries:
+    post:
+      security:
+        - ApiKeyAuth: []
+      summary: Submit credit enquiry (machine-to-machine)
+      description: |
+        **Contract reference** — full implementation TBD on canonical Spring. Optional `memberId` matches `cbs_member_catalog.member_code` when attributing an enquiry.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnquirySubmitRequest"
+      responses:
+        "202":
+          description: Accepted (async processing)
+        "401":
+          description: Invalid API key
+  /v1/data-ingestion/drift-alerts:
+    get:
+      summary: List schema/mapping drift alerts (Data Ingestion Agent store)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: dateFrom
+          schema: { type: string, format: date }
+          description: Lower bound yyyy-MM-dd (inclusive)
+        - in: query
+          name: dateTo
+          schema: { type: string, format: date }
+          description: Upper bound yyyy-MM-dd (inclusive)
+        - in: query
+          name: sourceType
+          schema: { type: string }
+          description: Schema Mapper sourceType, or omit / all for every type
+      responses:
+        "200":
+          description: Filtered drift alerts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  alerts:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        type: { type: string, enum: [schema, mapping] }
+                        source: { type: string }
+                        message: { type: string }
+                        timestamp: { type: string, format: date-time }
+                        severity: { type: string, enum: [low, medium, high] }
+                  requestId: { type: string }
+  /v1/schema-mapper/wizard-metadata:
+    get:
+      summary: Schema Mapper wizard Step 1 — Source Type and Data Category dropdown options (from seed JSON)
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Labeled option lists for the ingestion wizard
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sourceTypeOptions:
+                    type: array
+                    items:
+                      type: object
+                      required: [value, label]
+                      properties:
+                        value: { type: string }
+                        label: { type: string }
+                  dataCategoryOptions:
+                    type: array
+                    items:
+                      type: object
+                      required: [value, label]
+                      properties:
+                        value: { type: string }
+                        label: { type: string }
+                  requestId: { type: string }
+  /v1/schema-mapper/schemas/source-types:
+    get:
+      summary: Distinct Schema Mapper sourceType values from the in-memory registry
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Sorted source types
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sourceTypes:
+                    type: array
+                    items: { type: string }
+                  requestId: { type: string }
+  /v1/schema-mapper/schemas/source-type-fields:
+    get:
+      summary: Union of parsed field paths for a sourceType (Validation Rules field picker)
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: sourceType
+          required: true
+          schema: { type: string }
+          description: Schema Mapper source type (e.g. telecom, utility, bank, gst, custom). Must not be empty or `all`.
+      responses:
+        "200":
+          description: Deduped field list for UI reference
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sourceType: { type: string }
+                  fields:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        path: { type: string }
+                        name: { type: string }
+                        dataType: { type: string }
+                  requestId: { type: string }
+        "400":
+          description: ERR_VALIDATION — missing or invalid sourceType

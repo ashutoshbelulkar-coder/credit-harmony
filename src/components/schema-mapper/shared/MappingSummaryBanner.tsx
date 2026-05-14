@@ -18,7 +18,7 @@ export function MappingSummaryBanner({ summary, className }: MappingSummaryBanne
   return (
     <div
       className={cn(
-        "flex flex-wrap items-center gap-x-1 gap-y-1 rounded-xl border border-border bg-card px-3 py-2 shadow-[0_1px_3px_rgba(15,23,42,0.06)]",
+        "flex flex-wrap items-center gap-x-1 gap-y-1 rounded-xl border border-border bg-card px-3 py-2 shadow-sm",
         className,
       )}
     >

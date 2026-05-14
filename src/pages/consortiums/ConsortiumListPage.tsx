@@ -11,9 +11,8 @@ import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import {
   consortiumListLabel,
   consortiumListLabelStyles,
-  consortiumTypeBadgeClass,
-  type ConsortiumType,
-} from "@/data/consortiums-mock";
+  type ConsortiumStatus,
+} from "@/lib/consortium-ui";
 import {
   Select,
   SelectContent,
@@ -21,29 +20,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
+import { SkeletonTable } from "@/components/ui/skeleton-table";
+import { ApiErrorCard } from "@/components/ui/api-error-card";
+import { useConsortiums } from "@/hooks/api/useConsortiums";
 
 export default function ConsortiumListPage() {
   const navigate = useNavigate();
-  const { consortiums } = useCatalogMock();
+  const { data: apiData, isLoading, isError, error, refetch } = useConsortiums();
+  const consortiums = apiData?.content ?? [];
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
 
   const filtered = useMemo(() => {
     return consortiums.filter((c) => {
       const q = search.toLowerCase();
-      const matchSearch =
-        c.name.toLowerCase().includes(q) || c.type.toLowerCase().includes(q);
-      const listLab = consortiumListLabel(c.status);
+      const matchSearch = c.name.toLowerCase().includes(q);
+      const listLab = consortiumListLabel(c.status as ConsortiumStatus);
       const matchStatus =
         statusFilter === "all" ||
         (statusFilter === "active" && listLab === "Active") ||
         (statusFilter === "draft" && listLab === "Draft");
-      const matchType = typeFilter === "all" || c.type === typeFilter;
-      return matchSearch && matchStatus && matchType;
+      return matchSearch && matchStatus;
     });
-  }, [consortiums, search, statusFilter, typeFilter]);
+  }, [consortiums, search, statusFilter]);
 
   return (
     <DashboardLayout>
@@ -59,7 +58,7 @@ export default function ConsortiumListPage() {
           <div>
             <h1 className="text-h2 font-semibold text-foreground">Consortiums</h1>
             <p className="text-caption text-muted-foreground mt-1">
-              Manage closed and open consortia, membership, and shared data scope.
+              Manage consortia, membership, and shared data scope.
             </p>
           </div>
           <Button
@@ -82,19 +81,6 @@ export default function ConsortiumListPage() {
               className="pl-10"
             />
           </div>
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger className="w-full sm:w-[160px]">
-              <SelectValue placeholder="Type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All types</SelectItem>
-              {(["Closed", "Open", "Hybrid"] as ConsortiumType[]).map((t) => (
-                <SelectItem key={t} value={t}>
-                  {t}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-[160px]">
               <SelectValue placeholder="Status" />
@@ -106,6 +92,9 @@ export default function ConsortiumListPage() {
             </SelectContent>
           </Select>
         </div>
+
+        {isLoading && <SkeletonTable rows={5} cols={4} />}
+        {isError && <ApiErrorCard error={error} onRetry={() => refetch()} />}
 
         <div className="md:hidden space-y-3">
           {filtered.length === 0 ? (
@@ -120,23 +109,17 @@ export default function ConsortiumListPage() {
                   key={c.id}
                   type="button"
                   onClick={() => navigate(`/consortiums/${c.id}`)}
-                  className="w-full text-left rounded-xl border border-border bg-card p-4 space-y-2 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
+                  className="w-full text-left rounded-xl border border-border bg-card p-4 space-y-2 shadow-sm"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <span className="text-body font-medium text-foreground">{c.name}</span>
-                    <Badge
-                      variant="secondary"
-                      className={cn(badgeTextClasses, consortiumListLabelStyles(lab))}
-                    >
-                      {lab}
-                    </Badge>
-                  </div>
                   <Badge
                     variant="secondary"
-                    className={cn(badgeTextClasses, consortiumTypeBadgeClass[c.type])}
+                    className={cn(badgeTextClasses, consortiumListLabelStyles(lab))}
                   >
-                    {c.type}
+                    {lab}
                   </Badge>
+                </div>
                   <div className="text-caption text-muted-foreground space-y-0.5">
                     <p>Members: {c.membersCount}</p>
                     <p>Data volume: {c.dataVolume}</p>
@@ -174,7 +157,6 @@ export default function ConsortiumListPage() {
                 <tr className="border-b border-border">
                   {[
                     "Name",
-                    "Type",
                     "Members",
                     "Status",
                     "Actions",
@@ -196,7 +178,7 @@ export default function ConsortiumListPage() {
                 {filtered.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={4}
                       className="px-4 py-8 text-center text-caption text-muted-foreground"
                     >
                       No consortiums match your filters.
@@ -211,14 +193,6 @@ export default function ConsortiumListPage() {
                         className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
                       >
                         <td className="px-4 py-3 text-body text-foreground">{c.name}</td>
-                        <td className="px-4 py-3">
-                          <Badge
-                            variant="secondary"
-                            className={cn(badgeTextClasses, consortiumTypeBadgeClass[c.type])}
-                          >
-                            {c.type}
-                          </Badge>
-                        </td>
                         <td className="px-4 py-3 text-body text-muted-foreground tabular-nums">
                           {c.membersCount}
                         </td>

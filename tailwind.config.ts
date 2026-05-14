@@ -61,6 +61,7 @@ export default {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
           light: "hsl(var(--primary-light))",
+          subtle: "hsl(var(--primary-subtle))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -115,6 +116,36 @@ export default {
           DEFAULT: "hsl(var(--crif-orange))",
           foreground: "hsl(var(--crif-orange-foreground))",
         },
+        "crif-light-gray": "hsl(var(--crif-light-gray))",
+        "crif-green-yellow": "hsl(var(--crif-green-yellow))",
+        /** credit domain risk severity — distinct from UI state tokens */
+        risk: {
+          high: "hsl(var(--risk-high))",
+          "high-foreground": "hsl(var(--risk-high-foreground))",
+          "high-subtle": "hsl(var(--risk-high-subtle))",
+          medium: "hsl(var(--risk-medium))",
+          "medium-foreground": "hsl(var(--risk-medium-foreground))",
+          "medium-subtle": "hsl(var(--risk-medium-subtle))",
+          low: "hsl(var(--risk-low))",
+          "low-foreground": "hsl(var(--risk-low-foreground))",
+          "low-subtle": "hsl(var(--risk-low-subtle))",
+        },
+        chart: {
+          "1": "hsl(var(--chart-1))",
+          "2": "hsl(var(--chart-2))",
+          "3": "hsl(var(--chart-3))",
+          "4": "hsl(var(--chart-4))",
+          "5": "hsl(var(--chart-5))",
+          "6": "hsl(var(--chart-6))",
+          "7": "hsl(var(--chart-7))",
+        },
+        badge: {
+          sandbox: "hsl(var(--badge-sandbox))",
+          uat: "hsl(var(--badge-uat))",
+          prod: "hsl(var(--badge-prod))",
+        },
+        "header-bg": "hsl(var(--header-bg))",
+        "header-border": "hsl(var(--header-border))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
@@ -136,6 +167,15 @@ export default {
         "compact-sm": "0.375rem",
         "compact-md": "0.8rem",
         "compact-lg": "1.275rem",
+      },
+      /** Semantic elevation system — use instead of arbitrary rgba shadow values.
+       *  shadow-sm → list items, table rows, inline chips
+       *  shadow-md → page cards, panels, section containers, stat tiles
+       *  shadow-lg → modals, drawers, command palette, floating dropdowns */
+      boxShadow: {
+        sm: "var(--shadow-sm)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
       },
       keyframes: {
         "accordion-down": {

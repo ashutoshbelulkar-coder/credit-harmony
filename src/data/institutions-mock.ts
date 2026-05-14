@@ -31,13 +31,6 @@ export interface Institution {
 export const institutions = data.institutions as Institution[];
 export const institutionTypes = data.institutionTypes as string[];
 
-export const statusStyles: Record<InstitutionStatus, string> = {
-  active: "bg-success/15 text-success",
-  pending: "bg-warning/15 text-warning",
-  suspended: "bg-danger-subtle text-danger",
-  draft: "bg-muted text-muted-foreground",
-};
-
 export function getInstitutionById(id: string): Institution | undefined {
   return institutions.find((inst) => inst.id === id);
 }

@@ -8,7 +8,7 @@ import {
 } from "@/data/alert-engine-mock";
 
 const cardClass =
-  "bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]";
+  "bg-card rounded-xl border border-border p-6 shadow-sm";
 
 export function AutoRemediationSettings() {
   const [settings, setSettings] = useState<RemediationSetting[]>(defaultRemediationSettings);

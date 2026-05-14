@@ -1,9 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
 import { Download, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
-import { DatePicker } from "@/components/ui/date-picker";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -28,9 +28,12 @@ import {
 } from "@/components/ui/chart";
 import type { BillingModel } from "@/data/institutions-mock";
 import tabsData from "@/data/institution-tabs.json";
-import { getProductSubscriptions } from "@/data/institution-extensions-mock";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
-import { productPricingLabel } from "@/data/data-products-mock";
+import {
+  useBillingSummary,
+  useProductSubscriptions,
+  usePatchInstitutionBilling,
+} from "@/hooks/api/useInstitutions";
+import type { ProductSubscriptionRow } from "@/services/institutions.service";
 
 const { creditTrendData } = tabsData.billing;
 
@@ -57,20 +60,47 @@ export default function BillingTab({
   billingModel?: BillingModel;
   creditBalance?: number;
 }) {
-  const { products: catalogProducts } = useCatalogMock();
+  const { data: billingSummary } = useBillingSummary(institutionId);
+  const { data: apiSubscriptions } = useProductSubscriptions(institutionId);
+  const patchBilling = usePatchInstitutionBilling(institutionId);
 
-  // Join subscriptions with catalog to get rate info
+  // Derive subscriptions from API data (ratePerCall includes member overrides from server)
   const subscriptions = useMemo(() => {
-    const subs = getProductSubscriptions(institutionId);
-    return subs.map((s) => {
-      const cat = catalogProducts.find((p) => p.id === s.productId);
-      return {
-        ...s,
-        pricingModel: cat ? productPricingLabel[cat.pricingModel] : "Per hit",
-        ratePerCall: cat?.price ?? 0,
-      };
-    });
-  }, [institutionId, catalogProducts]);
+    if (!apiSubscriptions) return [];
+    return (apiSubscriptions as ProductSubscriptionRow[]).map((s) => ({
+      productId: String(s.productId),
+      productName: s.productName,
+      plan: "Standard",
+      usage: "—",
+      status: s.subscriptionStatus as "active" | "trial" | "suspended",
+      pricingModel: s.pricingModel ?? "Per hit",
+      ratePerCall: typeof s.ratePerCall === "number" && Number.isFinite(s.ratePerCall) ? s.ratePerCall : 0,
+    }));
+  }, [apiSubscriptions]);
+
+  /** Member-specific rate overrides while editing; server is source of truth after save/refetch. */
+  const [rateOverrides, setRateOverrides] = useState<Record<string, number>>({});
+  const [savedRateOverrides, setSavedRateOverrides] = useState<Record<string, number>>({});
+  const [isEditingModel, setIsEditingModel] = useState(false);
+  const [isEditingRates, setIsEditingRates] = useState(false);
+
+  useEffect(() => {
+    if (isEditingRates) return;
+    if (subscriptions.length === 0) {
+      setRateOverrides({});
+      setSavedRateOverrides({});
+      return;
+    }
+    const fromApi: Record<string, number> = {};
+    for (const s of subscriptions) {
+      fromApi[s.productId] = s.ratePerCall;
+    }
+    setRateOverrides(fromApi);
+    setSavedRateOverrides({ ...fromApi });
+  }, [subscriptions, isEditingRates]);
+
+  const rateForProduct = (productId: string, catalogRate: number) =>
+    rateOverrides[productId] ?? catalogRate;
 
   // Bar chart — spend per product (mock: rate * enquiry volume estimate)
   const spendByProductData = useMemo(
@@ -78,31 +108,78 @@ export default function BillingTab({
       subscriptions.map((s) => ({
         productId: s.productId,
         productName: s.productName,
-        amount: Math.round(s.ratePerCall * (800 + Math.abs(s.productId.charCodeAt(4) ?? 0) * 120)),
+        amount: Math.round(
+          rateForProduct(s.productId, s.ratePerCall) *
+            (800 + Math.abs(s.productId.charCodeAt(4) ?? 0) * 120)
+        ),
       })),
-    [subscriptions]
+    [subscriptions, rateOverrides]
   );
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [model, setModel] = useState<BillingModel>(initModel || "prepaid");
+  const apiCreditBalance = billingSummary?.creditBalance ?? initBalance ?? 25000;
+  const apiBillingModel = (billingSummary?.billingModel as BillingModel | undefined) ?? initModel ?? "prepaid";
+
+  const [model, setModel] = useState<BillingModel>(apiBillingModel);
   const [alertThreshold, setAlertThreshold] = useState(5000);
-  const [dateFrom, setDateFrom] = useState("2026-02-01");
-  const [dateTo, setDateTo] = useState("2026-02-19");
+  const currentYear = new Date().getFullYear();
+  const yearOptions = [currentYear, currentYear - 1, currentYear - 2];
+  const [exportMonth, setExportMonth] = useState(String(new Date().getMonth() + 1));
+  const [exportYear, setExportYear] = useState(String(currentYear));
 
   const [savedState, setSavedState] = useState({
-    model: (initModel || "prepaid") as BillingModel,
+    model: apiBillingModel,
     alertThreshold: 5000,
   });
 
-  const handleSave = () => {
-    setSavedState({ model, alertThreshold });
-    setIsEditing(false);
+  useEffect(() => {
+    if (isEditingModel || !billingSummary) return;
+    const m = (billingSummary.billingModel as BillingModel) ?? "postpaid";
+    const t =
+      billingSummary.lowCreditAlertThreshold !== undefined &&
+      Number.isFinite(billingSummary.lowCreditAlertThreshold)
+        ? billingSummary.lowCreditAlertThreshold
+        : 5000;
+    setModel(m);
+    setAlertThreshold(t);
+    setSavedState({ model: m, alertThreshold: t });
+  }, [billingSummary, isEditingModel]);
+
+  const handleSaveModel = async () => {
+    try {
+      await patchBilling.mutateAsync({
+        billingModel: model,
+        lowCreditAlertThreshold: alertThreshold,
+      });
+      setSavedState({ model, alertThreshold });
+      setIsEditingModel(false);
+    } catch {
+      /* toast from mutation */
+    }
   };
 
-  const handleCancel = () => {
+  const handleCancelModel = () => {
     setModel(savedState.model);
     setAlertThreshold(savedState.alertThreshold);
-    setIsEditing(false);
+    setIsEditingModel(false);
+  };
+
+  const handleSaveRates = async () => {
+    const memberRateOverrides: Record<string, number> = {};
+    for (const row of subscriptions) {
+      memberRateOverrides[row.productId] = rateForProduct(row.productId, row.ratePerCall);
+    }
+    try {
+      await patchBilling.mutateAsync({ memberRateOverrides });
+      setSavedRateOverrides({ ...rateOverrides });
+      setIsEditingRates(false);
+    } catch {
+      /* toast from mutation */
+    }
+  };
+
+  const handleCancelRates = () => {
+    setRateOverrides({ ...savedRateOverrides });
+    setIsEditingRates(false);
   };
 
   return (
@@ -114,22 +191,60 @@ export default function BillingTab({
 
       {/* Export Reports - moved to top */}
       <div className="bg-card rounded-xl border border-border p-6">
-        <h4 className="text-body font-semibold text-foreground mb-4">Export Reports</h4>
+        <h4 className="text-body font-semibold text-foreground mb-4">Export usage (CSV)</h4>
+        <p className="text-caption text-muted-foreground mb-4">
+          Select billing period; export is CSV only for spreadsheet analysis.
+        </p>
         <div className="flex flex-wrap items-end gap-4">
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">From</label>
-            <DatePicker value={dateFrom} onChange={setDateFrom} className="h-8 font-sans" />
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Month</label>
+            <Select value={exportMonth} onValueChange={setExportMonth}>
+              <SelectTrigger className="h-9 w-[140px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {Array.from({ length: 12 }, (_, i) => String(i + 1)).map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {new Date(2000, Number(m) - 1, 1).toLocaleString("default", { month: "long" })}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-muted-foreground mb-1.5">To</label>
-            <DatePicker value={dateTo} onChange={setDateTo} className="h-8 font-sans" />
+            <label className="block text-xs font-medium text-muted-foreground mb-1.5">Year</label>
+            <Select value={exportYear} onValueChange={setExportYear}>
+              <SelectTrigger className="h-9 w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {yearOptions.map((y) => (
+                  <SelectItem key={y} value={String(y)}>
+                    {y}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg border border-border text-body font-medium text-foreground hover:bg-muted transition-colors">
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            onClick={() => {
+              const blob = new Blob(
+                [`period,institutionId,format\n${exportYear}-${exportMonth.padStart(2, "0")},${institutionId},csv`],
+                { type: "text/csv;charset=utf-8;" }
+              );
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = `billing-${exportYear}-${exportMonth.padStart(2, "0")}.csv`;
+              a.click();
+              URL.revokeObjectURL(url);
+            }}
+          >
             <Download className="w-4 h-4" /> Export CSV
-          </button>
-          <button className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-body font-medium hover:bg-primary/90 transition-colors">
-            <Download className="w-4 h-4" /> Export PDF
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -137,9 +252,10 @@ export default function BillingTab({
       <div className="bg-card rounded-xl border border-border p-6">
         <div className="flex items-center justify-between mb-4">
           <h4 className="text-body font-semibold text-foreground">Billing Model</h4>
-          {!isEditing ? (
+          {!isEditingModel ? (
             <button
-              onClick={() => setIsEditing(true)}
+              type="button"
+              onClick={() => setIsEditingModel(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-caption font-medium text-primary hover:bg-primary/10 transition-colors"
             >
               <Pencil className="w-3 h-3" />
@@ -148,14 +264,17 @@ export default function BillingTab({
           ) : (
             <div className="flex items-center gap-2">
               <button
-                onClick={handleCancel}
+                type="button"
+                onClick={handleCancelModel}
                 className="px-3 py-1.5 rounded-lg border border-border text-caption font-medium text-muted-foreground hover:bg-muted transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={handleSave}
-                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors"
+                type="button"
+                onClick={() => void handleSaveModel()}
+                disabled={patchBilling.isPending}
+                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 Save
               </button>
@@ -165,7 +284,7 @@ export default function BillingTab({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-medium text-muted-foreground mb-1.5">Model</label>
-            <Select value={model} onValueChange={(v) => setModel(v as BillingModel)} disabled={!isEditing}>
+            <Select value={model} onValueChange={(v) => setModel(v as BillingModel)} disabled={!isEditingModel}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -181,7 +300,7 @@ export default function BillingTab({
               <div>
                 <label className="block text-xs font-medium text-muted-foreground mb-1.5">Current Credit Balance</label>
                 <div className="h-10 flex items-center px-3 rounded-md border border-border bg-muted/50 text-sm font-medium text-foreground">
-                  {(initBalance ?? 25000).toLocaleString()}
+                  {apiCreditBalance.toLocaleString()}
                 </div>
               </div>
               <div>
@@ -191,7 +310,7 @@ export default function BillingTab({
                   min={0}
                   value={alertThreshold}
                   onChange={(e) => setAlertThreshold(Number(e.target.value))}
-                  disabled={!isEditing}
+                  disabled={!isEditingModel}
                 />
               </div>
             </>
@@ -205,12 +324,13 @@ export default function BillingTab({
           <div>
             <h4 className="text-body font-semibold text-foreground">Subscribed Products</h4>
             <p className="text-caption text-muted-foreground mt-0.5">
-              Pricing is derived from the product catalogue for each active subscription.
+              Rates default from the catalogue; use Edit to set member-specific pricing (saved to the dev API when connected).
             </p>
           </div>
-          {!isEditing ? (
+          {!isEditingRates ? (
             <button
-              onClick={() => setIsEditing(true)}
+              type="button"
+              onClick={() => setIsEditingRates(true)}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border text-caption font-medium text-primary hover:bg-primary/10 transition-colors"
             >
               <Pencil className="w-3 h-3" />
@@ -219,14 +339,17 @@ export default function BillingTab({
           ) : (
             <div className="flex items-center gap-2">
               <button
-                onClick={handleCancel}
+                type="button"
+                onClick={handleCancelRates}
                 className="px-3 py-1.5 rounded-lg border border-border text-caption font-medium text-muted-foreground hover:bg-muted transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={handleSave}
-                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors"
+                type="button"
+                onClick={() => void handleSaveRates()}
+                disabled={patchBilling.isPending}
+                className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 Save
               </button>
@@ -264,8 +387,27 @@ export default function BillingTab({
                         {row.status}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-right text-body font-medium text-foreground tabular-nums">
-                      {row.ratePerCall.toLocaleString()}
+                    <td className="px-5 py-3.5 text-right tabular-nums">
+                      {isEditingRates ? (
+                        <Input
+                          type="number"
+                          min={0}
+                          step={1}
+                          className="ml-auto h-9 max-w-[120px] text-right font-medium"
+                          value={rateForProduct(row.productId, row.ratePerCall)}
+                          onChange={(e) => {
+                            const v = Number(e.target.value);
+                            setRateOverrides((prev) => ({
+                              ...prev,
+                              [row.productId]: Number.isFinite(v) ? Math.max(0, v) : 0,
+                            }));
+                          }}
+                        />
+                      ) : (
+                        <span className="text-body font-medium text-foreground">
+                          {rateForProduct(row.productId, row.ratePerCall).toLocaleString()}
+                        </span>
+                      )}
                     </td>
                   </tr>
                 ))

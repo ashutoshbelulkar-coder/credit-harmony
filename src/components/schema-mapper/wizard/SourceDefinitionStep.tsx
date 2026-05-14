@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { Upload, FileJson, Code, Globe, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,8 +17,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { SchemaTreeView } from "@/components/schema-mapper/shared/SchemaTreeView";
 import { FieldStatisticsPanel } from "@/components/schema-mapper/shared/FieldStatisticsPanel";
-import { telecomParsedFields, telecomFieldStatistics } from "@/data/schema-mapper-mock";
+import {
+  getParsedSourceFieldsForSourceType,
+  getSourceFieldStatisticsForSourceType,
+} from "@/data/schema-mapper-mock";
 import type { SourceMetadata, SourceType } from "@/types/schema-mapper";
+import { useSchemaMapperWizardMetadata } from "@/hooks/api/useSchemaMapper";
+import { FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS } from "@/lib/schema-mapper-wizard-metadata";
 
 interface SourceDefinitionStepProps {
   initialMetadata: SourceMetadata | null;
@@ -36,8 +41,20 @@ const SAMPLE_JSON = `{
 }`;
 
 export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefinitionStepProps) {
+  const { data: wizardMeta, isLoading: wizardMetaLoading, isError: wizardMetaError, error: wizardMetaErrorObj } =
+    useSchemaMapperWizardMetadata();
+  const sourceTypeOptions = wizardMeta?.sourceTypeOptions ?? FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS;
+
   const [sourceName, setSourceName] = useState(initialMetadata?.sourceName ?? "");
   const [sourceType, setSourceType] = useState<SourceType>(initialMetadata?.sourceType ?? "telecom");
+
+  useEffect(() => {
+    setSourceType((prev) => {
+      const ok = sourceTypeOptions.some((o) => o.value === prev);
+      if (ok) return prev;
+      return (sourceTypeOptions[0]?.value ?? "telecom") as SourceType;
+    });
+  }, [sourceTypeOptions]);
   const [effectiveDate, setEffectiveDate] = useState(initialMetadata?.effectiveDate ?? "2026-03-01");
   const [version] = useState(initialMetadata?.versionNumber ?? "v1.0");
 
@@ -59,12 +76,21 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
     });
   }, [sourceName, sourceType, effectiveDate, version, onComplete]);
 
+  const previewParsedFields = useMemo(
+    () => getParsedSourceFieldsForSourceType(sourceType),
+    [sourceType],
+  );
+  const previewFieldStats = useMemo(
+    () => getSourceFieldStatisticsForSourceType(sourceType),
+    [sourceType],
+  );
+
   const isFormValid = sourceName.trim().length > 0 && sourceType && isParsed;
 
   return (
     <div className="space-y-6">
       {/* Section A: Source Metadata */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <h3 className="text-h4 font-semibold text-foreground mb-4">Source Metadata</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div className="space-y-1.5">
@@ -80,16 +106,21 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
             <Label className="text-caption text-muted-foreground">Source Type *</Label>
             <Select value={sourceType} onValueChange={(v) => setSourceType(v as SourceType)}>
               <SelectTrigger className="h-8">
-                <SelectValue />
+                <SelectValue placeholder={wizardMetaLoading ? "Loading…" : undefined} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="telecom">Telecom</SelectItem>
-                <SelectItem value="utility">Utility</SelectItem>
-                <SelectItem value="bank">Bank</SelectItem>
-                <SelectItem value="gst">GST</SelectItem>
-                <SelectItem value="custom">Custom</SelectItem>
+                {sourceTypeOptions.map((o) => (
+                  <SelectItem key={o.value} value={o.value}>
+                    {o.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
+            {wizardMetaError && (
+              <p className="text-[10px] text-destructive" role="alert">
+                {wizardMetaErrorObj instanceof Error ? wizardMetaErrorObj.message : "Using offline defaults."}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label className="text-caption text-muted-foreground">Effective Date</Label>
@@ -103,7 +134,7 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
       </div>
 
       {/* Section B: Schema Input */}
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <h3 className="text-h4 font-semibold text-foreground mb-4">Schema Input</h3>
 
         <Tabs value={schemaInput} onValueChange={(v) => { setSchemaInput(v as typeof schemaInput); setIsParsed(false); }}>
@@ -182,19 +213,19 @@ export function SourceDefinitionStep({ initialMetadata, onComplete }: SourceDefi
       {/* Parsed Result */}
       {isParsed && (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 animate-fade-in">
-          <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <p className="mb-3 text-caption font-medium uppercase tracking-wider text-muted-foreground">
               Source Schema Tree
             </p>
             <ScrollArea className="h-[280px]">
-              <SchemaTreeView nodes={telecomParsedFields} showSamples />
+              <SchemaTreeView nodes={previewParsedFields} showSamples />
             </ScrollArea>
           </div>
-          <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
             <p className="mb-3 text-caption font-medium uppercase tracking-wider text-muted-foreground">
               Field Statistics
             </p>
-            <FieldStatisticsPanel stats={telecomFieldStatistics} />
+            <FieldStatisticsPanel stats={previewFieldStats} />
             <div className="mt-4 space-y-2">
               <p className="text-caption font-medium text-muted-foreground">Validation Notes</p>
               <div className="space-y-1">

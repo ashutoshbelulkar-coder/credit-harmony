@@ -1,5 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { X } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import {
   Breadcrumb,
@@ -11,11 +12,8 @@ import {
 } from "@/components/ui/breadcrumb";
 import { StepIndicator, STEPS } from "./StepIndicator";
 import { SourceIngestionStep } from "./SourceIngestionStep";
-import { MultiSchemaMatchingStep } from "./MultiSchemaMatchingStep";
 import { LLMFieldIntelligenceStep } from "./LLMFieldIntelligenceStep";
 import { ValidationRuleStep } from "./ValidationRuleStep";
-import { SemanticInsightsStep } from "./SemanticInsightsStep";
-import { StorageVisibilityStep } from "./StorageVisibilityStep";
 import { GovernanceActionsStep } from "./GovernanceActionsStep";
 import type {
   WizardStep,
@@ -25,21 +23,25 @@ import type {
   LLMFieldIntelligenceRow,
   EnumReconciliation,
   GeneratedValidationRule,
-  FieldCluster,
-  StorageMetadataSummary,
-  LineageEntry,
   GovernanceSummary,
 } from "@/types/schema-mapper";
 import {
-  similarSchemasForTelecom,
   llmFieldIntelligenceRowsTelecom,
   telecomEnumReconciliations,
   generatedValidationRules,
-  fieldClusters,
-  storageMetadataSummary,
-  lineagePreview,
   governanceSummaryDefault,
+  masterSchemaTree,
 } from "@/data/schema-mapper-mock";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
+import { fieldMappingsToLlmRows, llmRowsToFieldMappings } from "@/lib/schema-mapper-api";
+import { fetchMapping } from "@/services/schema-mapper.service";
+import {
+  useIngestSchema,
+  useCreateMappingJob,
+  usePatchMapping,
+  useSubmitMappingApproval,
+  useSchemaMappingDetail,
+} from "@/hooks/api/useSchemaMapper";
 
 interface WizardContainerProps {
   onCancel: () => void;
@@ -47,20 +49,43 @@ interface WizardContainerProps {
 }
 
 export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) {
+  const apiMode = !clientMockFallbackEnabled;
+  const queryClient = useQueryClient();
+  const ingestMutation = useIngestSchema();
+  const createJobMutation = useCreateMappingJob();
+  const patchMutation = usePatchMapping();
+  const submitApprovalMutation = useSubmitMappingApproval();
+
   const [currentStep, setCurrentStep] = useState<WizardStep>("source_ingestion");
   const [completedSteps, setCompletedSteps] = useState<Set<WizardStep>>(new Set());
 
   const [ingestedMetadata, setIngestedMetadata] = useState<IngestedSourceMetadata | null>(null);
   const [parsedFields, setParsedFields] = useState<ParsedSourceField[]>([]);
   const [fieldStats, setFieldStats] = useState<SourceFieldStatistics | null>(null);
-  const [selectedSchemaId, setSelectedSchemaId] = useState<string | null>(null);
+  const [schemaVersionId, setSchemaVersionId] = useState<string | null>(null);
+  const [mappingId, setMappingId] = useState<string | null>(null);
   const [llmRows, setLlmRows] = useState<LLMFieldIntelligenceRow[]>(llmFieldIntelligenceRowsTelecom);
   const [enumReconciliations, setEnumReconciliations] = useState<EnumReconciliation[]>(telecomEnumReconciliations);
   const [validationRules, setValidationRules] = useState<GeneratedValidationRule[]>(generatedValidationRules);
-  const [clusters, setClusters] = useState<FieldCluster[]>(fieldClusters);
-  const [storageMetadata, setStorageMetadata] = useState<StorageMetadataSummary | null>(storageMetadataSummary);
-  const [lineage, setLineage] = useState<LineageEntry[]>(lineagePreview);
   const [governanceSummary, setGovernanceSummary] = useState<GovernanceSummary | null>(governanceSummaryDefault);
+
+  const { data: mappingData } = useSchemaMappingDetail(apiMode ? mappingId : null);
+
+  const apiSyncedRows = useMemo(() => {
+    if (!mappingData?.fieldMappings?.length) return null;
+    return fieldMappingsToLlmRows(mappingData.fieldMappings);
+  }, [mappingData?.fieldMappings]);
+
+  useEffect(() => {
+    if (!mappingData?.fieldMappings?.length) return;
+    const fm = mappingData.fieldMappings;
+    const mapped = fm.filter((f) => f.canonicalPath).length;
+    const pct = Math.round((mapped / fm.length) * 100);
+    setGovernanceSummary((prev) => ({
+      ...(prev ?? governanceSummaryDefault),
+      mappingCoveragePercent: pct,
+    }));
+  }, [mappingData?.fieldMappings]);
 
   const currentIdx = STEPS.findIndex((s) => s.key === currentStep);
   const isFirst = currentIdx === 0;
@@ -83,30 +108,51 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
   }, [currentIdx]);
 
   const handleSourceComplete = useCallback(
-    (meta: IngestedSourceMetadata, fields: ParsedSourceField[], stats: SourceFieldStatistics) => {
+    async (meta: IngestedSourceMetadata, fields: ParsedSourceField[], stats: SourceFieldStatistics) => {
       setIngestedMetadata(meta);
       setParsedFields(fields);
       setFieldStats(stats);
+      if (apiMode) {
+        try {
+          const res = await ingestMutation.mutateAsync({
+            sourceName: meta.sourceName,
+            sourceType: meta.sourceType,
+            dataCategory: meta.dataCategory,
+            versionNumber: meta.versionNumber,
+            effectiveDate: meta.effectiveDate,
+            parsedFields: fields as unknown[],
+            fieldStats: stats as unknown,
+          });
+          setSchemaVersionId(res.schemaVersionId);
+          await queryClient.invalidateQueries({ queryKey: ["schema-mapper", "registry"] });
+          // Mapping job now starts immediately after ingest to skip the similarity step.
+          const job = await createJobMutation.mutateAsync({ schemaVersionId: res.schemaVersionId });
+          setMappingId(job.mappingId);
+        } catch {
+          return;
+        }
+      }
       goNext();
     },
-    [goNext],
-  );
-
-  const handleMultiSchemaComplete = useCallback(
-    (schemaId: string | null, _createNew: boolean) => {
-      setSelectedSchemaId(schemaId);
-      goNext();
-    },
-    [goNext],
+    [apiMode, goNext, ingestMutation, queryClient, createJobMutation],
   );
 
   const handleLLMComplete = useCallback(
-    (rows: LLMFieldIntelligenceRow[], enums: EnumReconciliation[]) => {
+    async (rows: LLMFieldIntelligenceRow[], enums: EnumReconciliation[]) => {
       setLlmRows(rows);
       setEnumReconciliations(enums);
+      if (apiMode && mappingId) {
+        try {
+          const latest = await fetchMapping(mappingId);
+          const body = llmRowsToFieldMappings(rows, masterSchemaTree, latest.fieldMappings);
+          await patchMutation.mutateAsync({ id: mappingId, body: { fieldMappings: body } });
+        } catch {
+          return;
+        }
+      }
       goNext();
     },
-    [goNext],
+    [apiMode, mappingId, patchMutation, goNext],
   );
 
   const handleRulesComplete = useCallback(
@@ -120,16 +166,17 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
     [goNext],
   );
 
-  const handleGovernanceSubmit = useCallback(() => {
-    setGovernanceSummary((prev) => ({ ...(prev ?? governanceSummaryDefault), evolutionQueueStatus: "AI Proposed" }));
-    onComplete();
-  }, [onComplete]);
+  const handleGovernanceSubmitToQueue = useCallback(async () => {
+    setGovernanceSummary((prev) => ({
+      ...(prev ?? governanceSummaryDefault),
+      evolutionQueueStatus: "AI Proposed",
+    }));
+    if (apiMode && mappingId) {
+      await submitApprovalMutation.mutateAsync(mappingId);
+    }
+  }, [apiMode, mappingId, submitApprovalMutation]);
 
   const handleGovernanceSaveDraft = useCallback(() => {
-    onComplete();
-  }, [onComplete]);
-
-  const handleGovernanceReject = useCallback(() => {
     onComplete();
   }, [onComplete]);
 
@@ -178,17 +225,12 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
             onComplete={handleSourceComplete}
           />
         )}
-        {currentStep === "multi_schema_matching" && (
-          <MultiSchemaMatchingStep
-            similarSchemas={ingestedMetadata?.similarSchemas ?? similarSchemasForTelecom}
-            selectedSchemaId={selectedSchemaId}
-            onComplete={handleMultiSchemaComplete}
-          />
-        )}
         {currentStep === "llm_field_intelligence" && (
           <LLMFieldIntelligenceStep
             initialRows={llmRows}
             initialEnums={enumReconciliations}
+            apiSyncedRows={apiSyncedRows}
+            mappingJobStatus={mappingData?.status ?? null}
             onComplete={handleLLMComplete}
           />
         )}
@@ -198,26 +240,11 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
             onComplete={handleRulesComplete}
           />
         )}
-        {currentStep === "semantic_insights" && (
-          <SemanticInsightsStep
-            clusters={clusters}
-            onClustersChange={setClusters}
-            onComplete={goNext}
-          />
-        )}
-        {currentStep === "storage_visibility" && (
-          <StorageVisibilityStep
-            storageMetadata={storageMetadata}
-            lineagePreview={lineage}
-            onComplete={goNext}
-          />
-        )}
         {currentStep === "governance_actions" && (
           <GovernanceActionsStep
             governanceSummary={governanceSummary}
-            onSubmitToQueue={handleGovernanceSubmit}
+            onSubmitToQueue={handleGovernanceSubmitToQueue}
             onSaveDraft={handleGovernanceSaveDraft}
-            onReject={handleGovernanceReject}
             onComplete={onComplete}
           />
         )}

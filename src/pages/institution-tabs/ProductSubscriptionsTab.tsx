@@ -1,10 +1,23 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Plus, PowerOff, Power } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
-import { getProductSubscriptions, type ProductSubscriptionRow } from "@/data/institution-extensions-mock";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
-import { productPricingLabel } from "@/data/data-products-mock";
+import {
+  useProductSubscriptions,
+  useAddProductSubscriptions,
+  usePatchProductSubscription,
+} from "@/hooks/api/useInstitutions";
+import { useProducts } from "@/hooks/api/useProducts";
+import type { ProductSubscriptionRow as ApiSubscriptionRow } from "@/services/institutions.service";
+
+type ProductSubscriptionRow = {
+  subscriptionId: number;
+  productId: string;
+  productName: string;
+  plan: string;
+  usage: string;
+  status: "active" | "trial" | "suspended";
+};
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -19,7 +32,6 @@ import {
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -40,11 +52,29 @@ const statusClass: Record<string, string> = {
 };
 
 export default function ProductSubscriptionsTab({ institutionId }: Props) {
-  const { products: catalogProducts } = useCatalogMock();
+  const { data: apiSubscriptions } = useProductSubscriptions(institutionId);
+  const { mutateAsync: addSubscriptionsAsync, isPending: addingSubscriptions } =
+    useAddProductSubscriptions(institutionId);
+  const { mutateAsync: patchSubscriptionAsync, isPending: patchingSubscription } =
+    usePatchProductSubscription(institutionId);
+  const { data: productsPage } = useProducts({ size: 100 });
+  const catalogProducts = productsPage?.content ?? [];
 
-  const [rows, setRows] = useState<ProductSubscriptionRow[]>(() =>
-    getProductSubscriptions(institutionId)
-  );
+  const [rows, setRows] = useState<ProductSubscriptionRow[]>([]);
+
+  useEffect(() => {
+    if (!apiSubscriptions) return;
+    setRows(
+      (apiSubscriptions as ApiSubscriptionRow[]).map((s) => ({
+        subscriptionId: s.subscriptionId,
+        productId: String(s.productId),
+        productName: s.productName,
+        plan: "Standard",
+        usage: "—",
+        status: (s.subscriptionStatus as ProductSubscriptionRow["status"]) ?? "active",
+      }))
+    );
+  }, [apiSubscriptions]);
 
   // ── Add dialog ──────────────────────────────────────────────
   const [addOpen, setAddOpen] = useState(false);
@@ -52,7 +82,7 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
 
   // All catalog products not already subscribed (any lifecycle status)
   const availableProducts = useMemo(
-    () => catalogProducts.filter((p) => !rows.some((r) => r.productId === p.id)),
+    () => catalogProducts.filter((p) => !rows.some((r) => r.productId === String(p.id))),
     [catalogProducts, rows]
   );
 
@@ -61,34 +91,36 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
     setAddOpen(true);
   };
 
-  const handleAdd = () => {
-    if (selectedProductIds.length === 0) return;
-    const selectedProducts = catalogProducts.filter((p) => selectedProductIds.includes(p.id));
-    if (selectedProducts.length === 0) return;
-    setRows((prev) => [
-      ...prev,
-      ...selectedProducts.map((product) => ({
-        productId: product.id,
-        productName: product.name,
-        plan: "Starter",
-        usage: "0 enquiries / mo",
-        status: "active" as const,
-      })),
-    ]);
-    toast.success(
-      selectedProducts.length === 1
-        ? `Subscribed to ${selectedProducts[0].name}`
-        : `Subscribed to ${selectedProducts.length} products`
-    );
-    setAddOpen(false);
+  const handleAdd = async () => {
+    if (selectedProductIds.length === 0) {
+      toast.error("Select at least one product.");
+      return;
+    }
+    const selectedProducts = catalogProducts.filter((p) => selectedProductIds.includes(String(p.id)));
+    if (selectedProducts.length === 0) {
+      toast.error("Selected products are not in the catalogue. Refresh or check the dev API.");
+      return;
+    }
+    try {
+      await addSubscriptionsAsync({ productIds: selectedProductIds });
+      toast.success(
+        selectedProducts.length === 1
+          ? `Subscribed to ${selectedProducts[0].name}`
+          : `Subscribed to ${selectedProducts.length} products`
+      );
+      setAddOpen(false);
+      setSelectedProductIds([]);
+    } catch {
+      /* toast from hook */
+    }
   };
 
-  const toggleSelectedProduct = (productId: string, checked: boolean | "indeterminate") => {
+  const toggleSelectedProduct = (pId: string, checked: boolean | "indeterminate") => {
     setSelectedProductIds((prev) => {
       if (checked === true) {
-        return prev.includes(productId) ? prev : [...prev, productId];
+        return prev.includes(pId) ? prev : [...prev, pId];
       }
-      return prev.filter((id) => id !== productId);
+      return prev.filter((id) => id !== pId);
     });
   };
 
@@ -101,23 +133,25 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
       : "activate"
     : null;
 
-  const handleToggleConfirm = () => {
+  const handleToggleConfirm = async () => {
     if (!toggleTarget) return;
     const next: ProductSubscriptionRow["status"] =
       toggleTarget.status === "active" || toggleTarget.status === "trial"
         ? "suspended"
         : "active";
-    setRows((prev) =>
-      prev.map((r) =>
-        r.productId === toggleTarget.productId ? { ...r, status: next } : r
-      )
-    );
-    toast.success(
-      next === "active"
-        ? `${toggleTarget.productName} subscription activated`
-        : `${toggleTarget.productName} subscription suspended`
-    );
-    setToggleTarget(null);
+    const name = toggleTarget.productName;
+    try {
+      await patchSubscriptionAsync({
+        subscriptionId: toggleTarget.subscriptionId,
+        subscriptionStatus: next,
+      });
+      toast.success(
+        next === "active" ? `${name} subscription activated` : `${name} subscription suspended`
+      );
+      setToggleTarget(null);
+    } catch {
+      /* toast from hook */
+    }
   };
 
   return (
@@ -220,7 +254,7 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
                   const isActive = r.status === "active" || r.status === "trial";
                   return (
                     <tr
-                      key={r.productId}
+                      key={r.subscriptionId}
                       className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
                     >
                       <td className="px-4 py-3 text-caption text-muted-foreground tabular-nums">{r.productId}</td>
@@ -272,7 +306,8 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
           <DialogHeader>
             <DialogTitle>Add subscription</DialogTitle>
             <p className="text-caption text-muted-foreground mt-0.5">
-              Subscribe this institution to an active product from the catalogue.
+              Pick products from the catalogue, then use <span className="font-medium text-foreground">Add subscription</span>{" "}
+              below — that saves to the dev API.
             </p>
           </DialogHeader>
 
@@ -284,16 +319,16 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
                   This institution is already subscribed to all available products.
                 </p>
               ) : (
-                <ScrollArea className="max-h-56 rounded-md border border-border p-2">
-                  <div className="space-y-1.5">
+                <ScrollArea className="h-56 rounded-md border border-border">
+                  <div className="space-y-1.5 p-2">
                     {availableProducts.map((p) => (
                       <label
                         key={p.id}
                         className="flex items-start gap-2 rounded-md border border-border/70 px-2.5 py-2 hover:bg-muted/40 cursor-pointer"
                       >
                         <Checkbox
-                          checked={selectedProductIds.includes(p.id)}
-                          onCheckedChange={(v) => toggleSelectedProduct(p.id, v)}
+                          checked={selectedProductIds.includes(String(p.id))}
+                          onCheckedChange={(v) => toggleSelectedProduct(String(p.id), v)}
                           className="mt-0.5"
                         />
                         <div className="flex flex-col min-w-0">
@@ -304,7 +339,7 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
                             )}
                           </span>
                           <span className="text-[10px] text-muted-foreground truncate">
-                            {p.id} · {productPricingLabel[p.pricingModel]} · {p.packetIds.length} packets
+                            {p.id} · {p.type}
                           </span>
                         </div>
                       </label>
@@ -323,10 +358,12 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
             <Button
               type="button"
               size="sm"
-              onClick={handleAdd}
-              disabled={selectedProductIds.length === 0}
+              onClick={() => void handleAdd()}
+              disabled={selectedProductIds.length === 0 || addingSubscriptions}
             >
-              Add subscription{selectedProductIds.length > 1 ? "s" : ""}
+              {addingSubscriptions
+                ? "Saving…"
+                : `Add subscription${selectedProductIds.length > 1 ? "s" : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -363,17 +400,15 @@ export default function ProductSubscriptionsTab({ institutionId }: Props) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              className={
-                pendingAction === "suspend"
-                  ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                  : ""
-              }
-              onClick={handleToggleConfirm}
+            <AlertDialogCancel disabled={patchingSubscription}>Cancel</AlertDialogCancel>
+            <Button
+              type="button"
+              variant={pendingAction === "suspend" ? "destructive" : "default"}
+              disabled={patchingSubscription}
+              onClick={() => void handleToggleConfirm()}
             >
-              {pendingAction === "suspend" ? "Suspend" : "Activate"}
-            </AlertDialogAction>
+              {patchingSubscription ? "Saving…" : pendingAction === "suspend" ? "Suspend" : "Activate"}
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

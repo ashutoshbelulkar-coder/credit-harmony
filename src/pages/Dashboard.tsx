@@ -15,13 +15,20 @@ import { useState } from "react";
 import { useDashboardSnapshot } from "@/api/dashboard";
 import { AgentFleetCard } from "@/components/dashboard/command-center/AgentFleetCard";
 import { ProcessingThroughputCard } from "@/components/dashboard/command-center/ProcessingThroughputCard";
-import { ActiveBatchPipelineTable } from "@/components/dashboard/command-center/ActiveBatchPipelineTable";
+import {
+  ActiveBatchPipelineTable,
+  BATCH_PIPELINE_STATUS_QUERY,
+} from "@/components/dashboard/command-center/ActiveBatchPipelineTable";
 import { AnomalyFeed } from "@/components/dashboard/command-center/AnomalyFeed";
 import { MemberDataQualityCard } from "@/components/dashboard/command-center/MemberDataQualityCard";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
 import { exportToCsv } from "@/lib/csv-export";
+import type { DashboardRange } from "@/api/dashboard-types";
+import { apiVolumeKpiTitle } from "@/api/dashboard-types";
+import { ApiErrorCard } from "@/components/ui/api-error-card";
+import { Button } from "@/components/ui/button";
 
 const Dashboard = () => {
   const [range, setRange] = useState<DashboardDateRange>({ kind: "preset", preset: "30d" });
@@ -29,11 +36,20 @@ const Dashboard = () => {
   const snapshot = useDashboardSnapshot(range);
   const navigate = useNavigate();
   const { user } = useAuth();
-  const readOnly = user?.role === "Viewer";
+  const readOnly = user?.roles?.includes("ROLE_VIEWER") ?? false;
+  const loading = snapshot.isPending;
+  const blocked = snapshot.isError;
 
   return (
     <DashboardLayout>
       <div className="space-y-6 md:space-y-8 laptop:space-y-6 desktop:space-y-8 animate-fade-in min-w-0">
+        {blocked && (
+          <ApiErrorCard
+            error={snapshot.error}
+            onRetry={() => void snapshot.refetch()}
+            className="mb-2"
+          />
+        )}
         {/* Page Header */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
@@ -44,9 +60,12 @@ const Dashboard = () => {
           </div>
           <div className="flex items-center gap-2">
             <DashboardDateRangePicker value={range} onChange={setRange} />
-            <button
+            <Button
               type="button"
-              className="h-7 px-2.5 rounded-md border border-border bg-background text-caption hover:bg-muted transition-colors"
+              variant="outline"
+              size="sm"
+              className="text-caption"
+              title="Download current KPI snapshot as CSV (browser export; not a server-side report job)."
               onClick={() => {
                 const data = snapshot.data;
                 if (!data) {
@@ -64,7 +83,7 @@ const Dashboard = () => {
                     },
                   ],
                   [
-                    { key: "apiVolume24h", label: "API Volume (24h)" },
+                    { key: "apiVolume24h", label: apiVolumeKpiTitle(range as DashboardRange) },
                     { key: "errorRate", label: "Error Rate (%)" },
                     { key: "slaHealth", label: "SLA Health (%)" },
                     { key: "dataQualityScore", label: "Data Quality Score (%)" },
@@ -75,29 +94,29 @@ const Dashboard = () => {
               aria-label="Export dashboard report as CSV"
             >
               Export
-            </button>
+            </Button>
           </div>
         </div>
 
-        <DashboardKPIRow data={snapshot.data?.metrics} loading={snapshot.isLoading} />
-        <ApiUsageChart data={snapshot.data?.charts} loading={snapshot.isLoading} />
-        <DataQualityCharts data={snapshot.data?.charts} loading={snapshot.isLoading} />
-        <SlaLatencyChart data={snapshot.data?.charts} loading={snapshot.isLoading} />
-        <RejectionOverrideChart data={snapshot.data?.charts} loading={snapshot.isLoading} />
-        <DashboardActivity data={snapshot.data?.activity} loading={snapshot.isLoading} />
+        <DashboardKPIRow data={snapshot.data?.metrics} loading={loading} dateRange={range} />
+        <ApiUsageChart data={snapshot.data?.charts} loading={loading} dateRange={range} />
+        <DataQualityCharts data={snapshot.data?.charts} loading={loading} />
+        <SlaLatencyChart data={snapshot.data?.charts} loading={loading} />
+        <RejectionOverrideChart data={snapshot.data?.charts} loading={loading} />
+        <DashboardActivity data={snapshot.data?.activity} loading={loading} />
 
         {/* Command Center panels */}
-        <div className="grid grid-cols-1 gap-4 laptop:gap-3 lg:grid-cols-12">
-          <div className="lg:col-span-5">
+        <div className="grid grid-cols-1 items-stretch gap-4 laptop:gap-3 lg:grid-cols-12">
+          <div className="flex h-full min-h-0 lg:col-span-5">
             <AgentFleetCard
               agents={snapshot.data?.commandCenter?.agents ?? []}
-              loading={snapshot.isLoading}
+              loading={loading}
             />
           </div>
-          <div className="lg:col-span-7">
+          <div className="flex h-full min-h-0 lg:col-span-7">
             <ProcessingThroughputCard
               seedApiUsageTrend={snapshot.data?.charts.apiUsageTrend ?? []}
-              loading={snapshot.isLoading}
+              loading={loading}
               view={throughputView}
               onViewChange={setThroughputView}
             />
@@ -106,13 +125,18 @@ const Dashboard = () => {
 
         <ActiveBatchPipelineTable
           rows={snapshot.data?.commandCenter?.batches ?? []}
-          loading={snapshot.isLoading}
-          onViewAll={() => navigate("/monitoring/data-submission-batch")}
+          loading={loading}
+          onViewAll={() =>
+            navigate(`/monitoring/data-submission-batch?${BATCH_PIPELINE_STATUS_QUERY}`)
+          }
+          onRowNavigate={() =>
+            navigate(`/monitoring/data-submission-batch?${BATCH_PIPELINE_STATUS_QUERY}`)
+          }
         />
 
         <AnomalyFeed
           anomalies={snapshot.data?.commandCenter?.anomalies ?? []}
-          loading={snapshot.isLoading}
+          loading={loading}
           readOnly={readOnly}
           onViewAll={() => navigate("/monitoring/alert-engine")}
           onAction={(a) => {
@@ -123,7 +147,9 @@ const Dashboard = () => {
 
         <MemberDataQualityCard
           points={snapshot.data?.commandCenter?.memberQuality ?? []}
-          loading={snapshot.isLoading}
+          loading={loading}
+          dateRange={range}
+          memberRowLabels={snapshot.data?.commandCenter?.memberQualitySubmitters}
           onOpenQualityCenter={() => navigate("/data-governance/data-quality-monitoring")}
         />
       </div>

@@ -17,12 +17,15 @@ export interface MappingAccuracyPoint {
   accuracy: number;
 }
 
-export interface ValidationFailureBySource {
-  source: string;
+export interface ValidationFailureByInstitution {
+  institution: string;
   failures: number;
   total: number;
   rate: number;
 }
+
+/** @deprecated Use ValidationFailureByInstitution */
+export type ValidationFailureBySource = ValidationFailureByInstitution;
 
 export interface MatchConfidenceBucket {
   bucket: string;
