@@ -53,6 +53,7 @@ const dataGovernanceSubItems = [
   { title: "Master Schema Management", path: "/data-governance/master-schema" },
   { title: "Identity Resolution Agent", path: "/data-governance/match-review" },
   { title: "Data Quality Monitoring", path: "/data-governance/data-quality-monitoring" },
+  { title: "Data Management", path: "/data-governance/data-management" },
   { title: "Governance Audit Logs", path: "/data-governance/governance-audit-logs" },
 ];
 
