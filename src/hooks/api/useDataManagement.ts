@@ -31,10 +31,11 @@ function describeError(err: unknown): string {
   return "Unexpected error";
 }
 
-export function useSubjects(params?: ListSubjectsParams) {
+export function useSubjects(params?: ListSubjectsParams, options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: QK.dataManagement.subjects(params as Record<string, unknown>),
     queryFn: () => listSubjects(params),
+    enabled: options?.enabled ?? true,
   });
 }
 

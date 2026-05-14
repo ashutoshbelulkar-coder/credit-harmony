@@ -2,27 +2,24 @@
  * Data Management screen.
  *
  * Subject-centric workspace for the Data Governance layer. Lets users:
- *  - Look up / search subjects by ID, name or email
+ *  - Look up subjects by ID via a search button
  *  - View subject attributes + linked data sources
  *  - Edit / create / delete subjects (with mandatory change comment)
  *  - Link / unlink data sources (with confirmation + audit log)
  *  - Review the audit history per subject
  *
- * The detail pane lives in-page (right-hand column on desktop) so users can
- * scan the subject list and jump between subjects without losing context.
- * Filters are persisted in `sessionStorage` so they survive navigation – per
- * the spec's "non-sticky filters are painful" requirement.
+ * Search and detail cards are stacked vertically. The subject list only
+ * appears after a search has been executed via the search button.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
-  ArrowDown,
-  ArrowUp,
   History,
   Info,
   Link2,
   Pencil,
   PlusCircle,
+  Save,
   Search,
   Trash2,
   UserPlus,
@@ -42,26 +39,14 @@ import {
 } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import {
   Dialog,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -90,9 +75,13 @@ import {
   type DataSourceType,
   type SortDirection,
   type Subject,
-  type SubjectListFilters,
   type SubjectStatus,
 } from "@/types/data-management";
+import { SubjectForm, type SubjectFormValues } from "@/components/data-governance/data-management/SubjectForm";
+import { ChangeCommentDialog } from "@/components/data-governance/data-management/ChangeCommentDialog";
+import { LinkSourceDialog } from "@/components/data-governance/data-management/LinkSourceDialog";
+import { LinkedSourcesTable } from "@/components/data-governance/data-management/LinkedSourcesTable";
+import { SubjectAuditTab } from "@/components/data-governance/data-management/SubjectAuditTab";
 
 type SourceFiltersState = {
   query: string;
@@ -112,42 +101,8 @@ function fieldErrorsFromMutation(err: unknown): Record<string, string> | undefin
   if (err instanceof DataManagementValidationError) return err.fieldErrors;
   return undefined;
 }
-import { SubjectForm, type SubjectFormValues } from "@/components/data-governance/data-management/SubjectForm";
-import { ChangeCommentDialog } from "@/components/data-governance/data-management/ChangeCommentDialog";
-import { LinkSourceDialog } from "@/components/data-governance/data-management/LinkSourceDialog";
-import { LinkedSourcesTable } from "@/components/data-governance/data-management/LinkedSourcesTable";
-import { SubjectAuditTab } from "@/components/data-governance/data-management/SubjectAuditTab";
 
-const FILTERS_STORAGE_KEY = "hcb_dm_subject_filters_v1";
 const SOURCE_FILTERS_STORAGE_KEY = "hcb_dm_source_filters_v1";
-
-const DEFAULT_FILTERS: SubjectListFilters = {
-  query: "",
-  status: "ALL",
-  sortKey: "updatedAt",
-  sortDirection: "desc",
-};
-
-function loadFilters<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = window.sessionStorage.getItem(key);
-    if (!raw) return fallback;
-    const parsed = JSON.parse(raw);
-    return { ...fallback, ...parsed };
-  } catch {
-    return fallback;
-  }
-}
-
-function saveFilters<T>(key: string, value: T): void {
-  if (typeof window === "undefined") return;
-  try {
-    window.sessionStorage.setItem(key, JSON.stringify(value));
-  } catch {
-    /* ignore quota errors */
-  }
-}
 
 const STATUS_TONE: Record<SubjectStatus, string> = {
   ACTIVE: "bg-success/10 text-success border-success/20",
@@ -155,30 +110,156 @@ const STATUS_TONE: Record<SubjectStatus, string> = {
   PENDING: "bg-warning/10 text-warning border-warning/20",
 };
 
+/**
+ * Rich sample data attributes for HCB data sources, keyed by sourceId.
+ */
+const HCB_SOURCE_ATTRIBUTES: Record<string, { label: string; value: string; editable?: boolean }[]> = {
+  "S-001": [
+    { label: "Account Number", value: "00112233445566", editable: true },
+    { label: "Currency", value: "INR", editable: false },
+    { label: "Account Type", value: "Savings", editable: true },
+    { label: "Branch Code", value: "BOI-BLR-001", editable: false },
+    { label: "IFSC Code", value: "BKID0006789", editable: false },
+    { label: "Account Holder", value: "Alice Smith", editable: true },
+    { label: "Opening Date", value: "2019-03-15", editable: false },
+    { label: "Current Balance", value: "245,780.50 INR", editable: false },
+    { label: "Overdraft Limit", value: "50,000.00 INR", editable: true },
+    { label: "Nominee", value: "Bob Smith", editable: true },
+    { label: "Joint Holder", value: "None", editable: true },
+    { label: "KYC Status", value: "Verified", editable: false },
+  ],
+  "S-002": [
+    { label: "Document Type", value: "Aadhaar", editable: false },
+    { label: "Aadhaar Number", value: "XXXX-XXXX-4321", editable: false },
+    { label: "Verified At", value: "2026-04-20", editable: false },
+    { label: "Verification Method", value: "OTP + Biometric", editable: false },
+    { label: "Full Name", value: "Alice Smith", editable: false },
+    { label: "Date of Birth", value: "1985-07-12", editable: false },
+    { label: "Gender", value: "Female", editable: false },
+    { label: "Address", value: "12 MG Road, Bangalore 560001", editable: false },
+    { label: "Photo Match Score", value: "98.5%", editable: false },
+    { label: "Issue Date", value: "2015-06-10", editable: false },
+    { label: "Authentication Agency", value: "UIDAI", editable: false },
+  ],
+  "S-003": [
+    { label: "MSISDN", value: "+91-9876543210", editable: true },
+    { label: "Plan", value: "Postpaid", editable: true },
+    { label: "Operator", value: "Reliance Jio", editable: false },
+    { label: "Circle", value: "Karnataka", editable: false },
+    { label: "SIM Type", value: "4G LTE", editable: false },
+    { label: "Activation Date", value: "2020-01-15", editable: false },
+    { label: "Monthly Bill", value: "599 INR", editable: true },
+    { label: "Data Usage (Avg)", value: "32 GB/month", editable: false },
+    { label: "Outstanding Balance", value: "0.00 INR", editable: false },
+    { label: "Auto-Pay", value: "Enabled", editable: true },
+    { label: "Contract End", value: "2027-01-14", editable: false },
+  ],
+  "S-004": [
+    { label: "Card Last 4", value: "4421", editable: false },
+    { label: "Currency", value: "INR", editable: false },
+    { label: "Card Type", value: "Visa Platinum", editable: false },
+    { label: "Card Holder", value: "Priya Iyer", editable: true },
+    { label: "Credit Limit", value: "5,00,000 INR", editable: true },
+    { label: "Available Credit", value: "3,85,200 INR", editable: false },
+    { label: "Outstanding Balance", value: "1,14,800 INR", editable: false },
+    { label: "Min Due", value: "5,740 INR", editable: false },
+    { label: "Due Date", value: "2026-05-25", editable: false },
+    { label: "Reward Points", value: "12,450", editable: false },
+    { label: "EMI Active", value: "2 conversions", editable: false },
+    { label: "International Enabled", value: "Yes", editable: true },
+    { label: "Issue Date", value: "2022-08-01", editable: false },
+    { label: "Expiry", value: "2028-07-31", editable: false },
+  ],
+  "S-005": [
+    { label: "Check Type", value: "Full KYC", editable: false },
+    { label: "Result", value: "Verified", editable: false },
+    { label: "Verification Date", value: "2026-04-12", editable: false },
+    { label: "PAN Verified", value: "Yes", editable: false },
+    { label: "Aadhaar Verified", value: "Yes", editable: false },
+    { label: "Face Match Score", value: "96.7%", editable: false },
+    { label: "Liveness Check", value: "Passed", editable: false },
+    { label: "Address Verified", value: "Yes", editable: false },
+    { label: "Risk Score", value: "Low (12/100)", editable: false },
+    { label: "AML Screening", value: "Clear", editable: false },
+    { label: "PEP Check", value: "Not PEP", editable: false },
+    { label: "Sanctions Check", value: "Clear", editable: false },
+    { label: "Provider", value: "HyperVerge", editable: false },
+    { label: "Reference ID", value: "HV-2026-0412-7789", editable: false },
+  ],
+  "S-006": [
+    { label: "Account ID", value: "001ABCDEF", editable: false },
+    { label: "Segment", value: "Retail", editable: true },
+    { label: "Lead Source", value: "Website", editable: true },
+    { label: "Customer Since", value: "2023-05-20", editable: false },
+    { label: "Lifetime Value", value: "2,45,000 INR", editable: false },
+    { label: "Last Interaction", value: "2026-04-18", editable: false },
+    { label: "Assigned Rep", value: "Rahul Mehta", editable: true },
+    { label: "Open Tickets", value: "0", editable: false },
+    { label: "NPS Score", value: "9", editable: false },
+    { label: "Communication Pref", value: "Email + WhatsApp", editable: true },
+    { label: "Product Interest", value: "Home Loan, Insurance", editable: true },
+  ],
+  "S-007": [
+    { label: "Account Number", value: "9988776655", editable: true },
+    { label: "Currency", value: "INR", editable: false },
+    { label: "Account Type", value: "Savings", editable: true },
+    { label: "Branch Code", value: "AXIS-KOL-003", editable: false },
+    { label: "IFSC Code", value: "UTIB0002345", editable: false },
+    { label: "Account Holder", value: "Bob Kumar", editable: true },
+    { label: "Opening Date", value: "2021-09-01", editable: false },
+    { label: "Current Balance", value: "89,320.00 INR", editable: false },
+    { label: "Debit Card", value: "Linked (xxxx-7788)", editable: false },
+    { label: "Net Banking", value: "Enabled", editable: true },
+    { label: "Mobile Banking", value: "Enabled", editable: true },
+    { label: "KYC Status", value: "Expired – re-KYC due", editable: false },
+  ],
+};
+
+function getSourceAttributes(source: DataSource): { label: string; value: string; editable?: boolean }[] {
+  const hardcoded = HCB_SOURCE_ATTRIBUTES[source.sourceId];
+  if (hardcoded) return hardcoded;
+  return Object.entries(source.details).map(([key, value]) => ({
+    label: key,
+    value,
+    editable: false,
+  }));
+}
+
 export default function DataManagement() {
   const { user } = useAuth();
   const canMutate = useCanManageData();
 
-  const [filters, setFilters] = useState<SubjectListFilters>(() =>
-    loadFilters(FILTERS_STORAGE_KEY, DEFAULT_FILTERS)
-  );
-  useEffect(() => {
-    saveFilters(FILTERS_STORAGE_KEY, filters);
-  }, [filters]);
+  const [searchInput, setSearchInput] = useState("");
+  const [searchExecuted, setSearchExecuted] = useState(false);
+  const [activeQuery, setActiveQuery] = useState("");
 
-  const [sourceFilters, setSourceFilters] = useState<SourceFiltersState>(() =>
-    loadFilters(SOURCE_FILTERS_STORAGE_KEY, DEFAULT_SOURCE_FILTERS)
-  );
+  const [sourceFilters, setSourceFilters] = useState<SourceFiltersState>(() => {
+    if (typeof window === "undefined") return DEFAULT_SOURCE_FILTERS;
+    try {
+      const raw = window.sessionStorage.getItem(SOURCE_FILTERS_STORAGE_KEY);
+      if (!raw) return DEFAULT_SOURCE_FILTERS;
+      const parsed = JSON.parse(raw);
+      return { ...DEFAULT_SOURCE_FILTERS, ...parsed };
+    } catch {
+      return DEFAULT_SOURCE_FILTERS;
+    }
+  });
   useEffect(() => {
-    saveFilters(SOURCE_FILTERS_STORAGE_KEY, sourceFilters);
+    if (typeof window === "undefined") return;
+    try {
+      window.sessionStorage.setItem(SOURCE_FILTERS_STORAGE_KEY, JSON.stringify(sourceFilters));
+    } catch { /* ignore */ }
   }, [sourceFilters]);
 
-  const subjectsQuery = useSubjects({
-    query: filters.query,
-    status: filters.status,
-    sortKey: filters.sortKey,
-    sortDirection: filters.sortDirection,
-  });
+  const subjectsQuery = useSubjects(
+    {
+      query: activeQuery,
+      status: "ALL",
+      sortKey: "updatedAt",
+      sortDirection: "desc",
+    },
+    { enabled: searchExecuted }
+  );
 
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"details" | "sources" | "audit">("details");
@@ -193,20 +274,21 @@ export default function DataManagement() {
   const [unlinkTarget, setUnlinkTarget] = useState<DataSource | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [viewSource, setViewSource] = useState<DataSource | null>(null);
+  const [viewSourceEdits, setViewSourceEdits] = useState<Record<string, string>>({});
+  const [viewSourceEditMode, setViewSourceEditMode] = useState(false);
 
-  // Auto-pick first subject in the list when nothing is selected yet
-  useEffect(() => {
-    if (!selectedSubjectId && subjectsQuery.data && subjectsQuery.data.length > 0) {
-      setSelectedSubjectId(subjectsQuery.data[0].subjectId);
-    }
-  }, [selectedSubjectId, subjectsQuery.data]);
-
-  // Reset transient detail-pane state whenever the selected subject changes
   useEffect(() => {
     setEditMode(false);
     setStagedEdit(null);
     setActiveTab("details");
   }, [selectedSubjectId]);
+
+  const handleSearch = useCallback(() => {
+    if (!searchInput.trim()) return;
+    setActiveQuery(searchInput.trim());
+    setSearchExecuted(true);
+    setSelectedSubjectId(null);
+  }, [searchInput]);
 
   const createMutation = useCreateSubject();
   const updateMutation = useUpdateSubject(selectedSubjectId ?? "");
@@ -220,16 +302,17 @@ export default function DataManagement() {
   const auditEntries = auditQuery.data ?? [];
 
   const lookupErrorMessage = useMemo(() => {
-    if (!filters.query.trim()) return null;
-    if (!isValidSubjectId(filters.query.trim())) {
+    if (!searchInput.trim()) return null;
+    if (!isValidSubjectId(searchInput.trim())) {
       return "Subject IDs must be 4–32 alphanumerics or a UUID.";
     }
     return null;
-  }, [filters.query]);
+  }, [searchInput]);
 
   const showLookupNotFound =
+    searchExecuted &&
     !subjectsQuery.isLoading &&
-    filters.query.trim().length > 0 &&
+    activeQuery.length > 0 &&
     (subjectsQuery.data?.length ?? 0) === 0 &&
     !lookupErrorMessage;
 
@@ -243,19 +326,6 @@ export default function DataManagement() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setFilters(DEFAULT_FILTERS)}
-            disabled={
-              filters.query === DEFAULT_FILTERS.query &&
-              filters.status === DEFAULT_FILTERS.status &&
-              filters.sortKey === DEFAULT_FILTERS.sortKey &&
-              filters.sortDirection === DEFAULT_FILTERS.sortDirection
-            }
-          >
-            Reset filters
-          </Button>
           <Button
             type="button"
             disabled={!canMutate}
@@ -279,14 +349,17 @@ export default function DataManagement() {
         </div>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[360px_1fr]">
-        <SubjectListPanel
-          filters={filters}
-          onFiltersChange={setFilters}
-          subjects={subjectsQuery.data ?? []}
-          isLoading={subjectsQuery.isLoading}
+      {/* Vertically stacked: search on top, detail below */}
+      <div className="space-y-4">
+        <SubjectSearchPanel
+          searchInput={searchInput}
+          onSearchInputChange={setSearchInput}
+          onSearch={handleSearch}
+          searchExecuted={searchExecuted}
           lookupErrorMessage={lookupErrorMessage}
           showLookupNotFound={showLookupNotFound}
+          subjects={subjectsQuery.data ?? []}
+          isLoading={searchExecuted && subjectsQuery.isLoading}
           selectedSubjectId={selectedSubjectId}
           onSelect={(id) => {
             setShowCreateForm(false);
@@ -297,15 +370,16 @@ export default function DataManagement() {
             setSelectedSubjectId(null);
             setShowCreateForm(true);
           }}
+          activeQuery={activeQuery}
         />
 
         <section className="min-w-0">
           {showCreateForm ? (
             <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 px-4 py-3">
                 <div>
-                  <CardTitle className="text-h3">Create new subject</CardTitle>
-                  <p className="mt-1 text-caption text-muted-foreground">
+                  <CardTitle className="text-body font-semibold">Create new subject</CardTitle>
+                  <p className="mt-0.5 text-caption text-muted-foreground">
                     Fields marked with <span className="text-destructive">*</span> are required.
                   </p>
                 </div>
@@ -313,21 +387,17 @@ export default function DataManagement() {
                   <X className="h-4 w-4" />
                 </Button>
               </CardHeader>
-              <CardContent>
+              <CardContent className="px-4 pb-4">
                 <SubjectForm
                   mode="create"
                   busy={createMutation.isPending}
                   externalErrors={fieldErrorsFromMutation(createMutation.error)}
                   onCancel={() => setShowCreateForm(false)}
-                  onSubmit={(values) => {
-                    setStagedEdit(values);
-                  }}
+                  onSubmit={(values) => setStagedEdit(values)}
                 />
                 <ChangeCommentDialog
                   open={stagedEdit !== null && showCreateForm}
-                  onOpenChange={(open) => {
-                    if (!open) setStagedEdit(null);
-                  }}
+                  onOpenChange={(open) => { if (!open) setStagedEdit(null); }}
                   title="Comment required"
                   description="Add a comment describing why this subject is being created."
                   confirmLabel="Create subject"
@@ -353,8 +423,12 @@ export default function DataManagement() {
               <CardContent className="py-12">
                 <EmptyState
                   icon={Search}
-                  title="Select a subject"
-                  description="Pick a subject from the list to view their attributes, linked data sources and audit history."
+                  title={searchExecuted ? "Select a subject" : "Search for a subject"}
+                  description={
+                    searchExecuted
+                      ? "Pick a subject from the search results above to view their attributes, linked data sources and audit history."
+                      : "Enter a Subject ID above and click Search to find subjects."
+                  }
                   actionLabel={canMutate ? "Create new subject" : undefined}
                   onAction={canMutate ? () => setShowCreateForm(true) : undefined}
                 />
@@ -363,7 +437,7 @@ export default function DataManagement() {
           ) : subjectQuery.isLoading ? (
             <Card>
               <CardContent className="space-y-3 py-6">
-                <Skeleton className="h-7 w-1/2" />
+                <Skeleton className="h-5 w-1/2" />
                 <Skeleton className="h-4 w-1/3" />
                 <Skeleton className="h-32 w-full" />
               </CardContent>
@@ -393,7 +467,11 @@ export default function DataManagement() {
               onStartLink={() => setLinkDialogOpen(true)}
               onUnlinkSource={(source) => setUnlinkTarget(source)}
               onDeleteSubject={() => setDeleteConfirmOpen(true)}
-              onViewSource={(source) => setViewSource(source)}
+              onViewSource={(source) => {
+                setViewSource(source);
+                setViewSourceEdits({});
+                setViewSourceEditMode(false);
+              }}
               sourceFilters={sourceFilters}
               onSourceFiltersChange={setSourceFilters}
               onEditSubmit={(values) => setStagedEdit(values)}
@@ -404,12 +482,9 @@ export default function DataManagement() {
         </section>
       </div>
 
-      {/* Edit confirmation – ask for change comment */}
       <ChangeCommentDialog
         open={stagedEdit !== null && Boolean(selectedSubjectId) && !showCreateForm}
-        onOpenChange={(open) => {
-          if (!open) setStagedEdit(null);
-        }}
+        onOpenChange={(open) => { if (!open) setStagedEdit(null); }}
         title="Comment required"
         description="Add a comment describing why this subject is being updated."
         confirmLabel="Save changes"
@@ -428,7 +503,6 @@ export default function DataManagement() {
         }}
       />
 
-      {/* Link sources dialog */}
       {selectedSubjectId && (
         <LinkSourceDialog
           open={linkDialogOpen}
@@ -438,24 +512,16 @@ export default function DataManagement() {
           onConfirm={(sourceIds, comment) => {
             linkMutation.mutate(
               { sourceIds, comment },
-              {
-                onSuccess: () => {
-                  setLinkDialogOpen(false);
-                  setActiveTab("sources");
-                },
-              }
+              { onSuccess: () => { setLinkDialogOpen(false); setActiveTab("sources"); } }
             );
           }}
         />
       )}
 
-      {/* Unlink confirmation */}
       <ChangeCommentDialog
         open={Boolean(unlinkTarget)}
-        onOpenChange={(open) => {
-          if (!open) setUnlinkTarget(null);
-        }}
-        title={`Unlink “${unlinkTarget?.name ?? "source"}”?`}
+        onOpenChange={(open) => { if (!open) setUnlinkTarget(null); }}
+        title={`Unlink "${unlinkTarget?.name ?? "source"}"?`}
         description={
           unlinkTarget
             ? `Source ${unlinkTarget.sourceId} (${unlinkTarget.type}) will be disconnected from this subject. This action is logged.`
@@ -468,14 +534,11 @@ export default function DataManagement() {
           if (!unlinkTarget) return;
           unlinkMutation.mutate(
             { sourceId: unlinkTarget.sourceId, comment },
-            {
-              onSuccess: () => setUnlinkTarget(null),
-            }
+            { onSuccess: () => setUnlinkTarget(null) }
           );
         }}
       />
 
-      {/* Delete subject confirmation */}
       <ChangeCommentDialog
         open={deleteConfirmOpen}
         onOpenChange={setDeleteConfirmOpen}
@@ -490,219 +553,133 @@ export default function DataManagement() {
         busy={deleteMutation.isPending}
         onConfirm={(comment) => {
           deleteMutation.mutate(comment, {
-            onSuccess: () => {
-              setDeleteConfirmOpen(false);
-              setSelectedSubjectId(null);
-            },
+            onSuccess: () => { setDeleteConfirmOpen(false); setSelectedSubjectId(null); },
           });
         }}
       />
 
-      {/* View source detail */}
-      <Dialog open={!!viewSource} onOpenChange={(open) => !open && setViewSource(null)}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>{viewSource?.name}</DialogTitle>
-            <DialogDescription>
-              {viewSource?.sourceId} · {viewSource?.type} · {viewSource?.provider}
-            </DialogDescription>
-          </DialogHeader>
-          {viewSource && (
-            <div className="space-y-3">
-              <div className="grid grid-cols-2 gap-2 text-caption">
-                <span className="text-muted-foreground">Last updated</span>
-                <span className="text-foreground">{new Date(viewSource.lastUpdated).toLocaleString()}</span>
-                <span className="text-muted-foreground">Status</span>
-                <span className="text-foreground">{viewSource.status}</span>
-              </div>
-              {Object.keys(viewSource.details).length > 0 && (
-                <div className="rounded-lg border border-border bg-muted/30 p-3">
-                  <p className="text-caption uppercase tracking-wider text-muted-foreground">
-                    Source-specific metadata
-                  </p>
-                  <dl className="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-caption">
-                    {Object.entries(viewSource.details).map(([key, value]) => (
-                      <div key={key} className="contents">
-                        <dt className="text-muted-foreground">{key}</dt>
-                        <dd className="font-mono text-foreground">{value}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      <ViewSourceDialog
+        source={viewSource}
+        onClose={() => { setViewSource(null); setViewSourceEditMode(false); }}
+        edits={viewSourceEdits}
+        onEditsChange={setViewSourceEdits}
+        editMode={viewSourceEditMode}
+        setEditMode={setViewSourceEditMode}
+        canMutate={canMutate}
+      />
     </div>
   );
 }
 
-// ─── Subject list panel ──────────────────────────────────────────────────────
+// ─── Subject search panel (replaces old side-by-side SubjectListPanel) ───────
 
-interface SubjectListPanelProps {
-  filters: SubjectListFilters;
-  onFiltersChange: (next: SubjectListFilters) => void;
-  subjects: { subjectId: string; firstName: string; lastName: string; email: string; status: SubjectStatus; linkedSourceCount: number; updatedAt: string }[];
-  isLoading: boolean;
+interface SubjectSearchPanelProps {
+  searchInput: string;
+  onSearchInputChange: (v: string) => void;
+  onSearch: () => void;
+  searchExecuted: boolean;
   lookupErrorMessage: string | null;
   showLookupNotFound: boolean;
+  subjects: { subjectId: string; firstName: string; lastName: string; email: string; status: SubjectStatus; linkedSourceCount: number; updatedAt: string }[];
+  isLoading: boolean;
   selectedSubjectId: string | null;
   onSelect: (subjectId: string) => void;
   canMutate: boolean;
   onCreateNew: () => void;
+  activeQuery: string;
 }
 
-function SubjectListPanel({
-  filters,
-  onFiltersChange,
-  subjects,
-  isLoading,
+function SubjectSearchPanel({
+  searchInput,
+  onSearchInputChange,
+  onSearch,
+  searchExecuted,
   lookupErrorMessage,
   showLookupNotFound,
+  subjects,
+  isLoading,
   selectedSubjectId,
   onSelect,
   canMutate,
   onCreateNew,
-}: SubjectListPanelProps) {
-  function toggleSort(key: SubjectListFilters["sortKey"]) {
-    if (filters.sortKey === key) {
-      onFiltersChange({
-        ...filters,
-        sortDirection: filters.sortDirection === "asc" ? "desc" : "asc",
-      });
-    } else {
-      onFiltersChange({ ...filters, sortKey: key, sortDirection: "asc" });
-    }
-  }
-  function sortIcon(key: SubjectListFilters["sortKey"]) {
-    if (filters.sortKey !== key) return null;
-    return filters.sortDirection === "asc" ? (
-      <ArrowUp className="h-3 w-3" />
-    ) : (
-      <ArrowDown className="h-3 w-3" />
-    );
-  }
-
+  activeQuery,
+}: SubjectSearchPanelProps) {
   return (
-    <aside aria-label="Subjects" className="lg:sticky lg:top-4 lg:self-start">
-      <Card>
-        <CardHeader className="space-y-3">
-          <div>
-            <Label htmlFor="subject-search" className="text-caption text-muted-foreground">
-              Subject ID, name or email
-            </Label>
-            <div className="relative mt-1.5">
-              <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
-              <Input
-                id="subject-search"
-                value={filters.query}
-                onChange={(e) => onFiltersChange({ ...filters, query: e.target.value })}
-                placeholder="Type to search"
-                className="pl-8"
-                aria-invalid={lookupErrorMessage ? true : undefined}
-                aria-describedby={lookupErrorMessage ? "subject-search-error" : undefined}
-              />
-            </div>
-            {lookupErrorMessage && (
-              <p id="subject-search-error" className="mt-1 text-caption text-destructive">
-                {lookupErrorMessage}
-              </p>
-            )}
+    <Card>
+      <CardHeader className="px-4 py-3 space-y-2">
+        <CardTitle className="text-body font-semibold">Subject Search</CardTitle>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+            <Input
+              id="subject-search"
+              value={searchInput}
+              onChange={(e) => onSearchInputChange(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") onSearch(); }}
+              placeholder="Enter Subject ID"
+              className="pl-8 h-9 text-caption"
+              aria-invalid={lookupErrorMessage ? true : undefined}
+              aria-describedby={lookupErrorMessage ? "subject-search-error" : undefined}
+            />
           </div>
+          <Button
+            size="sm"
+            className="h-9"
+            onClick={onSearch}
+            disabled={!searchInput.trim() || !!lookupErrorMessage}
+          >
+            <Search className="mr-1.5 h-3.5 w-3.5" /> Search
+          </Button>
+        </div>
+        {lookupErrorMessage && (
+          <p id="subject-search-error" className="text-caption text-destructive">
+            {lookupErrorMessage}
+          </p>
+        )}
+      </CardHeader>
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Select
-              value={filters.status}
-              onValueChange={(v) =>
-                onFiltersChange({ ...filters, status: v as SubjectStatus | "ALL" })
-              }
-            >
-              <SelectTrigger className="h-9 flex-1 text-caption" aria-label="Filter by status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="ALL">All statuses</SelectItem>
-                <SelectItem value="ACTIVE">Active</SelectItem>
-                <SelectItem value="INACTIVE">Inactive</SelectItem>
-                <SelectItem value="PENDING">Pending</SelectItem>
-              </SelectContent>
-            </Select>
-            <div className="flex gap-1">
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={filters.sortKey === "name" ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-9 gap-1"
-                    onClick={() => toggleSort("name")}
-                  >
-                    Name {sortIcon("name")}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Sort by name</TooltipContent>
-              </Tooltip>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={filters.sortKey === "updatedAt" ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-9 gap-1"
-                    onClick={() => toggleSort("updatedAt")}
-                  >
-                    Recent {sortIcon("updatedAt")}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent>Sort by last update</TooltipContent>
-              </Tooltip>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
+      {/* Results: only shown after search is executed */}
+      {searchExecuted && (
+        <CardContent className="p-0 border-t border-border">
           {isLoading ? (
             <div className="space-y-2 p-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-14 w-full rounded-lg" />
+              {Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} className="h-12 w-full rounded-lg" />
               ))}
             </div>
           ) : showLookupNotFound ? (
             <div className="space-y-3 p-4 text-center">
               <p className="text-caption text-muted-foreground">
-                Subject not found for{" "}
-                <span className="font-mono text-foreground">{filters.query}</span>.
+                No subject found for{" "}
+                <span className="font-mono text-foreground">{activeQuery}</span>.
               </p>
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={!canMutate}
-                onClick={onCreateNew}
-              >
-                <PlusCircle className="mr-2 h-4 w-4" />
+              <Button size="sm" variant="outline" disabled={!canMutate} onClick={onCreateNew}>
+                <PlusCircle className="mr-2 h-3.5 w-3.5" />
                 Create new subject
               </Button>
               {!canMutate && (
                 <p className="text-caption text-muted-foreground">
-                  You don’t have permission to create subjects.
+                  You don't have permission to create subjects.
                 </p>
               )}
             </div>
           ) : subjects.length === 0 ? (
-            <EmptyState
-              title="No subjects match"
-              description="Adjust the search or status filter."
-              actionLabel="Reset filters"
-              onAction={() => onFiltersChange(DEFAULT_FILTERS)}
-            />
+            <div className="p-4">
+              <EmptyState
+                title="No subjects match"
+                description="Try a different Subject ID."
+              />
+            </div>
           ) : (
-            <ScrollArea className="h-[460px]">
+            <ScrollArea className="max-h-[320px]">
               <ul className="space-y-1 p-2">
-                {subjects.map((subject) => {
-                  const isActive = subject.subjectId === selectedSubjectId;
+                {subjects.map((subj) => {
+                  const isActive = subj.subjectId === selectedSubjectId;
                   return (
-                    <li key={subject.subjectId}>
+                    <li key={subj.subjectId}>
                       <button
                         type="button"
-                        onClick={() => onSelect(subject.subjectId)}
+                        onClick={() => onSelect(subj.subjectId)}
                         className={cn(
                           "w-full rounded-lg border px-3 py-2 text-left transition-colors",
                           isActive
@@ -712,21 +689,18 @@ function SubjectListPanel({
                         aria-current={isActive ? "true" : undefined}
                       >
                         <div className="flex items-center justify-between gap-2">
-                          <span className="text-body font-medium text-foreground">
-                            {subject.firstName} {subject.lastName}
+                          <span className="text-caption font-medium text-foreground">
+                            {subj.firstName} {subj.lastName}
                           </span>
-                          <Badge
-                            variant="outline"
-                            className={cn(badgeTextClasses, STATUS_TONE[subject.status])}
-                          >
-                            {subject.status}
+                          <Badge variant="outline" className={cn(badgeTextClasses, STATUS_TONE[subj.status])}>
+                            {subj.status}
                           </Badge>
                         </div>
-                        <p className="text-caption text-muted-foreground">{subject.email}</p>
+                        <p className="text-caption text-muted-foreground">{subj.email}</p>
                         <p className="text-caption text-muted-foreground">
-                          {subject.linkedSourceCount} source{subject.linkedSourceCount === 1 ? "" : "s"}
+                          {subj.linkedSourceCount} source{subj.linkedSourceCount === 1 ? "" : "s"}
                           {" · updated "}
-                          {new Date(subject.updatedAt).toLocaleDateString()}
+                          {new Date(subj.updatedAt).toLocaleDateString()}
                         </p>
                       </button>
                     </li>
@@ -736,8 +710,8 @@ function SubjectListPanel({
             </ScrollArea>
           )}
         </CardContent>
-      </Card>
-    </aside>
+      )}
+    </Card>
   );
 }
 
@@ -786,7 +760,6 @@ function SubjectDetailPane({
   updateBusy,
   updateErrors,
 }: SubjectDetailPaneProps) {
-  // Surface inline form errors before we even open the comment dialog.
   const blockingErrors = useMemo(
     () => validateSubjectFields(subject),
     [subject]
@@ -794,9 +767,9 @@ function SubjectDetailPane({
 
   return (
     <Card>
-      <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
+      <CardHeader className="flex flex-col gap-1.5 px-4 py-3 sm:flex-row sm:items-start sm:justify-between sm:space-y-0">
         <div className="min-w-0">
-          <CardTitle className="text-h3 truncate">
+          <CardTitle className="text-body font-semibold truncate">
             {subject.firstName} {subject.lastName}
           </CardTitle>
           <div className="mt-1 flex flex-wrap items-center gap-2">
@@ -811,29 +784,8 @@ function SubjectDetailPane({
             </span>
           </div>
         </div>
+        {/* Only Delete remains in the header; Edit and Link moved into tabs */}
         <div className="flex flex-wrap items-center gap-2">
-          {!editMode ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setEditMode(true)}
-              disabled={!canMutate}
-            >
-              <Pencil className="mr-2 h-4 w-4" /> Edit
-            </Button>
-          ) : (
-            <Button variant="ghost" size="sm" onClick={() => setEditMode(false)}>
-              <X className="mr-2 h-4 w-4" /> Cancel edit
-            </Button>
-          )}
-          <Button
-            variant="default"
-            size="sm"
-            onClick={onStartLink}
-            disabled={!canMutate}
-          >
-            <Link2 className="mr-2 h-4 w-4" /> Link Data Source
-          </Button>
           <Button
             variant="destructive"
             size="sm"
@@ -841,20 +793,20 @@ function SubjectDetailPane({
             disabled={!canMutate}
             aria-label="Delete subject"
           >
-            <Trash2 className="mr-2 h-4 w-4" /> Delete
+            <Trash2 className="mr-1.5 h-3.5 w-3.5" /> Delete
           </Button>
         </div>
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="px-4 pb-4">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "details" | "sources" | "audit")}>
-          <TabsList className="mb-4 flex w-full flex-wrap gap-1 bg-muted/60 p-1">
+          <TabsList className="mb-3 flex w-full flex-wrap gap-1 bg-muted/60 p-1">
             <TabsTrigger value="details" className={detailPageTabTriggerBaseClasses}>
               Subject info
             </TabsTrigger>
             <TabsTrigger value="sources" className={detailPageTabTriggerBaseClasses}>
               Linked sources
-              <Badge variant="secondary" className={cn("ml-2", badgeTextClasses)}>
+              <Badge variant="secondary" className={cn("ml-1.5", badgeTextClasses)}>
                 {linkedSources.length}
               </Badge>
             </TabsTrigger>
@@ -864,7 +816,24 @@ function SubjectDetailPane({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="details" className="space-y-4">
+          <TabsContent value="details" className="space-y-3">
+            {/* Edit button inside Subject info tab */}
+            <div className="flex justify-end">
+              {!editMode ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setEditMode(true)}
+                  disabled={!canMutate}
+                >
+                  <Pencil className="mr-1.5 h-3.5 w-3.5" /> Edit
+                </Button>
+              ) : (
+                <Button variant="ghost" size="sm" onClick={() => setEditMode(false)}>
+                  <X className="mr-1.5 h-3.5 w-3.5" /> Cancel edit
+                </Button>
+              )}
+            </div>
             {editMode ? (
               <SubjectForm
                 mode="edit"
@@ -879,7 +848,18 @@ function SubjectDetailPane({
             )}
           </TabsContent>
 
-          <TabsContent value="sources">
+          <TabsContent value="sources" className="space-y-3">
+            {/* Link Data Source button inside Linked sources tab */}
+            <div className="flex justify-end">
+              <Button
+                variant="default"
+                size="sm"
+                onClick={onStartLink}
+                disabled={!canMutate}
+              >
+                <Link2 className="mr-1.5 h-3.5 w-3.5" /> Link Data Source
+              </Button>
+            </div>
             <LinkedSourcesTable
               sources={linkedSources}
               canMutate={canMutate}
@@ -916,13 +896,13 @@ function SubjectReadOnly({
 }) {
   const hasIssues = Object.keys(blockingErrors).length > 0;
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {hasIssues && (
         <div className="rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-caption text-foreground">
           Some fields are out of compliance: {Object.entries(blockingErrors).map(([k, v]) => `${k}: ${v}`).join("; ")}
         </div>
       )}
-      <dl className="grid grid-cols-1 gap-x-6 gap-y-3 md:grid-cols-2">
+      <dl className="grid grid-cols-1 gap-x-4 gap-y-2 md:grid-cols-2">
         <Detail label="Subject ID" value={subject.subjectId} mono />
         <Detail label="Status" value={subject.status} />
         <Detail label="First name" value={subject.firstName} />
@@ -952,15 +932,128 @@ function Detail({
 }) {
   return (
     <div className={cn("min-w-0", className)}>
-      <dt className="text-caption uppercase tracking-wider text-muted-foreground">{label}</dt>
+      <dt className="text-[10px] leading-[14px] uppercase tracking-wider text-muted-foreground">{label}</dt>
       <dd
         className={cn(
-          "mt-1 text-body text-foreground break-words",
+          "mt-0.5 text-caption text-foreground break-words",
           mono && "font-mono"
         )}
       >
         {value}
       </dd>
     </div>
+  );
+}
+
+// ─── View Source Dialog (expanded with all data attributes + edit) ────────────
+
+interface ViewSourceDialogProps {
+  source: DataSource | null;
+  onClose: () => void;
+  edits: Record<string, string>;
+  onEditsChange: (next: Record<string, string>) => void;
+  editMode: boolean;
+  setEditMode: (next: boolean) => void;
+  canMutate: boolean;
+}
+
+function ViewSourceDialog({
+  source,
+  onClose,
+  edits,
+  onEditsChange,
+  editMode,
+  setEditMode,
+  canMutate,
+}: ViewSourceDialogProps) {
+  if (!source) return null;
+
+  const attributes = getSourceAttributes(source);
+  const editableCount = attributes.filter((a) => a.editable).length;
+
+  function handleSave() {
+    setEditMode(false);
+  }
+
+  return (
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="text-body font-semibold">{source.name}</DialogTitle>
+          <DialogDescription className="text-caption">
+            {source.sourceId} · {source.type} · {source.provider}
+          </DialogDescription>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1 -mx-6 px-6">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-caption">
+              <span className="text-muted-foreground">Last updated</span>
+              <span className="text-foreground">{new Date(source.lastUpdated).toLocaleString()}</span>
+              <span className="text-muted-foreground">Status</span>
+              <span className="text-foreground">{source.status}</span>
+            </div>
+
+            <div className="rounded-lg border border-border bg-muted/30 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-[10px] leading-[14px] uppercase tracking-wider text-muted-foreground font-medium">
+                  Data Attributes ({attributes.length})
+                </p>
+                {canMutate && editableCount > 0 && !editMode && (
+                  <Button variant="outline" size="sm" className="h-7 text-caption" onClick={() => setEditMode(true)}>
+                    <Pencil className="mr-1 h-3 w-3" /> Edit
+                  </Button>
+                )}
+                {editMode && (
+                  <Button variant="ghost" size="sm" className="h-7 text-caption" onClick={() => { setEditMode(false); onEditsChange({}); }}>
+                    <X className="mr-1 h-3 w-3" /> Cancel
+                  </Button>
+                )}
+              </div>
+              <dl className="grid grid-cols-[1fr_1.5fr] gap-x-3 gap-y-1.5 text-caption">
+                {attributes.map((attr) => {
+                  const isEditing = editMode && attr.editable;
+                  const currentValue = edits[attr.label] ?? attr.value;
+                  return (
+                    <div key={attr.label} className="contents">
+                      <dt className="text-muted-foreground flex items-center gap-1 py-0.5">
+                        {attr.label}
+                        {attr.editable && !editMode && (
+                          <Pencil className="h-2.5 w-2.5 text-muted-foreground/50" />
+                        )}
+                      </dt>
+                      <dd className="py-0.5">
+                        {isEditing ? (
+                          <Input
+                            className="h-7 text-caption"
+                            value={currentValue}
+                            onChange={(e) =>
+                              onEditsChange({ ...edits, [attr.label]: e.target.value })
+                            }
+                          />
+                        ) : (
+                          <span className="font-mono text-foreground">{currentValue}</span>
+                        )}
+                      </dd>
+                    </div>
+                  );
+                })}
+              </dl>
+            </div>
+          </div>
+        </ScrollArea>
+
+        {editMode && (
+          <DialogFooter className="mt-3">
+            <Button variant="ghost" size="sm" onClick={() => { setEditMode(false); onEditsChange({}); }}>
+              Cancel
+            </Button>
+            <Button size="sm" onClick={handleSave}>
+              <Save className="mr-1.5 h-3.5 w-3.5" /> Save changes
+            </Button>
+          </DialogFooter>
+        )}
+      </DialogContent>
+    </Dialog>
   );
 }
