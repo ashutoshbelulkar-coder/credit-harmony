@@ -42,7 +42,7 @@ export function SemanticInsightsStep({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <h3 className="text-h4 font-semibold text-foreground mb-4">Global Field Clusters Impact</h3>
 
         <div className="space-y-4">

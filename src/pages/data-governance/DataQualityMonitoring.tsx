@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   LineChart,
   Line,
@@ -23,39 +23,26 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  dataQualityMetrics,
-  dataQualityTrendWithAnomaly,
-  driftAlerts,
-} from "@/data/data-governance-mock";
+import { dataQualityMetrics, dataQualityTrendWithAnomaly } from "@/data/data-governance-mock";
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { badgeTextClasses } from "@/lib/typography";
 import { DatePicker } from "@/components/ui/date-picker";
 import { Label } from "@/components/ui/label";
 import { InstitutionFilterSelect } from "@/components/shared/InstitutionFilterSelect";
-import { schemaRegistryEntries } from "@/data/schema-mapper-mock";
-import { institutions } from "@/data/institutions-mock";
 import { format, startOfMonth } from "date-fns";
+import { useDriftAlerts } from "@/hooks/api/useDataIngestion";
+import { useSchemaRegistrySourceTypes } from "@/hooks/api/useSchemaMapper";
 
 const trendConfig = {
-  value: { label: "Primary (score %)", color: "hsl(var(--primary))" },
-  compareValue: { label: "Comparison (score %)", color: "hsl(var(--warning))" },
+  value: { label: "Score %", color: "hsl(var(--primary))" },
 } satisfies ChartConfig;
 
 const THRESHOLD = 94;
+const DRIFT_PAGE_SIZE = 10;
 
 function formatSourceTypeLabel(sourceType: string) {
   return sourceType.charAt(0).toUpperCase() + sourceType.slice(1);
-}
-
-function isWithinDateRange(isoTs: string, from: string, to: string): boolean {
-  if (!from?.trim() || !to?.trim()) return true;
-  const t = new Date(isoTs).getTime();
-  const start = new Date(`${from.trim()}T00:00:00`).getTime();
-  const end = new Date(`${to.trim()}T23:59:59.999`).getTime();
-  if (Number.isNaN(t) || Number.isNaN(start) || Number.isNaN(end)) return true;
-  return t >= start && t <= end;
 }
 
 function hashId(id: string): number {
@@ -67,59 +54,56 @@ export default function DataQualityMonitoring() {
   const [dateFrom, setDateFrom] = useState(format(startOfMonth(now), "yyyy-MM-dd"));
   const [dateTo, setDateTo] = useState(format(now, "yyyy-MM-dd"));
   const [institutionId, setInstitutionId] = useState("all");
-  const [compareInstitutionId, setCompareInstitutionId] = useState("none");
   const [sourceType, setSourceType] = useState<string>("all");
+  const [driftPage, setDriftPage] = useState(1);
 
-  const sourceTypeOptions = useMemo(() => {
-    const set = new Set(schemaRegistryEntries.map((e) => e.sourceType));
-    return [...set].sort();
-  }, []);
+  const {
+    data: sourceTypesPayload,
+    isPending: sourceTypesLoading,
+    isError: sourceTypesError,
+  } = useSchemaRegistrySourceTypes({ allowMockFallback: false });
+  const sourceTypeOptions = sourceTypesPayload?.sourceTypes ?? [];
 
-  const namesBySourceType = useMemo(() => {
-    const m = new Map<string, Set<string>>();
-    for (const e of schemaRegistryEntries) {
-      if (!m.has(e.sourceType)) m.set(e.sourceType, new Set());
-      m.get(e.sourceType)!.add(e.sourceName.toLowerCase());
-    }
-    return m;
-  }, []);
+  const {
+    data: driftData,
+    isLoading: driftLoading,
+    isError: driftError,
+  } = useDriftAlerts({ dateFrom, dateTo, sourceType });
 
-  const submitters = useMemo(() => institutions.filter((i) => i.isDataSubmitter), []);
+  const filteredDrift = driftData?.alerts ?? [];
+
+  useEffect(() => {
+    setDriftPage(1);
+  }, [dateFrom, dateTo, sourceType, institutionId]);
+
+  const driftTotalPages = Math.max(1, Math.ceil(filteredDrift.length / DRIFT_PAGE_SIZE));
+  const driftPageSafe = Math.min(driftPage, driftTotalPages);
+  const pagedDrift = filteredDrift.slice(
+    (driftPageSafe - 1) * DRIFT_PAGE_SIZE,
+    driftPageSafe * DRIFT_PAGE_SIZE
+  );
 
   const adjustedMetrics = useMemo(() => {
     const h = institutionId === "all" ? 0 : hashId(institutionId);
     const delta = institutionId === "all" ? 0 : (h % 7) - 3;
+    const schemaDrift = filteredDrift.filter((d) => d.type === "schema").length;
+    const mappingDrift = filteredDrift.filter((d) => d.type === "mapping").length;
     return dataQualityMetrics.map((m) => {
+      if (driftData && m.id === "mq-4") return { ...m, value: schemaDrift };
+      if (driftData && m.id === "mq-5") return { ...m, value: mappingDrift };
       if (typeof m.value !== "number") return m;
       const next = Math.min(100, Math.max(0, Math.round(m.value + delta * 0.15)));
       return { ...m, value: next };
     });
-  }, [institutionId]);
+  }, [institutionId, driftData, filteredDrift]);
 
   const chartData = useMemo(() => {
     const p = institutionId === "all" ? 0 : hashId(institutionId);
-    const c =
-      compareInstitutionId !== "none" && compareInstitutionId !== "all"
-        ? hashId(compareInstitutionId)
-        : null;
     return dataQualityTrendWithAnomaly.map((row) => ({
       ...row,
       value: Math.round((row.value + (p % 5) * 0.08) * 10) / 10,
-      compareValue:
-        c != null ? Math.round((row.value + (c % 5) * 0.08 - 0.35) * 10) / 10 : undefined,
     }));
-  }, [institutionId, compareInstitutionId]);
-
-  const filteredDrift = useMemo(() => {
-    return driftAlerts.filter((d) => {
-      if (!isWithinDateRange(d.timestamp, dateFrom, dateTo)) return false;
-      if (sourceType === "all") return true;
-      const names = namesBySourceType.get(sourceType as (typeof sourceTypeOptions)[number]);
-      if (!names || names.size === 0) return true;
-      const src = d.source.toLowerCase();
-      return [...names].some((n) => src.includes(n) || n.includes(src));
-    });
-  }, [dateFrom, dateTo, sourceType, namesBySourceType]);
+  }, [institutionId]);
 
   const exportCSV = () => {
     const headers = ["Metric", "Value", "Unit", "Threshold"];
@@ -149,7 +133,7 @@ export default function DataQualityMonitoring() {
         </Button>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-4 shadow-sm">
         <p className="text-caption font-medium text-muted-foreground mb-3">Filters</p>
         <div className="flex flex-wrap items-end gap-4">
           <div className="space-y-1.5">
@@ -164,33 +148,17 @@ export default function DataQualityMonitoring() {
             mode="submitters"
             value={institutionId}
             onValueChange={setInstitutionId}
-            label="Member institution"
-            allLabel="All submitters"
             triggerClassName="h-9 min-w-[200px]"
           />
           <div className="space-y-1.5">
-            <Label className="text-caption text-muted-foreground">Compare institution</Label>
-            <Select value={compareInstitutionId} onValueChange={setCompareInstitutionId}>
-              <SelectTrigger className="h-9 min-w-[200px] text-caption">
-                <SelectValue placeholder="None" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none" className="text-caption">
-                  No comparison
-                </SelectItem>
-                {submitters.map((i) => (
-                  <SelectItem key={i.id} value={i.id} className="text-caption">
-                    {i.tradingName ?? i.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="space-y-1.5">
             <Label className="text-caption text-muted-foreground">Source type</Label>
-            <Select value={sourceType} onValueChange={setSourceType}>
+            <Select
+              value={sourceType}
+              onValueChange={setSourceType}
+              disabled={sourceTypesLoading || sourceTypesError}
+            >
               <SelectTrigger className="h-9 min-w-[160px] text-caption">
-                <SelectValue />
+                <SelectValue placeholder={sourceTypesLoading ? "Loading…" : "All source types"} />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all" className="text-caption">
@@ -203,6 +171,9 @@ export default function DataQualityMonitoring() {
                 ))}
               </SelectContent>
             </Select>
+            {sourceTypesError && (
+              <p className="text-caption text-destructive">Could not load source types from Schema Mapper API.</p>
+            )}
           </div>
         </div>
       </div>
@@ -211,7 +182,7 @@ export default function DataQualityMonitoring() {
         {adjustedMetrics.map((m) => (
           <div
             key={m.id}
-            className="rounded-xl border border-border bg-card p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]"
+            className="rounded-xl border border-border bg-card p-4 shadow-sm"
           >
             <p className="text-caption font-medium uppercase tracking-wider text-muted-foreground">{m.label}</p>
             <p className="mt-2 font-sans text-h2 font-bold text-foreground tabular-nums">
@@ -228,10 +199,10 @@ export default function DataQualityMonitoring() {
         ))}
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <h2 className="text-h4 font-semibold text-foreground">Data quality trend (anomaly detection)</h2>
         <p className="mt-1 text-caption text-muted-foreground">
-          Primary line reflects the selected institution (mock offset). Add a second institution to compare. Threshold at {THRESHOLD}%.
+          Trend reflects the selected member institution (mock offset). Threshold at {THRESHOLD}%.
         </p>
         <div className="mt-4 h-[280px]">
           <ChartContainer config={trendConfig} className="h-full w-full">
@@ -268,29 +239,27 @@ export default function DataQualityMonitoring() {
                   );
                 }}
               />
-              {compareInstitutionId !== "none" && compareInstitutionId !== "all" ? (
-                <Line
-                  type="monotone"
-                  dataKey="compareValue"
-                  stroke="var(--color-compareValue)"
-                  strokeWidth={2}
-                  strokeDasharray="5 5"
-                  dot={false}
-                />
-              ) : null}
             </LineChart>
           </ChartContainer>
         </div>
       </div>
 
-      <div className="rounded-xl border border-border bg-card p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+      <div className="rounded-xl border border-border bg-card p-6 shadow-sm">
         <h2 className="text-h4 font-semibold text-foreground">Schema & mapping drift alerts</h2>
-        <p className="mt-1 text-caption text-muted-foreground">Filtered by date range and source type</p>
+        <p className="mt-1 text-caption text-muted-foreground">
+          From the Data Ingestion Agent (API). Filtered by date range and source type.
+        </p>
         <ul className="mt-4 space-y-2">
-          {filteredDrift.length === 0 ? (
+          {driftLoading ? (
+            <li className="text-caption text-muted-foreground">Loading drift alerts…</li>
+          ) : driftError ? (
+            <li className="text-caption text-destructive">
+              Could not load drift alerts. Check that the API is running and you are signed in.
+            </li>
+          ) : filteredDrift.length === 0 ? (
             <li className="text-caption text-muted-foreground">No drift alerts for the current filters.</li>
           ) : (
-            filteredDrift.map((d) => (
+            pagedDrift.map((d) => (
               <li
                 key={d.id}
                 className={cn(
@@ -321,6 +290,37 @@ export default function DataQualityMonitoring() {
             ))
           )}
         </ul>
+        {!driftLoading && !driftError && filteredDrift.length > DRIFT_PAGE_SIZE ? (
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between border-t border-border pt-4">
+            <span className="text-caption text-muted-foreground">
+              Showing {(driftPageSafe - 1) * DRIFT_PAGE_SIZE + 1}–
+              {Math.min(driftPageSafe * DRIFT_PAGE_SIZE, filteredDrift.length)} of {filteredDrift.length} alerts
+            </span>
+            <div className="flex items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={driftPageSafe <= 1}
+                onClick={() => setDriftPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <span className="text-caption text-muted-foreground px-2">
+                {driftPageSafe} / {driftTotalPages}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={driftPageSafe >= driftTotalPages}
+                onClick={() => setDriftPage((p) => Math.min(driftTotalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   );

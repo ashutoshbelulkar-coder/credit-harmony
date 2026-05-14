@@ -1,33 +1,34 @@
 import data from "./consortiums.json";
+import cbsCatalogData from "./cbs-member-catalog.json";
+import type { ConsortiumStatus } from "@/lib/consortium-ui";
 
-export type ConsortiumStatus = "active" | "pending" | "inactive";
-export type ConsortiumType = "Closed" | "Open" | "Hybrid";
+export type { ConsortiumStatus } from "@/lib/consortium-ui";
+export {
+  consortiumStatusStyles,
+  consortiumListLabel,
+  consortiumListLabelStyles,
+} from "@/lib/consortium-ui";
 export type ConsortiumDataVisibility = "full" | "masked_pii" | "derived";
 
 export interface ConsortiumDataPolicy {
-  shareLoanData: boolean;
-  shareRepaymentHistory: boolean;
-  allowAggregation: boolean;
   dataVisibility: ConsortiumDataVisibility;
 }
 
 export interface Consortium {
   id: string;
   name: string;
-  type: ConsortiumType;
   membersCount: number;
   dataVolume: string;
   status: ConsortiumStatus;
   description?: string;
-  purpose: string;
-  governanceModel: string;
   dataPolicy: ConsortiumDataPolicy;
 }
 
 export interface ConsortiumMember {
   institutionId: string;
   institutionName: string;
-  role: "Contributor" | "Consumer";
+  /** Registration number (member id); mirrors API `registrationNumber`. */
+  registrationNumber?: string;
   joinedDate: string;
   status: "active" | "pending";
 }
@@ -44,41 +45,54 @@ export interface ConsortiumDataSummary {
   dataTypes: string[];
 }
 
-export const consortiumPurposes = data.purposes as string[];
-export const consortiumGovernanceModels = data.governanceModels as string[];
 export const consortiums = data.consortiums as Consortium[];
 export const consortiumMembersByConsortiumId = data.membersByConsortiumId as Record<string, ConsortiumMember[]>;
+
+export type CbsMemberCatalogEntryMock = {
+  id: string;
+  memberId: string;
+  displayName?: string;
+  createdAt?: string;
+};
+
+export type ConsortiumCbsMemberMock = {
+  id: string;
+  catalogId: string;
+  memberId: string;
+  displayName?: string;
+  createdAt: string;
+};
+
+export function getCbsMemberCatalog(): CbsMemberCatalogEntryMock[] {
+  return cbsCatalogData as CbsMemberCatalogEntryMock[];
+}
+
+export const consortiumCbsMembersByConsortiumId = (data as { cbsMembersByConsortiumId?: Record<string, ConsortiumCbsMemberMock[]> })
+  .cbsMembersByConsortiumId ?? {};
+
+/** Spring seed `consortiums.id` (1,2,…) vs mock keys (`CONS_001`, …) for embedded fallback when the URL uses numeric ids. */
+const CONSORTIUM_NUMERIC_ID_TO_MOCK_KEY: Record<string, string> = {
+  "1": "CONS_001",
+  "2": "CONS_002",
+  "3": "CONS_003",
+};
+
+function resolveConsortiumMockKey(consortiumId: string): string {
+  return CONSORTIUM_NUMERIC_ID_TO_MOCK_KEY[consortiumId] ?? consortiumId;
+}
 export const consortiumContributionById = data.contributionByConsortiumId as Record<string, ConsortiumDataContributionRow[]>;
 export const consortiumContributionSummaryById = data.contributionSummaryByConsortiumId as Record<string, ConsortiumDataSummary>;
-
-export const consortiumStatusStyles: Record<ConsortiumStatus, string> = {
-  active: "bg-success/15 text-success",
-  pending: "bg-warning/15 text-warning",
-  inactive: "bg-muted text-muted-foreground",
-};
-
-export const consortiumTypeBadgeClass: Record<ConsortiumType, string> = {
-  Closed: "bg-primary/15 text-primary",
-  Open: "bg-secondary/15 text-secondary-foreground",
-  Hybrid: "bg-muted text-muted-foreground",
-};
-
-export function consortiumListLabel(status: ConsortiumStatus): "Active" | "Draft" {
-  return status === "active" ? "Active" : "Draft";
-}
-
-export function consortiumListLabelStyles(label: "Active" | "Draft"): string {
-  return label === "Active"
-    ? "bg-success/15 text-success"
-    : "bg-warning/15 text-warning";
-}
 
 export function getConsortiumById(id: string): Consortium | undefined {
   return consortiums.find((c) => c.id === id);
 }
 
 export function getConsortiumMembers(consortiumId: string): ConsortiumMember[] {
-  return consortiumMembersByConsortiumId[consortiumId] ?? [];
+  return consortiumMembersByConsortiumId[resolveConsortiumMockKey(consortiumId)] ?? [];
+}
+
+export function getConsortiumCbsMembers(consortiumId: string): ConsortiumCbsMemberMock[] {
+  return consortiumCbsMembersByConsortiumId[resolveConsortiumMockKey(consortiumId)] ?? [];
 }
 
 export function getConsortiumContribution(consortiumId: string): ConsortiumDataContributionRow[] {

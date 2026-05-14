@@ -3,11 +3,14 @@ import { useSearchParams } from "react-router-dom";
 import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SchemaRegistryTable } from "./SchemaRegistryTable";
 import { SchemaDetailDialog } from "./SchemaDetailDialog";
 import { RegistryFilters, type RegistryFilterValues } from "./RegistryFilters";
 import { schemaRegistryEntries } from "@/data/schema-mapper-mock";
 import { useToast } from "@/hooks/use-toast";
+import { useSchemaRegistryList } from "@/hooks/api/useSchemaMapper";
+import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
 import type { SchemaRegistryEntry } from "@/types/schema-mapper";
 
 interface SchemaRegistryViewProps {
@@ -19,7 +22,27 @@ interface SchemaRegistryViewProps {
 export function SchemaRegistryView({ onCreateNew, onEditEntry, onViewAudit }: SchemaRegistryViewProps) {
   const { toast } = useToast();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [entries, setEntries] = useState<SchemaRegistryEntry[]>(schemaRegistryEntries);
+  const [localExtras, setLocalExtras] = useState<SchemaRegistryEntry[]>([]);
+  const [statusOverride, setStatusOverride] = useState<Record<string, SchemaRegistryEntry["status"]>>({});
+
+  const { data, isLoading, isError, refetch } = useSchemaRegistryList({ page: 0, size: 200 });
+
+  const serverEntries = useMemo(() => {
+    if (data?.content && Array.isArray(data.content)) return data.content as SchemaRegistryEntry[];
+    if (!clientMockFallbackEnabled && isError) return [];
+    return schemaRegistryEntries;
+  }, [data, isError]);
+
+  const mergedServer = useMemo(
+    () =>
+      serverEntries.map((e) =>
+        statusOverride[e.id] ? { ...e, status: statusOverride[e.id], lastModifiedAt: new Date().toISOString() } : e,
+      ),
+    [serverEntries, statusOverride],
+  );
+
+  const entries = useMemo(() => [...localExtras, ...mergedServer], [localExtras, mergedServer]);
+
   const [search, setSearch] = useState("");
   const [filters, setFilters] = useState<RegistryFilterValues>({
     sourceType: "all",
@@ -115,10 +138,10 @@ export function SchemaRegistryView({ onCreateNew, onEditEntry, onViewAudit }: Sc
         createdAt: new Date().toISOString(),
         lastModifiedAt: new Date().toISOString(),
       };
-      setEntries((prev) => [cloned, ...prev]);
+      setLocalExtras((prev) => [cloned, ...prev]);
       toast({
         title: "Schema mapping cloned",
-        description: `"${cloned.sourceName}" created as Draft`,
+        description: `"${cloned.sourceName}" created as Draft (local draft until synced to API)`,
       });
     },
     [findEntry, toast],
@@ -142,7 +165,7 @@ export function SchemaRegistryView({ onCreateNew, onEditEntry, onViewAudit }: Sc
         createdAt: new Date().toISOString(),
         lastModifiedAt: new Date().toISOString(),
       };
-      setEntries((prev) => [versioned, ...prev]);
+      setLocalExtras((prev) => [versioned, ...prev]);
       toast({
         title: "New version created",
         description: `"${entry.sourceName}" ${newVersion} created as Draft`,
@@ -154,24 +177,26 @@ export function SchemaRegistryView({ onCreateNew, onEditEntry, onViewAudit }: Sc
   const handleArchive = useCallback(
     (id: string) => {
       const entry = findEntry(id);
-      setEntries((prev) =>
+      setLocalExtras((prev) =>
         prev.map((e) =>
           e.id === id
             ? { ...e, status: "archived" as const, lastModifiedAt: new Date().toISOString() }
             : e,
         ),
       );
+      setStatusOverride((o) => ({ ...o, [id]: "archived" }));
       toast({
         title: "Schema mapping archived",
-        description: entry ? `"${entry.sourceName}" has been archived` : "Entry archived",
+        description: entry ? `"${entry.sourceName}" has been archived locally` : "Entry archived",
       });
     },
     [findEntry, toast],
   );
 
+  const showSkeleton = isLoading && !data && !clientMockFallbackEnabled;
+
   return (
     <div className="space-y-4 animate-fade-in pb-4 sm:pb-6">
-      {/* Header */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-h2 font-semibold text-foreground">Schema Mapper Agent</h1>
@@ -179,13 +204,19 @@ export function SchemaRegistryView({ onCreateNew, onEditEntry, onViewAudit }: Sc
             Manage alternate data schema mappings to the HCB master schema
           </p>
         </div>
-        <Button onClick={onCreateNew} className="gap-1.5 shrink-0">
-          <Plus className="h-3.5 w-3.5" />
-          Create New Mapping
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {!clientMockFallbackEnabled && isError && (
+            <Button variant="outline" size="sm" onClick={() => void refetch()}>
+              Retry registry
+            </Button>
+          )}
+          <Button onClick={onCreateNew} className="gap-1.5 shrink-0">
+            <Plus className="h-3.5 w-3.5" />
+            Create New Mapping
+          </Button>
+        </div>
       </div>
 
-      {/* Search */}
       <div className="relative max-w-sm">
         <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -196,21 +227,26 @@ export function SchemaRegistryView({ onCreateNew, onEditEntry, onViewAudit }: Sc
         />
       </div>
 
-      {/* Filters */}
       <RegistryFilters filters={filters} onFiltersChange={setFilters} />
 
-      {/* Table */}
-      <SchemaRegistryTable
-        entries={filtered}
-        onView={handleView}
-        onEdit={handleEdit}
-        onClone={handleClone}
-        onNewVersion={handleNewVersion}
-        onArchive={handleArchive}
-        onAuditHistory={(id) => onViewAudit(id)}
-      />
+      {showSkeleton ? (
+        <div className="space-y-2 rounded-xl border border-border p-4">
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-full" />
+          <Skeleton className="h-8 w-2/3" />
+        </div>
+      ) : (
+        <SchemaRegistryTable
+          entries={filtered}
+          onView={handleView}
+          onEdit={handleEdit}
+          onClone={handleClone}
+          onNewVersion={handleNewVersion}
+          onArchive={handleArchive}
+          onAuditHistory={(id) => onViewAudit(id)}
+        />
+      )}
 
-      {/* Detail dialog */}
       <SchemaDetailDialog
         entry={detailEntry}
         open={detailOpen}

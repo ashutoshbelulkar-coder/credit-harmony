@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Reorder, useDragControls } from "framer-motion";
-import { GripVertical, Info, Settings2 } from "lucide-react";
+import { Info, Settings2 } from "lucide-react";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,17 +23,28 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
+import {
+  useProduct,
+  useProductPacketCatalog,
+  useCreateProduct,
+  useUpdateProduct,
+} from "@/hooks/api/useProducts";
+import type { ProductResponse } from "@/services/products.service";
 import {
   buildProductPreviewJson,
   productCatalogPacketOptions,
   DEFAULT_ENQUIRY_CONFIG,
   normalizeEnquiryConfig,
-  SOURCE_TYPE_LABELS,
   type EnquiryConfig,
   type PacketConfig,
-  type ProductCatalogPacketGroup,
 } from "@/data/data-products-mock";
+import {
+  buildProductFormPacketRows,
+  filterCatalogOptionsForProductForm,
+  groupPacketRowsByCategory,
+  sortPacketIdsByCatalogOrder,
+  type ProductFormPacketRow,
+} from "@/lib/product-packet-catalog";
 import { PacketConfigModal } from "@/components/data-products/PacketConfigModal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -47,52 +57,24 @@ const SCOPE_TOOLTIPS: Record<EnquiryConfig["scope"], string> = {
   VERTICAL: "Restricted to a specific industry vertical dataset.",
 };
 
-function ReorderRow({ packetId, label }: { packetId: string; label: string }) {
-  const dragControls = useDragControls();
-  return (
-    <Reorder.Item
-      value={packetId}
-      dragListener={false}
-      dragControls={dragControls}
-      className="flex items-center gap-2 rounded-lg border border-border bg-card px-2 py-2 text-body cursor-default"
-    >
-      <button
-        type="button"
-        className="p-1 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground touch-none"
-        aria-label={`Reorder ${label}`}
-        onPointerDown={(e) => dragControls.start(e)}
-      >
-        <GripVertical className="w-4 h-4" />
-      </button>
-      <span className="truncate flex-1 text-foreground">{label}</span>
-    </Reorder.Item>
-  );
-}
-
-/** Groups productCatalogPacketOptions by category preserving insertion order. */
-function groupPacketsByCategory() {
-  const visiblePacketOptions = productCatalogPacketOptions.filter(
-    (opt) => opt.id !== "PKT_SYN"
-  );
-  const map = new Map<ProductCatalogPacketGroup, typeof productCatalogPacketOptions>();
-  for (const opt of visiblePacketOptions) {
-    if (!map.has(opt.category)) map.set(opt.category, []);
-    map.get(opt.category)!.push(opt);
-  }
-  return map;
-}
-
-const packetGroups = groupPacketsByCategory();
-
 export default function ProductFormPage() {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
-  const { products, addProduct, updateProduct } = useCatalogMock();
   const isEdit = Boolean(id);
+  const { data: existing } = useProduct(isEdit ? id : undefined);
+  const { data: packetCatalogRes } = useProductPacketCatalog();
+  const { mutate: createProduct, isPending: creating } = useCreateProduct();
+  const { mutate: updateProduct, isPending: updating } = useUpdateProduct();
 
-  const existing = useMemo(
-    () => (isEdit ? products.find((p) => p.id === id) : undefined),
-    [isEdit, id, products]
+  const catalogOptions = packetCatalogRes?.options ?? productCatalogPacketOptions;
+  const catalogOrderIds = useMemo(
+    () => filterCatalogOptionsForProductForm(catalogOptions).map((o) => o.id),
+    [catalogOptions]
+  );
+  const visibleCatalogIdSet = useMemo(() => new Set(catalogOrderIds), [catalogOrderIds]);
+  const packetRowsByCategory = useMemo(
+    () => groupPacketRowsByCategory(buildProductFormPacketRows(catalogOptions)),
+    [catalogOptions]
   );
 
   // ── Basic Info ─────────────────────────────────────────────
@@ -102,7 +84,7 @@ export default function ProductFormPage() {
   // ── Packets ────────────────────────────────────────────────
   const [orderedPacketIds, setOrderedPacketIds] = useState<string[]>([]);
   const [packetConfigs, setPacketConfigs] = useState<PacketConfig[]>([]);
-  const [configuringPacketId, setConfiguringPacketId] = useState<string | null>(null);
+  const [packetModalIds, setPacketModalIds] = useState<string[] | null>(null);
 
   // ── Enquiry ────────────────────────────────────────────────
   const [enquiryConfig, setEnquiryConfig] = useState<EnquiryConfig>(DEFAULT_ENQUIRY_CONFIG);
@@ -111,10 +93,20 @@ export default function ProductFormPage() {
   useEffect(() => {
     if (existing) {
       setName(existing.name);
-      setDescription(existing.description);
-      setOrderedPacketIds([...existing.packetIds]);
-      setPacketConfigs(existing.packetConfigs ? [...existing.packetConfigs] : []);
-      setEnquiryConfig(normalizeEnquiryConfig(existing.enquiryConfig));
+      setDescription(existing.description ?? "");
+      const ext = existing as ProductResponse;
+      const ids = Array.isArray(ext.packetIds) ? ext.packetIds : [];
+      setOrderedPacketIds(sortPacketIdsByCatalogOrder(ids, catalogOrderIds));
+      setPacketConfigs(
+        Array.isArray(ext.packetConfigs)
+          ? (ext.packetConfigs as PacketConfig[])
+          : []
+      );
+      setEnquiryConfig(
+        ext.enquiryConfig && typeof ext.enquiryConfig === "object"
+          ? normalizeEnquiryConfig(ext.enquiryConfig as Partial<EnquiryConfig>)
+          : DEFAULT_ENQUIRY_CONFIG
+      );
     } else if (!isEdit) {
       setName("");
       setDescription("");
@@ -122,19 +114,33 @@ export default function ProductFormPage() {
       setPacketConfigs([]);
       setEnquiryConfig(DEFAULT_ENQUIRY_CONFIG);
     }
-  }, [existing, isEdit]);
+  }, [existing, isEdit, catalogOrderIds]);
 
-  const labelById = useMemo(
-    () => new Map(productCatalogPacketOptions.map((o) => [o.id, o.label])),
-    []
+  // ── Packet selection (row = unique category + Schema Mapper source type) ──
+  const togglePacketRow = useCallback(
+    (row: ProductFormPacketRow) => {
+      setOrderedPacketIds((prev) => {
+        const anySelected = row.packetIds.some((pid) => prev.includes(pid));
+        const next = anySelected
+          ? prev.filter((pid) => !row.packetIds.includes(pid))
+          : [...prev, ...row.packetIds.filter((pid) => !prev.includes(pid))];
+        return sortPacketIdsByCatalogOrder(next, catalogOrderIds);
+      });
+    },
+    [catalogOrderIds]
   );
 
-  // ── Packet selection ───────────────────────────────────────
-  const togglePacket = useCallback((packetId: string) => {
-    setOrderedPacketIds((prev) =>
-      prev.includes(packetId) ? prev.filter((x) => x !== packetId) : [...prev, packetId]
-    );
-  }, []);
+  const toggleOrphanPacket = useCallback(
+    (packetId: string) => {
+      setOrderedPacketIds((prev) => {
+        const next = prev.includes(packetId)
+          ? prev.filter((x) => x !== packetId)
+          : [...prev, packetId];
+        return sortPacketIdsByCatalogOrder(next, catalogOrderIds);
+      });
+    },
+    [catalogOrderIds]
+  );
 
   // ── Field-level config ─────────────────────────────────────
   const getPacketConfig = useCallback(
@@ -142,20 +148,32 @@ export default function ProductFormPage() {
       packetConfigs.find((c) => c.packetId === packetId) ?? {
         packetId,
         selectedFields: [],
+        disabledFields: [],
         selectedDerivedFields: [],
       },
     [packetConfigs]
   );
 
   const handleSavePacketFields = useCallback(
-    (packetId: string, payload: { selectedFields: string[]; selectedDerivedFields: string[] }) => {
+    (
+      packetId: string,
+      payload: {
+        selectedFields: string[];
+        disabledFields?: string[];
+        selectedDerivedFields: string[];
+      }
+    ) => {
       setPacketConfigs((prev) => {
         const without = prev.filter((c) => c.packetId !== packetId);
+        const selectedSet = new Set(payload.selectedFields);
+        const disabled =
+          payload.disabledFields?.filter((f) => selectedSet.has(f)) ?? [];
         return [
           ...without,
           {
             packetId,
             selectedFields: payload.selectedFields,
+            disabledFields: disabled,
             selectedDerivedFields: payload.selectedDerivedFields,
           },
         ];
@@ -182,36 +200,33 @@ export default function ProductFormPage() {
       toast.error("Product name is required");
       return;
     }
-    if (orderedPacketIds.length === 0) {
-      toast.error("Select at least one data packet");
-      return;
-    }
     if (isEdit && id) {
-      updateProduct(id, {
-        name: name.trim(),
-        description: description.trim(),
-        status: existing?.status ?? "approval_pending",
-        pricingModel: "per_hit" as const,
-        price: 0,
-        packetIds: orderedPacketIds,
-        packetConfigs,
-        enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
-      });
-      toast.success("Product updated");
-      navigate(`/data-products/products/${id}`);
+      updateProduct(
+        {
+          id,
+          data: {
+            name: name.trim(),
+            description: description.trim(),
+            status: existing?.status ?? "approval_pending",
+            packetIds: orderedPacketIds,
+            packetConfigs,
+            enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
+          },
+        },
+        { onSuccess: () => navigate(`/data-products/products/${id}`) }
+      );
     } else {
-      const row = addProduct({
-        name: name.trim(),
-        description: description.trim(),
-        status: "approval_pending",
-        pricingModel: "per_hit" as const,
-        price: 0,
-        packetIds: orderedPacketIds,
-        packetConfigs,
-        enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
-      });
-      toast.success("Product submitted for approval");
-      navigate(`/data-products/products/${row.id}`);
+      createProduct(
+        {
+          name: name.trim(),
+          description: description.trim(),
+          status: "approval_pending",
+          packetIds: orderedPacketIds,
+          packetConfigs,
+          enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
+        },
+        { onSuccess: (row) => navigate(`/data-products/products/${row.id}`) }
+      );
     }
   };
 
@@ -255,8 +270,8 @@ export default function ProductFormPage() {
           >
             Cancel
           </Button>
-          <Button type="button" size="sm" onClick={handleSave}>
-            Save product
+          <Button type="button" size="sm" onClick={handleSave} disabled={creating || updating}>
+            {creating || updating ? "Saving…" : "Save product"}
           </Button>
         </div>
       </div>
@@ -300,84 +315,141 @@ export default function ProductFormPage() {
             <CardHeader className="pb-3">
               <CardTitle className="text-h4 font-medium">Data packets</CardTitle>
               <p className="text-caption text-muted-foreground mt-0.5">
-                Select packets to include. Click <span className="font-medium text-foreground">Configure</span> to choose specific fields.
+                Click <span className="font-medium text-foreground">Configure</span> to choose fields per packet.
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              {Array.from(packetGroups.entries()).map(([group, packets], gi) => {
-                const uniqueSourceTypes = [...new Set(packets.map((p) => p.sourceType))].sort((a, b) =>
-                  SOURCE_TYPE_LABELS[a].localeCompare(SOURCE_TYPE_LABELS[b]),
-                );
-                return (
+              {packetRowsByCategory.map(([group, rows], gi) => (
                 <div key={group}>
                   {gi > 0 && <Separator className="mb-4" />}
-                  <p className="text-caption font-semibold text-muted-foreground uppercase tracking-wide mb-1">
+                  <p className="text-caption font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                     {group}
                   </p>
-                  <p className="text-[11px] text-muted-foreground mb-2">
-                    Source types:{" "}
-                    {uniqueSourceTypes.map((t) => SOURCE_TYPE_LABELS[t]).join(" · ")}
-                  </p>
                   <ul className="space-y-1.5">
-                    {packets.map((opt) => {
-                      const isSelected = orderedPacketIds.includes(opt.id);
-                      const cfg = getPacketConfig(opt.id);
-                      const fieldCount =
-                        cfg.selectedFields.length + (cfg.selectedDerivedFields?.length ?? 0);
+                    {rows.map((row) => {
+                      const rowFullySelected =
+                        row.packetIds.length > 0 &&
+                        row.packetIds.every((pid) => orderedPacketIds.includes(pid));
+                      const rowPartial =
+                        !rowFullySelected &&
+                        row.packetIds.some((pid) => orderedPacketIds.includes(pid));
+                      const chkId = `pkt-grp-${row.packetIds[0]}`;
                       return (
                         <li
-                          key={opt.id}
+                          key={chkId}
                           className={cn(
-                            "flex items-start gap-3 rounded-lg border px-3 py-2.5 transition-colors",
-                            isSelected
+                            "flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors",
+                            rowFullySelected || rowPartial
                               ? "border-primary/30 bg-primary/5"
                               : "border-border/80 bg-transparent hover:bg-muted/30"
                           )}
                         >
                           <Checkbox
-                            id={`pkt-${opt.id}`}
-                            checked={isSelected}
-                            onCheckedChange={() => togglePacket(opt.id)}
-                            className="mt-0.5 shrink-0"
+                            id={chkId}
+                            checked={
+                              rowPartial ? "indeterminate" : rowFullySelected
+                            }
+                            onCheckedChange={() => togglePacketRow(row)}
+                            className="shrink-0"
                           />
                           <div className="flex-1 min-w-0">
                             <label
-                              htmlFor={`pkt-${opt.id}`}
-                              className="text-body font-medium cursor-pointer leading-tight"
+                              htmlFor={chkId}
+                              className="text-[11px] text-muted-foreground cursor-pointer leading-tight block"
                             >
-                              {opt.label}
+                              {row.sourceTypeLabel}
                             </label>
-                            <p className="text-caption text-muted-foreground mt-0.5 leading-snug">
-                              {opt.description}
-                            </p>
                           </div>
-                          {isSelected && (
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 gap-1.5 px-2 shrink-0 text-caption"
-                              onClick={() => setConfiguringPacketId(opt.id)}
-                            >
-                              <Settings2 className="w-3.5 h-3.5" />
-                              Configure
-                              {fieldCount > 0 && (
-                                <Badge
-                                  variant="secondary"
-                                  className="h-4 px-1.5 text-[10px] font-mono ml-0.5"
+                          {(rowFullySelected || rowPartial) && (() => {
+                            const selectedPkts = row.packets.filter((opt) =>
+                              orderedPacketIds.includes(opt.id)
+                            );
+                            if (selectedPkts.length === 0) return null;
+
+                            const rowFieldCount = selectedPkts.reduce((sum, opt) => {
+                              const cfg = getPacketConfig(opt.id);
+                              return (
+                                sum +
+                                cfg.selectedFields.length +
+                                (cfg.selectedDerivedFields?.length ?? 0)
+                              );
+                            }, 0);
+
+                            return (
+                              <div className="flex shrink-0 items-center min-w-[7rem]">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="sm"
+                                  className="h-7 gap-1.5 px-2 justify-start text-caption leading-snug overflow-visible"
+                                  onClick={() =>
+                                    setPacketModalIds(
+                                      sortPacketIdsByCatalogOrder(
+                                        selectedPkts.map((o) => o.id),
+                                        catalogOrderIds
+                                      )
+                                    )
+                                  }
                                 >
-                                  {fieldCount}
-                                </Badge>
-                              )}
-                            </Button>
-                          )}
+                                  <Settings2 className="w-3.5 h-3.5 shrink-0" aria-hidden />
+                                  <span className="min-w-0">Configure</span>
+                                  {rowFieldCount > 0 && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="h-4 px-1.5 text-[10px] font-mono shrink-0"
+                                    >
+                                      {rowFieldCount}
+                                    </Badge>
+                                  )}
+                                </Button>
+                              </div>
+                            );
+                          })()}
                         </li>
                       );
                     })}
                   </ul>
                 </div>
-                );
-              })}
+              ))}
+              {orderedPacketIds.some((pid) => !visibleCatalogIdSet.has(pid)) && (
+                <div className="rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5 space-y-2">
+                  <p className="text-[11px] font-medium text-muted-foreground">
+                    Packets not in the standard catalogue (e.g. custom source). Uncheck to remove
+                    from this product.
+                  </p>
+                  <ul className="space-y-1.5">
+                    {orderedPacketIds
+                      .filter((pid) => !visibleCatalogIdSet.has(pid))
+                      .map((pid) => {
+                        const meta = catalogOptions.find((o) => o.id === pid);
+                        return (
+                          <li
+                            key={pid}
+                            className="flex items-center gap-3 rounded-md border border-border/60 bg-background/50 px-2 py-2"
+                          >
+                            <Checkbox
+                              id={`pkt-orphan-${pid}`}
+                              checked
+                              onCheckedChange={() => toggleOrphanPacket(pid)}
+                              className="shrink-0"
+                            />
+                            <label
+                              htmlFor={`pkt-orphan-${pid}`}
+                              className="text-caption cursor-pointer flex-1 min-w-0"
+                            >
+                              {meta?.label ?? pid}
+                              {meta?.description && (
+                                <span className="text-muted-foreground block mt-0.5">
+                                  {meta.description}
+                                </span>
+                              )}
+                            </label>
+                          </li>
+                        );
+                      })}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -510,33 +582,6 @@ export default function ProductFormPage() {
             </CardContent>
           </Card>
 
-          {/* SECTION 4: Ordering */}
-          <Card>
-            <CardHeader className="pb-3">
-              <CardTitle className="text-h4 font-medium">Packet order</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {orderedPacketIds.length === 0 ? (
-                <p className="text-caption text-muted-foreground">Select at least one packet above.</p>
-              ) : (
-                <Reorder.Group
-                  axis="y"
-                  values={orderedPacketIds}
-                  onReorder={setOrderedPacketIds}
-                  className="space-y-2"
-                >
-                  {orderedPacketIds.map((pid) => (
-                    <ReorderRow
-                      key={pid}
-                      packetId={pid}
-                      label={labelById.get(pid) ?? pid}
-                    />
-                  ))}
-                </Reorder.Group>
-              )}
-            </CardContent>
-          </Card>
-
         </div>
 
         {/* ── RIGHT COLUMN: Preview JSON ──────────────────── */}
@@ -557,21 +602,23 @@ export default function ProductFormPage() {
         </Card>
       </div>
 
-      {/* Packet configuration modal */}
-      <PacketConfigModal
-        packetId={configuringPacketId}
-        open={configuringPacketId !== null}
-        onClose={() => setConfiguringPacketId(null)}
-        selectedFields={
-          configuringPacketId ? getPacketConfig(configuringPacketId).selectedFields : []
-        }
-        selectedDerivedFields={
-          configuringPacketId
-            ? getPacketConfig(configuringPacketId).selectedDerivedFields
-            : []
-        }
-        onSave={handleSavePacketFields}
-      />
+      {packetModalIds && (
+        <PacketConfigModal
+          key={packetModalIds.join(",")}
+          packetIds={packetModalIds}
+          catalogOptions={catalogOptions}
+          onClose={() => setPacketModalIds(null)}
+          getPacketConfig={(pid) => {
+            const c = getPacketConfig(pid);
+            return {
+              selectedFields: c.selectedFields,
+              disabledFields: c.disabledFields ?? [],
+              selectedDerivedFields: c.selectedDerivedFields ?? [],
+            };
+          }}
+          onSave={handleSavePacketFields}
+        />
+      )}
     </div>
   );
 }

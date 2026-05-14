@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  slaConfigs,
+  slaConfigs as mockSlaConfigs,
   aiAgents,
   defaultEmailBodyHtml,
   type SlaConfig,
@@ -28,9 +28,10 @@ import {
   type SeverityLevel,
   type TimeWindow,
 } from "@/data/alert-engine-mock";
+import { useSlaConfigs, useUpdateSlaConfig } from "@/hooks/api/useAlerts";
 
 const cardClass =
-  "bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)]";
+  "bg-card rounded-xl border border-border p-6 shadow-sm";
 
 const operators: { value: ">=" | "<=" | "<" | ">"; label: string }[] = [
   { value: ">=", label: "≥" },
@@ -265,7 +266,7 @@ function EditSlaDrawer({
   );
 }
 
-function SlaCard({ config }: { config: SlaConfig }) {
+function SlaCard({ config, onSaveMetric }: { config: SlaConfig; onSaveMetric: (configId: string, payload: { threshold: string; operator: string; timeWindow: TimeWindow; severity: SeverityLevel }) => void }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingMetric, setEditingMetric] = useState<SlaMetricRow | null>(null);
 
@@ -292,8 +293,11 @@ function SlaCard({ config }: { config: SlaConfig }) {
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
-              {config.metrics.map((row) => (
-                <tr key={row.metric} className="hover:bg-muted/30 transition-colors">
+              {(config.metrics ?? []).map((row) => (
+                <tr
+                  key={row.configRowId ? `${row.configRowId}-${row.metric}` : row.metric}
+                  className="hover:bg-muted/30 transition-colors"
+                >
                   <td className="px-4 py-3 text-body text-foreground">{row.metric}</td>
                   <td className="px-4 py-3 text-caption text-muted-foreground">{row.threshold}</td>
                   <td className="px-4 py-3 text-caption tabular-nums">{row.current}</td>
@@ -328,18 +332,41 @@ function SlaCard({ config }: { config: SlaConfig }) {
         onOpenChange={setDrawerOpen}
         metricRow={editingMetric}
         slaName={config.name}
-        onSave={() => setDrawerOpen(false)}
+        onSave={(payload) => {
+          const rowId = editingMetric?.configRowId ?? "";
+          onSaveMetric(rowId, payload);
+          setDrawerOpen(false);
+        }}
       />
     </>
   );
 }
 
 export function SlaConfigurationPanel() {
+  const { data: apiConfigs } = useSlaConfigs();
+  const { mutate: updateConfig } = useUpdateSlaConfig();
+
+  const slaConfigs: SlaConfig[] = (() => {
+    if (!apiConfigs) return mockSlaConfigs;
+    const rows = Array.isArray(apiConfigs) ? apiConfigs : (apiConfigs as { content?: SlaConfig[] }).content ?? [];
+    return rows.length > 0 ? (rows as SlaConfig[]) : mockSlaConfigs;
+  })();
+
+  const handleSaveMetric = (
+    configRowId: string,
+    payload: { threshold: string; operator: string; timeWindow: TimeWindow; severity: SeverityLevel }
+  ) => {
+    const numeric = String(payload.threshold).replace(/[^\d.]/g, "").match(/^\d*\.?\d+/);
+    const thresholdValue = numeric ? parseFloat(numeric[0]) : NaN;
+    if (!/^\d+$/.test(configRowId) || Number.isNaN(thresholdValue)) return;
+    updateConfig({ id: configRowId, data: { thresholdValue } });
+  };
+
   return (
     <section>
       <div className="grid grid-cols-1 gap-6">
         {slaConfigs.map((config) => (
-          <SlaCard key={config.id} config={config} />
+          <SlaCard key={config.id} config={config} onSaveMetric={handleSaveMetric} />
         ))}
       </div>
     </section>

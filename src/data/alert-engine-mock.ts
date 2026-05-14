@@ -17,6 +17,8 @@ export interface SlaMetricRow {
   operator?: ">=" | "<=" | "<" | ">";
   severity?: SeverityLevel;
   timeWindow?: TimeWindow;
+  /** Present when row came from Spring `sla_configs` (per-metric PK for PATCH). */
+  configRowId?: string;
 }
 
 export interface SlaConfig {

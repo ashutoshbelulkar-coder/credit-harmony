@@ -5,6 +5,15 @@ import { getRawIngestedFieldKeysForSourceType } from "@/data/schema-mapper-mock"
 export type DataPacketCategory = "Bureau" | "Banking" | "GST" | "Telecom" | "Consortium";
 export type DataPacketStatus = "active" | "deprecated" | "draft";
 export type ProductLifecycleStatus = "draft" | "active" | "approval_pending";
+
+/** Map API / server product status strings onto catalogue lifecycle values. */
+export function productStatusFromApi(apiStatus: string): ProductLifecycleStatus {
+  if (apiStatus === "active") return "active";
+  if (apiStatus === "draft") return "draft";
+  // Server treats `pending` like approval_pending for queue eligibility
+  if (apiStatus === "pending" || apiStatus === "approval_pending") return "approval_pending";
+  return "approval_pending";
+}
 export type ProductPricingModel = "per_hit" | "subscription";
 export type ProductCatalogPacketGroup =
   | "Financial Data"
@@ -26,6 +35,8 @@ export interface DataPacket {
 export interface PacketConfig {
   packetId: string;
   selectedFields: string[];
+  /** Subset of `selectedFields` that is selected but disabled. */
+  disabledFields?: string[];
   /** Computed / transformed fields (extensible). */
   selectedDerivedFields?: string[];
 }
@@ -61,21 +72,10 @@ export interface ProductCatalogPacketOption {
   /** Schema Mapper Source Type — drives raw field catalogue. */
   sourceType: SourceType;
   fields: string[];
+  /** Backend-sourced derived field names for this catalogue packet (Configure → Derived tab). */
+  derivedFields: string[];
   previewKey: string;
 }
-
-/** Placeholder derived fields per packet (future pipeline hooks). */
-export const derivedFieldTemplatesByPacketId: Record<string, string[]> = {
-  PKT_BCF: ["weighted_cashflow_score", "emi_burden_ratio", "income_stability_index"],
-  PKT_GST: ["turnover_momentum_index", "compliance_risk_tier"],
-  PKT_BLK: ["network_risk_rollup", "related_party_exposure_score"],
-  PKT_TBS: ["telco_credit_proxy", "mobility_stability_index"],
-  PKT_EMP: ["employment_verification_confidence", "income_band_estimate"],
-  PKT_DSP: ["discretionary_spend_ratio", "digital_credit_appetite_score"],
-  PKT_CON: ["cross_lender_stress_flag", "exposure_velocity_90d"],
-  PKT_FRD: ["fraud_probability_model", "identity_consistency_score"],
-  PKT_SYN: ["synthetic_profile_version", "scenario_calibration_id"],
-};
 
 export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
   telecom: "Telecom",
@@ -176,9 +176,14 @@ export function buildProductPreviewJson(
     const fullPayload = packetMockData[pid] ?? {};
     const cfg = configMap.get(pid);
     const selectedFields = cfg?.selectedFields;
+    const disabledSet = new Set((cfg?.disabledFields ?? []).filter(Boolean));
     const filtered: Record<string, unknown> =
       selectedFields && selectedFields.length > 0
-        ? Object.fromEntries(Object.entries(fullPayload).filter(([k]) => selectedFields.includes(k)))
+        ? Object.fromEntries(
+            Object.entries(fullPayload).filter(
+              ([k]) => selectedFields.includes(k) && !disabledSet.has(k)
+            )
+          )
         : { ...fullPayload };
 
     const derivedSel = cfg?.selectedDerivedFields?.filter(Boolean) ?? [];

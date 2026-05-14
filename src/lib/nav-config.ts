@@ -21,6 +21,7 @@ export const permissionSections: PermissionSection[] = [
     title: "Member Management",
     items: [
       { label: "Member Institutions", path: "/institutions" },
+      { label: "Register member", path: "/institutions/register" },
       { label: "Consortiums", path: "/consortiums" },
     ],
   },
@@ -43,6 +44,7 @@ export const permissionSections: PermissionSection[] = [
     items: [
       { label: "Dashboard", path: "/data-governance/dashboard" },
       { label: "Schema Mapper Agent", path: "/data-governance/auto-mapping-review" },
+      { label: "Master Schema Management", path: "/data-governance/master-schema" },
       { label: "Validation Rules", path: "/data-governance/validation-rules" },
       { label: "Identity Resolution Agent", path: "/data-governance/match-review" },
       { label: "Data Quality Monitoring", path: "/data-governance/data-quality-monitoring" },
@@ -64,11 +66,6 @@ export const permissionSections: PermissionSection[] = [
     id: "reporting",
     title: "Reporting",
     items: [{ label: "Reporting", path: "/reporting" }],
-  },
-  {
-    id: "audit-logs",
-    title: "Audit Logs",
-    items: [{ label: "Audit Logs", path: "/audit-logs" }],
   },
   {
     id: "approval-queue",

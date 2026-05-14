@@ -53,7 +53,7 @@ export function AnomalyFeed({
   });
 
   return (
-    <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+    <Card className="border-border shadow-sm">
       <CardHeader className="flex-row items-start justify-between gap-4">
         <div className="min-w-0">
           <CardTitle className="text-h4 font-semibold text-foreground">Anomaly Feed</CardTitle>

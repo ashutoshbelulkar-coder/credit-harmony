@@ -16,12 +16,12 @@ import {
   ShieldCheck,
   Activity,
   FileBarChart,
-  ScrollText,
   Users,
   Package,
 } from "lucide-react";
-import { institutions } from "@/data/institutions-mock";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { useInstitutions } from "@/hooks/api/useInstitutions";
+import { useConsortiums } from "@/hooks/api/useConsortiums";
 
 const navigationItems = [
   { label: "Dashboard", path: "/", icon: LayoutDashboard, group: "Navigation" },
@@ -36,7 +36,6 @@ const navigationItems = [
   { label: "Create product", path: "/data-products/products/create", icon: Package, group: "Data Products" },
   { label: "Data Governance Dashboard", path: "/data-governance/dashboard", icon: ShieldCheck, group: "Data Governance" },
   { label: "Schema Mapper Agent", path: "/data-governance/auto-mapping-review", icon: ShieldCheck, group: "Data Governance" },
-  { label: "Validation Rules", path: "/data-governance/validation-rules", icon: ShieldCheck, group: "Data Governance" },
   { label: "Identity Resolution Agent", path: "/data-governance/match-review", icon: ShieldCheck, group: "Data Governance" },
   { label: "Data Quality Monitoring", path: "/data-governance/data-quality-monitoring", icon: ShieldCheck, group: "Data Governance" },
   { label: "Governance Audit Logs", path: "/data-governance/governance-audit-logs", icon: ShieldCheck, group: "Data Governance" },
@@ -47,7 +46,6 @@ const navigationItems = [
   { label: "Alert Engine", path: "/monitoring/alert-engine", icon: Activity, group: "Monitoring" },
   { label: "Reports", path: "/reporting", icon: FileBarChart, group: "Navigation" },
   { label: "New Report Request", path: "/reporting/new", icon: FileBarChart, group: "Navigation" },
-  { label: "Audit Logs", path: "/audit-logs", icon: ScrollText, group: "Navigation" },
   { label: "User Management", path: "/user-management/users", icon: Users, group: "Navigation" },
   { label: "Roles & Permissions", path: "/user-management/roles", icon: Users, group: "Navigation" },
   { label: "Activity Log", path: "/user-management/activity", icon: Users, group: "Navigation" },
@@ -56,7 +54,17 @@ const navigationItems = [
 export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
-  const { consortiums } = useCatalogMock();
+  const { user } = useAuth();
+  // Load heavy lists only when the palette is open — avoids a background /institutions?size=200 on every page.
+  const { data: institutionsPage, isFetching: institutionsLoading } = useInstitutions(
+    { size: 200 },
+    { enabled: !!user && open }
+  );
+  const { data: consortiumsPage, isFetching: consortiumsLoading } = useConsortiums(
+    { size: 200 },
+    { enabled: !!user && open }
+  );
+  const consortiums = consortiumsPage?.content ?? [];
 
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
@@ -69,14 +77,16 @@ export function CommandPalette() {
     return () => document.removeEventListener("keydown", down);
   }, []);
 
+  const apiInstitutions = institutionsPage?.content ?? [];
+
   const institutionItems = useMemo(
     () =>
-      institutions.map((inst) => ({
+      apiInstitutions.map((inst) => ({
         label: inst.name,
         path: `/institutions/${inst.id}`,
-        subtitle: `${inst.type} · ${inst.status}`,
+        subtitle: `${inst.institutionType} · ${inst.institutionLifecycleStatus}`,
       })),
-    []
+    [apiInstitutions]
   );
 
   const handleSelect = (path: string) => {
@@ -134,29 +144,37 @@ export function CommandPalette() {
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="Institutions">
-          {institutionItems.map((item) => (
-            <CommandItem key={item.path} onSelect={() => handleSelect(item.path)}>
-              <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
-              <div className="flex flex-col">
-                <span>{item.label}</span>
-                <span className="text-xs text-muted-foreground">{item.subtitle}</span>
-              </div>
-            </CommandItem>
-          ))}
+          {institutionsLoading && institutionItems.length === 0 ? (
+            <div className="px-2 py-3 text-sm text-muted-foreground">Loading institutions…</div>
+          ) : (
+            institutionItems.map((item) => (
+              <CommandItem key={item.path} onSelect={() => handleSelect(item.path)}>
+                <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-col">
+                  <span>{item.label}</span>
+                  <span className="text-xs text-muted-foreground">{item.subtitle}</span>
+                </div>
+              </CommandItem>
+            ))
+          )}
         </CommandGroup>
         <CommandSeparator />
         <CommandGroup heading="Consortiums">
-          {consortiums.map((c) => (
-            <CommandItem key={c.id} onSelect={() => handleSelect(`/consortiums/${c.id}`)}>
-              <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
-              <div className="flex flex-col">
-                <span>{c.name}</span>
-                <span className="text-xs text-muted-foreground">
-                  {c.type} · {c.membersCount} members
-                </span>
-              </div>
-            </CommandItem>
-          ))}
+          {consortiumsLoading && consortiums.length === 0 ? (
+            <div className="px-2 py-3 text-sm text-muted-foreground">Loading consortiums…</div>
+          ) : (
+            consortiums.map((c) => (
+              <CommandItem key={c.id} onSelect={() => handleSelect(`/consortiums/${c.id}`)}>
+                <Building2 className="mr-2 h-4 w-4 text-muted-foreground" />
+                <div className="flex flex-col">
+                  <span>{c.name}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {c.membersCount} members
+                  </span>
+                </div>
+              </CommandItem>
+            ))
+          )}
         </CommandGroup>
       </CommandList>
     </CommandDialog>

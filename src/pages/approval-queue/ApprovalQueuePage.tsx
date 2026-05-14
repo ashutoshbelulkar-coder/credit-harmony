@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { ClipboardCheck, Clock, CheckCircle2, XCircle, AlertTriangle, ThumbsUp, ThumbsDown, MessageSquare, Building2, ScrollText, Users, Package } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Link } from "react-router-dom";
+import { ClipboardCheck, Clock, CheckCircle2, XCircle, AlertTriangle, ThumbsUp, ThumbsDown, MessageSquare, Building2, ScrollText, Users, Package, Bell, Layers } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -11,11 +12,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Separator } from "@/components/ui/separator";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
-import { approvalQueueItems as initialItems } from "@/data/approval-queue-mock";
+import { SkeletonKpiCards } from "@/components/ui/skeleton-table";
+import { ApiErrorCard } from "@/components/ui/api-error-card";
 import type { ApprovalItem, ApprovalStatus } from "@/types/approval-queue";
+import { calcPendingCount, calcApprovedThisMonth, calcChangesRequestedCount } from "@/lib/calc/kpiCalc";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { format } from "date-fns";
+import { useApprovals, useApproveItem, useRejectItem, useRequestChanges } from "@/hooks/api/useApprovals";
 
 const statusConfig: Record<ApprovalStatus, { label: string; color: string; icon: React.ElementType }> = {
   pending: { label: "Pending", color: "bg-warning/15 text-warning border-warning/20", icon: Clock },
@@ -25,41 +28,61 @@ const statusConfig: Record<ApprovalStatus, { label: string; color: string; icon:
 };
 
 export function ApprovalQueuePage() {
-  const [items, setItems] = useState<ApprovalItem[]>(initialItems);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [tab, setTab] = useState("all");
   const [detailItem, setDetailItem] = useState<ApprovalItem | null>(null);
   const [rejectDialog, setRejectDialog] = useState<{ open: boolean; item: ApprovalItem | null; mode: "reject" | "changes" }>({ open: false, item: null, mode: "reject" });
   const [reason, setReason] = useState("");
 
+  const { data: approvalsData, isLoading, isError, error, refetch } = useApprovals();
+  const approveItem = useApproveItem();
+  const rejectItemMutation = useRejectItem();
+  const requestChangesMutation = useRequestChanges();
+
+  const items: ApprovalItem[] = useMemo(() => {
+    if (!approvalsData) return [];
+    if (Array.isArray(approvalsData)) return approvalsData as ApprovalItem[];
+    if (Array.isArray((approvalsData as { content?: ApprovalItem[] }).content)) return (approvalsData as { content: ApprovalItem[] }).content;
+    return [];
+  }, [approvalsData]);
+
   const tabTypeMap: Record<string, string> = {
     institutions: "institution",
     mappings: "schema_mapping",
+    "master-schemas": "schema_master",
     consortiums: "consortium",
     products: "product",
+    "alert-rules": "alert_rule",
   };
 
   const filtered = items.filter((item) => {
-    if (tab !== "all" && item.type !== tabTypeMap[tab]) return false;
+    if (tab !== "all") {
+      if (tab === "consortiums") {
+        if (item.type !== "consortium" && item.type !== "consortium_membership") return false;
+      } else if (item.type !== tabTypeMap[tab]) {
+        return false;
+      }
+    }
     if (statusFilter !== "all" && item.status !== statusFilter) return false;
     return true;
   });
 
-  const pendingCount = items.filter((i) => i.status === "pending").length;
-  const approvedToday = items.filter((i) => i.status === "approved" && i.reviewedAt?.startsWith("2026-03-")).length;
-  const changesCount = items.filter((i) => i.status === "changes_requested").length;
+  const pendingCount = calcPendingCount(items);
+  const approvedToday = calcApprovedThisMonth(items);
+  const changesCount = calcChangesRequestedCount(items);
 
   const handleApprove = (item: ApprovalItem) => {
-    setItems((prev) => prev.map((i) => i.id === item.id ? { ...i, status: "approved" as const, reviewedBy: "Super Admin", reviewedAt: new Date().toISOString() } : i));
-    toast.success(`"${item.name}" has been approved`);
+    approveItem.mutate({ id: item.id, comment: "Approved via portal", itemType: item.type });
     setDetailItem(null);
   };
 
   const handleRejectOrChanges = () => {
     if (!rejectDialog.item || !reason.trim()) return;
-    const newStatus = rejectDialog.mode === "reject" ? "rejected" : "changes_requested";
-    setItems((prev) => prev.map((i) => i.id === rejectDialog.item!.id ? { ...i, status: newStatus as ApprovalStatus, rejectionReason: reason, reviewedBy: "Super Admin", reviewedAt: new Date().toISOString() } : i));
-    toast.success(`"${rejectDialog.item.name}" ${rejectDialog.mode === "reject" ? "rejected" : "sent back for changes"}`);
+    if (rejectDialog.mode === "reject") {
+      rejectItemMutation.mutate({ id: rejectDialog.item.id, reason });
+    } else {
+      requestChangesMutation.mutate({ id: rejectDialog.item.id, comment: reason });
+    }
     setRejectDialog({ open: false, item: null, mode: "reject" });
     setReason("");
     setDetailItem(null);
@@ -79,13 +102,16 @@ export function ApprovalQueuePage() {
       <div className="space-y-5">
         <div>
           <h1 className="text-h2 font-bold text-foreground">Approval Queue</h1>
-          <p className="text-caption text-muted-foreground mt-1">Review and approve institution registrations and schema mappings</p>
+          <p className="text-caption text-muted-foreground mt-1">Review and approve institutions, schemas, and governance changes</p>
         </div>
 
         {/* KPIs */}
+        {isLoading && <SkeletonKpiCards count={4} />}
+        {isError && <ApiErrorCard error={error} onRetry={() => refetch()} />}
+        {!isLoading && !isError && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
           {kpis.map((kpi) => (
-            <Card key={kpi.label} className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+            <Card key={kpi.label} className="border-border shadow-sm">
               <CardContent className="p-3.5 flex items-center gap-3">
                 <div className={cn("p-2 rounded-lg bg-muted", kpi.accent)}>
                   <kpi.icon className="w-4 h-4" />
@@ -98,6 +124,7 @@ export function ApprovalQueuePage() {
             </Card>
           ))}
         </div>
+        )}
 
         {/* Filters + Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-3">
@@ -106,8 +133,10 @@ export function ApprovalQueuePage() {
               <TabsTrigger value="all">All</TabsTrigger>
               <TabsTrigger value="institutions">Institutions</TabsTrigger>
               <TabsTrigger value="mappings">Schema Mappings</TabsTrigger>
+              <TabsTrigger value="master-schemas">Master Schemas</TabsTrigger>
               <TabsTrigger value="consortiums">Consortiums</TabsTrigger>
               <TabsTrigger value="products">Products</TabsTrigger>
+              <TabsTrigger value="alert-rules">Alert rules</TabsTrigger>
             </TabsList>
           </Tabs>
           <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -125,7 +154,7 @@ export function ApprovalQueuePage() {
         </div>
 
         {/* Table */}
-        <Card className="border-border shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <Card className="border-border shadow-sm">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
@@ -155,10 +184,26 @@ export function ApprovalQueuePage() {
                         <div className="flex items-center gap-1.5">
                           {item.type === "institution" && <Building2 className="w-3.5 h-3.5 text-muted-foreground" />}
                           {item.type === "schema_mapping" && <ScrollText className="w-3.5 h-3.5 text-muted-foreground" />}
-                          {item.type === "consortium" && <Users className="w-3.5 h-3.5 text-muted-foreground" />}
+                          {item.type === "schema_master" && <Layers className="w-3.5 h-3.5 text-muted-foreground" />}
+                          {(item.type === "consortium" || item.type === "consortium_membership") && (
+                            <Users className="w-3.5 h-3.5 text-muted-foreground" />
+                          )}
                           {item.type === "product" && <Package className="w-3.5 h-3.5 text-muted-foreground" />}
+                          {item.type === "alert_rule" && <Bell className="w-3.5 h-3.5 text-muted-foreground" />}
                           <span className="text-caption font-medium text-muted-foreground">
-                            {item.type === "institution" ? "Institution" : item.type === "schema_mapping" ? "Mapping" : item.type === "consortium" ? "Consortium" : "Product"}
+                            {item.type === "institution"
+                              ? "Institution"
+                              : item.type === "schema_mapping"
+                                ? "Mapping"
+                                : item.type === "schema_master"
+                                  ? "Master schema"
+                                : item.type === "consortium"
+                                  ? "Consortium"
+                                  : item.type === "consortium_membership"
+                                    ? "Consortium membership"
+                                    : item.type === "alert_rule"
+                                      ? "Alert rule"
+                                      : "Product"}
                           </span>
                         </div>
                       </TableCell>
@@ -202,10 +247,19 @@ export function ApprovalQueuePage() {
                   {statusConfig[detailItem.status].label}
                 </Badge>
                 <Badge variant="outline" className="text-[10px]">
-                  {detailItem.type === "institution" ? "Institution"
-                    : detailItem.type === "schema_mapping" ? "Schema Mapping"
-                    : detailItem.type === "consortium" ? "Consortium"
-                    : "Product"}
+                  {detailItem.type === "institution"
+                    ? "Institution"
+                    : detailItem.type === "schema_mapping"
+                      ? "Schema Mapping"
+                      : detailItem.type === "schema_master"
+                        ? "Master schema"
+                      : detailItem.type === "consortium"
+                        ? "Consortium"
+                        : detailItem.type === "consortium_membership"
+                          ? "Consortium membership"
+                          : detailItem.type === "alert_rule"
+                            ? "Alert rule"
+                            : "Product"}
                 </Badge>
               </div>
 
@@ -258,6 +312,49 @@ export function ApprovalQueuePage() {
                   </div>
                 </>
               )}
+
+              {detailItem.type === "schema_mapping" &&
+                detailItem.metadata &&
+                typeof (detailItem.metadata as Record<string, string>).mappingId === "string" && (
+                  <>
+                    <Separator />
+                    <Button variant="outline" size="sm" asChild>
+                      <Link
+                        to={`/data-governance/auto-mapping-review?mapping=${encodeURIComponent((detailItem.metadata as Record<string, string>).mappingId)}`}
+                      >
+                        Open in Schema Mapper
+                      </Link>
+                    </Button>
+                  </>
+                )}
+
+              {detailItem.type === "schema_master" &&
+                detailItem.metadata &&
+                typeof (detailItem.metadata as Record<string, string>).schemaId === "string" && (
+                  <>
+                    <Separator />
+                    <Button variant="outline" size="sm" asChild>
+                      <Link
+                        to={`/data-governance/master-schema/${encodeURIComponent((detailItem.metadata as Record<string, string>).schemaId)}`}
+                      >
+                        Open in Master Schema Management
+                      </Link>
+                    </Button>
+                  </>
+                )}
+
+              {detailItem.type === "consortium_membership" &&
+                detailItem.metadata &&
+                typeof (detailItem.metadata as Record<string, string>).institutionId === "string" && (
+                  <>
+                    <Separator />
+                    <Button variant="outline" size="sm" asChild>
+                      <Link to={`/institutions/${encodeURIComponent((detailItem.metadata as Record<string, string>).institutionId)}`}>
+                        View member
+                      </Link>
+                    </Button>
+                  </>
+                )}
 
               {detailItem.status === "pending" && (
                 <>

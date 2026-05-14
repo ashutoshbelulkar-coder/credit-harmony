@@ -1,13 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import {
   Select,
   SelectContent,
@@ -15,6 +25,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import {
   Popover,
   PopoverContent,
@@ -30,17 +52,35 @@ import {
 } from "@/components/ui/command";
 import { Check, ChevronRight, FileStack, Shield, Users, Eye } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { tableHeaderClasses } from "@/lib/typography";
-import { institutions } from "@/data/institutions-mock";
+import { badgeTextClasses, tableHeaderClasses } from "@/lib/typography";
 import {
-  consortiumGovernanceModels,
-  consortiumPurposes,
   type ConsortiumDataPolicy,
   type ConsortiumMember,
-  type ConsortiumType,
 } from "@/data/consortiums-mock";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
-import { toast } from "sonner";
+import {
+  useCbsMemberCatalog,
+  useConsortium,
+  useConsortiumCbsMembers,
+  useConsortiumMembers,
+  useCreateConsortium,
+  useUpdateConsortium,
+} from "@/hooks/api/useConsortiums";
+import { useInstitutions } from "@/hooks/api/useInstitutions";
+import { useAuth } from "@/contexts/AuthContext";
+import { inferPartialTemplate } from "@/data/data-policy-mock";
+import type { InstitutionResponse } from "@/services/institutions.service";
+import { useMasterSchemaDetail, useMasterSchemasList } from "@/hooks/api/useMasterSchemas";
+import type { DataPolicyUnmaskType } from "@/types/data-policy";
+import type { CbsMemberCatalogEntry } from "@/services/consortiums.service";
+import type { MasterSchema, MasterSchemaField, MasterSchemaListItem, Masking } from "@/types/master-schema";
+import type { SourceType } from "@/types/schema-mapper";
+
+type CbsMemberRow = {
+  rowKey: string;
+  catalogId: string;
+  memberId: string;
+  displayName?: string;
+};
 
 const steps = [
   { title: "Basic info", shortTitle: "Info", icon: FileStack },
@@ -49,101 +89,207 @@ const steps = [
   { title: "Review", shortTitle: "Review", icon: Eye },
 ] as const;
 
-function buildSummaryFromPolicy(policy: ConsortiumDataPolicy): {
-  totalRecordsShared: string;
-  lastUpdated: string;
-  dataTypes: string[];
-} {
-  const dataTypes: string[] = [];
-  if (policy.shareLoanData) dataTypes.push("Loan performance");
-  if (policy.shareRepaymentHistory) dataTypes.push("Repayment history");
-  if (policy.allowAggregation) dataTypes.push("Aggregated insights");
-  const visibilityLabel =
-    policy.dataVisibility === "masked_pii"
-      ? "Masked PII"
-      : policy.dataVisibility === "derived"
-      ? "Derived"
-      : "Full details";
-  dataTypes.push(`Visibility: ${visibilityLabel}`);
-  return {
-    totalRecordsShared: "—",
-    lastUpdated: new Date().toISOString().replace("T", " ").slice(0, 22) + " UTC",
-    dataTypes,
-  };
+const consortiumWizardSchema = z.object({
+  name: z.string().min(1, "Consortium name is required"),
+  description: z.string().optional(),
+  dataVisibility: z.enum(["full", "masked_pii", "derived"]),
+  memberCount: z.coerce.number().min(1, "Add at least one member"),
+});
+
+type ConsortiumWizardFormValues = z.infer<typeof consortiumWizardSchema>;
+
+function subscriberParticipationCaption(inst: InstitutionResponse) {
+  if (inst.isSubscriber && inst.isDataSubmitter) return "Subscriber · Data submission";
+  return "Subscriber";
+}
+
+/** Map API / mock rows into wizard member state (joinedDate + optional registrationNumber). */
+function normalizeConsortiumMemberRows(rows: unknown[]): ConsortiumMember[] {
+  return rows.map((raw) => {
+    const r = raw as Record<string, unknown>;
+    const joinedRaw =
+      typeof r.joinedDate === "string"
+        ? r.joinedDate
+        : typeof r.joinedAt === "string"
+          ? r.joinedAt.includes("T")
+            ? r.joinedAt.split("T")[0]
+            : r.joinedAt
+          : new Date().toISOString().slice(0, 10);
+    const regRaw =
+      typeof r.registrationNumber === "string"
+        ? r.registrationNumber
+        : typeof (r as Record<string, unknown>)["registrationnumber"] === "string"
+          ? String((r as Record<string, unknown>)["registrationnumber"])
+          : "";
+    const reg = regRaw.trim();
+    return {
+      institutionId: String(r.institutionId ?? ""),
+      institutionName: String(r.institutionName ?? ""),
+      registrationNumber: reg.length > 0 ? reg : undefined,
+      joinedDate: joinedRaw,
+      status: r.status === "pending" ? "pending" : "active",
+    };
+  });
 }
 
 export default function ConsortiumWizardPage() {
   const { id: paramId } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const {
-    consortiums,
-    membersByConsortiumId,
-    addConsortium,
-    updateConsortium,
-  } = useCatalogMock();
+  const { user } = useAuth();
 
   const isEdit = Boolean(paramId && location.pathname.endsWith("/edit"));
   const editId = isEdit ? paramId! : undefined;
 
-  const existing = useMemo(
-    () => (editId ? consortiums.find((c) => c.id === editId) : undefined),
-    [editId, consortiums]
+  const { data: existing } = useConsortium(editId);
+  const { data: existingMembers } = useConsortiumMembers(editId);
+  const { data: existingCbsMembers } = useConsortiumCbsMembers(editId);
+  const { data: cbsCatalog = [], isPending: cbsCatalogLoading } = useCbsMemberCatalog();
+  const { mutate: createConsortium, isPending: creating } = useCreateConsortium();
+  const { mutate: updateConsortium, isPending: updating } = useUpdateConsortium();
+  const {
+    data: institutionsPage,
+    isPending: institutionsLoading,
+    isError: institutionsError,
+  } = useInstitutions(
+    { page: 0, size: 200, role: "subscriber" },
+    { allowMockFallback: false }
+  );
+  /** Server filter (`role=subscriber`) plus client guard for proxies that ignore the query param. */
+  const subscriberPickList = useMemo(
+    () => (institutionsPage?.content ?? []).filter((i) => i.isSubscriber),
+    [institutionsPage]
   );
 
-  const [currentStep, setCurrentStep] = useState(0);
-  const [name, setName] = useState("");
-  const [type, setType] = useState<ConsortiumType>("Closed");
-  const [purpose, setPurpose] = useState<string>(consortiumPurposes[0]);
-  const [governanceModel, setGovernanceModel] = useState<string>(
-    consortiumGovernanceModels[0]
+  // ── Data Policy module state (source-type, driven by Master Schema) ───────
+  type SourceTypePolicyField = {
+    fieldName: string;
+    /** Master schema masking classification for the field. */
+    masking: Masking;
+    /** UI metadata for display in the drawer. */
+    dataType?: string;
+    /** Whether this field is considered masked (drives inclusion). */
+    isMasked: boolean;
+    /** Whether consortium allows unmasking this field. */
+    isUnmasked: boolean;
+    /** Consortium-selected unmask type (FULL|PARTIAL) when enabled. */
+    unmaskType: DataPolicyUnmaskType | null;
+  };
+
+  type SourceTypePolicyDraft = {
+    sourceType: SourceType;
+    masterSchemaId: string;
+    masterSchemaVersion: string;
+    fields: SourceTypePolicyField[];
+  };
+
+  const masterSchemaListParams = useMemo(
+    () => ({ search: "", sourceType: "all" as const, status: "active" as const, page: 0, size: 500 }),
+    []
   );
-  const [description, setDescription] = useState("");
+  const { data: masterSchemasPage, isLoading: masterSchemasLoading } = useMasterSchemasList(masterSchemaListParams, {
+    allowMockFallback: true,
+    enabled: true,
+  });
+  const masterSchemaRows: MasterSchemaListItem[] = (masterSchemasPage?.content ?? []) as unknown as MasterSchemaListItem[];
+
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [activeDrawerSourceType, setActiveDrawerSourceType] = useState<SourceType | null>(null);
+  const [draftBySourceType, setDraftBySourceType] = useState<Record<string, SourceTypePolicyDraft>>({});
+  const [focusFieldName, setFocusFieldName] = useState<string | null>(null);
+  const [consortiumUnmaskPolicy, setConsortiumUnmaskPolicy] = useState<DataPolicyUnmaskType>("FULL");
+
+  const activeMasterSchemaRow = useMemo(() => {
+    if (!activeDrawerSourceType) return null;
+    return masterSchemaRows.find((r) => r.sourceType === activeDrawerSourceType) ?? null;
+  }, [activeDrawerSourceType, masterSchemaRows]);
+
+  const { data: activeMasterSchema, isLoading: activeMasterSchemaLoading } = useMasterSchemaDetail(activeMasterSchemaRow?.id, {
+    allowMockFallback: true,
+    enabled: Boolean(activeMasterSchemaRow?.id),
+  });
+
+  const [currentStep, setCurrentStep] = useState(0);
   const [members, setMembers] = useState<ConsortiumMember[]>([]);
+  const [cbsMembers, setCbsMembers] = useState<CbsMemberRow[]>([]);
+  const [cbsCatalogOpen, setCbsCatalogOpen] = useState(false);
   const [institutionOpen, setInstitutionOpen] = useState(false);
-  const [dataPolicy, setDataPolicy] = useState<ConsortiumDataPolicy>({
-    shareLoanData: true,
-    shareRepaymentHistory: true,
-    allowAggregation: true,
-    dataVisibility: "full",
+
+  const form = useForm<ConsortiumWizardFormValues>({
+    resolver: zodResolver(consortiumWizardSchema),
+    defaultValues: {
+      name: "",
+      description: "",
+      dataVisibility: "full",
+      memberCount: 0,
+    },
+    mode: "onTouched",
   });
 
   useEffect(() => {
+    form.setValue("memberCount", members.length);
+  }, [members.length, form]);
+
+  useEffect(() => {
     if (existing && editId) {
-      setName(existing.name);
-      setType(existing.type);
-      setPurpose(existing.purpose);
-      setGovernanceModel(existing.governanceModel);
-      setDescription(existing.description ?? "");
-      setDataPolicy({ ...existing.dataPolicy });
-      setMembers([...(membersByConsortiumId[editId] ?? [])]);
-    } else if (!isEdit) {
-      setName("");
-      setType("Closed");
-      setPurpose(consortiumPurposes[0]);
-      setGovernanceModel(consortiumGovernanceModels[0]);
-      setDescription("");
-      setMembers([]);
-      setDataPolicy({
-        shareLoanData: true,
-        shareRepaymentHistory: true,
-        allowAggregation: true,
-        dataVisibility: "full",
+      form.reset({
+        name: existing.name,
+        description: existing.description ?? "",
+        dataVisibility: (existing.dataVisibility as "full" | "masked_pii" | "derived") ?? "full",
       });
+    } else if (!isEdit) {
+      form.reset({
+        name: "",
+        description: "",
+        dataVisibility: "full",
+        memberCount: 0,
+      });
+      setMembers([]);
+      setCbsMembers([]);
       setCurrentStep(0);
     }
-  }, [existing, editId, isEdit, membersByConsortiumId]);
+  }, [existing, editId, isEdit, form]);
 
-  const addInstitution = useCallback((instId: string, instName: string) => {
+  useEffect(() => {
+    if (!editId || existingCbsMembers === undefined) return;
+    setCbsMembers(
+      existingCbsMembers.map((r) => ({
+        rowKey: String(r.id),
+        catalogId: String(r.catalogId),
+        memberId: r.memberId,
+        displayName: r.displayName,
+      }))
+    );
+  }, [editId, existingCbsMembers]);
+
+  useEffect(() => {
+    if (!drawerOpen || !focusFieldName) return;
+    const id = `dp-field-${encodeURIComponent(focusFieldName)}`;
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }, [drawerOpen, focusFieldName]);
+
+  // Seed members from API when editing
+  useEffect(() => {
+    if (!existingMembers) return;
+    const rows = Array.isArray(existingMembers)
+      ? existingMembers
+      : (existingMembers as { content?: unknown[] }).content ?? [];
+    if (rows.length > 0) setMembers(normalizeConsortiumMemberRows(rows));
+  }, [existingMembers]);
+
+  const addInstitution = useCallback((inst: InstitutionResponse) => {
     setMembers((prev) => {
+      const instId = String(inst.id);
       if (prev.some((m) => m.institutionId === instId)) return prev;
       const joined = new Date().toISOString().slice(0, 10);
+      const reg = inst.registrationNumber?.trim() ?? "";
       return [
         ...prev,
         {
           institutionId: instId,
-          institutionName: instName,
-          role: "Contributor" as const,
+          institutionName: inst.name,
+          registrationNumber: reg.length > 0 ? reg : undefined,
           joinedDate: joined,
           status: "active" as const,
         },
@@ -156,24 +302,156 @@ export default function ConsortiumWizardPage() {
     setMembers((prev) => prev.filter((m) => m.institutionId !== instId));
   };
 
-  const setMemberRole = (instId: string, role: "Contributor" | "Consumer") => {
-    setMembers((prev) =>
-      prev.map((m) => (m.institutionId === instId ? { ...m, role } : m))
-    );
+  const addCbsFromCatalog = useCallback((entry: CbsMemberCatalogEntry) => {
+    const cid = String(entry.id);
+    if (cbsMembers.some((p) => p.catalogId === cid)) {
+      toast.error("This CBS member is already in the list");
+      return;
+    }
+    setCbsMembers((prev) => [
+      ...prev,
+      {
+        rowKey: `cat-${cid}-${crypto.randomUUID()}`,
+        catalogId: cid,
+        memberId: entry.memberId,
+        displayName: entry.displayName,
+      },
+    ]);
+    setCbsCatalogOpen(false);
+  }, [cbsMembers]);
+
+  const cbsCatalogPickList = useMemo(() => {
+    const selected = new Set(cbsMembers.map((r) => r.catalogId));
+    return cbsCatalog.filter((c) => !selected.has(String(c.id)));
+  }, [cbsCatalog, cbsMembers]);
+
+  const removeCbsMember = (rowKey: string) => {
+    setCbsMembers((prev) => prev.filter((r) => r.rowKey !== rowKey));
   };
 
-  const handleNext = () => {
-    if (currentStep === 0) {
-      if (!name.trim()) {
-        toast.error("Consortium name is required");
-        return;
+  const activePolicyDraft: SourceTypePolicyDraft | null = useMemo(() => {
+    if (!activeDrawerSourceType) return null;
+    return draftBySourceType[activeDrawerSourceType] ?? null;
+  }, [activeDrawerSourceType, draftBySourceType]);
+
+  const maskedFieldsForActiveDrawer: SourceTypePolicyField[] = useMemo(() => {
+    const list = activePolicyDraft?.fields ?? [];
+    return list.filter((f) => Boolean(f.isMasked));
+  }, [activePolicyDraft?.fields]);
+
+  const buildDefaultDraftFromSchema = useCallback(
+    (schema: MasterSchema): SourceTypePolicyDraft => {
+      const masked = (schema.fields ?? []).filter((f) => f.masking !== "none");
+      const schemaFields: SourceTypePolicyField[] = masked.map((f: MasterSchemaField) => ({
+        fieldName: f.name,
+        masking: f.masking,
+        dataType: f.dataType,
+        isMasked: true,
+        isUnmasked: false,
+        unmaskType: null,
+      }));
+
+      // Always include Data provider name by default.
+      const dataProviderField: SourceTypePolicyField = {
+        fieldName: "data_provider_name",
+        masking: "partial",
+        dataType: "string",
+        isMasked: true,
+        isUnmasked: false,
+        unmaskType: null,
+      };
+
+      return {
+        sourceType: schema.sourceType,
+        masterSchemaId: schema.id,
+        masterSchemaVersion: schema.version,
+        fields: [dataProviderField, ...schemaFields],
+      };
+    },
+    []
+  );
+
+  // Ensure a draft exists when opening Configure (so edits are always possible).
+  useEffect(() => {
+    if (!drawerOpen || !activeDrawerSourceType) return;
+    if (!activeMasterSchema) return;
+    setDraftBySourceType((prev) => {
+      if (prev[activeDrawerSourceType]) return prev;
+      return { ...prev, [activeDrawerSourceType]: buildDefaultDraftFromSchema(activeMasterSchema) };
+    });
+  }, [activeDrawerSourceType, activeMasterSchema, buildDefaultDraftFromSchema, drawerOpen]);
+
+  const updateField = useCallback((sourceType: SourceType, fieldName: string, patch: Partial<SourceTypePolicyField>) => {
+    setDraftBySourceType((prev) => {
+      const dp = prev[sourceType];
+      if (!dp) return prev;
+      const nextFields = dp.fields.map((f) => (f.fieldName === fieldName ? { ...f, ...patch } : f));
+      return { ...prev, [sourceType]: { ...dp, fields: nextFields } };
+    });
+  }, []);
+
+  // Apply consortium-level unmask policy to existing checked fields.
+  useEffect(() => {
+    setDraftBySourceType((prev) => {
+      let next = prev;
+      for (const [st, dp] of Object.entries(prev)) {
+        const updatedFields = dp.fields.map((f) => {
+          if (!f.isMasked || !f.isUnmasked) return f;
+          const canPartial = inferPartialTemplate(f.fieldName) != null;
+          const desired: DataPolicyUnmaskType = consortiumUnmaskPolicy;
+          if (desired === "PARTIAL" && !canPartial) {
+            // Can't honor PARTIAL for this field; leave as-is rather than silently breaking.
+            return f;
+          }
+          if (f.unmaskType === desired) return f;
+          return { ...f, unmaskType: desired };
+        });
+        const changed = updatedFields.some((f, idx) => f !== dp.fields[idx]);
+        if (!changed) continue;
+        if (next === prev) next = { ...prev };
+        next[st] = { ...dp, fields: updatedFields };
+      }
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consortiumUnmaskPolicy]);
+
+  const validatePolicyBeforeSave = useCallback((policy: SourceTypePolicyDraft) => {
+    const fields = (policy.fields ?? []).filter((f) => Boolean(f.isMasked));
+    const maskedRemain = fields.some((f) => f.isUnmasked !== true);
+    if (!maskedRemain) return "At least 1 field must remain masked";
+
+    for (const f of fields) {
+      if (!f.isUnmasked) continue;
+      if (f.unmaskType === "PARTIAL") {
+        const ok = inferPartialTemplate(f.fieldName) != null;
+        if (!ok) return `Partial masking template not available for ${f.fieldName}`;
       }
     }
+    return null;
+  }, []);
+
+  const policySummaries = useMemo(() => {
+    const rows: { sourceType: SourceType; label: string; maskedCount: number; unmaskAllowedCount: number }[] = [];
+    for (const dp of Object.values(draftBySourceType)) {
+      const masked = (dp.fields ?? []).filter((f) => f.isMasked).length;
+      const allowed = (dp.fields ?? []).filter((f) => f.isMasked && f.isUnmasked).length;
+      const label = masterSchemaRows.find((r) => r.sourceType === dp.sourceType)?.name ?? dp.sourceType;
+      rows.push({ sourceType: dp.sourceType, label, maskedCount: masked, unmaskAllowedCount: allowed });
+    }
+    rows.sort((a, b) => a.label.localeCompare(b.label));
+    return rows;
+  }, [draftBySourceType, masterSchemaRows]);
+
+  const handleNext = async () => {
+    if (currentStep === 0) {
+      const ok = await form.trigger("name");
+      if (!ok) return;
+    }
     if (currentStep === 1) {
-      if (members.length === 0) {
-        toast.error("Add at least one member");
-        return;
-      }
+      form.setValue("memberCount", members.length);
+      const ok = await form.trigger("memberCount");
+      if (!ok) return;
     }
     setCurrentStep((s) => Math.min(s + 1, steps.length - 1));
   };
@@ -182,43 +460,44 @@ export default function ConsortiumWizardPage() {
     setCurrentStep((s) => Math.max(s - 1, 0));
   };
 
-  const handleSubmit = () => {
-    if (!name.trim() || members.length === 0) {
-      toast.error("Complete required fields");
+  const onSubmit = (values: ConsortiumWizardFormValues) => {
+    if (members.length === 0) {
+      form.setError("memberCount", { type: "manual", message: "Add at least one member" });
       return;
     }
-    const summary = buildSummaryFromPolicy(dataPolicy);
-    if (isEdit && editId && existing) {
-      updateConsortium(editId, {
-        consortium: {
-          name: name.trim(),
-          type,
-          purpose,
-          governanceModel,
-          description: description.trim() || undefined,
-          dataPolicy,
-          status: existing.status,
+    const memberPayload = members.map((m) => ({ institutionId: m.institutionId }));
+    const cbsPayload = cbsMembers.map((r) => ({ catalogId: r.catalogId }));
+    const policyPayload: ConsortiumDataPolicy = { dataVisibility: values.dataVisibility };
+    const nameTrim = values.name.trim();
+    const descriptionTrim = values.description?.trim() || undefined;
+
+    if (isEdit && editId) {
+      updateConsortium(
+        {
+          id: editId,
+          data: {
+            name: nameTrim,
+            description: descriptionTrim,
+            status: existing?.status,
+            dataPolicy: policyPayload,
+            members: memberPayload,
+            cbsMembers: cbsPayload,
+          },
         },
-        members,
-        contributionSummary: summary,
-      });
-      toast.success("Consortium updated");
-      navigate(`/consortiums/${editId}`);
+        { onSuccess: () => navigate(`/consortiums/${editId}`) }
+      );
     } else {
-      const row = addConsortium({
-        consortium: {
-          name: name.trim(),
-          type,
-          purpose,
-          governanceModel,
-          description: description.trim() || undefined,
-          dataPolicy,
+      createConsortium(
+        {
+          name: nameTrim,
+          description: descriptionTrim,
+          status: "approval_pending",
+          dataPolicy: policyPayload,
+          members: memberPayload,
+          cbsMembers: cbsPayload,
         },
-        members,
-        contributionSummary: summary,
-      });
-      toast.success("Consortium created");
-      navigate(`/consortiums/${row.id}`);
+        { onSuccess: (row) => navigate(`/consortiums/${row.id}`) }
+      );
     }
   };
 
@@ -237,7 +516,7 @@ export default function ConsortiumWizardPage() {
 
   const StepperHeader = () => (
     <>
-      <div className="md:hidden rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden p-2 space-y-1">
+      <div className="md:hidden rounded-xl border border-border bg-card shadow-sm overflow-hidden p-2 space-y-1">
         {steps.map((step, i) => {
           const isActive = i === currentStep;
           const isCompleted = i < currentStep;
@@ -270,7 +549,7 @@ export default function ConsortiumWizardPage() {
           );
         })}
       </div>
-      <div className="hidden md:block rounded-xl border border-border bg-card shadow-[0_1px_3px_rgba(15,23,42,0.06)] overflow-hidden">
+      <div className="hidden md:block rounded-xl border border-border bg-card shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <div className="flex items-stretch flex-nowrap min-w-0">
             {steps.map((step, i) => {
@@ -334,8 +613,12 @@ export default function ConsortiumWizardPage() {
     </>
   );
 
+  const watchedName = form.watch("name");
+  const watchedDescription = form.watch("description");
+
   return (
     <DashboardLayout>
+      <Form {...form}>
       <div className="space-y-6 animate-fade-in max-w-4xl w-full">
       <PageBreadcrumb
         segments={[
@@ -367,67 +650,37 @@ export default function ConsortiumWizardPage() {
             <CardTitle className="text-h4 font-medium">Basic info</CardTitle>
           </CardHeader>
           <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-x-6 md:gap-y-4">
-            <div className="space-y-1.5 min-w-0">
-              <Label htmlFor="cw-name" className="text-caption">
-                Name
-              </Label>
-              <Input id="cw-name" value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-            <div className="space-y-1.5 min-w-0">
-              <Label className="text-caption">Type</Label>
-              <Select value={type} onValueChange={(v) => setType(v as ConsortiumType)}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Closed">Closed</SelectItem>
-                  <SelectItem value="Open">Open</SelectItem>
-                  <SelectItem value="Hybrid">Hybrid</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5 min-w-0">
-              <Label className="text-caption">Purpose</Label>
-              <Select value={purpose} onValueChange={setPurpose}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {consortiumPurposes.map((p) => (
-                    <SelectItem key={p} value={p}>
-                      {p}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5 min-w-0">
-              <Label className="text-caption">Governance model</Label>
-              <Select value={governanceModel} onValueChange={setGovernanceModel}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {consortiumGovernanceModels.map((g) => (
-                    <SelectItem key={g} value={g}>
-                      {g}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5 min-w-0 md:col-span-2">
-              <Label htmlFor="cw-desc" className="text-caption">
-                Description (optional)
-              </Label>
-              <Textarea
-                id="cw-desc"
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={3}
-                className="resize-y min-h-[72px]"
-              />
-            </div>
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem className="min-w-0 md:col-span-2">
+                  <FormLabel className="text-caption">Name</FormLabel>
+                  <FormControl>
+                    <Input id="cw-name" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem className="min-w-0 md:col-span-2">
+                  <FormLabel className="text-caption">Description (optional)</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      id="cw-desc"
+                      rows={3}
+                      className="resize-y min-h-[72px]"
+                      {...field}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
       )}
@@ -436,37 +689,107 @@ export default function ConsortiumWizardPage() {
         <Card>
           <CardHeader className="pb-3 flex flex-row items-center justify-between gap-2">
             <CardTitle className="text-h4 font-medium">Members</CardTitle>
+            <div className="flex items-center gap-2 shrink-0">
             <Popover open={institutionOpen} onOpenChange={setInstitutionOpen}>
               <PopoverTrigger asChild>
                 <Button type="button" variant="outline" size="sm" className="shrink-0">
-                  Add institution
+                  Add member
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="p-0 w-[min(100vw-2rem,320px)]" align="end">
+              <PopoverContent className="p-0 w-[min(100vw-2rem,360px)]" align="end">
+                <p className="px-3 pt-2.5 pb-2 text-caption text-muted-foreground border-b border-border leading-snug">
+                  Subscriber institutions only (includes dual-role subscriber + data submission). Loaded from the API.
+                </p>
                 <Command>
-                  <CommandInput placeholder="Search institutions..." />
+                  <CommandInput placeholder="Search members…" />
                   <CommandList>
-                    <CommandEmpty>No institution found.</CommandEmpty>
-                    <CommandGroup>
-                      {institutions.map((inst) => (
-                        <CommandItem
-                          key={inst.id}
-                          value={`${inst.name} ${inst.type}`}
-                          onSelect={() => addInstitution(inst.id, inst.name)}
-                        >
-                          <span className="truncate">{inst.name}</span>
-                          <span className="text-caption text-muted-foreground ml-2 truncate">
-                            {inst.type}
-                          </span>
-                        </CommandItem>
-                      ))}
-                    </CommandGroup>
+                    {institutionsError ? (
+                      <div className="py-6 px-3 text-center text-caption text-destructive">
+                        Could not load institutions. Use a running API and{" "}
+                        <code className="text-[10px]">VITE_USE_MOCK_FALLBACK=false</code>.
+                      </div>
+                    ) : institutionsLoading ? (
+                      <div className="py-6 px-3 text-center text-caption text-muted-foreground">
+                        Loading…
+                      </div>
+                    ) : (
+                      <>
+                        <CommandEmpty>No subscriber institutions found.</CommandEmpty>
+                        <CommandGroup>
+                          {subscriberPickList.map((inst) => {
+                            const cap = subscriberParticipationCaption(inst);
+                            return (
+                              <CommandItem
+                                key={inst.id}
+                                value={`${inst.name} ${inst.institutionType} ${cap}`}
+                                onSelect={() => addInstitution(inst)}
+                              >
+                                <span className="truncate">{inst.name}</span>
+                                <span className="text-caption text-muted-foreground ml-2 shrink-0 truncate max-w-[40%]">
+                                  {cap} · {inst.institutionType}
+                                </span>
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </>
+                    )}
                   </CommandList>
                 </Command>
               </PopoverContent>
             </Popover>
+            <Popover open={cbsCatalogOpen} onOpenChange={setCbsCatalogOpen}>
+              <PopoverTrigger asChild>
+                <Button type="button" variant="outline" size="sm" className="shrink-0">
+                  Add CBS member
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-0 w-[min(100vw-2rem,360px)]" align="end">
+                <Command>
+                  <CommandInput placeholder="Search CBS members…" />
+                  <CommandList>
+                    {cbsCatalogLoading ? (
+                      <div className="py-6 px-3 text-center text-caption text-muted-foreground">Loading…</div>
+                    ) : (
+                      <>
+                        <CommandEmpty>No CBS members available or all are already added.</CommandEmpty>
+                        <CommandGroup>
+                          {cbsCatalogPickList.map((row) => (
+                            <CommandItem
+                              key={row.id}
+                              value={`${row.memberId} ${row.displayName ?? ""}`}
+                              onSelect={() => addCbsFromCatalog(row)}
+                            >
+                              <span className="font-mono text-[11px] truncate">{row.memberId}</span>
+                              {row.displayName ? (
+                                <span className="text-caption text-muted-foreground ml-2 shrink-0 truncate max-w-[45%]">
+                                  {row.displayName}
+                                </span>
+                              ) : null}
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+            </div>
           </CardHeader>
           <CardContent>
+            <FormField
+              control={form.control}
+              name="memberCount"
+              render={({ field }) => (
+                <FormItem className="mb-3">
+                  <FormControl>
+                    <input type="hidden" name={field.name} ref={field.ref} value={members.length} readOnly />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             {members.length === 0 ? (
               <p className="text-caption text-muted-foreground">No members yet.</p>
             ) : (
@@ -475,10 +798,10 @@ export default function ConsortiumWizardPage() {
                   <thead className="bg-muted/80">
                     <tr className="border-b border-border">
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
-                        Name
+                        Member ID
                       </th>
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
-                        Role
+                        Member name
                       </th>
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-right")} />
                     </tr>
@@ -486,23 +809,10 @@ export default function ConsortiumWizardPage() {
                   <tbody>
                     {members.map((m) => (
                       <tr key={m.institutionId} className="border-b border-border last:border-0">
-                        <td className="px-4 py-3 text-body">{m.institutionName}</td>
-                        <td className="px-4 py-3">
-                          <Select
-                            value={m.role}
-                            onValueChange={(v) =>
-                              setMemberRole(m.institutionId, v as "Contributor" | "Consumer")
-                            }
-                          >
-                            <SelectTrigger className="h-8 w-[140px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="Contributor">Contributor</SelectItem>
-                              <SelectItem value="Consumer">Consumer</SelectItem>
-                            </SelectContent>
-                          </Select>
+                        <td className="px-4 py-3 text-body font-mono text-[11px] tabular-nums">
+                          {m.registrationNumber ?? "—"}
                         </td>
+                        <td className="px-4 py-3 text-body">{m.institutionName}</td>
                         <td className="px-4 py-3 text-right">
                           <Button
                             type="button"
@@ -520,6 +830,46 @@ export default function ConsortiumWizardPage() {
                 </table>
               </div>
             )}
+
+            <div className="mt-8 space-y-3">
+              <p className="text-caption font-medium text-foreground">CBS members (external)</p>
+              {cbsMembers.length === 0 ? (
+                <p className="text-caption text-muted-foreground">No CBS members added.</p>
+              ) : (
+                <div className="min-w-0 overflow-x-auto rounded-xl border border-border">
+                  <table className="w-full min-w-max">
+                    <thead className="bg-muted/80">
+                      <tr className="border-b border-border">
+                        <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>Member ID</th>
+                        <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>Member Name</th>
+                        <th className={cn(tableHeaderClasses, "px-4 py-3 text-right")} />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cbsMembers.map((row) => (
+                        <tr key={row.rowKey} className="border-b border-border last:border-0">
+                          <td className="px-4 py-3 text-body font-mono text-[11px]">{row.memberId}</td>
+                          <td className="px-4 py-3 text-body text-muted-foreground">
+                            {row.displayName ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-right">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="text-destructive hover:text-destructive"
+                              onClick={() => removeCbsMember(row.rowKey)}
+                            >
+                              Remove
+                            </Button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
@@ -529,48 +879,242 @@ export default function ConsortiumWizardPage() {
           <CardHeader className="pb-3">
             <CardTitle className="text-h4 font-medium">Data policy</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6 max-w-md">
-            {(
-              [
-                ["shareLoanData", "Share loan data"],
-                ["shareRepaymentHistory", "Share repayment history"],
-                ["allowAggregation", "Allow aggregation"],
-              ] as const
-            ).map(([key, label]) => (
-              <div
-                key={key}
-                className="flex items-center justify-between gap-4 rounded-lg border border-border px-3 py-2"
-              >
-                <p className="text-body text-foreground">{label}</p>
-                <Switch
-                  checked={dataPolicy[key]}
-                  onCheckedChange={(v) =>
-                    setDataPolicy((p) => ({ ...p, [key]: v }))
-                  }
-                />
-              </div>
-            ))}
-            <div className="space-y-1.5">
-              <Label className="text-caption">Data visibility</Label>
-              <Select
-                value={dataPolicy.dataVisibility}
-                onValueChange={(v) =>
-                  setDataPolicy((p) => ({
-                    ...p,
-                    dataVisibility: v as ConsortiumDataPolicy["dataVisibility"],
-                  }))
+          <CardContent className="space-y-6">
+            <Card className="border-0 shadow-none">
+              <CardHeader className="px-0 pb-3">
+                <CardTitle className="text-h4 font-medium">Unmask policy</CardTitle>
+                <p className="text-caption text-muted-foreground mt-0.5">
+                  Applies to all selected products.
+                </p>
+              </CardHeader>
+              <CardContent className="px-0">
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <RadioGroup
+                    value={consortiumUnmaskPolicy}
+                    onValueChange={(v) => {
+                      if (v === "FULL" || v === "PARTIAL") setConsortiumUnmaskPolicy(v);
+                    }}
+                    className="gap-3"
+                  >
+                    <label className="flex items-start gap-2 text-body">
+                      <RadioGroupItem value="FULL" className="mt-0.5" />
+                      <span className="space-y-0.5">
+                        <span className="block font-medium text-foreground">Full Unmasking</span>
+                        <span className="block text-caption text-muted-foreground">
+                          When a masked field is allowed, it is revealed in full.
+                        </span>
+                      </span>
+                    </label>
+                    <label className="flex items-start gap-2 text-body">
+                      <RadioGroupItem value="PARTIAL" className="mt-0.5" />
+                      <span className="space-y-0.5">
+                        <span className="block font-medium text-foreground">Partial Unmasking</span>
+                        <span className="block text-caption text-muted-foreground">
+                          When a masked field is allowed, it uses predefined templates only (PAN/Phone/Email/Name).
+                        </span>
+                      </span>
+                    </label>
+                  </RadioGroup>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="border-0 shadow-none">
+              <CardHeader className="px-0 pb-3">
+                <CardTitle className="text-h4 font-medium">Data sources</CardTitle>
+                <p className="text-caption text-muted-foreground mt-0.5">
+                  Select a source type, then click <span className="font-medium text-foreground">Configure</span> to manage masked fields
+                  from the master schema definition.
+                </p>
+              </CardHeader>
+              <CardContent className="px-0 space-y-4">
+                {masterSchemasLoading ? (
+                  <div className="rounded-xl border border-border bg-muted/20 p-6 text-sm text-muted-foreground">
+                    Loading source types…
+                  </div>
+                ) : masterSchemaRows.length === 0 ? (
+                  <div className="rounded-xl border border-border bg-muted/20 p-6 text-sm text-muted-foreground">
+                    No active master schemas found.
+                  </div>
+                ) : (
+                  <div className="bg-card rounded-xl border border-border overflow-hidden">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="hover:bg-transparent">
+                          <TableHead className={cn(tableHeaderClasses, "min-w-[220px]")}>Source type name</TableHead>
+                          <TableHead className={cn(tableHeaderClasses, "min-w-[80px] text-center")}>Version</TableHead>
+                          <TableHead className={cn(tableHeaderClasses, "min-w-[140px] text-center")}># fields</TableHead>
+                          <TableHead className={cn(tableHeaderClasses, "min-w-[140px] text-center")}># masked</TableHead>
+                          <TableHead className={cn(tableHeaderClasses, "min-w-[140px] text-center")}>Actions</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {masterSchemaRows.map((r) => {
+                          const draft = draftBySourceType[r.sourceType];
+                          const maskedInSchema = (draft?.fields ?? []).filter((f) => f.isMasked).length;
+                          return (
+                            <TableRow key={r.id} className="group">
+                              <TableCell>
+                                <div className="min-w-0">
+                                  <p className="text-body font-medium text-foreground truncate">{r.name}</p>
+                                  <p className="text-[9px] leading-[12px] text-muted-foreground">ID: {r.id}</p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-center text-body font-medium tabular-nums text-foreground">
+                                {r.version}
+                              </TableCell>
+                              <TableCell className="text-center text-body tabular-nums text-foreground">{r.fieldCount}</TableCell>
+                              <TableCell className="text-center text-body tabular-nums text-foreground">
+                                {draft ? maskedInSchema : ((r.maskedCount ?? 0) + 1)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  className="border-border"
+                                  onClick={() => {
+                                    setActiveDrawerSourceType(r.sourceType);
+                                    setDrawerOpen(true);
+                                    setFocusFieldName(null);
+                                  }}
+                                >
+                                  Configure
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Sheet
+              open={drawerOpen}
+              onOpenChange={(open) => {
+                setDrawerOpen(open);
+                if (!open) {
+                  setActiveDrawerSourceType(null);
+                  setFocusFieldName(null);
                 }
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="full">Full details</SelectItem>
-                  <SelectItem value="masked_pii">Masked PII</SelectItem>
-                  <SelectItem value="derived">Derived</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              }}
+            >
+              <SheetContent side="right" className="w-full sm:max-w-2xl">
+                <SheetHeader>
+                  <SheetTitle>
+                    Configure masked fields – {activeMasterSchema?.name ?? "Source type"}
+                  </SheetTitle>
+                  <SheetDescription>
+                    Choose which masked fields can be unmasked. Unmask policy is configured at the consortium level.
+                  </SheetDescription>
+                </SheetHeader>
+
+                <div className="mt-6 space-y-4">
+                  {!activeDrawerSourceType || activeMasterSchemaLoading || !activePolicyDraft ? (
+                    <div className="rounded-xl border border-border bg-muted/20 p-6 text-sm text-muted-foreground">
+                      {activeMasterSchemaLoading ? "Loading schema…" : "Select a source type and click Configure."}
+                    </div>
+                  ) : (
+                    <>
+                      <div className="rounded-xl border border-border bg-card overflow-hidden relative">
+                        <ScrollArea className="h-[60vh]">
+                          <Table>
+                            <TableHeader className="sticky top-0 z-10 bg-muted/80 backdrop-blur shadow-[0_1px_3px_0_hsl(var(--shadow-color)/0.05)] border-b border-border">
+                              <TableRow className="hover:bg-transparent">
+                                <TableHead className={cn(tableHeaderClasses, "px-4 py-3 w-[40%]")}>Field</TableHead>
+                                <TableHead className={cn(tableHeaderClasses, "px-4 py-3 w-[20%] text-center")}>Masking</TableHead>
+                                <TableHead className={cn(tableHeaderClasses, "px-4 py-3 w-[20%] text-center")}>Allow unmask</TableHead>
+                                <TableHead className={cn(tableHeaderClasses, "px-4 py-3 w-[20%] text-center")}>Unmask type</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {maskedFieldsForActiveDrawer.length === 0 ? (
+                                <TableRow>
+                                  <TableCell colSpan={4} className="h-28 text-center text-sm text-muted-foreground">
+                                    No masked fields found for this source type.
+                                  </TableCell>
+                                </TableRow>
+                              ) : (
+                                maskedFieldsForActiveDrawer.map((f) => {
+                                  const canPartial = inferPartialTemplate(f.fieldName) != null;
+                                  const rowId = `dp-field-${encodeURIComponent(f.fieldName)}`;
+                                  const desired: DataPolicyUnmaskType = consortiumUnmaskPolicy;
+                                  const unmaskTypeLabel = f.isUnmasked ? desired : "—";
+                                  return (
+                                    <TableRow
+                                      key={f.fieldName}
+                                      id={rowId}
+                                      className={cn(focusFieldName === f.fieldName && "bg-primary/5")}
+                                    >
+                                      <TableCell className="text-body font-medium text-foreground">
+                                        <div className="min-w-0">
+                                          <p className="truncate">{f.fieldName}</p>
+                                          <p className="text-caption text-muted-foreground">
+                                            {f.dataType ?? "—"}
+                                            {desired === "PARTIAL" && !canPartial ? " · Partial not available" : ""}
+                                          </p>
+                                        </div>
+                                      </TableCell>
+                                      <TableCell className="text-center text-body text-foreground capitalize">
+                                        {f.masking}
+                                      </TableCell>
+                                      <TableCell className="text-center">
+                                        <Checkbox
+                                          aria-label={`Allow unmask for ${f.fieldName}`}
+                                          checked={Boolean(f.isUnmasked)}
+                                          onCheckedChange={(v) => {
+                                            const checked = Boolean(v);
+                                            if (!activeDrawerSourceType) return;
+                                            if (!checked) {
+                                              updateField(activeDrawerSourceType, f.fieldName, { isUnmasked: false, unmaskType: null });
+                                              return;
+                                            }
+                                            if (desired === "PARTIAL" && !canPartial) {
+                                              toast.error("Partial masking template not available for this field");
+                                              return;
+                                            }
+                                            updateField(activeDrawerSourceType, f.fieldName, { isUnmasked: true, unmaskType: desired });
+                                          }}
+                                        />
+                                      </TableCell>
+                                      <TableCell className="text-center text-body text-foreground">{unmaskTypeLabel}</TableCell>
+                                    </TableRow>
+                                  );
+                                })
+                              )}
+                            </TableBody>
+                          </Table>
+                        </ScrollArea>
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                        <Button type="button" variant="outline" className="flex-1" onClick={() => setDrawerOpen(false)}>
+                          Cancel
+                        </Button>
+                        <Button
+                          type="button"
+                          className="flex-1"
+                          onClick={() => {
+                            if (!activePolicyDraft) return;
+                            const err = validatePolicyBeforeSave(activePolicyDraft);
+                            if (err) {
+                              toast.error(err);
+                              return;
+                            }
+                            setDrawerOpen(false);
+                          }}
+                        >
+                          Save
+                        </Button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </SheetContent>
+            </Sheet>
           </CardContent>
         </Card>
       )}
@@ -581,27 +1125,85 @@ export default function ConsortiumWizardPage() {
             <CardTitle className="text-h4 font-medium">Review</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-body text-muted-foreground">
-            <div className="rounded-lg border border-border p-4 space-y-2 bg-muted/20">
+            <div className="rounded-lg border border-border p-4 space-y-4 bg-muted/20">
               <p>
-                <span className="text-foreground font-medium">{name}</span> · {type}
+                <span className="text-foreground font-medium text-body">{watchedName}</span>
               </p>
-              <p>
-                Purpose: {purpose} · Governance: {governanceModel}
-              </p>
-              <p>{members.length} member(s)</p>
-              <p className="text-caption">
-                Loan: {dataPolicy.shareLoanData ? "Yes" : "No"} · Repayment:{" "}
-                {dataPolicy.shareRepaymentHistory ? "Yes" : "No"} · Aggregation:{" "}
-                {dataPolicy.allowAggregation ? "Yes" : "No"} · Visibility:{" "}
-                {dataPolicy.dataVisibility === "masked_pii"
-                  ? "Masked PII"
-                  : dataPolicy.dataVisibility === "derived"
-                  ? "Derived"
-                  : "Full details"}
-              </p>
+              {watchedDescription ? (
+                <p className="text-caption text-muted-foreground">{watchedDescription}</p>
+              ) : null}
+              <div className="space-y-2">
+                <p className="text-caption text-muted-foreground uppercase tracking-wider">Data policy (masked fields)</p>
+                {policySummaries.length === 0 ? (
+                  <p className="text-caption text-muted-foreground">No source types configured yet.</p>
+                ) : (
+                  <ul className="space-y-2 list-none m-0 p-0">
+                    {policySummaries.map((s) => (
+                      <li
+                        key={s.sourceType}
+                        className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-sm"
+                      >
+                        <span className="text-[10px] font-medium leading-[14px] text-foreground block truncate">
+                          {s.label}
+                        </span>
+                        <span className="text-caption text-muted-foreground block mt-0.5">
+                          Masked fields:{" "}
+                          <span className="font-mono text-[10px]">{s.maskedCount}</span> · Allow unmask:{" "}
+                          <span className="font-mono text-[10px]">{s.unmaskAllowedCount}</span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              <div className="space-y-2">
+                <p className="text-caption text-muted-foreground uppercase tracking-wider">Members</p>
+                <ul className="space-y-2 list-none m-0 p-0">
+                  {members.map((m) => (
+                    <li
+                      key={m.institutionId}
+                      className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-sm"
+                    >
+                      <span className="text-[10px] font-mono leading-[14px] text-foreground block truncate">
+                        {m.registrationNumber ?? "—"}
+                      </span>
+                      <span className="text-[10px] font-medium leading-[14px] text-foreground block truncate mt-0.5">
+                        {m.institutionName}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="space-y-2">
+                <p className="text-caption text-muted-foreground uppercase tracking-wider">CBS members</p>
+                {cbsMembers.length === 0 ? (
+                  <p className="text-caption text-muted-foreground">None</p>
+                ) : (
+                  <ul className="space-y-2 list-none m-0 p-0">
+                    {cbsMembers.map((row) => (
+                      <li
+                        key={row.rowKey}
+                        className="rounded-lg border border-border bg-card px-3 py-2.5 shadow-sm"
+                      >
+                        <span className="text-[10px] font-medium leading-[14px] text-foreground block font-mono">
+                          {row.memberId}
+                        </span>
+                        {row.displayName ? (
+                          <span className="text-caption text-muted-foreground block mt-0.5">{row.displayName}</span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             </div>
-            <Button type="button" onClick={handleSubmit} className="gap-2">
-              {isEdit ? "Save changes" : "Create consortium"}
+            <Button
+              type="button"
+              onClick={() => void form.handleSubmit(onSubmit)()}
+              disabled={creating || updating}
+              className="gap-2"
+            >
+              {creating || updating ? "Saving…" : (isEdit ? "Save changes" : "Create consortium")}
               <ChevronRight className="w-4 h-4" />
             </Button>
           </CardContent>
@@ -618,7 +1220,7 @@ export default function ConsortiumWizardPage() {
           Back
         </Button>
         {currentStep < steps.length - 1 ? (
-          <Button type="button" onClick={handleNext}>
+          <Button type="button" onClick={() => void handleNext()}>
             Next
           </Button>
         ) : (
@@ -626,6 +1228,7 @@ export default function ConsortiumWizardPage() {
         )}
       </div>
       </div>
+      </Form>
     </DashboardLayout>
   );
 }

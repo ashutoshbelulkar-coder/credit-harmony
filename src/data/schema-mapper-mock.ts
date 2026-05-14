@@ -4,6 +4,11 @@
  * AI-mapping-specific objects (telecomMappingResults, validationRules, etc.) remain inline.
  */
 import data from "./schema-mapper.json";
+import {
+  normaliseWizardLabeledOptions,
+  FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS,
+  FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS,
+} from "@/lib/schema-mapper-wizard-metadata";
 
 import type {
   SourceType,
@@ -27,6 +32,20 @@ import type {
   LineageEntry,
   GovernanceSummary,
 } from "@/types/schema-mapper";
+
+const dataRecord = data as Record<string, unknown>;
+
+/** Wizard Step 1 dropdowns — same normalisation as Fastify `GET …/wizard-metadata` mock fallback. */
+export const wizardMetadataFromSeed = {
+  sourceTypeOptions: normaliseWizardLabeledOptions(
+    dataRecord.wizardSourceTypeOptions,
+    FALLBACK_WIZARD_SOURCE_TYPE_OPTIONS
+  ),
+  dataCategoryOptions: normaliseWizardLabeledOptions(
+    dataRecord.wizardDataCategoryOptions,
+    FALLBACK_WIZARD_DATA_CATEGORY_OPTIONS
+  ),
+};
 
 // ─── Schema Registry ───────────────────────────────────────────────────────
 export const schemaRegistryEntries = data.schemaRegistryEntries as SchemaRegistryEntry[];
@@ -52,6 +71,17 @@ export const previouslyIngestedSchemas = data.previouslyIngestedSchemas as { id:
 // ─── Utility Source Schema (parsed) ──────────────────────────────────────
 export const utilityParsedFields = data.utilityParsedFields as ParsedSourceField[];
 export const utilityFieldStatistics = data.utilityFieldStatistics as SourceFieldStatistics;
+
+// ─── Bank / GST / Custom — reference sample parsed fields (same JSON as Fastify seed) ──
+export const bankParsedFields = (data as { bankParsedFields?: ParsedSourceField[] }).bankParsedFields ?? [];
+export const bankFieldStatistics = (data as { bankFieldStatistics?: SourceFieldStatistics }).bankFieldStatistics ??
+  data.telecomFieldStatistics;
+export const gstParsedFields = (data as { gstParsedFields?: ParsedSourceField[] }).gstParsedFields ?? [];
+export const gstFieldStatistics = (data as { gstFieldStatistics?: SourceFieldStatistics }).gstFieldStatistics ??
+  data.telecomFieldStatistics;
+export const customParsedFields = (data as { customParsedFields?: ParsedSourceField[] }).customParsedFields ?? [];
+export const customFieldStatistics = (data as { customFieldStatistics?: SourceFieldStatistics })
+  .customFieldStatistics ?? data.telecomFieldStatistics;
 
 // ─── LLM Field Intelligence Rows (Telecom) ─────────────────────────────────
 export const llmFieldIntelligenceRowsTelecom: LLMFieldIntelligenceRow[] = [

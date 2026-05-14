@@ -1,0 +1,7 @@
+[
+  { "id": "1", "memberId": "CBS-MEM-1001", "displayName": "Retail Branch A", "createdAt": "2025-11-01T00:00:00.000Z" },
+  { "id": "2", "memberId": "CBS-MEM-1002", "displayName": "SME Desk North", "createdAt": "2025-11-15T00:00:00.000Z" },
+  { "id": "3", "memberId": "CBS-MEM-2044", "displayName": "Alliance Hub", "createdAt": "2025-08-20T00:00:00.000Z" },
+  { "id": "4", "memberId": "CBS-MEM-3001", "displayName": "Corporate Desk West", "createdAt": "2025-09-01T00:00:00.000Z" },
+  { "id": "5", "memberId": "CBS-MEM-3002", "displayName": "Agri Lending Unit", "createdAt": "2025-10-10T00:00:00.000Z" }
+]

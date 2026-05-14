@@ -1,11 +1,31 @@
 # Hybrid Credit Bureau (HCB) Admin Portal
 ## Complete Product Requirement Document (PRD) & Business Requirement Document (BRD)
 
-**Document Version:** 2.3
-**Date:** 2026-03-28
-**Status:** Updated — Enterprise Edition; Production-Grade Requirements
+**Document Version:** 2.16
+**Date:** 2026-04-02
+**Status:** Updated — **v2.16:** **Auto registration number** — Register wizard **Registration Number** is **read-only**; **`POST /api/v1/institutions`** may omit **`registrationNumber`**; **Spring** assigns **`{TypePrefix}-{NameSlug3}-{UTC-year}-{id}`** when blank (non-blank override allowed). **`InstitutionRegistrationNumberGenerator`**; integration tests. Docs: **EPIC-02**, **Register-Member-Form-Metadata-Source**, **API-UI-Parity-Matrix**, **Testing-Plan**, **AGENTS.md**. **v2.15:** **Register member navigation** — **Register member** (`/institutions/register`) is reached from **Member Management** sidebar sub-nav (with Member Institutions and Consortiums); removed duplicate primary CTA from the Member Institutions list header. **`nav-config`** / RBAC catalogue include the path; **Roles & Permissions** matrix stays **section-scoped** (`members`). **v2.14:** **Spring list API contract** — JDBC-backed **GET** routes for **consortiums**, **products**, **reports**, **SLA configs**, **alert rules**, **users**, and **audit logs** aligned to **`create_tables.sql`**; **`AuthUserPrincipal`** on controllers; flat audit/user JSON for the SPA. **TDL-018**; **API-UI-Parity-Matrix** v1.7; **SPA-Service-Contract-Drift**; **Canonical-Backend**; **Testing-Plan** v3.0.6; **`RouteParitySqliteIntegrationTest`** extended. **v2.13:** **Institution display labels** (legal before trading); **API-UI-Parity-Matrix** v1.6, **TDL-017**. **v2.12:** **Spring–SPA route parity** — overview charts, drift alerts, member sub-resources, **API keys POST**, **user deactivate**; **TDL-016**. **v2.11:** **Developer Handbook** / **README** Spring-first; dashboard SQLite JDBC. **v2.10:** Schema Mapper **PII** on mappings. Earlier: v2.9–v2.5 as below.
 **Classification:** Internal – Confidential
 
+> **Change Summary v2.16 (2026-04-02) — Registration number system-assigned:** **Member registration** wizard Step 1 shows **Registration Number** as **non-editable** (`readOnly` in **`institution-register-form.json`** SPA + Spring classpath; **`InstitutionRegisterFormService`** passes **`readOnly`** / **`description`**). **SPA** omits empty **`registrationNumber`** from create body. **Spring** **`InstitutionController.create`**: placeholder **`AUTO-{uuid}`** first insert, then final **`PREFIX-Slug3-YYYY-id`** from **`InstitutionRegistrationNumberGenerator`** before approval enqueue. **`InstitutionRegistrationNumberSqliteIntegrationTest`**, **`InstitutionRegistrationNumberGeneratorTest`**. See [Register-Member-Form-Metadata-Source.md](./technical/Register-Member-Form-Metadata-Source.md), [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md).
+>
+> **Change Summary v2.15 (2026-04-02) — Register member in sidebar:** **Register member** opens from **AppSidebar** under **Member Management** (sub-item **`/institutions/register`**). The **Member Institutions** page (`/institutions`) retains search, filters, **Export CSV**, and row actions only—no **Register member** button in the header. **`src/lib/nav-config.ts`** lists **Register member** under the **Member Management** section items for sidebar and documentation parity; **`RolesPermissionsPage`** still grants **View / Create / Edit / Delete / Export** per **navigation section** (`members`), not per sub-route. **Command Palette** still offers **Register Institution** → **`/institutions/register`**.
+>
+> **Change Summary v2.14 (2026-03-31) — Spring JDBC list APIs + auth principal:** High-traffic **GET** endpoints on Spring use **JdbcTemplate** SQL matching **`backend/src/main/resources/db/create_tables.sql`** (avoids **`500` / `ERR_INTERNAL`** from invalid columns). **`GET /api/v1/users`** returns maps with **`roles[]`** from role assignments; **`GET /api/v1/audit-logs`** returns flat **`userId`/`userEmail`** and honours **`entityType`** (and related filters). **`@AuthenticationPrincipal AuthUserPrincipal`** replaces JPA **`User`** on controllers; **`AuditService`** accepts principals for audit rows. **`SecurityConfig`:** **`VIEWER`** cannot call **`/api/v1/audit-logs/**`**. Integration test **`coreSchemaAlignedGetRoutesOk`** uses **`@WithMockUser(roles = "ANALYST")`**. Docs: [Technical-Decision-Log.md](./technical/Technical-Decision-Log.md) TDL-018, [SPA-Service-Contract-Drift.md](./technical/SPA-Service-Contract-Drift.md), [Canonical-Backend.md](./technical/Canonical-Backend.md), [Testing-Plan.md](./technical/Testing-Plan.md).
+>
+> **Change Summary v2.13 (2026-03-31) — Institution labels (legal name first):** Member pickers (**`InstitutionFilterSelect`**), monitoring tables that resolve institution ids, schema-mapper Step 1 **source name**, dashboard command-center **`member`** / **`memberQualitySubmitters`**, and related API-backed strings use **legal `name`** before optional **`tradingName`** (`src/lib/institutions-display.ts` **`institutionDisplayLabel`**). Spring **`DashboardController`** uses `COALESCE(NULLIF(TRIM(i.name), ''), i.trading_name)` for JDBC label columns. Legacy Fastify **`POST /institutions`** stores **`tradingName`** only when supplied (no copy from legal). Docs: [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md) § *Institution display labels*, [Technical-Decision-Log.md](./technical/Technical-Decision-Log.md) TDL-017.
+>
+> **Change Summary v2.11 (2026-03-31) — Documentation: Spring-first dev + dashboard SQLite:** **`docs/technical/Developer-Handbook.md` v2.0** — runbook for **Spring on 8090**, **`npm run spring:start`**, **`npm run spring:test`**, seeded accounts, curl examples, troubleshooting; **Fastify 8091** documented as legacy. **Spring** **`GET /api/v1/dashboard/command-center`** — JDBC SQL safe for SQLite (dynamic **`AND`** concatenation; no **`AS member`** alias). **`DashboardCommandCenterSqliteIntegrationTest`** in **`backend/`**. **Authentication** on Spring uses JDBC **`UserDetails`** for SQLite-compatible login (see [Canonical-Backend.md](./technical/Canonical-Backend.md)). **README** §11 testing aligned. [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md) appendix footnote: Spring authoritative for default SPA.
+>
+> **Change Summary v2.10 (2026-03-31) — Schema Mapper PII on field mappings:** **LLM Field Intelligence** (`LLMFieldIntelligenceStep`) **PII** column uses a **Yes/No** select per row (replacing read-only text). **`llmRowsToFieldMappings`** / **`fieldMappingsToLlmRows`** (`src/lib/schema-mapper-api.ts`) map UI **`pii`** ↔ API **`containsPii`**. Fastify stores the flag on each **`fieldMappings`** entry; mapping jobs initialise **`containsPii: false`**; optional LLM merge **preserves** the heuristic row’s flag. See [Canonical-Backend.md](./technical/Canonical-Backend.md), [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md).
+>
+> **Change Summary v2.9 (2026-03-31) — Schema Mapper Step 1 operator copy:** **Source Ingestion** (`SourceIngestionStep`) and **Source Definition** (`SourceDefinitionStep`) **removed** the inline microcopy that quoted **`GET /api/v1/schema-mapper/wizard-metadata`** under **Source Type**. **Source Type** and **Data Category** dropdowns **unchanged** functionally — still populated via **`useSchemaMapperWizardMetadata`** / **`fetchWizardMetadata`** with **`wizardMetadataFromSeed`** when the API is unavailable. Loading placeholder on the **Source Type** trigger and **error** copy when metadata fetch fails remain.
+>
+> **Change Summary v2.8 (2026-03-31) — Data Products packet row + modal; Register review typography:** **Product form — Data packets:** one **Configure** button per **source-type** row (badge = total selected raw+derived field count for all packets in that row). No secondary **packet title** lines under the row label. **`PacketConfigModal`** (`src/components/data-products/PacketConfigModal.tsx`) takes **`packetIds[]`** (catalogue order) and **`catalogOptions`** from the resolved **`packet-catalog`** response (or seed); when **length > 1**, a **Packet** switcher uses catalogue **labels**; **Save configuration** updates **`packetConfigs`** for **every** id in the group. **Derived** names come from each option’s **`derivedFields`**. **Register member — Step 3 Review** (`RegisterInstitution.tsx` **`Step3Review`**): value lines use **`text-body`** without losing the token to **`tailwind-merge`** (dynamic colours applied via template literal **`className`**, not **`cn("text-body", …)`**). See [Canonical-Backend.md](./technical/Canonical-Backend.md), [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md).
+>
+> **Change Summary v2.7 (2026-03-31) — Validation Rules + Schema Mapper field discovery + Data Products configure modal:** On **`/data-governance/validation-rules`**, the **Create Rule** sheet loads **Applicable members** from **`GET /api/v1/institutions?role=dataSubmitter`** (paged list of data-submitting member institutions). **Schema Mapper source types** for the rule use **`GET /api/v1/schema-mapper/schemas/source-types`** when the API is available (fallback: distinct types from registry mock JSON). After the user picks a source type, **expression block field paths** load from **`GET /api/v1/schema-mapper/schemas/source-type-fields?sourceType=`** via **`fetchSourceTypeFields`** / **`useSourceTypeFields`**; client mock fallback uses **`src/lib/schema-mapper-source-fields.ts`** aligned with the server. **Schema Mapper wizard Step 1** (**Source Ingestion** / **Source Definition**) loads **Source Type** and **Data Category** from **`GET /api/v1/schema-mapper/wizard-metadata`** (`fetchWizardMetadata`, **`useSchemaMapperWizardMetadata`**); options are **`wizardSourceTypeOptions`** / **`wizardDataCategoryOptions`** in **`schema-mapper.json`** (mock fallback **`wizardMetadataFromSeed`**). **Data Products (`/data-products/products/create` & `…/edit`):** packet rows show the **source-type label** only (no “Source types:” prefix); **catalogue descriptions** are not shown on the card. **PacketConfigModal:** **Raw data** uses **`useSourceTypeFields`** (same **`source-type-fields`** endpoint) merged with packet-only paths from the catalogue; **Sources** uses **`useSchemaRegistryList`** with **`GET /api/v1/schema-mapper/schemas?sourceType=`**; dialog **title** is **sr-only** (“Configure packet fields”); **Derived** tab lists each packet’s **`derivedFields`** from **`GET /api/v1/products/packet-catalog`** (form passes **`catalogOptions`** into the modal; seed JSON is the same shape). **`useSchemaRegistryList`** supports **`enabled`** / **`allowMockFallback`**; **`fetchSchemaRegistryPage`** accepts optional **`allowMockFallback`**. **Dev seed:** `src/data/schema-mapper.json` defines **reference `parsedFields`** per type: **`telecomParsedFields`**, **`utilityParsedFields`**, **`bankParsedFields`**, **`gstParsedFields`**, **`customParsedFields`** (plus `*FieldStatistics`); Fastify **`createSchemaMapperSlice`** and **`POST …/ingest`** (empty body fields) use the same template map. **Automated tests:** `server/src/api.integration.test.ts` covers **`source-type-fields`** and **`wizard-metadata`**; **`src/lib/schema-mapper-source-fields.test.ts`** and **`schema-mapper-wizard-metadata.test.ts`** cover normalisation helpers. See [Canonical-Backend.md](./technical/Canonical-Backend.md), [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md), [openapi-hcb-fastify-snapshot.yaml](./technical/openapi-hcb-fastify-snapshot.yaml).
+>
+> **Change Summary v2.6 (2026-03-31) — Data Quality Monitoring drift alerts (API-backed):** **Drift alerts** for `/data-governance/data-quality-monitoring` are served by **`GET /api/v1/data-ingestion/drift-alerts`** (JWT). **Spring** persists rows in **`ingestion_drift_alerts`** (`seed_data.sql`, aligned with **`data-governance.json`**). **Legacy Fastify** uses **`state.ingestionDriftAlerts`**. The **Data Ingestion / Schema Mapper** pipeline may append alerts on ingest and mapping completion (see Spring **`DataIngestionController`** / **`SchemaMapperController`**). Query params **`dateFrom`**, **`dateTo`**, **`sourceType`** mirror the page filters. The SPA uses **`data-ingestion.service.ts`** and **`useDriftAlerts`**; **`VITE_USE_MOCK_FALLBACK=true`** still allows client-side filtering of the JSON mock when the API is unreachable. **Schema Drift** / **Mapping Drift** KPI counts on that page derive from the filtered API response when data is loaded. See [Canonical-Backend.md](./technical/Canonical-Backend.md) (section *Data Ingestion Agent — drift alerts*).
+>
 > **Change Summary v2.0:** Added Module 10 (Consortium Management), Module 11 (Data Products), Module 12 (Enquiry Simulation), Institution Detail extensions (Consortium Memberships tab, Product Subscriptions tab). Updated routing table, project structure, exception scenarios (with sample data), data models, API specs, and QA test suites. Typography system documented: compact 10px/12px scale with explicit pixel values to prevent browser-default overrides.
 
 > **Change Summary v2.1 (2026-03-27):** Upgraded performance targets to enterprise scale (99.9% uptime, 5M API calls/day, P95 ≤ 200ms latency). Enhanced security section (RBAC/ABAC, JWT best practices, PII encryption, consent enforcement at API level). Added enterprise use cases (multi-country, multi-bureau, alternate data monetization). Added missing feature modules roadmap (CBS Integration, Live Enquiry, Scheduled Reporting, Multi-Bureau Comparison, Consumer Portal, Advanced RBAC, Data Lineage). Aligned mock data architecture to JSON-only layer (no hardcoded values in components). Updated Business Goals with BO-10–BO-13.
@@ -15,27 +35,54 @@
 > **Change Summary v2.3 (2026-03-28) — Documentation depth & mock alignment:**
 >
 > **A. Data Quality Monitoring (`/data-governance/data-quality-monitoring`)**  
-> - **Drift alerts dataset:** `driftAlerts` in `src/data/data-governance.json` holds **eight** records with **March 2026** `timestamp` values so the default filter window (**start of current month → today**) includes them.  
-> - **Registry alignment:** Each alert’s `source` string matches a **Schema Mapper registry** source name (e.g. bank, telecom, utility, GST, MFI) so the **Source type** `<Select>` (built from distinct `schemaRegistryEntries[].sourceType`) resolves to name sets via `namesBySourceType` and filtering behaves predictably.  
+> - **Drift alerts (API):** **`GET /api/v1/data-ingestion/drift-alerts`** returns **`alerts`**. **Spring:** **`ingestion_drift_alerts`** table + **`DataIngestionController`**. **Fastify:** **`state.ingestionDriftAlerts`** (seeded from **`driftAlerts`** in `src/data/data-governance.json`). New rows may be appended by the ingestion/mapping pipeline on each stack.  
+> - **Query filters:** `dateFrom`, `dateTo`, `sourceType` — server-side, aligned with the page’s date range and **Source type** control (registry source names for that `sourceType`).  
+> - **Registry alignment:** Seed alert `source` strings match **Schema Mapper**-style submitter/source names so filtering by **telecom**, **bank**, etc. remains predictable as the live registry grows.  
 > - **Alert fields:** `id`, `type` (`schema` \| `mapping`), `source`, `message`, `timestamp`, `severity` (`low` \| `medium` \| `high`).  
-> - **UI recap:** Date pickers; submitter institution; optional compare institution (trend series); source type; KPI strip; quality trend chart with threshold line; downloadable export control (mock).
+> - **UI recap:** Date pickers; submitter institution; optional compare institution (trend series); source type; KPI strip (**Schema / Mapping drift** counts follow filtered alerts when API data is present); quality trend chart with threshold line; downloadable export control (mock metrics CSV).
 >
 > **B. Data Products — Product form (`/data-products/products/create`, `/data-products/products/:id/edit`)**  
 > - **Category sections:** Packets listed under **category** headings (Bureau / Banking / Consortium per mock).  
-> - **Source types line:** Per category, **one** line lists **unique** Schema Mapper source types (sorted, human-readable labels from `SOURCE_TYPE_LABELS`), replacing repeated per-row source-type noise.  
-> - **Packet row:** Checkbox, **packet label** as primary text, **description** as secondary; **Configure** opens `PacketConfigModal` for **Raw** vs **Derived** field checklists.  
+> - **Source types line:** Per category, **one** row per **unique** Schema Mapper source type (sorted, human-readable labels from `SOURCE_TYPE_LABELS`); the row label is that **source-type name** only (no “Source types:” prefix).  
+> - **Packet row:** Checkbox; **no** catalogue **description** on the card; **no** extra packet-title lines under the source-type label. **One** **Configure** per row opens `PacketConfigModal` for **all** selected packets in that source-type group (**Packet** switcher inside the modal when several catalogue entries share the type). **Raw** paths from **`GET …/schema-mapper/schemas/source-type-fields`** plus packet-only catalogue paths; **Sources** from **`GET …/schema-mapper/schemas?sourceType=`**; **Derived** from each packet’s **`derivedFields`** on **`GET …/products/packet-catalog`** (or static seed). **Save** writes **`packetConfigs`** for each packet in the group.  
 > - **Enquiry settings card:** Scope selector (SELF, NETWORK, CONSORTIUM, VERTICAL) with tooltips; **Latest vs Trended** toggle; live **product preview JSON** block reflects selections.  
-> - **Reorder:** Selected packets can be reordered (drag handle) for delivery order.  
-> - **Save:** Validates name and ≥1 packet; persists `packetIds`, `packetConfigs`, `enquiryConfig` via `CatalogMockContext` (mock).
+> - **Reorder:** Removed; **`packetIds`** order follows **catalogue** order.  
+> - **Save:** Validates name and ≥1 packet; persists `packetIds`, `packetConfigs`, `enquiryConfig` via API (Fastify) or mock context when fallback applies.
 >
 > **C. Data Governance Dashboard (`/data-governance/dashboard`) — PRD correction**  
 > - Charts match implementation: **Mapping Accuracy Trend** (30/60/90-day toggle at page top); **Validation Errors by Institution** (vertical bar, `institution` key); **Match Confidence Distribution**; **Data Quality Score Trend**; **Rejection Reasons Breakdown** (donut). The **Override vs Auto-Accept** stacked chart is **not** present in the current build (removed per v2.2).
 >
 > **D. Member Management routing**  
-> - Canonical list: **`/institutions`** (“Member Institutions”). **`/institutions/data-submitters`** and **`/institutions/subscribers`** redirect to **`/institutions`**. Sidebar: **Member Management** ▶ Member Institutions, Consortiums.
+> - Canonical list: **`/institutions`** (“Member Institutions”). **`/institutions/data-submitters`** and **`/institutions/subscribers`** redirect to **`/institutions`**. Sidebar: **Member Management** ▶ Member Institutions, **Register member** (`/institutions/register`), Consortiums.
 >
 > **E. Data models (Section 15)**  
 > - Added **DriftAlert** entity; extended **DataProduct** with optional `packetConfigs` and `enquiryConfig`; noted **ManagedUser** may omit institution in bureau-only mock.
+>
+> **Change Summary v2.5 (2026-03-29) — Schema Mapper Agent (Fastify + SPA)**  
+> **Schema Mapper:** Canonical dev API **`/api/v1/schema-mapper`** (ingest, mapping jobs, PATCH mappings, validation rules CRUD, drift-scan stub, metrics). Async worker applies heuristics + optional OpenAI (`OPENAI_API_KEY`). Submit for approval enqueues **`schema_mapping`** with **`metadata.mappingId`**; approval actions update mapping lifecycle. SPA: **`schema-mapper.service.ts`**, **`useSchemaMapper`**, registry list + wizard wired when **`VITE_USE_MOCK_FALLBACK=false`**; Approval Queue deep link to Schema Mapper when **`mappingId`** present. See [Canonical-Backend.md](./technical/Canonical-Backend.md), [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md).
+>
+> **Change Summary v2.4 (2026-03-29) — Member registry truth, API enablement, overview analytics, BRD parity**
+>
+> **F. Member row vs approval queue (governance semantics)**  
+> - **POST `/api/v1/institutions`** persists a **member registry row** immediately **and** enqueues **`type: institution`** on the approval queue (`metadata.institutionId`).  
+> - **POST `/api/v1/approvals/:id/reject`** updates the **approval** only for institutions — it **does not** soft-delete or remove the member. Removal requires **DELETE `/api/v1/institutions/:id`** or **API restart** (in-memory demo reset).  
+> - **PRD §5.2** registration journey updated; **§6.14** Approval Queue extended; **mermaid** diagrams in **§3.2.1** (new subsection under BRD mirror below) and BRD **§3.4**.
+>
+> **G. APIs enabled column & Overview KPI (`apisEnabledCount`)**  
+> - **Derived** on every institution list/detail response from **effective** `api-access` policy (server defaults merged with `PATCH …/api-access`).  
+> - **Slots:** +1 if `isDataSubmitter` (Data Submission API toggle), +1 if `isSubscriber` (Enquiry API toggle). UI shows **`enabledCount/slotCount`** (e.g. `2/2`). Replaces legacy fixed **“/3”** copy.  
+> - **React Query:** `PATCH api-access` invalidates institution **list** + **detail** + **api-access** queries.
+>
+> **H. Institution Overview — trend charts (`overview-charts`)**  
+> - **GET `/api/v1/institutions/:id/overview-charts`** returns **member-scoped** series for a **rolling 30-day** window: submission metrics filtered like Monitoring Data Submission (`api_key` → `dataSubmitterIdByApiKey`); enquiry metrics filtered like Monitoring enquiries.  
+> - **New members** with no key mapping / no traffic: **empty** arrays + **empty-state** messaging on pie charts.  
+> - **Spring Boot `backend/`:** route **not** implemented — SPA 404 unless using Fastify or a future parity layer (**SPA-Service-Contract-Drift.md**).
+>
+> **I. API & Access tab — card model**  
+> - **Implemented:** one **Data Submission API** card + one **Enquiry API** card (role-gated). **Legacy PRD/BRD** “Bulk + SFTP” as **separate** cards: **deferred**; tracked as superseded by **FR-API1A** in BRD **§6.14**.
+>
+> **J. API spec & data model (Sections 14–15)**  
+> - Institution examples use **`apisEnabledCount`** and note derivation; **§15.2** Institution table extended.
 
 ---
 
@@ -44,15 +91,22 @@
 1. [Executive Summary](#1-executive-summary)
 2. [Business Requirements (BRD)](#2-business-requirements-brd)
 3. [Product Requirements (PRD)](#3-product-requirements-prd)
+   - [3.2 Functional Requirements (FR)](#32-functional-requirements-fr)
 4. [User Personas](#4-user-personas)
 5. [User Journey / Workflow](#5-user-journey--workflow)
 6. [Screen-Level Product Requirements](#6-screen-level-product-requirements)
+   - [6.23 Batch Execution Console](#623-batch-execution-console)
+   - [6.24 Validation Rules](#624-validation-rules)
+   - [6.25 Identity Resolution and Match Review](#625-identity-resolution-and-match-review)
+   - [6.26 Roles and Permissions](#626-roles-and-permissions)
+   - [6.27 SLA Configuration](#627-sla-configuration)
+   - [6.28 Audit Logs](#628-audit-logs)
 7. [Graph / Chart Specifications](#7-graph--chart-specifications)
 8. [Data Logic and Calculations](#8-data-logic-and-calculations)
 9. [Color Tag Conditions](#9-color-tag-conditions)
 10. [Filters and Search](#10-filters-and-search)
 11. [Exception Handling / Edge Cases](#11-exception-handling--edge-cases)
-12. [Performance Requirements](#12-performance-requirements)
+12. [Non-Functional and Performance Requirements](#12-non-functional-and-performance-requirements)
 13. [Technical Architecture](#13-technical-architecture)
 14. [API Specification](#14-api-specification)
 15. [Data Models](#15-data-models)
@@ -128,7 +182,7 @@ The Hybrid Credit Bureau (HCB) Admin Portal is a centralized enterprise administ
 
 ### 2.2 Business Context
 
-The HCB operates in the East African fintech ecosystem (Kenya, Uganda, Tanzania, Rwanda) as a hybrid credit bureau serving:
+The HCB operates in the fintech ecosystem as a alternate data serving:
 - **Data Submitters**: Institutions that submit credit data (loan accounts, repayment history)
 - **Subscribers**: Institutions that consume credit reports for lending decisions
 - **Dual-role Institutions**: Institutions that both submit and consume data
@@ -196,6 +250,100 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 
 ### 3.1 Feature Overview
 
+### 3.1.1 Implementation status (this repository)
+
+| Layer | Role | Notes |
+|-------|------|--------|
+| **SPA default API** | `backend/` Spring Boot on port **8090** | SQLite (dev) / PostgreSQL (prod); canonical contract for `src/services/*`. Vite proxies `/api` here by default. Remaining **contract drift** (closing over time) — see `docs/technical/SPA-Service-Contract-Drift.md`. |
+| **Legacy dev API** | `server/` Fastify on port **8091** | In-memory only; comparison / Node unit tests — not the default product backend. |
+| **Mock / JSON** | `src/data/*`, page-level imports | Governance, agents, and parts of data-products remain mock-first; core admin modules (institutions, monitoring, reporting, users, approvals, dashboard, consortiums, products) are API-backed when **Spring** runs (`npm run spring:start`) with **`VITE_USE_MOCK_FALLBACK=false`**. |
+
+Canonical backend documentation: `docs/technical/Canonical-Backend.md`.  
+UI ↔ API parity: `docs/technical/API-UI-Parity-Matrix.md` (**Spring** routes are authoritative for the default SPA; **Fastify** appendix for legacy comparison).  
+Page-level `@/data` import audit: `docs/technical/Page-Data-Imports-Audit.md`.
+
+### 3.1.2 Member lifecycle, API metrics, and overview analytics (v2.4)
+
+This subsection is the **product-facing** companion to **BRD §3.4**. It is binding for **UX copy**, **QA expected results**, and **demo scripts** when the SPA uses the **live API** (default: **Spring** on **8090**; legacy **Fastify** on **8091** when explicitly proxied).
+
+**Elaboration — why operators may see “rejected” in the queue but the member still in the list**
+
+1. **Submit registration** calls **`POST /api/v1/institutions`**, which **always** inserts a **member row** (lifecycle from wizard, commonly `pending`) **and** prepends an **approval** item (`type: institution`, `metadata.institutionId`).
+2. **Reject** calls **`POST /api/v1/approvals/:id/reject`**. For institutions, the server **only** flips the approval to `rejected` and stores the reason. **No** code path deletes or hides the registry row.
+3. Therefore **“reject registration” ≠ “remove member.”** If policy requires hiding rejected applicants, the product backlog must add **reject → soft-delete**, **reject → `draft` hidden flag**, or operator **SOP: delete after reject**.
+
+**Elaboration — APIs enabled column (`apisEnabledCount`)**
+
+- The API **recomputes** `apisEnabledCount` when serializing each institution using **merged** API-access defaults + stored `PATCH` payload.
+- **Slots** = `(isDataSubmitter ? 1 : 0) + (isSubscriber ? 1 : 0)`. UI displays **`count/slots`**.
+- Changing toggles on **API & Access** triggers list invalidation so the **Member Institutions** table matches the tab without manual refresh.
+
+**Elaboration — Overview trend charts**
+
+- Data source: **`GET /api/v1/institutions/:id/overview-charts`**.
+- **Scope:** last **30 days**; **per member**; aligned with Monitoring filters (submitter key mapping + enquiry institution match).
+- **New members:** expect **empty** or zero series until real traffic and key mapping exist; pies use **empty-state** text instead of blank charts.
+
+**Diagrams**
+
+*Registration creates registry row + queue item*
+
+```mermaid
+flowchart TB
+  subgraph submit [Wizard POST institutions]
+    W[Wizard Submit]
+    W --> MEM[Member row in state.institutions]
+    W --> APV[Approval item type institution]
+  end
+```
+
+*Reject approval — registry untouched*
+
+```mermaid
+sequenceDiagram
+  participant Op as Approver
+  participant SPA as Admin SPA
+  participant API as Fastify API
+  participant ST as institutions store
+  Op->>SPA: Reject with mandatory reason
+  SPA->>API: POST approvals id reject
+  API->>API: Set approval rejected + audit
+  Note over ST: Member row still present
+```
+
+*`apisEnabledCount` derivation (conceptual)*
+
+```mermaid
+flowchart LR
+  A[Persisted apiAccess partial object] --> M[Merge server defaults]
+  M --> T[Evaluate toggles for each role slot]
+  T --> C[apisEnabledCount in JSON response]
+  C --> L[Member list column]
+  C --> D[Detail Overview KPI strip]
+```
+
+*Overview charts request path*
+
+```mermaid
+flowchart LR
+  subgraph spa [React SPA]
+    OV[OverviewTab useInstitutionOverviewCharts]
+  end
+  subgraph api [Fastify]
+    R[GET institutions id overview-charts]
+    F1[Filter apiRequests by submitter map]
+    F2[Filter enquiries by institution]
+  end
+  OV -->|JWT| R
+  R --> F1
+  R --> F2
+  F1 --> R
+  F2 --> R
+  R -->|submissionVolumeData etc| OV
+```
+
+**Spring Boot gap:** Member overview-charts **not** on `InstitutionController`; see `docs/technical/SPA-Service-Contract-Drift.md`.
+
 #### Module 1: Authentication
 
 | Attribute | Detail |
@@ -219,7 +367,7 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Member / institution lifecycle |
-| **Description** | **Member Institutions** registry at **`/institutions`** (unified list; optional role filter props exist for legacy titles). **Member Management** sidebar group: **Member Institutions**, **Consortiums**. 3-step registration wizard (Corporate Details → Compliance Documents → Review). Institution detail with tabbed views including Consortium Memberships and Product Subscriptions. |
+| **Description** | **Member Institutions** registry at **`/institutions`** (unified list; legacy `/institutions/data-submitters` and `/institutions/subscribers` **redirect** here). **Member Management** sidebar group: **Member Institutions**, **Register member** (`/institutions/register`), **Consortiums**. Registration wizard: **Corporate Details** → optional **Compliance Documents** (driven by **`GET /api/v1/institutions/form-metadata`** `requiredComplianceDocuments`; omitted or **`null`** ⇒ two-step flow, **Review** immediately after details) → **Review**. On submit, **Fastify** **creates the member row immediately** and **enqueues** an **institution** approval (**reject does not delete** the row; see **§3.1.2** / BRD **§3.4**). **APIs enabled** column = **`apisEnabledCount/slots`** derived from **API & Access** toggles. **Overview** tab charts = **`GET …/overview-charts`** (member-scoped **30d**). Institution detail includes Consortium Memberships and Product Subscriptions tabs. |
 | **Business Value** | Standardized onboarding and a single place to manage members and consortium entry points |
 | **User Benefit** | Guided wizard; unified list and clear navigation labels |
 
@@ -228,7 +376,7 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Data Governance Suite |
-| **Description** | 6 sub-modules: Dashboard (KPIs, trends), Schema Mapper Agent (8-step AI-assisted wizard), Validation Rules (rule builder with versioning), Identity Resolution Agent (match review with dual-approval), Data Quality Monitoring (anomaly detection, drift alerts), Governance Audit Logs |
+| **Description** | 7 sub-modules: Dashboard (KPIs, trends), Schema Mapper Agent (4-step AI-assisted wizard), Validation Rules (rule builder with versioning), Identity Resolution Agent (match review with dual-approval), Data Quality Monitoring (anomaly detection, drift alerts), **Data Policy Management** (product-level masked-field unmasking controls), Governance Audit Logs |
 | **Business Value** | Automated data quality management reduces manual effort by 60% |
 | **User Benefit** | AI-suggested mappings with confidence scores; visual rule builder; clear approval workflows |
 
@@ -273,7 +421,7 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Consortium Governance |
-| **Description** | End-to-end management of multi-institution data sharing consortiums. Includes: consortium list (search, type/status filters, mobile cards + desktop table), consortium detail with 3 tabs (Overview, Members, Data Contribution), and a 4-step creation/edit wizard (Basic Info → Members → Policy → Review). |
+| **Description** | End-to-end management of multi-institution data sharing consortiums. Includes: consortium list (search + status filter, mobile cards + desktop table), consortium detail with 3 tabs (Overview, Members, Data Contribution), and a 4-step creation/edit wizard (Basic Info: name + optional description → Members → Policy → Review). **Type, purpose, and governance model** are not exposed in the API or UI. |
 | **Business Value** | Enables bureau operators to manage governed data sharing agreements across multiple institutions within a structured, auditable framework. |
 | **User Benefit** | Single view of all consortium memberships, data contributions, and sharing policies; guided wizard prevents incomplete setup. |
 | **Route** | `/consortiums` (list), `/consortiums/:id` (detail), `/consortiums/create` (wizard), `/consortiums/:id/edit` (edit wizard) |
@@ -283,7 +431,7 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Data Product Configurator |
-| **Description** | Catalogue of configurable data products. **v2.2–v2.3:** Packets are tied to Schema Mapper **`sourceType`**; create/edit form **groups packets by category**, shows **distinct source types once per category** (sorted labels), packet rows use **label + description**, **Configure** opens Raw/Derived field selection, **Enquiry settings** include scope and **Latest vs Trended**, reorderable list, live preview JSON. Product list/detail; mock pricing in catalogue context. |
+| **Description** | Catalogue of configurable data products. **v2.2–v2.3:** Packets tie to Schema Mapper **`sourceType`**; form **groups by category** and **dedupes by source type**. **v2.8:** Rows show **source-type label** only (**no** catalogue descriptions or secondary packet lines on the card); **one Configure per row** opens **`PacketConfigModal`** for the **packet group** (in-modal **Packet** switcher when needed); **Save** updates **`packetConfigs`** for all packets in the group. **Derived** field names come from **`derivedFields`** on each **`GET /api/v1/products/packet-catalog`** option (Spring: classpath JSON in sync). **Enquiry settings:** scope and **Latest vs Trended**; **packetIds** order follows catalogue (reorder UI removed). Live preview JSON. Product list/detail; mock pricing in catalogue context. |
 | **Business Value** | Sellable products align to governance taxonomy; operators can demo field-level and enquiry behaviour before APIs exist. |
 | **User Benefit** | Less repetitive UI; clearer mapping from catalogue to subscriber enquiry. |
 | **Route** | `/data-products/products` (list), `/data-products/products/:id` (detail), `/data-products/products/create` (create), `/data-products/products/:id/edit` (edit) |
@@ -309,6 +457,70 @@ The platform integrates with CRIF as the primary bureau engine and supports alte
 | **User Benefit** | Single queue for all pending approvals; clear status tracking; mandatory reason for rejections ensures accountability |
 
 ---
+
+
+
+### 3.2 Functional Requirements (FR)
+
+### 6.1 Authentication and Session
+
+| ID     | Requirement | Priority | Testable Acceptance Criteria |
+|--------|-------------|----------|------------------------------|
+| FR-A1  | The system shall provide a login page with email and password fields and a submit action. | Must | User can enter email and password and submit; invalid credentials are rejected; valid credentials grant access. |
+| FR-A2  | The system shall restrict access to all routes except `/login` for unauthenticated users and redirect them to `/login`. | Must | Unauthenticated access to any protected route results in redirect to `/login`. |
+| FR-A3  | The system shall persist session state for the duration of the browser session (or until logout). | Must | After login, user remains authenticated across page navigation; refresh keeps session. |
+| FR-A4  | The system shall provide a logout mechanism that clears session and redirects to login. | Must | Logout clears user state and redirects to `/login`. |
+| FR-A5  | The system shall display a consistent header and sidebar when the user is authenticated. | Should | Header and sidebar are visible on all protected pages. |
+
+### 6.2 Dashboard (FR)
+
+| ID     | Requirement | Priority | Testable Acceptance Criteria |
+|--------|-------------|----------|------------------------------|
+| FR-D1  | The system shall display a Dashboard (home) with a page title and short description. | Must | Title "Hybrid Credit Bureau" and description are visible. |
+| FR-D2  | The system shall display KPI cards for API Volume (24h), Error Rate, SLA Health, and Data Quality Score with values and trend indicators. | Must | Four KPI cards present; each shows value and trend. |
+| FR-D3  | The system shall display an API Usage Trend chart (30 days) with volume and error rate. | Must | Chart renders with axes, legend, and tooltip on hover. |
+| FR-D4  | The system shall display Success vs Failure distribution as a donut/pie chart. | Must | Chart renders; segments match defined metrics. |
+| FR-D5  | The system shall display additional charts (mapping accuracy, match confidence, SLA latency, rejection/override, recent activity, top institutions). | Should | Each chart/section is present and readable. |
+
+### 6.3 Member Management — List and Navigation (FR)
+
+| ID     | Requirement | Priority | Testable Acceptance Criteria |
+|--------|-------------|----------|------------------------------|
+| FR-I1  | The system shall provide a top-level navigation item **"Member Management"** linking to the **Member Institutions** list. | Must | Clicking navigates to `/institutions`. |
+| FR-I2  | Under Member Management, sub-navigation shall provide **"Member Institutions"** and **"Consortiums"** links. | Must | Sub-items link to `/institutions` and `/consortiums`; active state is correct. |
+| FR-I3  | The institution list shall display: Institution Name, Type, Status, APIs Enabled, SLA Health, Last Updated. **Institution Name** in list and other **single-label** surfaces reflects the **legal entity name** (`name`); optional **trading name** remains a separate field where collected. | Must | All columns present; legal-first labelling consistent with **API-UI-Parity-Matrix** *Institution display labels*. |
+| FR-I4  | The list shall filter by role (Data Submitters or Subscribers) based on route. | Must | Each list shows only institutions with the correct participation flag. |
+| FR-I5  | The system shall support search and status filter on the institution list. | Should | Filters update results in real time. |
+| FR-I6  | A "Register Institution" action shall navigate to the registration wizard. | Must | Navigates to `/institutions/register`. |
+| FR-I7  | Clicking a list row shall navigate to the institution detail page. | Must | Opens `/institutions/:id`. |
+
+### 6.10 Consortium Management (FR)
+
+| ID      | Requirement | Priority | Testable Acceptance Criteria |
+|---------|-------------|----------|------------------------------|
+| FR-CO1  | The system shall provide a "Consortiums" navigation item in the sidebar. | Must | Clicking navigates to `/consortiums`. |
+| FR-CO2  | The consortium list shall display: Name, Type (Open/Closed), Status (Active/Inactive), Members Count, Data Volume, Last Updated. | Must | All columns/fields present on list cards and/or table. |
+| FR-CO4  | A "Create consortium" action shall navigate to the consortium creation wizard. | Must | Navigates to `/consortiums/create`. |
+| FR-CO10 | The consortium wizard shall have 4 steps: Basic Info, Members, Policy, Review. | Must | Four steps visible; user can navigate Next/Previous. |
+
+### 6.11 Data Products (FR)
+
+| ID      | Requirement | Priority | Testable Acceptance Criteria |
+|---------|-------------|----------|------------------------------|
+| FR-DP1  | The system shall provide a "Data Products" section in the sidebar with sub-items: Product Configurator and Enquiry Simulation. | Must | Both sub-items link to their respective routes. |
+| FR-DP4  | A "Create product" button shall navigate to the product creation form. | Must | Navigates to `/data-products/products/create`. |
+| FR-DP10 | The product create/edit form shall group **data packets by category**; for each category, display **distinct source types** (from Schema Mapper) as a single line, not repeated per packet row. | Should | Source-type lines are deduplicated and sorted; the visible row label is the **source-type name** only. |
+
+### 6.13 Global Navigation and UX (FR)
+
+| ID     | Requirement | Priority | Testable Acceptance Criteria |
+|--------|-------------|----------|------------------------------|
+| FR-N1  | The sidebar shall include: Dashboard, **Member Management** (sub-items: Member Institutions, Consortiums), Data Products (with sub-items), Agents, Data Governance, Monitoring, Reporting, Audit Logs, Approval Queue, User Management. | Must | All items and sub-items link correctly. |
+| FR-N2  | The system shall use a consistent compact typography scale: 10px body/captions, 12px section headings, 19px page titles, explicit pixel values. | Must | No custom token that browser may override. |
+| FR-N3  | The system shall use DashboardLayout for all authenticated pages. | Must | Header, sidebar, and main content area consistent across all pages. |
+| FR-N4  | The system shall be responsive; no horizontal scroll on mobile for main content. | Should | No overflow on standard viewports. |
+| FR-N5  | All buttons globally shall use a compact 32px height (`h-8`), 10px font size, and consistent padding. | Must | Button height and font size consistent across all sections. |
+
 
 ## 4. User Personas
 
@@ -397,33 +609,52 @@ Step 5: Session active
 ### 5.2 Institution Registration Wizard
 
 ```
-Step 1: User clicks "Register New Institution" on Institution List
+Step 1: User opens **Register member** from **Member Management** sidebar (or Command Palette → Register Institution)
   → Navigate to /institutions/register
-  → System renders 3-step wizard (Corporate Details → Compliance Documents → Review)
+  → System loads **`GET /api/v1/institutions/form-metadata?geography=<id>`** (SPA: **`VITE_INSTITUTION_REGISTER_GEOGRAPHY`**) and renders Step 1 from **`registerForm.sections`** (labels, control types, required rules, enums, single vs multi-select). Renders either a 2-step wizard (Details → Review) or a 3-step wizard (Details → Compliance Documents → Review) depending on **`requiredComplianceDocuments`** (**`null`** ⇒ skip the compliance step)
 
-Step 2: Corporate Details (Step 1/3)
-  → User fills: Legal Name, Trading Name, Registration Number, Institution Type (dropdown),
-    Jurisdiction, License Number, Contact Email, Contact Phone
-  → User selects participation type: Data Submitter ✓ and/or Subscriber ✓
-  → Decision: At least one participation type selected? → Proceed | Neither → Error
-  → Frontend validates via Zod schema (all fields required, email format, max lengths)
+Step 2: Corporate Details (first step)
+  → Field set is **geography configuration** (dev: **`src/data/institution-register-form.json`**); e.g. default geography may include Legal Name, Trading Name, **Registration Number** (read-only; assigned on submit — **v2.16**), Institution Type (select from resolved options), Jurisdiction (text or closed enum per geography), License Number, contact fields, participation checkboxes, optional consortium multi-select when Subscriber
+  → Decision: At least one participation type selected when configured? → Proceed | Neither → Error
+  → Frontend builds Zod from metadata; server **`POST /api/v1/institutions?geography=<id>`** validates the same rules
   → User clicks "Next"
 
-Step 3: Compliance Documents (Step 2/3)
-  → System displays document upload area
-  → User uploads: Certificate of Incorporation, Regulatory License, Data Protection Certificate
+Step 3: Compliance Documents (middle step — only when metadata defines a non-empty checklist)
+  → System displays one upload control per configured row (**`documentName`** / **`label`**, optional **`requiredWhen`** for submitter vs subscriber)
+  → User uploads each required file (types/size per row or defaults)
   → User clicks "Next"
 
-Step 4: Review & Submit (Step 3/3)
+Step 4: Review & Submit (final step)
   → System displays summary of all entered data
   → User reviews and clicks "Submit Registration"
-  → System creates institution with status "draft"
-  → Toast: "Institution registered successfully"
-  → Navigate to institution list
+  → When VITE_USE_MOCK_FALLBACK=false and Fastify API is up:
+      POST /api/v1/institutions
+        → Persists member row in in-memory registry (lifecycle from payload, typically "pending")
+        → Enqueues approval queue item (type: institution, metadata.institutionId)
+      → Toast: success per SPA copy
+      → Navigate to /institutions; React Query refetches institutions + approvals (large page size)
+  → Legacy / narrative "status draft only" is superseded for the dev API by the above (see §3.1.2).
 
 Decision Points:
   - If Subscriber selected → Billing configuration becomes mandatory (future)
-  - If Data Submitter selected → API access configuration auto-provisioned (future)
+  - If Data Submitter selected → Default API-access policy applies server-side until PATCH …/api-access
+```
+
+**Diagram — post-submit artefacts (Fastify)**
+
+```mermaid
+flowchart LR
+  subgraph client [SPA]
+    SUB[Submit Registration]
+  end
+  subgraph api [Fastify]
+    P[POST institutions]
+    MEM[(institutions)]
+    APQ[(approvals)]
+  end
+  SUB --> P
+  P --> MEM
+  P --> APQ
 ```
 
 ### 5.3 Data Governance Schema Mapping Workflow
@@ -433,27 +664,20 @@ Step 1: User navigates to Data Governance → Schema Mapper Agent
   → System displays Schema Registry table (existing mappings)
   
 Step 2: User clicks "New Mapping" or edits existing
-  → System launches 7-step wizard:
-    1. Source Ingestion (upload/paste source schema, auto-detect category)
-    2. Multi-Schema Matching (find similar schemas across system)
-    3. LLM Field Intelligence (AI analyzes each field: meaning, PII, canonical match)
-    4. Validation Rule Preview (auto-generated validation rules)
-    5. Semantic Insights (field clustering, deduplication)
-    6. Storage & Visibility (lineage, storage config)
-    7. Governance Actions (submit to approval queue, save draft, reject schema)
+  → System launches 4-step wizard:
+    1. Source Ingestion (Upload CSV/JSON/XML, Institution picker, Source Type, Category)
+    2. LLM Field Intelligence (AI Mapping review, PII tagging Yes/No, Enum reconciliation)
+    3. Validation Rules (Attach rules to mapped fields)
+    4. Governance Actions (Submit to approval queue or save draft)
 
 Step 3: AI processes source fields
+  → Async mapping job (202 Accepted) triggered after Ingestion
   → For each field: confidence score, match type (exact/semantic/contextual/derived)
-  → Decision: Confidence ≥90% → auto_accepted | 70-89% → needs_review | <70% → unmapped
+  → Results reviewable in Step 2: edit suggestions, toggle PII, map enums
 
-Step 4: User reviews mappings
-  → Accept, modify, or reject AI suggestions
-  → Handle unmapped fields: map to existing, create new master field, or ignore
-
-Step 5: Governance submission
-  → Mapping submitted for dual-approval
-  → First approver reviews → Second approver confirms
-  → Status: draft → under_review → approved → active
+Step 4: Governance submission
+  → Mapping submitted for approval (creates `schema_mapping` queue item)
+  → Status: draft → pending_approval → approved → active
 ```
 
 ### 5.4 Agent Chat Workflow
@@ -531,8 +755,7 @@ Step 2: Basic Info (Step 1/4)
   → User clicks "Next"
 
 Step 3: Members (Step 2/4)
-  → User adds member institutions with their roles (Sponsor/Participant/Observer)
-  → At least one Sponsor is required
+  → User adds at least one member institution
   → User clicks "Next"
 
 Step 4: Policy (Step 3/4)
@@ -546,8 +769,10 @@ Step 4: Policy (Step 3/4)
 Step 5: Review (Step 4/4)
   → System displays full summary of all entered data
   → User clicks "Create consortium"
-  → Toast: "Consortium created successfully"
-  → Navigate to /consortiums
+  → **Fastify dev API:** `POST /api/v1/consortiums` with `status: approval_pending`
+  → Consortium saved; **approval queue** gains a **Consortiums**-tab item (`type=consortium`)
+  → Toast: "Consortium created"
+  → Navigate to `/consortiums/:id` (detail)
 
 Edit Flow:
   → "Edit" button on consortium detail navigates to /consortiums/:id/edit
@@ -684,7 +909,7 @@ Step 5: Reviewed items remain in queue with updated status
 | Password Input | Password Input | Right panel | Password with Lock icon prefix, Eye toggle | User input | Show/hide toggle; validates non-empty on submit | None |
 | Remember Me | Checkbox | Right panel, below inputs | "Remember me" label | User preference | Toggles state (no backend persistence in V1) | None |
 | Forgot Password | Link | Right panel, beside Remember Me | "Forgot password?" text | Static | No-op in V1 (href="#") | None |
-| Sign In Button | Primary Button | Right panel | Full-width "Sign In" | N/A | Validates form → calls AuthContext.login → navigates to "/" | `POST /api/auth/login` (future) |
+| Sign In Button | Primary Button | Right panel | Full-width "Sign In" | N/A | Validates form → calls AuthContext.login → navigates to "/" | `POST /api/v1/auth/login` |
 | SSO Divider | Divider | Right panel | "or" separator line | Static | N/A | None |
 | SSO Button | Outline Button | Right panel | "Sign in with SSO" with Building2 icon | N/A | No-op in V1 | SSO Provider (future) |
 | Trust Indicators | Icon + Text row | Right panel, bottom | "256-bit Encrypted", "Enterprise Security", "Role-Based Access" | Static | Decorative | None |
@@ -727,37 +952,28 @@ Step 5: Reviewed items remain in queue with updated status
 | Element | Type | Location | Description | Data Source | Behaviour |
 |---------|------|----------|-------------|-------------|-----------|
 | Page Title | H1 | Top left | **"Member Institutions"** (unified list). If `roleFilter` is ever set: "Data Submission Institutions" or "Subscriber Institutions". | Route / prop | Default route **`/institutions`** shows unified title. |
-| Register Button | Primary Button | Top right | "Register New Institution" | N/A | Navigates to `/institutions/register` |
+| Register member entry | Sidebar sub-nav | **Member Management** ▶ **Register member** | Same label as wizard; path **`/institutions/register`** | N/A | **v2.15:** Not a button on this list page; use sidebar or Command Palette |
 | Search Input | Text Input | Above table | Filter by institution name | User input | Real-time filtering of table rows |
 | Status Filter | Select Dropdown | Above table | Filter by status (All, Active, Pending, Suspended, Draft) | Static options | Filters table rows |
-| Institution Table | Data Table | Main content | Columns: Name, Type, Status, APIs Enabled, SLA Health, Last Updated, Actions | `institutions` array | Sortable columns; row click navigates to `/institutions/:id` |
+| Institution Table | Data Table | Main content | Columns: Name, Type, Status, **APIs Enabled** (`apisEnabledCount` / role **slots** — e.g. `2/2`), SLA Health, Last Updated, Actions | `GET /api/v1/institutions` | Sortable columns; row click navigates to `/institutions/:id`; **v2.4:** count **derived** from API & Access toggles, not static seed |
 | Actions Menu | Dropdown | Table row | View, Edit, Suspend options | N/A | View → navigate to detail; Edit → navigate to detail; Suspend → toast confirmation |
 
 ### 6.4 Institution Registration Wizard (`/institutions/register`)
 
 **Purpose:** 3-step guided registration for new institutions.
 
-#### Step 1: Corporate Details
+#### Step 1: Corporate Details (backend-driven per geography)
 
-| Element | Type | Description | Validation |
-|---------|------|-------------|------------|
-| Legal Name | Text Input | Full legal entity name | Required, max 200 chars |
-| Trading Name | Text Input | DBA / short name | Required, max 200 chars |
-| Registration Number | Text Input | Government registration ID | Required, max 50 chars |
-| Institution Type | Select | Commercial Bank, Credit Union, NBFI, Fintech, Savings Bank, MFI | Required |
-| Jurisdiction | Text Input | Operating country | Required, max 100 chars |
-| License Number | Text Input | Regulatory license ID | Required, max 50 chars |
-| Contact Email | Text Input | Primary contact email | Required, valid email format |
-| Contact Phone | Text Input | Primary phone number | Required, max 30 chars |
-| Data Submitter | Checkbox | Participates as data submitter | At least one checkbox required |
-| Subscriber | Checkbox | Participates as subscriber | At least one checkbox required |
+Step 1 is **not** a fixed field matrix in production: the SPA renders **`registerForm.sections`** from **`GET /api/v1/institutions/form-metadata?geography=<id>`**, including **`inputType`** (text, email, tel, select, multiselect, checkbox), **`selectionMode`** where relevant, **`required`**, **`maxLength`**, **`options`** or resolved **`optionSource`** (`institutionTypes`, `activeConsortiums`), **`visibleWhen`** (e.g. consortium picker only when Subscriber), and section-level rules such as **`refineAtLeastOne`** for participation. **`geographyId`** / **`geographyDescription`** in the response identify the active configuration. **`POST /api/v1/institutions?geography=<id>`** applies the same validation server-side.
 
-#### Step 2: Compliance Documents
+**Default dev geography (illustrative):** matches the former static table — entity, regulatory (jurisdiction as free text), contact, participation checkboxes, optional consortium multi-select after Subscriber — seeded from **`src/data/institution-register-form.json`** `geographies.default` plus **`institutions.json`** for types and compliance docs. **Sample `kenya` geography** in the same file uses a **closed-list** jurisdiction **select** instead of free text.
+
+#### Step 2: Compliance Documents (optional — when `form-metadata.requiredComplianceDocuments` is non-null)
 
 | Element | Type | Description |
 |---------|------|-------------|
-| Document Upload Area | File Upload | Drag-and-drop or click to upload |
-| Document List | Table | Name, Status (Verified/Pending) |
+| Document Upload Area | File Upload | One control per metadata row; **`documentName`** must match **`POST …/documents`** |
+| Document List | Table | Name, Status (Verified/Pending) — on member detail after registration |
 
 #### Step 3: Review & Submit
 
@@ -772,9 +988,9 @@ Step 5: Reviewed items remain in queue with updated status
 
 | Tab | Route Segment | Key Elements |
 |-----|---------------|--------------|
-| Overview | Default | Institution info card, compliance docs, KPI summary |
+| Overview | Default | KPI strip (**APIs enabled** = `apisEnabledCount/slots` per **§3.1.2**); corporate details; compliance docs; **role-based charts** fed by **`GET /api/v1/institutions/:id/overview-charts`** (**30d**, member-scoped; **empty states** when no data); submission/enquiry sections gated by `isDataSubmitter` / `isSubscriber` |
 | Alternate Data | Tab 2 | Alternate data source configuration (bank statements, GST, telecom, utility) with toggles |
-| API & Access | Tab 3 | API key management, rate limits, environment selector (Sandbox/UAT/Production) |
+| API & Access | Tab 3 | **v2.4:** **Data Submission API** card (toggle, rate limit, IP whitelist) when submitter; **Enquiry API** card when subscriber; API keys table; environment selector (Sandbox/UAT/Production). *Legacy three-card submitter model (Bulk, SFTP) not in current build — BRD **FR-API1A**.* |
 | Consent Config | Tab 4 | Consent rules per product type with toggle switches and duration config |
 | Billing | Tab 5 | Billing model selector (Prepaid/Postpaid/Hybrid), credit balance display, top-up history table, consumption summary, search and export |
 | Monitoring | Tab 6 | Institution-specific API metrics and SLA health |
@@ -805,7 +1021,7 @@ Step 5: Reviewed items remain in queue with updated status
 
 **Views:**
 1. **Schema Registry** — Table of existing schema mappings with filters, create/edit/audit actions
-2. **Wizard** — 7-step AI mapping flow (see Section 5.3)
+2. **Wizard** — 4-step AI mapping flow (see Section 5.3)
 3. **Version Diff Viewer** — Side-by-side diff of mapping versions
 
 | Element | Type | Description |
@@ -813,8 +1029,8 @@ Step 5: Reviewed items remain in queue with updated status
 | Schema Registry Table | Data Table | Columns: Source Name, Source Type, Master Schema Version, Coverage %, Unmapped Fields, Rule Count, Status, Version, Created By, Actions |
 | Registry Filters | Filter Bar | Source type, status, search |
 | Schema Detail Dialog | Modal | Detailed view of a single registry entry |
-| Wizard Container | Multi-step form | 7-step progressive wizard with step indicator |
-| Step Indicator | Progress Bar | Visual step tracker with labels |
+| Wizard Container | Multi-step form | 4-step progressive wizard with step indicator |
+| Step Indicator | Progress Bar | Visual step tracker (Ingestion -> Intel -> Rules -> Governance) |
 | Version Diff Viewer | Split Panel | Old vs New with change highlighting |
 
 ### 6.8 Monitoring - Data Submission API (`/monitoring/data-submission-api`)
@@ -904,6 +1120,27 @@ Step 5: Reviewed items remain in queue with updated status
 
 **Purpose:** Centralized governance approval for institution registrations and schema mappings.
 
+**v2.4 — Institution rejection semantics (must be reflected in operator training & release notes):**
+
+| Action | Effect on approval row | Effect on member registry row (Fastify) |
+|--------|------------------------|----------------------------------------|
+| **Approve** (`POST …/approvals/:id/approve`) | Status → approved | `institutionLifecycleStatus` → **active** |
+| **Reject** (`POST …/approvals/:id/reject`) | Status → rejected; reason stored | **No automatic change**; member remains listed until **DELETE …/institutions/:id** or process restart |
+| **Request changes** | Status → changes_requested | *No automatic registry delete* |
+
+```mermaid
+flowchart TB
+  subgraph actions [Approver actions]
+    A[Approve institution]
+    R[Reject institution]
+  end
+  subgraph outcomes [Outcomes]
+    A --> A1[Member active]
+    R --> R1[Queue item rejected]
+    R --> R2[Member still in registry]
+  end
+```
+
 | Element | Type | Description | Data Source |
 |---------|------|-------------|-------------|
 | Page Title | H1 | "Approval Queue" | Static |
@@ -962,21 +1199,19 @@ Step 5: Reviewed items remain in queue with updated status
 | Page Title | H1 | Top left | "Consortiums" | Static | — |
 | Description | Paragraph | Below title | "Manage multi-institution data sharing consortiums." | Static | — |
 | Search Input | Text Input | Above filters | Filter by consortium name | User input | Real-time client-side filter |
-| Type Filter | Select | Beside search | All / Closed / Open | Static options | Filters by consortium type |
-| Status Filter | Select | Beside search | All / Active / Inactive | Static options | Filters by status |
+| Status Filter | Select | Beside search | All / Active / Draft (non-active) | Static options | Filters by status |
 | Create Button | Primary Button | Top right | "Create consortium" | N/A | Navigate to `/consortiums/create` |
-| Desktop Table | Data Table | Main content (md+) | Columns: Name, Type, Status, Members, Data Volume, Last Updated, Actions | `consortiums` mock data | Row click → `/consortiums/:id` |
-| Mobile Cards | Card List | Main content (sm) | Shows Name, Type badge, Status badge, Members, Data Volume per card | `consortiums` mock data | Card click → `/consortiums/:id` |
-| Type Badge | Badge | Table/Card | "Closed" (primary tint) / "Open" (secondary tint) | `consortium.type` | Read-only |
-| Status Badge | Badge | Table/Card | "Active" (success/15) / "Inactive" (muted) | `consortium.status` | Read-only |
+| Desktop Table | Data Table | Main content (md+) | Columns: Name, Members, Status, Actions | API / seed | Row actions → detail / edit |
+| Mobile Cards | Card List | Main content (sm) | Name, Status badge, Members, Data volume | API / seed | Card tap → detail |
+| Status Badge | Badge | Table/Card | Active / Draft | `consortium.status` | Read-only |
 
 **Mock Data (sample):**
 
-| ID | Name | Type | Status | Members | Data Volume |
-|----|------|------|--------|---------|-------------|
-| CST_001 | SME Lending Consortium | Closed | Active | 12 | 1.2M records |
-| CST_002 | Agricultural Finance Network | Open | Inactive | 5 | 340K records |
-| CST_003 | Retail Credit Collective | Closed | Active | 8 | 890K records |
+| ID | Name | Status | Members | Data Volume |
+|----|------|--------|---------|-------------|
+| CONS_001 | SME Lending Consortium | Active | 12 | 4.2M records / mo |
+| CONS_002 | Retail Credit Alliance | Active | 28 | 12.8M records / mo |
+| CONS_003 | Trade Finance Network | Draft | 8 | 890K records / mo |
 
 ### 6.16 Consortium Detail (`/consortiums/:id`) — NEW v2.0
 
@@ -987,8 +1222,7 @@ Step 5: Reviewed items remain in queue with updated status
 | Breadcrumb | Dashboard → Consortiums → {Consortium Name} |
 | Back Button | Ghost icon button; navigates to `/consortiums` |
 | Page Title | `consortium.name` (text-h2 font-semibold) |
-| Type Badge | "Closed" or "Open" with type-appropriate styling |
-| Status Dot + Span | Active (success) or Inactive (muted) |
+| Status | Active / Draft from lifecycle |
 | Edit Button | Outline size-sm; navigates to `/consortiums/:id/edit` |
 | Tab Bar | Overview · Members · Data Contribution |
 
@@ -996,8 +1230,8 @@ Step 5: Reviewed items remain in queue with updated status
 
 | Card | Fields | Sample Data |
 |------|--------|-------------|
-| Details | Purpose, Governance, Status | Purpose: Risk sharing · Governance: Federated · Status: Active |
-| Scale | Member count (h3 large number) + data volume | 12 members · 1.2M records |
+| Details | Status | Status: Active |
+| Scale | Member count (h3 large number) + data volume | 12 members · 4.2M records / mo |
 | Description | Full description text | "A closed consortium of 12 SME-focused lenders sharing credit exposure data." |
 | Data Policy | Share Loan Data, Share Repayment History, Allow Aggregation, Data Visibility | All Yes · Full visibility |
 
@@ -1022,11 +1256,13 @@ Step 5: Reviewed items remain in queue with updated status
 
 **Purpose:** 4-step guided creation/editing of consortiums.
 
+**API (Fastify dev, `VITE_USE_MOCK_FALLBACK=false`):** **Create** calls `POST /api/v1/consortiums` with members, `dataPolicy`, and `status: approval_pending`. **Edit** calls `PATCH /api/v1/consortiums/:id`. New consortia appear under **Approval Queue → Consortiums** until an approver sets them to **active**.
+
 | Step | Name | Key Fields | Validation |
 |------|------|-----------|------------|
-| 1 | Basic Info | Name, Type (select: Closed/Open), Purpose, Governance Model, Description | Name, Type, Purpose, Governance required |
-| 2 | Members | Member institution + role pairs | At least one Sponsor required |
-| 3 | Policy | shareLoanData, shareRepaymentHistory, allowAggregation, dataVisibility | No required fields; all default to true/full |
+| 1 | Basic Info | Name, optional Description | Name required |
+| 2 | Members | Add **member** (subscriber institutions from **`GET /api/v1/institutions?role=subscriber&page=0&size=200`**, API-only — no mock); includes pure subscribers and dual-role (subscriber + data submission) | At least one member required |
+| 3 | Policy | **Data visibility** (`dataVisibility`: full / masked_pii / derived) | Defaults to full |
 | 4 | Review | Summary of all entries | Confirm + Submit |
 
 **Desktop Layout (Basic Info step):** 2-column responsive grid (`grid-cols-1 md:grid-cols-2`). Description field spans full width (`md:col-span-2`).
@@ -1065,7 +1301,7 @@ Step 5: Reviewed items remain in queue with updated status
 | Pricing card | 2-column grid: Model (e.g. "Subscription") + Price (e.g. "4,500 / mo (mock)") |
 | Usage Metrics | 3-column KPI cards: Hits (30d), Active subscribers, Error rate — all with `text-h3` numbers |
 
-### 6.20 Product Form (`/data-products/products/create`, `/data-products/products/:id/edit`) — NEW v2.0; **UX v2.3**
+### 6.20 Product Form (`/data-products/products/create`, `/data-products/products/:id/edit`) — NEW v2.0; **UX v2.3**; **packet row + modal v2.8**
 
 **Purpose:** Create or edit a data product with catalogue alignment, field-level config, and enquiry behaviour.
 
@@ -1074,9 +1310,9 @@ Step 5: Reviewed items remain in queue with updated status
 | Section | Contents |
 |---------|----------|
 | **Basic info** | Product name (required), description (optional). |
-| **Data packets** | Packets grouped by **category** (Bureau, Banking, Consortium, etc. per mock). Each group header shows **category name**, then a single line: **Source types:** `Label1 · Label2 · …` where labels are **distinct** Schema Mapper source types in that group (sorted). |
-| **Packet row** | Checkbox; **packet label** (primary); **description** (muted); when selected, **Configure** opens **PacketConfigModal** (Raw fields vs Derived fields). Badge shows selected field count when > 0. |
-| **Packet order** | Selected packets appear in a **reorderable** list (drag handle) to define delivery order. |
+| **Data packets** | Packets grouped by **category** from **`GET /api/v1/products/packet-catalog`** (same **`sourceType`** / **`category`** as Schema Mapper). **Custom** source types and **Synthetic / Test** category are **omitted** from the picker. Within each category, **one row per distinct Schema Mapper source type** (duplicate source types collapsed). Primary line: **human-readable source-type label** only (`text-[11px]` muted). **Catalogue descriptions** are not shown; **no** secondary lines listing packet titles under the label. |
+| **Packet row** | Checkbox selects **all catalogue packets** in that source-type group. **One** **Configure** opens **`PacketConfigModal`** with **`packetIds`** and **`catalogOptions`** for that group in catalogue order (**Raw** = **`source-type-fields`** API ∪ packet-only paths; **Sources** = **`schemas?sourceType=`**; **Derived** = catalogue **`derivedFields`** **per packet** from **`packet-catalog`** or seed). If several packets share the type, the modal includes a **Packet** switcher (catalogue labels). **Save configuration** writes **`packetConfigs`** for **each** packet in the group. Badge shows **combined** selected field count when > 0. Products that still reference **legacy/custom** packets show an **orphan** subsection to remove them. |
+| **Packet order** | **Removed** from the form; enquiry **`packetIds`** order follows **catalogue order** (stable sort). |
 | **Enquiry settings** | **Data coverage scope** (select: SELF, NETWORK, CONSORTIUM, VERTICAL) with tooltips; **Latest vs Trended** control; optional fields per `EnquiryConfig` mock. |
 | **Preview** | Read-only JSON preview (`buildProductPreviewJson`) updates with packets, configs, and enquiry config. |
 | **Actions** | Cancel → list; Save → validates name + ≥1 packet; persists via mock context (`packetIds`, `packetConfigs`, `enquiryConfig`). |
@@ -1171,7 +1407,7 @@ Step 5: Reviewed items remain in queue with updated status
 | Control | Detail |
 |---------|--------|
 | **Date from / Date to** | ISO date strings; default **first day of current month** through **today** (`date-fns` + `yyyy-MM-dd`). Alerts must have `timestamp` within this inclusive range to appear. |
-| **Institution** | `InstitutionFilterSelect` limited to **data submitters**; drives slight KPI/trend adjustments via deterministic hash (mock). **All** clears institution-specific nudge. |
+| **Source name** | `InstitutionFilterSelect` (**submitters**): **`GET /api/v1/institutions?page=0&size=300&role=dataSubmitter`** (`allowMockFallback: false`). Top option **All submitters**. KPI/trend may still use mock-backed nudges when a specific submitter is selected. |
 | **Compare to** | Optional second submitter; when set, trend chart shows **primary** vs **comparison** series (`compareValue`). |
 | **Source type** | Options = distinct `sourceType` values from `schemaRegistryEntries` plus **All**. Drift list keeps alerts whose `source` matches a name under the chosen type (substring match against registry names). |
 
@@ -1200,7 +1436,7 @@ Step 5: Reviewed items remain in queue with updated status
 |---------|------|-------------|
 | Logo | Image + Text | "H" logo mark + "Hybrid Credit Bureau" text |
 | Dashboard | Nav Link | `/` |
-| Member Management | Nav Group | Sub-items: **Member Institutions** (`/institutions`), **Consortiums** (`/consortiums`) |
+| Member Management | Nav Group | Sub-items: **Member Institutions** (`/institutions`), **Register member** (`/institutions/register`), **Consortiums** (`/consortiums`) |
 | Data Products | Nav Group | Sub-items: Product Configurator (`/data-products/products`), Enquiry simulation (`/data-products/enquiry-simulation`) |
 | Agents | Nav Link | `/agents` |
 | Data Governance | Nav Group | Sub-items: Dashboard, Schema Mapper Agent, Validation Rules, Identity Resolution Agent, Data Quality Monitoring, Governance Audit Logs |
@@ -1225,6 +1461,170 @@ Step 5: Reviewed items remain in queue with updated status
 | User Profile | Dropdown Menu | Avatar + name + role; Settings link; Log Out (destructive) |
 
 ---
+
+
+
+### 6.23 Batch Execution Console (`/monitoring/batch-pipeline`)
+
+**Purpose:** Inspect the full phase/stage execution tree for a batch ingestion job, including SFTP metadata, error samples, and per-phase record counts.
+
+**Source:** EPIC-14 — Batch Pipeline
+
+#### Job List View
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "Data Submission Batch" | Static |
+| Job Table | Data Table | Columns: Job ID, Institution, File Name, Intake Channel (SFTP/API), Status, Records, Started At, Actions | `GET /api/v1/batch-jobs` |
+| Status Filter | Select | All / Pending / Running / Completed / Failed / Cancelled | Client-side |
+| Retry Button | Icon Button | Visible for `failed` jobs with `institution_id` — calls `POST /api/v1/batch-jobs/:id/retry` (requires institution to be **active**) | Per-row |
+
+#### Batch Detail View (`/monitoring/batch-pipeline/:jobId`)
+
+| Element | Type | Description |
+|---------|------|-------------|
+| Job Header | Summary strip | Job ID, status badge, intake channel, file name, schema registry ID, mapping ID |
+| Phase Tree | Accordion | Collapsible phases (FILE_INTAKE, VALIDATION, TRANSFORMATION, PERSISTENCE); each shows start/end time, processedCount, failedCount |
+| Stage Rows | Nested Table | Stages within each phase: stage name, status, records processed, records failed |
+| Error Samples Table | Data Table | Columns: Row Number, Error Code, Field Name, Field Value, Error Message — up to 100 samples |
+| SFTP Metadata Card | Info Card | SFTP path, file size (bytes), SHA-256 checksum, detected at timestamp — visible only for SFTP-intake jobs |
+| Logs Panel | Log Viewer | Structured log entries with timestamp and level — visible when logs array is non-empty |
+
+**Status Badge Semantics:**
+
+| Status | Badge Color | Description |
+|--------|-------------|-------------|
+| `pending` | Yellow warning | Job queued, not yet started |
+| `running` | Blue info | Currently processing |
+| `completed` | Green success | All phases finished successfully |
+| `failed` | Red danger | One or more stages failed |
+| `cancelled` | Gray muted | Manually cancelled |
+
+> **Note (AGENTS.md):** When `batch_phase_logs` rows exist, `GET /api/v1/batch-jobs/:id/detail` returns the full phase/stage tree (camelCase) via `resolveBatchConsoleData`. Seeded demo job `999901` has a full multi-phase tree. Batch cancel does not apply the institution `active` gate; retry does.
+
+---
+
+### 6.24 Validation Rules (`/data-governance/validation-rules`)
+
+**Purpose:** Create, manage, test, and activate field-level validation rules applied during batch ingestion and API submission.
+
+**Source:** EPIC-07 — Data Validation
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "Validation Rules" | Static |
+| Rule Table | Data Table | Columns: Rule Name, Source Type, Rule Type, Severity, Status, Last Triggered, Actions | `GET /api/v1/validation-rules` |
+| Rule Type Filter | Select | All / FORMAT / RANGE / MANDATORY / CROSS_FIELD / DUPLICATE / ENUM | Client-side |
+| Severity Filter | Select | All / INFO / WARNING / CRITICAL | Client-side |
+| Add Rule Button | Primary Button | Opens creation modal/drawer | N/A |
+| Row Actions | Icon Buttons | Edit, Activate/Deactivate, Test Rule, Delete | Per rule |
+
+**Rule Type Badges:** FORMAT=Blue, RANGE=Purple, MANDATORY=Red, CROSS_FIELD=Orange, DUPLICATE=Yellow, ENUM=Green
+
+**State Handling:** Loading=SkeletonTable; Empty=EmptyState with "Add your first rule" CTA; Test running=spinner; Test pass=green checkmark; Test fail=red indicator.
+
+> **Note (AGENTS.md):** Rule field paths for a selected Schema Mapper source type come from `GET /api/v1/schema-mapper/schemas/source-type-fields?sourceType=<type>`. Member scope for rules uses **data submitter** institutions from the institutions API.
+
+---
+
+### 6.25 Identity Resolution and Match Review (`/data-governance/match-review`)
+
+**Purpose:** Human-in-the-loop review of consumer identity matches produced by the AI resolution engine.
+
+**Source:** EPIC-18 — Identity Resolution Agent
+
+**Routes:** `/data-governance/match-review` (queue) | `/data-governance/identity-resolution` (history)
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Match Cards | Card List | Consumer pair side-by-side; matching fields highlighted | `GET /api/v1/identity-resolution/matches?status=pending_review` |
+| Confidence Meter | Color bar | >=0.95 green, 0.70-0.94 orange, <0.70 gray | Per match |
+| Match Reasons | Pill badges | "National ID Match", "Phone Match", "Email Match", "Fuzzy Name" | Per match |
+| Action Buttons | Button Group | Merge (Same Person), Dismiss (Different People), Flag for Review | Per card |
+| Frozen Consumer Badge | Red Badge | "FROZEN" on records with active credit freeze | Per consumer |
+| History Table | Data Table | Match ID, Consumer A, Consumer B, Confidence, Decision, Resolved By, Resolved At | Resolution history |
+
+**Confidence Thresholds:** >=0.95 Auto-resolved; 0.70-0.94 Human review required; <0.70 No match (distinct consumers).
+
+---
+
+### 6.26 Roles and Permissions (`/user-management/roles`)
+
+**Purpose:** Define and manage platform roles and their associated permission sets.
+
+**Source:** EPIC-12 — User Management and RBAC
+
+> **Roadmap Note:** Advanced RBAC/ABAC features are scoped for V2 (see Appendix F). This section documents the current V1 role configuration UI.
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "Roles and Permissions" | Static |
+| Roles Table | Data Table | Columns: Role Name, Description, User Count, Permissions (count), Actions | `GET /api/v1/roles` |
+| Permission Matrix | Table | Module x (View, Create, Edit, Delete, Export) derived from nav-config sections | Static / config |
+
+**Role Permission Summary:**
+
+| Module | Super Admin | Bureau Admin | Analyst | API User | Viewer |
+|--------|-------------|--------------|---------|----------|--------|
+| Dashboard | Full | Full | Read | None | Read |
+| Member Institutions | Full | Full | Read | None | None |
+| Data Products | Full | Full | Read | None | None |
+| Monitoring | Full | Full | Read | Read | None |
+| Approval Queue | Full | None | None | None | None |
+| User Management | Full | None | None | None | None |
+| Activity Log | Full | Read | Read | None | **Hidden** |
+| Audit Logs | Full | Read | Read | Read | None |
+
+> **Note:** VIEWER role: Activity Log menu item is **hidden** entirely. Role assignment changes take effect immediately; active sessions re-validated within 60 seconds.
+
+---
+
+### 6.27 SLA Configuration (`/monitoring/sla-configuration`)
+
+**Purpose:** Define performance thresholds per API and institution type. Threshold breaches automatically trigger the Alert Engine.
+
+**Source:** EPIC-10 — Alert Engine and SLA
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "SLA Configuration" | Static |
+| SLA Config Table | Data Table | Columns: API Type, Institution Type, P95 Latency (ms), P99 Latency (ms), Max Error Rate (%), Breach Action, Last Updated | `GET /api/v1/sla-configs` |
+| Edit SLA Row | Inline Edit / Modal | Edit threshold values | `PATCH /api/v1/sla-configs/:id` |
+| Create SLA Config | Primary Button | Create a new threshold profile | `POST /api/v1/sla-configs` |
+| Breach Action Select | Select | alert_only / suspend_api_key / notify_institution | Per row |
+
+**State Handling:** No config for a type="Using default thresholds" info badge; Threshold breached=row highlighted red; Config saved=Toast "SLA configuration updated".
+
+---
+
+### 6.28 Audit Logs
+
+**Purpose:** Immutable audit trail surfaced in two contexts — governance actions and user activity.
+
+**Source:** EPIC-06 — Data Governance; EPIC-12 — User Management and RBAC
+
+#### 6.28.1 Governance Audit Logs (`/data-governance/governance-audit-logs`)
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "Governance Audit Logs" | Static |
+| Log Table | Data Table | Columns: Timestamp, Actor, Action Type, Entity Type, Entity ID, Details | `GET /api/v1/audit-logs?category=governance` |
+| Date Range Filter | Date Picker | Filter by event date range | Query param |
+| Action Type Filter | Select | All / SCHEMA_APPROVED / DATA_POLICY_UPDATED / RULE_CREATED / RULE_ACTIVATED | Query param |
+| Detail Drawer | Sheet | Full audit event details on row click | Selected row |
+
+#### 6.28.2 User Activity Log (`/user-management/activity`)
+
+| Element | Type | Description | Data Source |
+|---------|------|-------------|-------------|
+| Page Title | H1 | "Activity Log" | Static |
+| Activity Table | Data Table | Columns: Timestamp, User, Role, Action, Affected Resource, IP Address, Status | `GET /api/v1/audit-logs` |
+| User Filter | Select | Filter by actor user | Query param |
+| Date Range Filter | Date Picker | Filter by event date | Query param |
+| Export Button | Outline Button | Download filtered log as CSV | Client-side |
+
+> **Access Control:** VIEWER role receives **403** from `GET /api/v1/audit-logs` — Activity Log menu item is **hidden** from the sidebar for viewers. ANALYST, BUREAU_ADMIN, and SUPER_ADMIN can access the full log.
+
 
 ## 7. Graph / Chart Specifications
 
@@ -1643,7 +2043,7 @@ Example:
 
 | Filter | Type | Default | Options | Behaviour |
 |--------|------|---------|---------|-----------|
-| Institution | Select | "All" | Data submitters or subscribers (context-dependent) | Filters by institution linked to API key |
+| Source name | Select | All submitters / All subscribers | **`InstitutionFilterSelect`** — **`GET /api/v1/institutions?page=0&size=300`** with **`role=dataSubmitter`** (Data Submission API) or **`role=subscriber`** (Inquiry API), **`allowMockFallback: false`**. Top options: **All submitters** / **All subscribers**. **Live Request Monitoring** (`DataSubmissionApiSection`) uses the same control (not `institutions-mock`). |
 | Time Range | Select | "Last 24h" | Last 1h, Last 24h, Last 7d, Last 30d | Filters request log and refreshes charts |
 | Request ID | Text Input | Empty | Free text | Exact match on request/enquiry ID |
 
@@ -1651,9 +2051,9 @@ Example:
 
 | Filter | Type | Default | Options | Behaviour |
 |--------|------|---------|---------|-----------|
-| Action Type | Select | "All" | mapping_approved, mapping_rejected, rule_created, rule_updated, rule_activated, merge_performed, override_performed, config_changed | Single-select |
-| User | Text Input | Empty | Free text | Filters by user name |
-| Date Range | Date Picker | All time | Custom range | Filters by timestamp |
+| Date from / Date to | Date picker | Empty | Custom | **`from` / `to`** on **`GET /api/v1/audit-logs`** |
+| Action type | Select | All | Mapping/rule/merge/override/config action types | **`actionType`** query param |
+| Source name | Select | All institutions | **`InstitutionFilterSelect`** **`mode="all"`** + **`GET /api/v1/audit-logs?institutionId=`** when a specific member is chosen (digit-normalized match on optional row **`institutionId`**; seed governance rows may tag member **1** / **2**) |
 
 ### 10.7 Schema Registry
 
@@ -1696,7 +2096,7 @@ Example:
 | Filter | Type | Default | Options | Behaviour |
 |--------|------|---------|---------|-----------|
 | Date from / to | Date picker | Start of month → today | Custom | Filters **drift alert** rows by `timestamp` (inclusive day bounds) |
-| Institution | Select | All submitters | All + submitters | Adjusts KPI/trend mock; uses `InstitutionFilterSelect` |
+| Source name | Select | All submitters | **`InstitutionFilterSelect`** + **`role=dataSubmitter`** (**API-only**, **`allowMockFallback: false`**); KPI/trend may still use mock-backed adjustments when institution ≠ All |
 | Compare to | Select | None | None + submitters | Optional second series on trend chart |
 | Source type | Select | All | Distinct registry source types | Filters drift alerts by registry name ↔ type mapping |
 
@@ -1782,8 +2182,7 @@ Example:
 | Consortium not found (invalid URL id, e.g. `/consortiums/CST_999`) | Not-found state rendered in page body; back link available. | "Consortium not found. The consortium you are looking for does not exist or may have been removed." |
 | Create wizard Step 1 — Name field empty | Inline validation prevents advancing to Step 2. | "Consortium name is required." below the Name field |
 | Create wizard Step 1 — Type not selected | Inline validation. | "Please select a consortium type." below the Type dropdown |
-| Create wizard Step 2 — No members added | Warning on Next, but allow proceeding (members can be added later). | Toast warning: "No members added. You can add members later from the detail page." |
-| Create wizard Step 2 — No Sponsor assigned | Blocking validation; must have at least one Sponsor. | "At least one member must have the role of Sponsor." |
+| Create wizard Step 2 — No members added | Blocking validation on Next. | Toast: "Add at least one member." |
 | Edit consortium — save fails (network error) | Error toast; user stays in wizard with all entered data preserved. | "Failed to save consortium. Please check your connection and try again." |
 | Consortium list — no results match search | Empty state; clear-search CTA. | "No consortiums match your search. Try adjusting your filters or clear the search." |
 | Consortium list — no results match type/status filter | Empty state with filter-specific message. | "No Closed / Active consortiums found. Try changing the filter." |
@@ -1828,7 +2227,7 @@ Example:
 
 ---
 
-## 12. Performance Requirements
+## 12. Non-Functional & Performance Requirements
 
 ### 12.1 Page Load & Navigation
 
@@ -1904,6 +2303,34 @@ Example:
 
 ---
 
+
+
+### 12.2 Non-Functional Requirements (NFR)
+
+| ID     | Category        | Requirement | Acceptance Criteria |
+|--------|-----------------|-------------|---------------------|
+| NFR-1  | Performance     | Page load (initial) shall complete within 3 seconds. | Measured with Lighthouse / WebPageTest. |
+| NFR-2  | Performance     | SPA navigation shall feel instant (<300ms). | No full-page reload for in-app routes. |
+| NFR-3  | Availability    | Production target: 99.9% uptime (<=8.7 hours downtime/year). | Monthly uptime report; runbook and SLA document required. |
+| NFR-4  | Throughput      | Backend API layer shall sustain 5 million API calls/day (approx 58 calls/second average; 200+ calls/second peak). | Load test with k6 or Locust at 2x peak load. |
+| NFR-5  | Latency         | P95 API response time <=200ms for enquiry calls; <=500ms for batch status. | Measured at API gateway; P95 latency tracked per endpoint. |
+| NFR-6  | Security        | All authenticated routes require a valid JWT/session; expired tokens must be rejected. | Unauthenticated access denied; expired token returns 401. |
+| NFR-7  | Security        | Sensitive data (API keys, PII, government IDs) shall not appear in client logs, error messages, or non-encrypted channels. | Log review and masking audit; OWASP Top 10 review. |
+| NFR-8  | Security        | RBAC enforced at API gateway level; no frontend-only authorization. | Role-restricted API calls return 403 for unauthorized roles. |
+| NFR-9  | Security        | API keys rotated on schedule; compromised keys revocable in <30 seconds. | Key rotation test; revocation propagation time measured. |
+| NFR-10 | Security        | JWT tokens: RS256 algorithm, 15-minute access token, 7-day refresh token, audience/issuer validation. | Token inspection and expiry test. |
+| NFR-11 | PII Protection  | All PII fields (NIN, MSISDN, DOB) encrypted at rest (AES-256) and masked in API responses to non-privileged roles. | Encryption at rest confirmed; API response audit. |
+| NFR-12 | Consent         | Every subscriber enquiry must carry a valid, non-expired consent record; system shall reject enquiries without consent. | Consent-expired test case returns 403; audit trail entry created. |
+| NFR-13 | Usability       | WCAG 2.1 Level AA where applicable. | Accessibility audit or checklist. |
+| NFR-14 | Maintainability | All mock/fixture data stored in `src/data/*.json` only; no hardcoded values in components or TypeScript files. | Code audit; grep for inline arrays in `.tsx` files returns zero results. |
+| NFR-15 | Maintainability | Code follows project structure; key flows covered by unit and integration tests. | Test coverage >=70% for critical paths. |
+| NFR-16 | Browser support | Chrome, Edge, Firefox, Safari (current versions). | Cross-browser test matrix. |
+| NFR-17 | Typography      | All text rendered at intended size regardless of browser or OS default font settings. | Visual QA across browsers confirms 10px body text. |
+| NFR-18 | Scalability     | System horizontally scalable; no single-instance bottlenecks in API or data layer. | Auto-scaling test; load balanced across >=2 instances. |
+| NFR-19 | Observability   | All API calls emit structured logs (request ID, institution ID, latency, status code); distributed tracing enabled. | Log sampling confirms structured output; trace IDs propagated. |
+| NFR-20 | DR              | RTO <=30 minutes; RPO <=5 minutes for production data. | DR drill conducted quarterly. |
+
+
 ## 13. Technical Architecture
 
 ### 13.1 Frontend Stack
@@ -1965,7 +2392,7 @@ src/
 │   ├── data-governance/       # Governance workflow components
 │   ├── schema-mapper/         # Schema mapping wizard components
 │   │   ├── registry/          # Registry table, filters, detail dialog, SchemaRegistryView
-│   │   ├── wizard/            # 7-step wizard + GovernanceActionsStep
+│   │   ├── wizard/            # 4-step wizard + GovernanceActionsStep
 │   │   └── shared/            # Reusable schema components
 │   ├── user-management/       # InviteUserModal, UserDetailDrawer
 │   ├── CommandPalette.tsx     # ⌘K command palette
@@ -2102,693 +2529,26 @@ The application uses HSL-based CSS custom properties defined in `index.css` with
 
 ---
 
+
+
+### 13.4 Integrations
+
+| Integration Point | Direction | Purpose | In-Scope (BRD) |
+|-------------------|-----------|---------|----------------|
+| Identity / SSO | Inbound | Authentication, user identity | Future phase |
+| Institution / Config API | Outbound | CRUD institutions, config | Assumed for future state |
+| Billing / Usage API | Outbound | Credit balance, usage, pricing | Assumed for subscriber billing |
+| Document Vault | Outbound | Store/retrieve compliance documents | Assumed for onboarding |
+| Audit / Logging | Outbound | Write audit events | Assumed for audit trail |
+| Data Governance backend | Outbound | Mapping, rules, match, quality | Assumed for governance module |
+| Consortium Data API | Outbound | Real-time consortium data sharing counts | Future phase |
+| Bureau Enquiry API (CRIF) | Outbound | Live enquiry calls from Enquiry Simulation | Future phase (mock-only in V1) |
+| CBS | Outbound | Core banking (if applicable) | Out of scope for this BRD |
+
+
 ## 14. API Specification
 
-> **Note:** V1 uses mock data. The following API contracts define the target backend interface based on existing mock data structures.
-
-### 14.1 Authentication
-
-#### POST /api/auth/login
-
-```json
-Request:
-{
-  "email": "string",
-  "password": "string"
-}
-
-Response (200):
-{
-  "user": {
-    "id": "string",
-    "email": "string",
-    "role": "Super Admin | Bureau Admin | Analyst | Viewer | API User"
-  },
-  "token": "string"
-}
-
-Response (401):
-{
-  "error": "Invalid credentials"
-}
-```
-
-### 14.2 Dashboard
-
-#### GET /api/dashboard/metrics
-
-```json
-Response (200):
-{
-  "apiVolume24h": 1284392,
-  "apiVolumeChange": "+12.3%",
-  "errorRate": 0.23,
-  "errorRateChange": "-0.05%",
-  "slaHealth": 99.7,
-  "slaHealthChange": "+0.1%",
-  "dataQualityScore": 94.2,
-  "dataQualityChange": "+1.8%"
-}
-```
-
-#### GET /api/dashboard/charts?range=30d
-
-```json
-Response (200):
-{
-  "apiUsageTrend": [
-    { "day": "D-29", "volume": 920000, "errors": 0.32 }
-  ],
-  "successFailure": { "success": 92, "failure": 8 },
-  "mappingAccuracy": [
-    { "week": "W1", "accuracy": 96.8 }
-  ],
-  "matchConfidence": [
-    { "bucket": "0-40", "count": 6 }
-  ],
-  "slaLatency": [
-    { "day": "D-6", "p95": 280, "p99": 340 }
-  ],
-  "rejectionOverride": [
-    { "week": "W1", "rejected": 120, "overridden": 18 }
-  ]
-}
-```
-
-### 14.3 Institutions
-
-#### GET /api/institutions?status=active&role=dataSubmitter
-
-```json
-Response (200):
-{
-  "data": [
-    {
-      "id": "string",
-      "name": "string",
-      "tradingName": "string",
-      "type": "Commercial Bank | Credit Union | NBFI | Fintech | Savings Bank | MFI",
-      "status": "active | pending | suspended | draft",
-      "apisEnabled": 3,
-      "slaHealth": 99.9,
-      "lastUpdated": "2026-02-18",
-      "isDataSubmitter": true,
-      "isSubscriber": true,
-      "billingModel": "prepaid | postpaid | hybrid",
-      "creditBalance": 50000
-    }
-  ],
-  "total": 8
-}
-```
-
-#### POST /api/institutions
-
-```json
-Request:
-{
-  "legalName": "string",
-  "tradingName": "string",
-  "registrationNumber": "string",
-  "institutionType": "string",
-  "jurisdiction": "string",
-  "licenseNumber": "string",
-  "contactEmail": "string",
-  "contactPhone": "string",
-  "isDataSubmitter": true,
-  "isSubscriber": false,
-  "complianceDocs": ["file_id_1", "file_id_2"]
-}
-
-Response (201):
-{
-  "id": "string",
-  "status": "draft"
-}
-```
-
-#### GET /api/institutions/:id
-
-```json
-Response (200):
-{
-  "id": "1",
-  "name": "First National Bank",
-  "tradingName": "FNB",
-  "type": "Commercial Bank",
-  "status": "active",
-  "registrationNumber": "BK-2024-00142",
-  "jurisdiction": "Kenya",
-  "licenseType": "Commercial Banking",
-  "licenseNumber": "CBK-LIC-0042",
-  "contactEmail": "compliance@fnb.co.ke",
-  "contactPhone": "+254 700 123 456",
-  "onboardedDate": "Jan 15, 2026",
-  "dataQuality": 98,
-  "matchAccuracy": 96.4,
-  "apisEnabled": 3,
-  "slaHealth": 99.9,
-  "isDataSubmitter": true,
-  "isSubscriber": true,
-  "billingModel": "postpaid",
-  "complianceDocs": [
-    { "name": "Certificate of Incorporation", "status": "verified" },
-    { "name": "CBK License", "status": "verified" },
-    { "name": "Data Protection Certificate", "status": "pending" }
-  ]
-}
-```
-
-### 14.4 Monitoring
-
-#### GET /api/monitoring/submissions?institution=1&range=24h
-
-```json
-Response (200):
-{
-  "kpis": {
-    "totalCallsToday": 28492,
-    "successRatePercent": 98.2,
-    "p95LatencyMs": 245,
-    "avgProcessingTimeMs": 182,
-    "rejectionRatePercent": 1.8,
-    "activeApiKeys": 12
-  },
-  "requests": [
-    {
-      "request_id": "REQ-991212",
-      "api_key": "sk_live_***7x2k",
-      "endpoint": "/submission",
-      "status": "Failed",
-      "response_time_ms": 210,
-      "records": 0,
-      "error_code": "INVALID_SCHEMA",
-      "timestamp": "2026-02-25 10:32:15"
-    }
-  ]
-}
-```
-
-#### GET /api/monitoring/inquiries?institution=1&range=24h
-
-```json
-Response (200):
-{
-  "kpis": {
-    "totalEnquiriesToday": 3842,
-    "successRatePercent": 97.1,
-    "p95LatencyMs": 420,
-    "alternateDataCalls": 892,
-    "rateLimitBreaches": 3,
-    "creditConsumption": 3842
-  },
-  "enquiries": [
-    {
-      "enquiry_id": "ENQ-887421",
-      "api_key": "sk_sub_***2a",
-      "product": "Credit Report + Telecom",
-      "status": "Success",
-      "response_time_ms": 320,
-      "consumer_id": "CON-9912",
-      "alternate_data_used": 1,
-      "timestamp": "2026-02-25 10:35:22"
-    }
-  ]
-}
-```
-
-#### GET /api/monitoring/batches
-
-```json
-Response (200):
-{
-  "kpis": {
-    "totalBatchesToday": 4,
-    "totalRecordsProcessed": 5200,
-    "avgBatchSuccessRate": 65.1,
-    "failedBatchesCount": 1,
-    "avgProcessingDurationSec": 99,
-    "queueBacklogCount": 2
-  },
-  "batches": [
-    {
-      "batch_id": "BATCH-20250919-0001",
-      "file_name": "loans_september_batch1.csv",
-      "status": "Completed",
-      "total_records": 1500,
-      "success": 1425,
-      "failed": 75,
-      "success_rate": 95.0,
-      "duration_seconds": 142,
-      "uploaded": "2026-02-25 08:00:00",
-      "uploaded_by": "Sarah Kimani",
-      "institution_id": "1"
-    }
-  ]
-}
-```
-
-### 14.5 Reports
-
-#### GET /api/reports?type=all&status=all
-
-```json
-Response (200):
-{
-  "data": [
-    {
-      "reportId": "HCB-REP-20260225-0012",
-      "reportType": "Portfolio Risk Snapshot",
-      "dateRange": "01 Feb 2026 – 25 Feb 2026",
-      "createdBy": "risk.analyst@bank.com",
-      "status": "Processing",
-      "outputFormat": "PDF",
-      "institution": "First National Bank",
-      "productType": "All"
-    }
-  ]
-}
-```
-
-#### POST /api/reports
-
-```json
-Request:
-{
-  "reportType": "Credit Score Summary Report",
-  "dateFrom": "2026-02-01",
-  "dateTo": "2026-02-28",
-  "outputFormat": "PDF",
-  "institution": "First National Bank",
-  "productType": "All"
-}
-
-Response (201):
-{
-  "reportId": "HCB-REP-20260308-0013",
-  "status": "Queued"
-}
-```
-
-### 14.6 Users
-
-#### GET /api/users?role=all&status=all
-
-```json
-Response (200):
-{
-  "data": [
-    {
-      "id": "u1",
-      "name": "Sarah Chen",
-      "email": "sarah.chen@fnb.co.za",
-      "role": "Super Admin",
-      "institution": "FNB",
-      "status": "Active",
-      "mfaEnabled": true,
-      "lastActive": "2 minutes ago",
-      "createdAt": "2024-01-15"
-    }
-  ],
-  "total": 12
-}
-```
-
-#### POST /api/users/invite
-
-```json
-Request:
-{
-  "name": "Jane Doe",
-  "email": "jane@company.com",
-  "role": "Analyst",
-  "institution": "FNB",
-  "sendWelcomeEmail": true
-}
-
-Response (201):
-{
-  "id": "u13",
-  "status": "Invited"
-}
-```
-
-### 14.7 Activity Log
-
-#### GET /api/activity-log?action=all&status=all
-
-```json
-Response (200):
-{
-  "data": [
-    {
-      "id": "a1",
-      "userId": "u1",
-      "userName": "Sarah Chen",
-      "action": "Login",
-      "details": "Successful login via SSO",
-      "ipAddress": "102.134.22.41",
-      "status": "Success",
-      "timestamp": "2026-03-08T14:32:00Z"
-    }
-  ]
-}
-```
-
-### 14.8 Data Governance
-
-#### GET /api/governance/mappings
-
-```json
-Response (200):
-{
-  "kpis": [
-    { "label": "Mapping Accuracy %", "value": 97.4, "unit": "%", "trend": "up" }
-  ],
-  "mappingPairs": [
-    {
-      "id": "map-1",
-      "sourceFieldName": "cust_name",
-      "canonicalFieldName": "borrower_full_name",
-      "confidence": 98,
-      "matchType": "exact",
-      "workflowStatus": "approved"
-    }
-  ]
-}
-```
-
-### 14.9 Agents
-
-#### GET /api/agents
-
-```json
-Response (200):
-{
-  "agents": [
-    {
-      "id": "banking",
-      "name": "Banking & Financial Services",
-      "description": "Comprehensive credit analysis...",
-      "status": "active",
-      "subscribed": true,
-      "tags": ["Bureau", "Risk", "Lending"],
-      "toolCount": 7,
-      "subAgentCount": 6
-    }
-  ]
-}
-```
-
-### 14.10 Consortiums (NEW — v2.0)
-
-#### GET /api/consortiums
-
-```json
-Response (200):
-{
-  "data": [
-    {
-      "id": "CST_001",
-      "name": "SME Lending Consortium",
-      "type": "Closed",
-      "status": "Active",
-      "purpose": "Risk sharing",
-      "governanceModel": "Federated",
-      "membersCount": 12,
-      "dataVolume": "1.2M records",
-      "lastUpdated": "2026-03-20",
-      "description": "A closed consortium of 12 SME-focused lenders sharing credit exposure data."
-    }
-  ],
-  "total": 3
-}
-```
-
-#### GET /api/consortiums/:id
-
-```json
-Response (200):
-{
-  "id": "CST_001",
-  "name": "SME Lending Consortium",
-  "type": "Closed",
-  "status": "Active",
-  "purpose": "Risk sharing",
-  "governanceModel": "Federated",
-  "description": "A closed consortium of 12 SME-focused lenders.",
-  "members": [
-    {
-      "institutionId": "1",
-      "institutionName": "First National Bank",
-      "role": "Sponsor",
-      "status": "Active",
-      "joinedDate": "2025-06-01"
-    },
-    {
-      "institutionId": "2",
-      "institutionName": "Nairobi SACCO",
-      "role": "Participant",
-      "status": "Active",
-      "joinedDate": "2025-07-15"
-    }
-  ],
-  "dataContribution": {
-    "totalRecordsShared": 1248320,
-    "lastUpdated": "2026-03-20",
-    "dataTypes": ["Loan Accounts", "Repayment History", "Credit Exposure"]
-  },
-  "dataPolicy": {
-    "shareLoanData": true,
-    "shareRepaymentHistory": true,
-    "allowAggregation": true,
-    "dataVisibility": "full"
-  }
-}
-```
-
-Response (404):
-```json
-{ "error": "Consortium not found", "code": "CST_NOT_FOUND" }
-```
-
-#### POST /api/consortiums
-
-```json
-Request:
-{
-  "name": "East Africa Fintech Network",
-  "type": "Open",
-  "purpose": "Data quality improvement",
-  "governanceModel": "Centralized",
-  "description": "Open consortium for fintech data sharing.",
-  "members": [
-    { "institutionId": "1", "role": "Sponsor" }
-  ],
-  "dataPolicy": {
-    "shareLoanData": true,
-    "shareRepaymentHistory": false,
-    "allowAggregation": true,
-    "dataVisibility": "aggregated_only"
-  }
-}
-
-Response (201):
-{
-  "id": "CST_004",
-  "status": "Active"
-}
-```
-
-### 14.11 Data Products (NEW — v2.0)
-
-#### GET /api/data-products
-
-```json
-Response (200):
-{
-  "data": [
-    {
-      "id": "PRD_001",
-      "name": "SME Credit Decision Pack",
-      "description": "Core SME decisioning with bureau and consortium exposure.",
-      "packetIds": ["PKT_BUREAU_SCORE", "PKT_CONSORTIUM_EXPOSURE"],
-      "packetNames": ["Bureau Score", "Consortium Exposure"],
-      "pricingModel": "subscription",
-      "price": 4500,
-      "status": "active",
-      "lastUpdated": "2026-03-20T15:30:00Z"
-    },
-    {
-      "id": "PRD_002",
-      "name": "Retail Micro-Loan Profiler",
-      "description": "Lightweight profiler for micro-loan decisioning.",
-      "packetIds": ["PKT_BUREAU_SCORE", "PKT_BANKING_SUMMARY"],
-      "packetNames": ["Bureau Score", "Banking Summary"],
-      "pricingModel": "perHit",
-      "price": 12,
-      "status": "active",
-      "lastUpdated": "2026-03-18T09:00:00Z"
-    }
-  ],
-  "total": 3
-}
-```
-
-#### GET /api/data-products/:id
-
-```json
-Response (200):
-{
-  "id": "PRD_001",
-  "name": "SME Credit Decision Pack",
-  "description": "Core SME decisioning with bureau and consortium exposure.",
-  "packets": [
-    { "id": "PKT_BUREAU_SCORE", "name": "Bureau Score", "category": "bureau" },
-    { "id": "PKT_CONSORTIUM_EXPOSURE", "name": "Consortium Exposure", "category": "consortium" }
-  ],
-  "pricingModel": "subscription",
-  "price": 4500,
-  "status": "active",
-  "usageMetrics": {
-    "hits30d": 12480,
-    "activeSubscribers": 24,
-    "errorRatePct": 0.02
-  },
-  "lastUpdated": "2026-03-20T15:30:00Z"
-}
-```
-
-Response (404):
-```json
-{ "error": "Product not found", "code": "PRD_NOT_FOUND" }
-```
-
-#### POST /api/data-products
-
-```json
-Request:
-{
-  "name": "Full Alternate Data Bundle",
-  "description": "All available data packets for comprehensive analysis.",
-  "packetIds": ["PKT_BUREAU_SCORE", "PKT_BANKING_SUMMARY", "PKT_CONSORTIUM_EXPOSURE"],
-  "pricingModel": "subscription",
-  "price": 9200
-}
-
-Response (201):
-{
-  "id": "PRD_003",
-  "status": "active"
-}
-```
-
-#### POST /api/data-products/simulate
-
-```json
-Request:
-{
-  "productId": "PRD_001",
-  "customer": {
-    "fullName": "Jane Wanjiku",
-    "ref": "ID-884921",
-    "mobile": "+254 712 000 000"
-  },
-  "includeConsortiumData": true
-}
-
-Response (200):
-{
-  "enquiryId": "ENQ-1711372800000",
-  "productId": "PRD_001",
-  "productName": "SME Credit Decision Pack",
-  "customer": {
-    "fullName": "Jane Wanjiku",
-    "ref": "ID-884921",
-    "mobile": "+254 712 000 000"
-  },
-  "includeConsortiumData": true,
-  "generatedAt": "2026-03-25T10:00:00.000Z",
-  "packets": {
-    "Bureau Score": {
-      "creditScore": 712,
-      "scoreRange": "300-900",
-      "riskGrade": "B",
-      "totalAccounts": 4,
-      "activeAccounts": 2,
-      "overdueAccounts": 0,
-      "totalOutstanding": 450000,
-      "worstPaymentStatus": "Current"
-    },
-    "Consortium Exposure": {
-      "totalExposure": 1200000,
-      "memberExposures": 3,
-      "highestSingleExposure": 600000,
-      "consortiumRiskFlag": false
-    }
-  }
-}
-```
-
-Response when `includeConsortiumData: false`:
-```json
-{
-  "packets": {
-    "Bureau Score": { "creditScore": 712, "..." },
-    "Consortium Exposure": {
-      "omitted": true,
-      "reason": "consortium_flag_disabled"
-    }
-  }
-}
-```
-
-### 14.10 Alert Engine
-
-#### GET /api/alerts/active
-
-```json
-Response (200):
-{
-  "alerts": [
-    {
-      "alert_id": "ALT-00921",
-      "domain": "Submission API",
-      "metric": "Success Rate",
-      "current_value": "94.2%",
-      "threshold": ">= 99%",
-      "severity": "Critical",
-      "triggered_at": "2026-02-25 10:45:00",
-      "status": "Active"
-    }
-  ]
-}
-```
-
-#### GET /api/sla/configs
-
-```json
-Response (200):
-{
-  "configs": [
-    {
-      "id": "sla-api",
-      "name": "Data Submission API SLA",
-      "domain": "Data Submission API",
-      "metrics": [
-        {
-          "metric": "Success Rate %",
-          "threshold": "≥ 99%",
-          "current": "98.2%",
-          "status": "Breach",
-          "severity": "Warning",
-          "timeWindow": "1 hour rolling"
-        }
-      ]
-    }
-  ]
-}
-```
+> **Canonical contract (implemented):** The SPA calls the API via the Vite proxy base **`/api`** and uses versioned paths under **`/api/v1/*`** (SPA services use `/v1/*` relative to `/api`). The canonical API definition is **`docs/openapi/hcb-platform-api.yaml`** (kept aligned with Spring controllers in `backend/`).\n+>\n+> **Important:** Several UI areas are still **mock-first** (not fully API-backed). Those are explicitly labeled below as **Mock-first** or **UI-only**; do not treat them as implemented backend contracts.\n+\n+### 14.1 Authentication (implemented)\n+\n+See OpenAPI: **Auth** (`/api/v1/auth/*`).\n+\n+Key routes:\n+- `POST /api/v1/auth/login` (may return tokens **or** an MFA challenge)\n+- `POST /api/v1/auth/mfa/verify`\n+- `POST /api/v1/auth/mfa/resend` (204)\n+- `POST /api/v1/auth/refresh`\n+- `POST /api/v1/auth/logout` (204)\n+- `GET /api/v1/auth/me`\n+\n+### 14.2 Dashboard (implemented)\n+\n+See OpenAPI: **Dashboard** (`/api/v1/dashboard/*`).\n+\n+Key routes:\n+- `GET /api/v1/dashboard/metrics`\n+- `GET /api/v1/dashboard/charts?range=...`\n+- `GET /api/v1/dashboard/activity`\n+- `GET /api/v1/dashboard/command-center`\n+\n+### 14.3 Institutions (implemented)\n+\n+See OpenAPI: **Institutions** (`/api/v1/institutions/*`) and **API Keys** (`/api/v1/api-keys/*`).\n+\n+Key routes:\n+- `GET /api/v1/institutions?page=&size=&status=&type=&jurisdiction=&role=`\n+- `GET /api/v1/institutions/form-metadata?geography=` (register wizard metadata)\n+- `POST /api/v1/institutions?geography=`\n+- `GET /api/v1/institutions/{id}`\n+- `PATCH /api/v1/institutions/{id}`\n+- `POST /api/v1/institutions/{id}/suspend` and `POST /api/v1/institutions/{id}/reactivate`\n+- `GET /api/v1/institutions/{id}/overview-charts`\n+- Compliance docs: `POST /api/v1/institutions/{id}/documents` and `GET /api/v1/institutions/{id}/documents/{documentId}`\n+\n+### 14.4 Monitoring + Batch + Alerts + SLA (implemented)\n+\n+See OpenAPI:\n+- **Monitoring** (`/api/v1/monitoring/*`)\n+- **Batch Jobs** (`/api/v1/batch-jobs/*`)\n+- **Alert Rules / Incidents** (`/api/v1/alert-rules/*`, `/api/v1/alert-incidents/*`)\n+- **SLA Configs** (`/api/v1/sla-configs/*`)\n+\n+Key routes (examples):\n+- `GET /api/v1/monitoring/kpis`\n+- `GET /api/v1/monitoring/api-requests?status=&dateFrom=&dateTo=&page=&size=`\n+- `GET /api/v1/monitoring/enquiries?status=&dateFrom=&dateTo=&page=&size=`\n+- `GET /api/v1/monitoring/charts`\n+- `GET /api/v1/batch-jobs` and `GET /api/v1/batch-jobs/{id}/detail`\n+\n+### 14.5 Reporting (implemented)\n+\n+See OpenAPI: **Reports** (`/api/v1/reports/*`).\n+\n+Key routes:\n+- `GET /api/v1/reports?type=&status=&dateFrom=&dateTo=&page=&size=`\n+- `POST /api/v1/reports` (creates report request; status typically `queued`)\n+- `POST /api/v1/reports/{id}/cancel` and `POST /api/v1/reports/{id}/retry`\n+\n+### 14.6 Users + Roles + Activity Log (implemented)\n+\n+See OpenAPI:\n+- **Users** (`/api/v1/users/*`)\n+- **Roles** (`/api/v1/roles/*`)\n+- **Audit Logs** (`/api/v1/audit-logs`)\n+\n+Key routes:\n+- `GET /api/v1/users?search=&status=&institutionId=&page=&size=`\n+- `POST /api/v1/users/invitations`\n+- `PATCH /api/v1/users/{id}`\n+- `POST /api/v1/users/{id}/suspend|activate|deactivate`\n+- `GET /api/v1/roles`\n+- `GET /api/v1/audit-logs?userId=&actionType=&entityType=&entityId=&from=&to=&page=&size=`\n+\n+### 14.7 Data Governance (mixed: implemented + mock-first)\n+\n+**Implemented (Spring + OpenAPI):**\n+- Schema Mapper: `/api/v1/schema-mapper/*`\n+- Drift alerts: `GET /api/v1/data-ingestion/drift-alerts`\n+- Governance audit log uses: `GET /api/v1/audit-logs?entityType=GOVERNANCE...`\n+\n+**Mock-first (UI exists; backend not yet implemented on Spring/OpenAPI):**\n+- Master Schemas: SPA calls `/api/v1/master-schemas/*` but falls back to seeded mocks when the API is unavailable/unauthorized. Treat persistence APIs as **Planned** until Spring/OpenAPI implement them.\n+\n+### 14.8 Data Products + Enquiry Simulation (mixed: implemented + UI-only)\n+\n+**Implemented (Spring + OpenAPI):**\n+- Products: `/api/v1/products/*`\n+- Packet catalog: `GET /api/v1/products/packet-catalog`\n+\n+**UI-only (no backend call):**\n+- Enquiry Simulation (`/data-products/enquiry-simulation`) generates a synthetic response client-side (prototype for demos). Any simulate endpoint should be documented as **Planned** until implemented.\n+\n+### 14.9 Consortiums + Data Policy + CBS Catalog (implemented)\n+\n+See OpenAPI:\n+- Consortiums: `/api/v1/consortiums/*`\n+- Data policy: `/api/v1/data-policy`\n+- CBS catalog: `/api/v1/cbs-member-catalog`\n+\n+### 14.10 Approval Queue (implemented)\n+\n+See OpenAPI: **Approvals** (`/api/v1/approvals/*`). Mutations return **204 No Content**.\n+\n+### 14.11 Agents (mock-first)\n+\n+Agents (`/agents`) is currently **mock-first** in the SPA.\n+\n+- **Current**: No `/api/v1/agents` backend is invoked.\n+- **Planned**: If/when backend support is built, define `/api/v1/agents` in OpenAPI as a separate planned contract (catalog, subscriptions, chat history, tool runs) and update this section accordingly.
 
 ---
 
@@ -2829,15 +2589,16 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| id | string (UUID) | Yes | Primary key |
+| id | string or number | Yes | Primary key |
 | name | string | Yes | Legal entity name |
 | tradingName | string | No | DBA / short name |
-| type | string | Yes | Institution category |
-| status | enum (active, pending, suspended, draft) | Yes | Lifecycle status |
-| apisEnabled | number | Yes | Count of active API integrations |
-| slaHealth | number | Yes | SLA compliance percentage |
-| lastUpdated | string (date) | Yes | Last modification date |
-| registrationNumber | string | No | Government registration ID |
+| institutionType | string | Yes | Institution category (API field name) |
+| institutionLifecycleStatus | enum (active, pending, suspended, draft, …) | Yes | Lifecycle status |
+| apisEnabledCount | number | Yes (in API responses) | **v2.4:** **Derived** on **GET** list/detail from **effective** API & Access toggles + `isDataSubmitter` / `isSubscriber` slots — not a manually edited column |
+| slaHealthPercent | number | No | SLA compliance percentage |
+| updatedAt | string (date) | Yes | Last modification date |
+| apiAccess | object | No | **Fastify:** persisted partial overrides for `dataSubmission` / `enquiry` (merged with server defaults on read) |
+| registrationNumber | string | No on **POST** (Spring assigns when omitted); Yes on persisted row | Bureau member ID; **v2.16:** wizard read-only; **Spring** format **`PREFIX-Slug3-YYYY-id`** when auto-assigned |
 | jurisdiction | string | No | Operating country |
 | licenseType | string | No | License category |
 | licenseNumber | string | No | License identifier |
@@ -2951,7 +2712,7 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | id | string | Yes | Primary key (e.g. "CST_001") |
 | name | string | Yes | Consortium display name |
 | type | enum (Closed, Open) | Yes | Membership model |
-| status | enum (Active, Inactive) | Yes | Operational status |
+| status | enum (`active`, `approval_pending`, `pending`) — API; UI may show “Draft” for non-`active` | Yes | **Fastify:** **create** defaults to **`approval_pending`** (or **`pending`** in body); **approve** → **`active`**; **reject** / **request changes** → **`pending`**. High-level “Inactive” in narratives means not live for data sharing. |
 | purpose | string | Yes | Business purpose of the consortium |
 | governanceModel | string | Yes | Governance structure (e.g. Federated, Centralized) |
 | description | string | No | Full description |
@@ -2960,25 +2721,22 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | lastUpdated | string (date) | Yes | Last modification date |
 | dataPolicy | ConsortiumDataPolicy | Yes | Data sharing policy object |
 
-#### ConsortiumDataPolicy (NEW — v2.0)
+#### ConsortiumDataPolicy (Fastify dev API)
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| shareLoanData | boolean | Yes | Whether loan data is shared |
-| shareRepaymentHistory | boolean | Yes | Whether repayment history is shared |
-| allowAggregation | boolean | Yes | Whether data may be aggregated |
-| dataVisibility | enum (full, aggregated_only) | Yes | Visibility scope |
+| dataVisibility | enum (`full`, `masked_pii`, `derived`) | Yes | PII / derivation visibility scope for the consortium policy record |
 
-#### ConsortiumMember (NEW — v2.0)
+Legacy **`shareLoanData`**, **`shareRepaymentHistory`**, and **`allowAggregation`** are not part of the contract; the server ignores them if sent.
+
+#### ConsortiumMember (consortium roster — Fastify dev API)
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| consortiumId | string | Yes | Parent consortium reference |
+| id | string | Yes | Row id |
 | institutionId | string | Yes | Member institution reference |
-| institutionName | string | Yes | Denormalized name for display |
-| role | enum (Sponsor, Participant, Observer) | Yes | Member role within consortium |
-| status | enum (Active, Pending, Suspended) | Yes | Membership status |
-| joinedDate | string (date) | Yes | Date membership became active |
+| institutionName | string | Yes | Resolved name for display |
+| joinedAt | string (ISO 8601) | Yes | When the institution was added to the consortium roster |
 
 #### DataProduct (NEW — v2.0)
 
@@ -2992,7 +2750,7 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | enquiryConfig | object | No | **v2.2+** Scope, Latest/Trended, and related enquiry flags (`EnquiryConfig`) |
 | pricingModel | enum (perHit, subscription) | Yes | Revenue model |
 | price | number | Yes | Price in local currency units |
-| status | enum (active, draft) | Yes | Publication status |
+| status | enum (`approval_pending`, `active`, `draft`) | Yes | **Fastify dev API:** **Create** defaults to **`approval_pending`** and enqueues **`type: product`** on **`GET /api/v1/approvals`** until **approve** → **`active`**. **Reject** or **request changes** → **`draft`**. Optional body value **`pending`** is treated like **`approval_pending`** for queue eligibility. Mock catalogue may use **`draft`** for unpublished rows. |
 | lastUpdated | string (ISO 8601) | Yes | Last modification timestamp |
 
 #### DataPacket (NEW — v2.0)
@@ -3027,22 +2785,34 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | oldValue | string | Yes | Previous value |
 | newValue | string | Yes | New value |
 | timestamp | string (ISO 8601) | Yes | When action occurred |
-| ipAddress | string | Yes | Source IP address |
+| ipAddressHash | string | Yes | **Hashed** client IP for audit display (e.g. SHA-256 hex); raw IPs must not be stored in audit tables per §16.3 |
 
 ---
 
 ## 16. Security and Access Control
 
-### 16.1 Current Implementation (V1)
+### 16.1 Current implementation (this repository — as-built)
+
+**Authoritative engineering references:** [Developer Handbook](technical/Developer-Handbook.md) (run/test/env), [Canonical Backend](technical/Canonical-Backend.md) (Spring vs legacy Fastify), [API ↔ UI parity matrix](technical/API-UI-Parity-Matrix.md), [SPA contract drift](technical/SPA-Service-Contract-Drift.md).
+
+#### 16.1.1 When Spring Boot is running (default local integration)
 
 | Aspect | Implementation |
 |--------|----------------|
-| Authentication | Simple email/password via React Context (no backend validation) |
-| Authorization | All-or-nothing: logged in = full access |
-| Session | In-memory React state (lost on refresh) |
-| Route Protection | `ProtectedRoute` component checks `user !== null` |
-| Password Storage | Not stored (mock — any password accepted) |
-| HTTPS | Enforced at hosting level |
+| Authentication | Email/password validated by **`POST /api/v1/auth/login`** on **Spring Boot** (`backend/`, default port **8090**). Passwords are checked against seeded users (e.g. `admin@hcb.com` / `Admin@1234`); failed login is rejected with **401**. Principals load via **JDBC** (`AuthAccountService`) for SQLite-compatible login. |
+| Tokens | **JWT access + refresh** returned on login; refresh via **`POST /api/v1/auth/refresh`** (rotation); logout via **`POST /api/v1/auth/logout`**. The SPA stores tokens per its client implementation (see `src/lib/api-client.ts`). |
+| Authorization (API) | Protected routes require a valid Bearer JWT; **Spring Security** (`JwtAuthenticationFilter`, **`@PreAuthorize`**) enforces roles on controllers. Fine-grained parity with the full PRD matrix may still evolve — see [Production Backend Roadmap](technical/Production-Backend-Roadmap.md). |
+| Authorization (UI) | **`ProtectedRoute`** gates SPA routes when no authenticated user context. **UI permission matrix** (nav / Roles & Permissions page) can hide actions; **this is not a substitute for server-side RBAC** in production. |
+| Session continuity | Access token expiry and refresh behaviour follow **`hcb.jwt.*`** in Spring configuration; reloading the SPA may lose in-memory client state depending on build/env — see Developer Handbook. |
+| HTTPS | Local dev typically HTTP; **production** must terminate TLS at the edge (load balancer / gateway). |
+
+#### 16.1.2 Offline mode — mock auth and mock data only
+
+When **`VITE_USE_MOCK_FALLBACK=true`** (typical in `.env.development`) **and** the API is unreachable or errors, the SPA may fall back to **mock authentication** and **JSON fixtures** under `src/data/`. In that mode, behaviour is **demo-grade only**: do not use for security or compliance claims. For integration testing of real flows, run **`npm run spring:start`** with **`VITE_USE_MOCK_FALLBACK=false`**.
+
+#### 16.1.3 Legacy Fastify (`server/` — port **8091**)
+
+**Fastify** is **in-memory** and **not** the default backend. Use only when explicitly proxying with **`VITE_API_PROXY_TARGET=http://127.0.0.1:8091`**. Remaining drift vs Spring is tracked in [SPA-Service-Contract-Drift.md](technical/SPA-Service-Contract-Drift.md).
 
 ### 16.2 Target Implementation (V2)
 
@@ -3078,7 +2848,7 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 
 | Feature | Detail |
 |---------|--------|
-| API Key Format | `sk_live_***{last4}` (masked in UI) |
+| API Key Format | `hcb_live_****{last4}` / `hcb_test_****{last4}` (masked in UI); see §16.5 |
 | Key Rotation | Manual rotation via User Detail Drawer |
 | Key Revocation | Immediate invalidation |
 | Rate Limiting | Per-key rate limits (configurable per institution) |
@@ -3261,7 +3031,7 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | GOV-05 | Validation rules list | Navigate to "/data-governance/validation-rules" | Rules table renders with 3 rules | P0 |
 | GOV-06 | Match review clusters | Navigate to "/data-governance/match-review" | 3 match clusters render with confidence scores | P0 |
 | GOV-07 | Data quality alerts | Navigate to "/data-governance/data-quality-monitoring" | KPIs, trend chart, **Schema & mapping drift alerts** list **non-empty** with default March 2026 window; **≥8** mock alerts in `data-governance.json` | P0 |
-| GOV-08 | Audit logs | Navigate to "/data-governance/governance-audit-logs" | 5 audit log entries render | P0 |
+| GOV-08 | Audit logs | Navigate to "/data-governance/governance-audit-logs" | Table shows **GOVERNANCE** rows from `GET /api/v1/audit-logs?entityType=GOVERNANCE` (Fastify seeds **≥3** sample rows in `auditSeed.ts`) | P0 |
 | GOV-09 | Version diff viewer | Click "View Audit" on registry entry | Diff viewer renders | P1 |
 
 ### 18.5 Monitoring
@@ -3304,13 +3074,13 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | TC ID | Scenario | Steps | Expected Result | Priority |
 |-------|----------|-------|-----------------|----------|
 | USR-01 | Users list | Navigate to "/user-management/users" | 12 users render in table | P0 |
-| USR-02 | Invite user | Click "Invite User" → Fill all fields → Click Send | Toast: "Invitation sent to {email}", modal closes | P0 |
-| USR-03 | Invite validation | Submit with empty fields | Toast error: "Please fill all required fields" | P0 |
+| USR-02 | Invite user | Click "Invite User" → Fill all fields → Click Send | Toast: "Invitation sent", modal closes, list refreshes | P0 |
+| USR-03 | Invite validation | Submit with empty name, email, or role | Toast error: "Please enter full name, email, and role." | P0 |
 | USR-04 | Role filter | Select "Analyst" | 4 analysts shown | P1 |
 | USR-05 | Search users | Type "Sarah" | 1 user (Sarah Chen) shown | P1 |
 | USR-06 | User detail drawer | Click user row | Drawer opens with profile, MFA status, API keys | P1 |
 | USR-07 | Roles & permissions | Navigate to "/user-management/roles" | 5 roles with permission matrix | P0 |
-| USR-08 | Activity log | Navigate to "/user-management/activity" | 12 activity entries with IP addresses | P0 |
+| USR-08 | Activity log | Navigate to "/user-management/activity" | Table shows seeded + dynamic audit rows from GET /api/v1/audit-logs; IP column populated when the API returns it | P0 |
 
 ### 18.9 Approval Queue
 
@@ -3338,8 +3108,8 @@ DriftAlert (standalone; filtered by date + Schema Mapper source-type mapping)   
 | CST-05 | Navigate to detail | Click a consortium row/card | Navigates to `/consortiums/:id` with correct data | P0 |
 | CST-06 | Detail tabs | Navigate to consortium detail → click each tab | Overview, Members, Data Contribution all render | P0 |
 | CST-07 | Overview — details card | View Overview tab | Details card shows Purpose, Governance, Status | P0 |
-| CST-08 | Overview — data policy card | View Overview tab | Data Policy card shows all four boolean fields correctly | P0 |
-| CST-09 | Members tab — desktop table | View Members tab on md+ viewport | Table shows Institution, Role, Status, Joined columns | P0 |
+| CST-08 | Overview — data policy card | View Overview tab | Data Policy card renders (stewardship copy; wizard persists `dataVisibility` only on create/edit) | P0 |
+| CST-09 | Members tab — desktop table | View Members tab on md+ viewport | Table shows Institution and Joined columns | P0 |
 | CST-10 | Members tab — mobile cards | View Members tab on sm viewport | Card layout renders per member | P1 |
 | CST-11 | Data contribution tab | View Data Contribution tab | Records shared, last updated, data types all render | P0 |
 | CST-12 | Create wizard — navigation | Click "Create consortium" | Navigate to `/consortiums/create`; Step 1 renders | P0 |
@@ -3625,4 +3395,842 @@ Prior to v2.0, custom Tailwind tokens (`text-caption`, `text-body`, `text-h4`) w
 
 ---
 
-*End of Document — v2.1 (2026-03-27)*
+## SECTION A — DATA NORMALIZATION PRINCIPLES (v3.0 Addition)
+
+**Document Version:** 3.0 | **Date:** 2026-03-28 | **Effective immediately for all backend implementations**
+
+---
+
+### A.1 Single Source of Truth Architecture
+
+The HCB platform mandates a strict Single Source of Truth (SSoT) data architecture. Every business attribute is stored in exactly one owner table. No attribute may be physically duplicated across tables.
+
+**Hard Rules:**
+- `NR-001` No duplicate attributes across tables
+- `NR-002` Single owner per entity type (e.g., institution `name` lives only in `institutions`)
+- `NR-003` All cross-table references use foreign keys exclusively
+- `NR-004` No denormalized shortcuts (counts, averages computed at query time)
+- `NR-005` Domain-scoped status fields with CHECK constraint enums
+- `NR-006` Soft delete mandatory (`is_deleted`, `deleted_at`) on all mutable entities
+- `NR-007` All timestamps stored as UTC ISO-8601
+
+---
+
+### A.2 Attribute Ownership Rules
+
+| Attribute | Owner Table | Access Pattern |
+|-----------|------------|----------------|
+| Institution legal name (`name`), trading name (`tradingName`) | `institutions` | FK join from all referencing tables; **single-string UI/API labels** prefer legal name (see API-UI parity matrix) |
+| User email, display name, password hash | `users` | FK join; no copies anywhere |
+| Role names, descriptions | `roles` | FK via `user_role_assignments` |
+| Permission definitions | `permissions` | FK via `role_permissions` |
+| Consumer PII (name, DOB, ID) | `consumers` | Encrypted at app layer; hash for matching |
+| Product names, pricing model | `products` | FK from `enquiries`, `product_subscriptions` |
+| Consortium names, data policy | `consortiums` | FK from `consortium_members` |
+| API key raw value | `api_keys` (write-once) | Never stored in logs; log uses `api_key_id` FK |
+| IP addresses | Hashed before any storage | SHA-256; never plain text |
+| Severity level | Per domain owner table | Canonical enum: INFO/WARNING/CRITICAL |
+
+---
+
+### A.3 API Join-Based Data Retrieval
+
+All API response payloads assemble data via SQL joins. No denormalized data is persisted during API read operations.
+
+**Example — Institution list with compliance count:**
+```sql
+SELECT i.id, i.name, i.institution_lifecycle_status,
+       COUNT(cd.id) AS compliance_docs_count,
+       COUNT(cm.id) AS consortium_memberships_count
+FROM institutions i
+LEFT JOIN compliance_documents cd ON cd.institution_id = i.id
+LEFT JOIN consortium_members cm ON cm.institution_id = i.id
+WHERE i.is_deleted = 0
+GROUP BY i.id;
+```
+
+Response DTOs may contain view-friendly assembled data but such data is **never written back to the database**.
+
+---
+
+### A.4 Data Consistency Guarantees
+
+1. **Transactional consistency**: Multi-table write operations are wrapped in database transactions. Rollback on any failure.
+2. **Referential integrity**: `PRAGMA foreign_keys = ON` enforced for all SQLite sessions. PostgreSQL FK constraints enforced in production.
+3. **Soft delete propagation**: Deleting an entity sets `is_deleted=1` only on the owner table. Related tables reference via FK and apply `ON DELETE CASCADE` or `ON DELETE SET NULL` per design.
+4. **Audit trail completeness**: Every business action generates an immutable `audit_logs` row. No business operation is considered complete without its audit log entry.
+5. **Append-only operational logs**: `api_requests` and `audit_logs` are insert-only. No UPDATE or DELETE operations on these tables.
+
+---
+
+### A.5 Action-Driven API Policy
+
+Every UI action must be backed by a corresponding API call and database update:
+
+| UI Action | API Endpoint | Tables Modified |
+|-----------|-------------|-----------------|
+| Register institution | `POST /api/v1/institutions` | institutions, approval_queue, audit_logs |
+| Suspend institution | `POST /api/v1/institutions/:id/suspend` | institutions, audit_logs |
+| Approve queue item | `POST /api/v1/approvals/:id/approve` | approval_queue, target entity, audit_logs |
+| Assign user role | `POST /api/v1/users/:id/assign-role` | user_role_assignments, audit_logs |
+| Rotate API key | `POST /api/v1/api-keys/:id/regenerate` | api_keys, audit_logs |
+| Create report request | `POST /api/v1/reports` | reports, audit_logs |
+
+**No UI state mutation is valid unless it is backed by an API call that updates the database.**
+
+---
+
+### A.6 Operational Constraints
+
+1. **No direct frontend data mutation**: The frontend never writes to localStorage or sessionStorage as a substitute for API calls in production.
+2. **No plaintext PII in logs**: Audit logs and API request logs contain only FK references, hashed identifiers, and non-sensitive metadata.
+3. **No raw API keys in logs**: `api_requests` table stores `api_key_id` (FK integer), never the raw key string.
+4. **No computed fields stored**: Credit scores, success rates, data quality percentages are computed at query time.
+5. **Schema migration required for production changes**: No DDL changes applied directly to production database; all schema changes via versioned migration scripts.
+
+---
+
+---
+
+## Appendix G: UI Action → API Contract (v3.1)
+
+> **Purpose**: For every user-facing button, filter, pagination control, and page-load event, this appendix documents the exact API endpoint called, the request parameters, the success behaviour visible to the user, and the precise error handling strategy. This is the authoritative reference for QA testing, backend integration, and incident debugging.
+
+> **Global error-handling rules** (apply to every action below unless overridden):
+>
+> | Condition | What the user sees |
+> |-----------|-------------------|
+> | Mock fallback active (`VITE_USE_MOCK_FALLBACK=true`, no backend running) | Data loads silently from static JSON — no error shown |
+> | 401 Unauthorised (access token expired) | API client auto-retries with refresh token; if refresh also fails → redirected to `/login` |
+> | 403 Forbidden | `ApiErrorCard` — "Access denied. You don't have permission to view this content." |
+> | 404 Not Found | `ApiErrorCard` — "Not found. The requested resource could not be found." |
+> | 500 / 502 / 503 Server Error | `ApiErrorCard` with **Try again** button; retried up to 3× by React Query |
+> | Network unreachable / CORS / timeout | `ApiErrorCard` — "Connection error. Unable to reach the server." with **Try again** button |
+> | Mutation (write) failure | `toast.error("…")` with the error message; data is NOT changed in local state |
+> | Successful mutation | `toast.success("…")` + relevant query invalidated → list auto-refreshes |
+
+---
+
+### G.1 Authentication — `/login`
+
+#### Action: **Login** (Submit button / pressing Enter in the password field)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/auth/login` |
+| **Trigger** | User clicks **Login** or presses Enter |
+| **Request body** | `{ "email": "user@example.com", "password": "••••" }` |
+| **Validation (client)** | Email must be non-empty and match email regex; password must be non-empty. Errors shown inline beneath the input before the API call is made. |
+| **Success** | Tokens stored in memory (access token) and `sessionStorage` (refresh token). User navigated to `/`. Toast: none. |
+| **401 Wrong credentials** | Inline error below the form: "Invalid email or password." No redirect. |
+| **403 Account locked** | Inline error: "Your account has been suspended. Contact your administrator." |
+| **500 / network error** | Inline error: "Server error. Please try again." Retry is manual (re-submit). |
+| **Empty fields** | Client-side validation prevents submission; field outlines turn red with message. |
+
+#### Action: **Sign out** (sidebar / header logout menu item)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/auth/logout` |
+| **Trigger** | User clicks **Sign out** |
+| **Request body** | `{ "refreshToken": "…" }` (sent from sessionStorage) |
+| **Success** | Tokens cleared from memory and sessionStorage. User navigated to `/login`. |
+| **Error** | Tokens cleared locally regardless; user redirected to `/login`. API failure is silent. |
+
+---
+
+### G.2 Dashboard — `/`
+
+#### Action: **Page load** (automatic on mount)
+
+| Hook | API | Params | Refresh interval |
+|------|-----|--------|-----------------|
+| `useDashboardSnapshot` → `fetchDashboardMetrics` | `GET /api/v1/dashboard/metrics` | none | 30 s |
+| `useDashboardSnapshot` → `fetchDashboardCharts` | `GET /api/v1/dashboard/charts` | none | 60 s |
+
+**Success**: KPI cards, charts, and activity feed populate from API data.  
+**Error**: Each section shows `ApiErrorCard` independently; the rest of the page still renders.
+
+#### Action: **Active Batch Pipeline → navigate to Batch Monitoring**
+
+No API call. Navigates to `/monitoring/data-submission-batch?status=Processing,Queued` (client-side route).
+
+#### Action: **Dashboard KPI "View All" / section links**
+
+No API call. Client-side navigation to the respective module route.
+
+---
+
+### G.3 Member Institutions — `/institutions`
+
+#### Action: **Page load / filter change / pagination**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/institutions` |
+| **Trigger** | Page mount, any filter change (status, role, search), or page number change |
+| **Query params** | List view uses `page=0&size=200` (Fastify caps `size` at 200) so **all** members fit in one response for client-side search/sort/pagination; optional `status`, `role`, `search` when wired server-side. |
+| **Success** | Table rows include **pending** registrations (status filter **All Statuses**). After **Approval Queue → Approve** on an institution item, React Query refetches institutions so **Status** becomes **active**. **v2.4:** **APIs enabled** column reflects **`apisEnabledCount` / slots** from API serialization (see **§3.1.2**). **Reject** on an institution approval **does not remove** the row from this table. |
+| **Error** | `ApiErrorCard` replaces the table with **Try again** button; filters remain interactive. |
+
+#### Action: **PATCH API & Access** (from institution detail, separate tab)
+
+| Field | Value |
+|-------|-------|
+| **API** | `PATCH /api/v1/institutions/:id/api-access` |
+| **Success** | Toast; invalidates **institutions** (all list queries), **detail**, and **api-access** — **APIs enabled** updates on list without hard refresh (**v2.4**). |
+
+#### Action: **Register member** (sidebar / command palette)
+
+No API call on navigation. User chooses **Member Management** ▶ **Register member** in **`AppSidebar`**, or **Register Institution** in the Command Palette (**⌘K**). Both navigate to **`/institutions/register`**.
+
+#### Action: **Suspend** (row action)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/institutions/:id/suspend` |
+| **Trigger** | User clicks **Suspend** in the row action menu and confirms the dialog |
+| **Request body** | `{ "reason": "Admin-initiated suspension" }` |
+| **Success** | `toast.success("Institution suspended")` + institution list re-fetched |
+| **Error** | `toast.error("Failed to suspend institution: [message]")` — no state change |
+
+#### Action: **Export CSV** (button)
+
+No API call. Client-side CSV generation from the currently loaded `institutions` array. File download triggered in browser.
+
+#### Action: **View** (row click / View button)
+
+No API call. Navigates to `/institutions/:id`.
+
+---
+
+### G.4 Institution Registration Wizard — `/institutions/register`
+
+#### Action: **Submit** (Step 3 — final step)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/institutions` then, when the wizard collected files, `POST /api/v1/institutions/:id/documents` (multipart) per required row |
+| **Trigger** | User clicks **Submit Registration** on the Review & Submit step |
+| **Request body** | Corporate fields + `institutionLifecycleStatus: "pending"` + `isDataSubmitter` / `isSubscriber`; optional `consortiumIds` when configured; uploads use `documentName` + `file` matching **`form-metadata.requiredComplianceDocuments`**. |
+| **Fastify dev API** | Creates institution, prepends **`institution`** row on `GET /api/v1/approvals` (`metadata.institutionId`), audit `INSTITUTION_CREATE`. |
+| **Client cache** | `invalidateQueries` **institutions** + **approvals** (+ detail) after create/uploads so the list and queue stay consistent. |
+| **Success** | Toast explains **Pending** appears on **Member Institutions** and approval lives under **Approval Queue (Institutions tab)**. Navigate to **`/institutions`** (not only the queue). |
+| **400 Validation error** | Inline errors on the relevant step fields. Wizard stays open. |
+| **409 Duplicate** | `toast.error("An institution with this registration number already exists.")` *(when backend enforces uniqueness)* |
+| **500 / network** | `toast.error` from `ApiError` / mutation — wizard data retained where applicable so user can retry |
+
+#### Action: **Save Draft** (intermediate steps)
+
+No API call in current implementation. State held in component memory + `localStorage` key `hcb_draft_institution`.
+
+---
+
+### G.5 Institution Detail — `/institutions/:id`
+
+#### Action: **Page load**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/institutions/:id` |
+| **Success** | Institution header, tabs, and summary cards populate. |
+| **404** | `ApiErrorCard` — "Institution not found." with link back to list. |
+| **Error** | `ApiErrorCard` with **Try again**. |
+
+#### Action: **Edit Institution** (Edit button in header)
+
+No API call on button click. Opens inline edit form or navigates to edit route (current implementation: inline dialog).
+
+#### Action: **Save Changes** (Edit dialog)
+
+| Field | Value |
+|-------|-------|
+| **API** | `PATCH /api/v1/institutions/:id` |
+| **Request body** | Changed fields only (partial update) |
+| **Success** | `toast.success("Institution updated")` + institution data re-fetched |
+| **Error** | `toast.error("Update failed: [message]")` — dialog remains open |
+
+#### Action: **Audit Trail Tab — page load**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/audit-logs?entityType=INSTITUTION&entityId=:id&size=20` |
+| **Success** | Audit event rows populate. |
+| **Error** | `SkeletonTable` shown during load; empty state shown on error. |
+
+---
+
+### G.6 Approval Queue — `/approval-queue`
+
+#### Action: **Page load / tab switch / status filter**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/approvals` |
+| **Trigger** | Mount, tab switch (All / Institutions / Mappings / Consortiums / Products), status dropdown change |
+| **Query params** | `?type=institution|schema_mapping|consortium|product|all&status=pending|approved|rejected|changes_requested|all&page=0&size=20` (maps to `fetchApprovals` / `ApprovalListParams`) |
+| **Success** | KPI cards (Pending, Approved This Month, Changes Requested, Total) and table populate. **Products tab** (`type=product`): new catalogue products from `POST /api/v1/products` with `approval_pending`. **Consortiums tab** (`type=consortium`): new consortia from `POST /api/v1/consortiums` with `approval_pending` (SPA default on create). |
+| **Error** | `ApiErrorCard` replaces the table and KPI section. |
+
+#### Action: **Approve** (row button → confirm dialog)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/approvals/:id/approve` |
+| **Trigger** | User clicks **Approve** and confirms in the dialog |
+| **Request body** | `{ "comment": "Approved" }` (optional) |
+| **Success** | `toast.success("Item approved")` + queue re-fetched + KPI cards update. **Fastify dev API:** `type=institution` → `institutionLifecycleStatus` **`active`** (`metadata.institutionId`); `type=product` → product `active`; `type=consortium` → consortium `active`. **institutions**, **products**, and **consortiums** query caches invalidated. |
+| **Error** | `toast.error("Approval failed: [message]")` — item stays in Pending state |
+
+#### Action: **Reject** (row button → confirm dialog)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/approvals/:id/reject` |
+| **Trigger** | User clicks **Reject** and confirms with optional rejection reason |
+| **Request body** | `{ "reason": "Incomplete documentation" }` |
+| **Success** | `toast.success("Item rejected")` + queue re-fetched. **Fastify dev API:** `type=product` → product **`draft`**; `type=consortium` → consortium **`pending`**. |
+| **Error** | `toast.error("Rejection failed: [message]")` |
+
+#### Action: **Request Changes** (row button → dialog)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/approvals/:id/request-changes` |
+| **Trigger** | User clicks **Request Changes** and submits the reason |
+| **Request body** | `{ "comment": "Please resubmit with updated compliance documents" }` (service sends `comment`; align UI copy with payload field name) |
+| **Success** | `toast.success("Changes requested")` + queue re-fetched. **Fastify dev API:** `type=product` → product **`draft`**; `type=consortium` → consortium **`pending`**. |
+| **Error** | `toast.error("Failed to request changes: [message]")` |
+
+---
+
+### G.7 Users List — `/user-management/users`
+
+#### Action: **Page load / filter change**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/users` |
+| **Query params** | `?role=Admin&status=Active&search=john&page=0&size=20` |
+| **Success** | User rows, status badges, and role tags render. |
+| **Error** | `ApiErrorCard` with **Try again**. |
+
+#### Action: **Suspend User** (row action)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/users/:id/suspend` |
+| **Success** | `toast.success("User suspended")` + list re-fetched. Row shows "Suspended" badge. |
+| **Error** | `toast.error("Failed to suspend user: [message]")` — no state change |
+
+#### Action: **Activate User** (row ⋮ — when not Active or Deactivated)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/users/:id/activate` |
+| **Visibility** | Shown for **Invited**, **Suspended**, etc.; **hidden** when status is **Deactivated**. |
+| **Success** | `toast.success("User activated")` + list re-fetched. Row shows "Active" badge. |
+| **Error** | `toast.error("Failed to activate user: [message]")` |
+
+#### Action: **Deactivate User** (row ⋮)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/users/:id/deactivate` |
+| **Visibility** | **Hidden** when user is already **Deactivated**. |
+| **Success** | `toast.success("User deactivated")` + list re-fetched. |
+| **Error** | `toast.error` on failure |
+
+#### Action: **View details** (row click or ⋮ → View Details)
+
+| Field | Value |
+|-------|-------|
+| **API** | Row data from `GET /api/v1/users`; drawer **Recent activity** uses `GET /api/v1/audit-logs?entityType=USER&entityId=:id`. |
+| **Success** | `UserDetailDrawer` opens. |
+
+#### Action: **Edit role** (row ⋮ → Edit Role)
+
+| Field | Value |
+|-------|-------|
+| **UI** | Opens `UserDetailDrawer` and immediately opens the **Edit role** dialog (same as **Edit role** in the drawer). |
+| **API** | `PATCH /api/v1/users/:id` with `{ "roles": ["Analyst"] }` (single role array). |
+| **Audit** | Fastify logs **`USER_UPDATE`**. |
+| **Success** | `toast.success("User updated")` + list re-fetched; dialog closes. |
+
+#### Action: **Invite User** (button top-right → dialog)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/users/invitations` |
+| **Request body** | `{ "email": "new@example.com", "role": "Analyst", "displayName": "Jane Doe" }` (`sendWelcomeEmail` stripped client-side; not used by dev API) |
+| **Success** | `toast.success("Invitation sent")` + list re-fetched; new row **`Invited`**. |
+| **400** | Missing email (server); empty name/email/role (client toast). |
+| **409 User exists** | Server `ERR_DUPLICATE`; client `toast.error` |
+| **Error** | `toast.error("Failed to send invite: [message]")` |
+
+#### Action: **Export CSV** (button)
+
+No API call. Client-side CSV from the currently loaded `users` array.
+
+---
+
+### G.8 Monitoring — Data Submission API — `/monitoring/data-submission-api`
+
+#### Action: **Page load** (automatic on mount, re-run every 30 s)
+
+| Hook | API | Purpose |
+|------|-----|---------|
+| `useMonitoringKpis` | `GET /api/v1/monitoring/kpis` | KPI card values (total calls, success rate, P95 latency, etc.) |
+| `useMonitoringCharts` | `GET /api/v1/monitoring/charts` | Volume / latency / pie / rejection charts (refreshed every 60 s) |
+| `useApiRequests(params)` | `GET /api/v1/monitoring/api-requests` | Request log table (server-paginated) |
+
+**Success**: All three sections populate independently.  
+**KPI error**: KPI cards fall back to computing from the current page of `api-requests` using `calcApiRequestKpis`.  
+**Charts error**: Charts show "No chart data available" placeholder.  
+**Table error**: `ApiErrorCard` with **Try again** inside the table card.
+
+#### Action: **Status / Institution filter change**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/monitoring/api-requests?status=Failed&institutionId=inst_001&page=0&size=10` |
+| **Trigger** | Any filter dropdown change; resets to page 1 |
+| **Success** | Table rows update to match server-filtered results. Pagination totals reflect filter. |
+| **Error** | `ApiErrorCard` inside the table card with **Try again** button. |
+
+#### Source name dropdown — **All submitters** (Data Submission API)
+
+| Field | Value |
+|-------|-------|
+| **Component** | `InstitutionFilterSelect` in `MonitoringFilterBar` and **`DataSubmissionApiSection`** (`mode="submitters"`) |
+| **Options source** | **`GET /api/v1/institutions?page=0&size=300&role=dataSubmitter`** via `useInstitutions(..., { allowMockFallback: false })`. Each `SelectItem` uses `String(id)` and **`institutionDisplayLabel`** (`src/lib/institutions-display.ts` — legal **`name`** first, then **`tradingName`**). |
+| **All submitters** | Top option for `value="all"` (no `institutionId` sent to monitoring APIs until a specific id is chosen). |
+| **UI label** | **Source name** (shared component default). |
+| **Mock fallback** | **None** for this dropdown: `allowMockFallback: false` so the member list is never sourced from `institutions-mock.ts` (unlike other `fetchInstitutions` callers). On failure the query errors; trigger shows “Could not load institutions” and the list is empty aside from **All**. |
+| **Disabled when** | Loading (`isPending`) or no logged-in user (`enabled: !!user` on the query). |
+
+#### Action: **Date range filter (dateFrom / dateTo)**
+
+| Field | Value |
+|-------|-------|
+| **Params sent to API** | `dateFrom=2026-03-01&dateTo=2026-03-28` |
+| **Client-side only** | `timeRange` (Last 5 min / 1 hr / 6 hr / 24 hr) — not sent to API; applied client-side on current page rows |
+| **requestIdSearch** | Applied client-side on current page rows only |
+
+#### Action: **Pagination (Previous / Next)**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/monitoring/api-requests?…&page=2&size=10` |
+| **Success** | Table rows update. Page counter and "Showing X–Y of Z" update. |
+| **Error** | `ApiErrorCard` inside table card. |
+
+#### Action: **View** (row button → RequestDetailDrawer)
+
+No API call. Selected row data is passed as props to the drawer. All information already in the fetched row.
+
+#### Action: **Retry** (inside RequestDetailDrawer — Failed requests)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/monitoring/api-requests/:requestId/retry` *(future endpoint — currently a stub)* |
+| **Current behaviour** | Drawer closes; no API call; toast: none |
+
+---
+
+### G.9 Monitoring — Enquiry API — `/monitoring/enquiry-api`
+
+#### Action: **Page load** (automatic, re-run every 30 s)
+
+| Hook | API | Purpose |
+|------|-----|---------|
+| `useEnquiries(params)` | `GET /api/v1/monitoring/enquiries` | Enquiry log table (server-paginated; dev seed = JSON `enquiryLogEntries` + synthetic recent/future rows from `buildEnquiryStateRows` in Fastify `state`) |
+| KPI cards | **Mock only** (`enquiryKpis` from `monitoring-mock`) | No enquiry KPI endpoint exists yet |
+| Charts | **Mock only** (`enquiryVolumeData` etc.) | No enquiry chart endpoint exists yet |
+
+**Table error**: `SkeletonTable` during loading; empty state if no rows returned.
+
+**Server query params** (enquiry log): `status` (exact), `dateFrom` / `dateTo` (`yyyy-MM-dd`, inclusive on `timestamp`), `institutionId`, `page`, `size`. **Client-only** on the current API page: `timeRange` uses `isWithinRelativeWindow` (same rule as Data Submission API — future timestamps count as in-window).
+
+#### Action: **Status / Institution filter change**
+
+| Field | Value |
+|-------|-------|
+| **Params sent to API** | `status=Failed&institutionId=inst_002` |
+| **Client-side only** | `timeRange`, `enquiryIdSearch` |
+
+#### Source name dropdown — **All subscribers** (Inquiry API)
+
+Same component and **same API-only contract** as G.8: `InstitutionFilterSelect` with `mode="subscribers"` uses **`GET /api/v1/institutions?page=0&size=300&role=subscriber`** via `useInstitutions(..., { allowMockFallback: false })`. The **All subscribers** row is the static `value="all"` option. No `institutions-mock` fallback for options; on API failure the dropdown errors the same way as the submitter control.
+
+**Detailed Enquiry Log card** (filters inside the table card): **`InstitutionFilterSelect`** (`mode="subscribers"`) — not `institutions-mock`. Toolbar + in-card filters share the same API-backed subscriber list (React Query dedupes `useInstitutions`).
+
+#### Action: **View** (row button → EnquiryDetailDrawer)
+
+No API call. Drawer receives adapted row data via `toMockEnquiry()` adapter function.
+
+---
+
+### G.10 Monitoring — Batch — `/monitoring/data-submission-batch`
+
+#### Action: **Page load** (automatic)
+
+| Hook | API | Purpose |
+|------|-----|---------|
+| `useBatchJobs` | `GET /api/v1/batch-jobs` | Batch job pipeline cards |
+| `useBatchKpis` | `GET /api/v1/batch-jobs/kpis` | KPI summary cards |
+
+**Error**: `ApiErrorCard` shown for each section independently.
+
+#### Action: **View Details** (pipeline card → BatchExecutionConsole)
+
+No API call. Console data comes from static `batch-console.json` mock. This is a known limitation — a live console log endpoint is in the roadmap.
+
+---
+
+### G.11 Alert Engine — `/monitoring/alert-engine`
+
+#### Action: **Page load**
+
+| Hook | API | Purpose |
+|------|-----|---------|
+| `useAlertRules` | `GET /api/v1/alert-rules` | Alert rules list (seeds local state) |
+| `useAlertIncidents` | `GET /api/v1/alert-incidents` | Active/historical incidents |
+| `useSlaConfigs` | `GET /api/v1/sla-configs` | SLA configuration cards (seeds local state) |
+| `useBreachHistory` | `GET /api/v1/sla-configs/breach-history` | SLA breach history table (seeds local state) |
+
+**SLA Breach History — Source name filter:** options from **`GET /api/v1/institutions?page=0&size=300`** (unscoped list) via `InstitutionFilterSelect` (`mode="all"`, **`allowMockFallback: false`**), not `institutions-mock`. Top option **All institutions**. Filtering compares breach row `institution_id` to the selected member using digit-normalized ids.
+
+**Error**: Each section shows `ApiErrorCard` independently.
+
+#### Action: **Create / Edit Alert Rule** (sheet → Create Rule / Save)
+
+| Field | Value |
+|-------|-------|
+| **Create API** | `POST /api/v1/alert-rules` with `name` (required), `domain`, `condition`, `severity`. Server stores rule as **`Pending approval`** and enqueues **`type: alert_rule`** on **`GET /api/v1/approvals`** with `metadata.alertRuleId`. Audit `ALERT_RULE_CREATE`. |
+| **After approval** | `POST /api/v1/approvals/:id/approve` sets the rule’s **`status` to `Enabled`**. Reject or request-changes sets **`Disabled`**. |
+| **Enable toggle** | `POST /api/v1/alert-rules/:id/activate` / `deactivate` — **activate** is rejected (**400**) until the rule is approved. UI disables the power control while **`Pending approval`**. |
+| **Edit** | `PATCH /api/v1/alert-rules/:id` (works for pending or enabled rules). |
+
+#### Action: **Toggle Alert Rule** (enable/disable switch)
+
+| Field | Value |
+|-------|-------|
+| **Current behaviour** | Local state update only. |
+| **Planned API** | `PATCH /api/v1/alert-rules/:id` with `{ "isActive": true/false }` |
+
+#### Action: **Acknowledge Incident** (button)
+
+| Field | Value |
+|-------|-------|
+| **Current behaviour** | Local state update only; `toast.success("Incident acknowledged")`. |
+| **Planned API** | `POST /api/v1/alert-incidents/:id/acknowledge` |
+
+---
+
+### G.12 Reports — `/reporting`
+
+#### Action: **Page load**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/reports` |
+| **Hook** | `useReports` in `ReportingLayout` |
+| **Success** | `reports` local state seeded from API. Report list renders. |
+| **Error** | Silently falls back to empty `reports` state. `ApiErrorCard` shown inside the list area. |
+
+#### Action: **Request Report** (dialog → Submit)
+
+| Field | Value |
+|-------|-------|
+| **Current behaviour** | Adds to local `reports` state with `status: "Pending"`. `toast.success("Report request submitted")`. |
+| **Planned API** | `POST /api/v1/reports` |
+| **Planned request body** | `{ "reportType": "Credit Risk Summary", "dateFrom": "2026-03-01", "dateTo": "2026-03-31", "format": "PDF" }` |
+| **Error (future)** | `toast.error("Failed to request report: [message]")` |
+
+#### Action: **Download Report** (button)
+
+No API call. Client-side file download from a pre-signed URL (planned) or direct S3/blob link. Currently a stub.
+
+---
+
+### G.13 Consortiums — `/consortiums`
+
+#### Action: **Page load / filter change**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/consortiums` |
+| **Success** | Consortium cards or table renders. |
+| **Error** | `ApiErrorCard` with **Try again**; falls back to `CatalogMockContext` data if available. |
+
+#### Action: **Create Consortium** (button → Wizard)
+
+No API on button click. Navigates to `/consortiums/create`.
+
+#### Action: **Wizard Submit** (final step)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/consortiums` |
+| **Request body** | `name`, optional `description`, optional `dataPolicy: { dataVisibility }`, `members[]` (`institutionId` only), `status: "approval_pending"` (sent by the wizard so the record stays out of **Active** until approved). **`type`**, **`purpose`**, and **`governanceModel`** are not part of the contract (ignored if sent). Loan/repayment/aggregation flags are not persisted. |
+| **Fastify dev API success** | Consortium stored in memory; members applied; **`consortium`** approval row prepended (`metadata.consortiumId`); audit `CONSORTIUM_CREATE`. React Query invalidates **consortiums** and **approvals**. Toast: **"Consortium created"**. Navigate to `/consortiums/:id`. |
+| **Default without `status` in body** | Server defaults to **`approval_pending`** and still enqueues approval (API clients should pass `status: active` only if they intentionally skip governance). |
+| **Error** | `toast.error` from `ApiError` (e.g. empty `name` → **400**). |
+
+#### Action: **View Detail** (card / row click)
+
+No API on click. Navigates to `/consortiums/:id`. Detail page calls `GET /api/v1/consortiums/:id` on mount.
+
+---
+
+### G.14 Data Products — `/data-products/products`
+
+#### Action: **Page load**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/products` |
+| **Success** | Product cards render. |
+| **Error** | `ApiErrorCard`; falls back to `CatalogMockContext` data. |
+
+#### Action: **Create Product** (button → Form)
+
+No API on button click. Navigates to `/data-products/products/create`.
+
+#### Action: **Product Form Submit**
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/products` |
+| **Request body** | `name`, `description`, `status: "approval_pending"`, plus optional catalogue fields `packetIds`, `packetConfigs`, `enquiryConfig` (from the form / preview). |
+| **Fastify dev API success** | Product appended to in-memory catalogue; **approval item** prepended with `type: product`, `metadata.productId`; audit `PRODUCT_CREATE`. React Query invalidates **products** and **approvals**. User navigates to `/data-products/products/:id`. |
+| **Edit (existing product)** | `PATCH /api/v1/products/:id` with the same optional catalogue fields when saved. |
+| **Error** | `toast.error` from `ApiError` message (e.g. validation: empty `name` → 400). |
+| **Mock fallback** | If `VITE_USE_MOCK_FALLBACK=true` and the API is unreachable, list reads may fall back to JSON mocks; **mutations still require a live API** unless a mock path is added to `products.service.ts`. |
+
+---
+
+### G.15 Activity Log — `/user-management/activity`
+
+#### Action: **Page load / action filter change / pagination**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/audit-logs` |
+| **Data source** | **API only** — `fetchAuditLogs(..., { allowMockFallback: false })`; no `user-management-mock` activity fallback. |
+| **Dev seed** | Fastify `state.auditLog` is populated at startup from `user-management.json` `activityLog` (mapped to coarse `actionType` values), sample `GOVERNANCE` rows, and sample rows for seeded dev users (`server/src/auditSeed.ts`). |
+| **Dynamic audits** | `pushAudit` in `server/src/index.ts` (~33 call sites) on: **auth** (login success/fail, logout); **approval queue** (`APPROVAL_APPROVE`, `APPROVAL_REJECT`, `APPROVAL_REQUEST_CHANGES`); **institutions** (create, document upload, suspend, **PATCH**, **reactivate**, soft **DELETE**, consortium membership add/remove, product subscribe/update, billing, API access, consent); **users** (invite, suspend, activate, PATCH, deactivate); **roles** (`ROLE_CREATE` / `ROLE_UPDATE` / `ROLE_DELETE`); **batch** retry/cancel; **alert-rule** create; **product** and **consortium** create. **Still not audited** in dev API unless extended: e.g. `auth/refresh`, global **API keys**, alert-rule patch/delete/activate, alert-incidents, SLA patch, reports, product/consortium patch/delete. |
+| **Query params** | `actionType`, `page`, `size`; server also supports `entityType`, `entityId`, `userId`, `from`, `to` (ISO dates). |
+| **IP column** | API returns `ipAddressHash`; dev rows may expose plain IP via the same field when `ipAddress` was stored on the audit row. |
+| **Success** | Audit log rows render with user avatar, action badge, status badge. |
+| **Error** | `ApiErrorCard` with **Try again** replaces the table. |
+
+#### Action: **Search** (text input)
+
+Client-side filter applied across the current page's `userEmail`, `description`, and `actionType` fields. No API call triggered by search text change alone.
+
+#### Action: **Status filter** (Success / Failed dropdown)
+
+Client-side filter applied on current page. Mapped from `auditOutcome === "SUCCESS"`.
+
+#### Action: **Pagination**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/audit-logs?page=N&size=10` |
+| **Success** | Table rows update. |
+| **Error** | `ApiErrorCard` with **Try again**. |
+
+---
+
+### G.16 Governance Audit Logs — `/data-governance/governance-audit-logs`
+
+#### Action: **Page load / date / action filter change**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/audit-logs?entityType=GOVERNANCE&actionType=RULE_CREATED&from=2026-03-01&to=2026-03-28&size=50` (Fastify filters `from`/`to` on `occurredAt`) |
+| **Success** | Audit log rows populate. |
+| **Error** | `SkeletonTable` during load; empty state on empty result. |
+
+#### Action: **Row click → Detail Dialog**
+
+No API call. Dialog displays fields from the already-loaded `AuditLogEntry` (id, userEmail, actionType, entityType, entityId, description, auditOutcome, occurredAt, ipAddressHash).
+
+---
+
+### G.17 Roles & Permissions — `/user-management/roles`
+
+#### Action: **Page load**
+
+| Field | Value |
+|-------|-------|
+| **API** | `GET /api/v1/roles` |
+| **Success** | `roles` local state seeded from API via `useEffect`. **Fastify** returns a full `permissions` matrix for seeded roles. **Spring Boot** `Role` entity has no matrix field — the SPA merges `GET` rows with built-in defaults per `roleName` (`mergeRolePermissionsFromApi`). Cards show **user counts** from static mock map when names match `user-management.json`. |
+| **Error / offline** | `fetchRoles` mock fallback (`VITE_USE_MOCK_FALLBACK`): synthetic ids `local-*`, full matrix from `roleDefinitions`; create still targets the API (errors if unreachable). |
+
+#### Action: **Create Role** (dialog → Create role button)
+
+| Field | Value |
+|-------|-------|
+| **API** | `POST /api/v1/roles` via `useCreateRole` |
+| **Request body** | `{ "roleName": "Compliance Officer", "description": "…", "permissions": { "dashboard": { "View": true, "Create": false, … }, … } }` — keys are **nav section ids** (`permissionSections`) and **action** labels (`View`, `Create`, `Edit`, `Delete`, `Export`). |
+| **Success** | `toast.success("Role created")` (mutation) + query invalidation + list re-fetched; dialog closes. |
+| **Duplicate** | Client-side name check; server **409** `ERR_DUPLICATE` if name collides. |
+| **Error** | `toast.error` from mutation — dialog remains open |
+
+#### Action: **Edit Role** (pencil icon → dialog → Save changes)
+
+| Field | Value |
+|-------|-------|
+| **API** | `PATCH /api/v1/roles/:id` via `useUpdateRole` for persisted roles (`id` not `local-*`). |
+| **Request body** | `roleName`, `description`, `permissions` (full matrix on save). |
+| **Offline rows** | Rows from mock fallback (`local-*` id): updates stay **local state only** + success toast. |
+| **Success** | `toast.success("Role updated")` + list re-fetched |
+| **Error** | `toast.error` (e.g. duplicate rename **409**) |
+
+#### Action: **Delete Role** (trash icon → confirm dialog → Delete)
+
+| Field | Value |
+|-------|-------|
+| **API** | `DELETE /api/v1/roles/:id` via `useDeleteRole` for persisted roles. |
+| **Guard** | Delete button only shown when `role.userCount === 0` (checked client-side) |
+| **Offline rows** | `local-*`: removed from local state + toast only. |
+| **Success** | `toast.success("Role deleted")` + list re-fetched |
+| **Error** | `toast.error` |
+
+#### Action: **Enable all / Disable all** (permission matrix bulk toggle)
+
+Client-side only. Toggles all permissions in the form state. No API call until **Save changes** is clicked.
+
+---
+
+### G.18 API Keys (Service layer ready, no dedicated page yet)
+
+> The `apiKeys.service.ts` and service layer are wired but no dedicated page exists. When a page is built, the following API contract applies:
+
+| Action | API |
+|--------|-----|
+| List API keys | `GET /api/v1/api-keys` |
+| Generate API key | `POST /api/v1/api-keys` |
+| Revoke API key | `DELETE /api/v1/api-keys/:id` |
+| Rotate API key | `POST /api/v1/api-keys/:id/rotate` |
+
+**Error handling**: All mutations use `toast.error()` on failure; key list re-fetched on success.
+
+---
+
+### G.19 Global Cross-Cutting API Behaviours
+
+#### Token Refresh (automatic, invisible to user)
+
+When any API call returns `401`:
+1. The `api-client.ts` intercepts and pauses the failed request.
+2. A single `POST /api/v1/auth/refresh` is issued with the refresh token from `sessionStorage`.
+3. If refresh succeeds: the failed request is retried with the new access token. User sees nothing.
+4. If refresh fails (refresh token expired/revoked): all queued requests are rejected, tokens cleared, user redirected to `/login` with `toast.error("Your session has expired. Please sign in again.")`.
+5. Only one refresh request is ever in-flight at a time (shared promise queue prevents race conditions).
+
+#### React Query Retry Policy
+
+| Error type | Retries |
+|------------|---------|
+| Network error | 3 × (exponential backoff: 1 s, 2 s, 4 s) |
+| 4xx (client errors) | 0 retries |
+| 5xx (server errors) | 3 × |
+
+#### Optimistic Updates
+
+Currently **not used** — all mutations wait for server confirmation before updating the UI. This prevents partial-failure confusion. Optimistic updates are on the roadmap for high-frequency actions (approve/reject queue items).
+
+#### Loading States
+
+| Pattern | Component | Used in |
+|---------|-----------|---------|
+| Table skeleton | `SkeletonTable` | All list pages |
+| KPI skeleton | `SkeletonKpiCards` | Dashboard, Approval Queue |
+| Spinner (inline) | Lucide `Loader2` | Mutation buttons while pending |
+
+#### Empty States
+
+When an API returns zero results (not an error — HTTP 200 with empty `content[]`):
+- Tables: row with message "No [items] found" spanning all columns
+- Dashboards: "No data available" placeholder in chart area
+
+---
+
+### G.20 Mock Fallback Behaviour (Development / Testing)
+
+When `VITE_USE_MOCK_FALLBACK=true` (set in `.env.development`):
+- Every service function catches network/server errors and returns static mock data from `src/data/*.json`.
+- **No error is surfaced to the user** — the app appears fully functional.
+- KPI values, table rows, charts, and filters all work against the static JSON dataset.
+- This mode is the default for `npm run dev` with no backend running.
+
+**To test real API error handling**, set `VITE_USE_MOCK_FALLBACK=false` with the backend offline and reload the page.
+
+---
+
+---
+
+### G.21 Institution Sub-Resource API Contracts (v3.2)
+
+Added in Phase 6/7. All endpoints require `Bearer <access_token>` and any of the roles `SUPER_ADMIN`, `BUREAU_ADMIN`, `ANALYST`, `VIEWER`.
+
+#### GET /api/v1/institutions/{id}/consortium-memberships
+
+- **UI trigger:** `ConsortiumMembershipsTab` renders on Institution Detail > Memberships tab
+- **Response:** `Array<{ membershipId, consortiumId, consortiumName, consortiumStatus, memberRole, consortiumMemberStatus, joinedAt }>` (**`consortiumType`** removed)
+- **Error:** 404 if institution not found; 403 if role insufficient
+
+#### GET /api/v1/institutions/{id}/product-subscriptions
+
+- **UI trigger:** `ProductSubscriptionsTab` renders on Institution Detail > Products tab; `BillingTab` uses it for pricing table
+- **Response:** `Array<{ subscriptionId, productId, productName, productStatus, pricingModel, subscribedAt, subscriptionStatus }>`
+- **Error:** 404 if institution not found
+
+#### GET /api/v1/institutions/{id}/billing-summary
+
+- **UI trigger:** `BillingTab` reads `billingModel`, `creditBalance`, `activeSubscriptions`, `apiCalls30d`
+- **Response:** `{ billingModel, creditBalance, activeSubscriptions, apiCalls30d }`
+- **Error:** 404 if institution not found
+
+#### GET /api/v1/institutions/{id}/monitoring-summary
+
+- **UI trigger:** `MonitoringTab` overlays live KPIs on top of static chart data
+- **Response:** `{ totalRequests, successfulRequests, avgLatencyMs, successRatePct, totalBatches, activeBatches, totalRecords }`
+- **Error:** 404 if institution not found
+
+#### GET /api/v1/dashboard/activity
+
+- **UI trigger:** `useDashboardSnapshot` assembles `DashboardSnapshot.activity.recentActivity` from live rows
+- **Response:** `Array<{ id, actionType, entityType, entityId, description, auditOutcome, occurredAt, userName, userEmail }>` (top 20 by `occurred_at DESC`)
+- **Error handling:** Silent fallback to mock overlay data on any error
+
+#### GET /api/v1/dashboard/command-center
+
+- **UI trigger:** `useDashboardSnapshot` enriches anomaly count badge; `useDashboardCommandCenter()` exported for direct use
+- **Response:** `{ pendingApprovals, activeAlerts, pendingOnboarding, activeInstitutions, recentErrors1h }`
+- **Error handling:** Silent fallback to mock overlay data on any error
+
+---
+
+### G.22 Automated testing and local API parity (2026-03-29)
+
+| Requirement | Implementation |
+|-------------|----------------|
+| CI / local verification | `npm run test` runs Vitest **client** (jsdom) and **server** (node) projects |
+| HTTP regression | **`npm run spring:test`** — `HcbPlatformApplicationTest` and related Spring tests (expand to cover the former Fastify sequential suite: login, institutions, approvals, audit, products, batch, roles, etc.) |
+| Shared test helpers | `server/src/test-helpers.ts` — `loginAsAdmin`, `authHeaders` |
+| Client coverage | Pure calcs (`src/test/calc/*`), `api-client`, feature flags, `AuthContext`, `InstitutionList`, `ApprovalQueuePage` |
+| UI ↔ route traceability | `docs/technical/API-UI-Parity-Matrix.md` (+ route appendix) |
+| Onboarding / ops narrative | `docs/technical/Developer-Handbook.md` — env vars, ports **8080/8090** (Spring), mock fallback, troubleshooting matrix |
+| Demo-only affordances | Login SSO / password-reset rows and agents “request access” messaging respect `VITE_SHOW_DEMO_AUTH_UI`; production builds default to non-misleading copy |
+| Hardening beyond prototype | `docs/technical/Production-Backend-Roadmap.md` |
+
+**Note:** `docs/technical/Testing-Plan.md` still contains **target** Spring/JUnit scenario tables for a future backend; the **implemented** column is Vitest + Fastify — see that file’s section “Implemented tests in this repository.”
+
+---
+
+*End of Document — v3.2 (2026-03-28; addendum G.22 — 2026-03-29)*

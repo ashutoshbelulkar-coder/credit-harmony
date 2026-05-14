@@ -1,11 +1,15 @@
 import { useState, useMemo } from "react";
 import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, AlertTriangle, ExternalLink, Download } from "lucide-react";
+import { ArrowLeft, CheckCircle2, AlertTriangle, ExternalLink, Copy } from "lucide-react";
+import { toast } from "sonner";
+import { institutionManagedApiSlotCount } from "@/lib/institutionManagedApiSlots";
+import {
+  institutionLifecycleStatusBadgeClass,
+  institutionLifecycleStatusLabel,
+} from "@/lib/status-badges";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses, detailPageTabTriggerBaseClasses } from "@/lib/typography";
-import { getInstitutionById, statusStyles } from "@/data/institutions-mock";
-import type { Institution } from "@/data/institutions-mock";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import {
   Dialog,
@@ -34,15 +38,21 @@ import {
   ChartLegendContent,
   type ChartConfig,
 } from "@/components/ui/chart";
-import institutionDetailData from "@/data/institution-detail.json";
 import {
-  apiSubmissionRequests,
-  apiSubmissionKpis,
-  batchJobs,
-  dataSubmitterIdByApiKey,
-  subscriberIdByApiKey,
-  enquiryLogEntries,
-} from "@/data/monitoring-mock";
+  useInstitution,
+  useInstitutionOverviewCharts,
+  useInstitutionApiAccess,
+  usePatchInstitutionApiAccess,
+} from "@/hooks/api/useInstitutions";
+import { useApiKeys, useCreateApiKey, useRegenerateApiKey, useRevokeApiKey } from "@/hooks/api/useApiKeys";
+import { useApiRequests, useEnquiries } from "@/hooks/api/useMonitoring";
+import { useBatchJobs } from "@/hooks/api/useBatchJobs";
+import { useProducts } from "@/hooks/api/useProducts";
+import type { InstitutionComplianceDoc, InstitutionResponse } from "@/services/institutions.service";
+import { fetchInstitutionDocument } from "@/services/institutions.service";
+import { defaultInstitutionApiAccessPayload } from "@/services/institutions.service";
+import type { ApiRequestRecord, EnquiryRecord } from "@/services/monitoring.service";
+import type { BatchJobResponse } from "@/services/batchJobs.service";
 import UsersTab from "./institution-tabs/UsersTab";
 import ConsentConfigTab from "./institution-tabs/ConsentConfigTab";
 import BillingTab from "./institution-tabs/BillingTab";
@@ -51,14 +61,13 @@ import ReportsTab from "./institution-tabs/ReportsTab";
 import AuditTrailTab from "./institution-tabs/AuditTrailTab";
 import ConsortiumMembershipsTab from "./institution-tabs/ConsortiumMembershipsTab";
 import ProductSubscriptionsTab from "./institution-tabs/ProductSubscriptionsTab";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
 
 const InstitutionDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("Overview");
 
-  const institution = getInstitutionById(id || "");
+  const { data: institution, isLoading } = useInstitution(id, { allowMockFallback: false });
 
   const allTabs = useMemo(() => {
     if (!institution) return [];
@@ -69,6 +78,17 @@ const InstitutionDetail = () => {
     tabs.push("Monitoring", "Reports", "Audit Trail", "Users");
     return tabs;
   }, [institution]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex flex-col items-center justify-center py-20 space-y-4">
+          <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+          <p className="text-muted-foreground text-sm">Loading institution…</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!institution) {
     return (
@@ -107,10 +127,10 @@ const InstitutionDetail = () => {
             <div className="min-w-0">
               <h1 className="text-h2 font-semibold text-foreground break-words">{institution.name}</h1>
               <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                <span className="text-caption text-muted-foreground">{institution.type}</span>
+                <span className="text-caption text-muted-foreground">{institution.institutionType}</span>
                 <span className="w-1 h-1 rounded-full bg-muted-foreground" />
-                <span className={cn("px-2 py-0.5 rounded-full capitalize", badgeTextClasses, statusStyles[institution.status])}>
-                  {institution.status}
+                <span className={cn("px-2 py-0.5 rounded-full capitalize", badgeTextClasses, institutionLifecycleStatusBadgeClass(institution.institutionLifecycleStatus))}>
+                  {institutionLifecycleStatusLabel(institution.institutionLifecycleStatus)}
                 </span>
                 {institution.isDataSubmitter && (
                   <span className={cn("px-2 py-0.5 rounded-full", badgeTextClasses, "bg-primary/15 text-primary")}>
@@ -127,8 +147,8 @@ const InstitutionDetail = () => {
           </div>
         </div>
 
-        {/* Tabs - horizontal scroll on mobile, wrap on larger screens */}
-        <div className="rounded-xl border border-border bg-card px-1.5 py-1.5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        {/* Tabs */}
+        <div className="rounded-xl border border-border bg-card px-1.5 py-1.5 shadow-sm">
           <div className="overflow-x-auto overflow-y-hidden -mx-0.5 md:overflow-visible md:mx-0">
             <div className="flex items-center gap-0.5 min-w-0 w-max md:w-full md:flex-wrap md:min-w-0">
               {allTabs.map((tab) => (
@@ -151,35 +171,54 @@ const InstitutionDetail = () => {
 
         {/* Tab Content */}
         {activeTab === "Overview" && <OverviewTab institution={institution} />}
-        {activeTab === "API Access" && <ApiAccessTab isDataSubmitter={institution.isDataSubmitter} isSubscriber={institution.isSubscriber} />}
+        {activeTab === "API Access" && (
+          <ApiAccessTab
+            institutionId={institution.id}
+            isDataSubmitter={institution.isDataSubmitter}
+            isSubscriber={institution.isSubscriber}
+          />
+        )}
         {activeTab === "Consortium" && (
-          <ConsortiumMembershipsTab institutionId={institution.id} />
+          <ConsortiumMembershipsTab institutionId={String(institution.id)} />
         )}
         {activeTab === "Products" && (
-          <ProductSubscriptionsTab institutionId={institution.id} />
+          <ProductSubscriptionsTab institutionId={String(institution.id)} />
         )}
-        {activeTab === "Consent" && <ConsentConfigTab />}
-        {activeTab === "Billing" && <BillingTab institutionId={institution.id} billingModel={institution.billingModel} creditBalance={institution.creditBalance} />}
-        {activeTab === "Monitoring" && <MonitoringTab isDataSubmitter={institution.isDataSubmitter} isSubscriber={institution.isSubscriber} />}
-        {activeTab === "Reports" && <ReportsTab isDataSubmitter={institution.isDataSubmitter} isSubscriber={institution.isSubscriber} />}
-        {activeTab === "Audit Trail" && <AuditTrailTab isDataSubmitter={institution.isDataSubmitter} isSubscriber={institution.isSubscriber} />}
-        {activeTab === "Users" && <UsersTab />}
+        {activeTab === "Consent" && <ConsentConfigTab institutionId={String(institution.id)} />}
+        {activeTab === "Billing" && (
+          <BillingTab
+            institutionId={String(institution.id)}
+            billingModel={institution.billingModel}
+            creditBalance={institution.creditBalance}
+          />
+        )}
+        {activeTab === "Monitoring" && (
+          <MonitoringTab
+            institutionId={institution.id}
+            isDataSubmitter={institution.isDataSubmitter}
+            isSubscriber={institution.isSubscriber}
+          />
+        )}
+        {activeTab === "Reports" && (
+          <ReportsTab
+            isDataSubmitter={institution.isDataSubmitter}
+            isSubscriber={institution.isSubscriber}
+          />
+        )}
+        {activeTab === "Audit Trail" && (
+          <AuditTrailTab
+            isDataSubmitter={institution.isDataSubmitter}
+            isSubscriber={institution.isSubscriber}
+            institutionId={String(institution.id)}
+          />
+        )}
+        {activeTab === "Users" && <UsersTab institutionId={institution.id} />}
       </div>
     </DashboardLayout>
   );
 };
 
 /* ─────────────── OVERVIEW TAB ─────────────── */
-
-const {
-  submissionVolumeData,
-  successVsRejectedData,
-  rejectionReasonsData,
-  processingTimeData,
-  enquiryVolumeData,
-  successVsFailedData,
-  responseTimeData,
-} = institutionDetailData;
 
 const PIE_COLORS = ["hsl(var(--success))", "hsl(var(--danger))"];
 
@@ -201,122 +240,145 @@ const sourceConfig: ChartConfig = {
 };
 const latencyConfig: ChartConfig = { latency: { label: "Latency (ms)", color: "hsl(var(--secondary))" } };
 
-const CHART_CARD = "bg-card rounded-xl border border-border p-6 shadow-[0_1px_3px_rgba(15,23,42,0.06)] flex flex-col";
+const CHART_CARD = "bg-card rounded-xl border border-border p-6 shadow-sm flex flex-col";
 
-function overviewSubmitterKeys(institutionId: string) {
-  return new Set(
-    Object.entries(dataSubmitterIdByApiKey)
-      .filter(([, id]) => id === institutionId)
-      .map(([k]) => k)
-  );
+function calcP95(values: number[]): string {
+  if (values.length === 0) return "—";
+  const sorted = [...values].sort((a, b) => a - b);
+  const i = Math.floor(0.95 * (sorted.length - 1));
+  return `${sorted[i]}ms`;
 }
 
-function overviewSubscriberKeys(institutionId: string) {
-  return new Set(
-    Object.entries(subscriberIdByApiKey)
-      .filter(([, id]) => id === institutionId)
-      .map(([k]) => k)
-  );
-}
+function OverviewTab({ institution }: { institution: InstitutionResponse }) {
+  const institutionId = String(institution.id);
+  const [openingDocId, setOpeningDocId] = useState<string | null>(null);
 
-function OverviewTab({ institution }: { institution: Institution }) {
-  const { products: catalogProducts } = useCatalogMock();
-  const docs = institution.complianceDocs || [];
+  const { data: overviewCharts } = useInstitutionOverviewCharts(institution.id);
+  const submissionVolumeData = overviewCharts?.submissionVolumeData ?? [];
+  const successVsRejectedData = overviewCharts?.successVsRejectedData ?? [];
+  const rejectionReasonsData = overviewCharts?.rejectionReasonsData ?? [];
+  const processingTimeData = overviewCharts?.processingTimeData ?? [];
+  const enquiryVolumeData = overviewCharts?.enquiryVolumeData ?? [];
+  const successVsFailedData = overviewCharts?.successVsFailedData ?? [];
+  const responseTimeData = overviewCharts?.responseTimeData ?? [];
 
-  const memberApiRequests = useMemo(
-    () => apiSubmissionRequests.filter((r) => overviewSubmitterKeys(institution.id).has(r.api_key)),
-    [institution.id]
-  );
-  const memberEnquiries = useMemo(
-    () => enquiryLogEntries.filter((e) => overviewSubscriberKeys(institution.id).has(e.api_key)),
-    [institution.id]
-  );
-  const memberBatches = useMemo(
-    () => batchJobs.filter((b) => b.institution_id === institution.id),
-    [institution.id]
-  );
+  const { data: apiRequestsPage } = useApiRequests({ institutionId, size: 200 });
+  const { data: enquiriesPage } = useEnquiries({ institutionId, size: 200 });
+  const { data: batchPage } = useBatchJobs({ institutionId });
+  const { data: productsPage } = useProducts();
 
-  const apiSuccessRate =
-    memberApiRequests.length > 0
-      ? (
-          (memberApiRequests.filter((r) => r.status === "Success").length / memberApiRequests.length) *
-          100
-        ).toFixed(1)
-      : "—";
-  const apiP95 =
-    memberApiRequests.length > 0
-      ? (() => {
-          const sorted = [...memberApiRequests.map((r) => r.response_time_ms)].sort((a, b) => a - b);
-          const i = Math.floor(0.95 * (sorted.length - 1));
-          return `${sorted[i]}ms`;
-        })()
-      : "—";
+  const memberApiRequests: ApiRequestRecord[] = apiRequestsPage?.content ?? [];
+  const memberEnquiries: EnquiryRecord[] = enquiriesPage?.content ?? [];
+  const memberBatches: BatchJobResponse[] = batchPage?.content ?? [];
+  const catalogProducts = productsPage?.content ?? [];
 
-  const enqSuccessRate =
-    memberEnquiries.length > 0
-      ? (
-          (memberEnquiries.filter((e) => e.status === "Success").length / memberEnquiries.length) *
-          100
-        ).toFixed(1)
-      : "—";
-  const enqP95 =
-    memberEnquiries.length > 0
-      ? (() => {
-          const sorted = [...memberEnquiries.map((e) => e.response_time_ms)].sort((a, b) => a - b);
-          const i = Math.floor(0.95 * (sorted.length - 1));
-          return `${sorted[i]}ms`;
-        })()
-      : "—";
+  const docs = institution.complianceDocs ?? [];
 
-  const usageByProductChartData = useMemo(() => {
-    const counts = new Map<string, { standard: number; alternate: number }>();
-    for (const e of memberEnquiries) {
-      const id = e.product_id;
-      const row = counts.get(id) ?? { standard: 0, alternate: 0 };
-      if (e.alternate_data_used > 0) row.alternate += 1;
-      else row.standard += 1;
-      counts.set(id, row);
+  const handleViewDocument = async (doc: InstitutionComplianceDoc) => {
+    if (!doc.id) {
+      toast.info("Preview is only available for documents uploaded with stored file content.");
+      return;
     }
-    const nameById = new Map(catalogProducts.map((p) => [p.id, p.name]));
-    return [...counts.entries()]
-      .map(([productId, c]) => ({
-        productId,
-        productName: nameById.get(productId) ?? productId,
-        standard: c.standard,
-        alternate: c.alternate,
-      }))
-      .sort((a, b) => a.productId.localeCompare(b.productId));
-  }, [memberEnquiries, catalogProducts]);
+    setOpeningDocId(doc.id);
+    try {
+      const payload = await fetchInstitutionDocument(institutionId, doc.id);
+      const binary = atob(payload.dataBase64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+      const blob = new Blob([bytes], { type: payload.mimeType || "application/octet-stream" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 120_000);
+    } catch {
+      toast.error("Could not load document.");
+    } finally {
+      setOpeningDocId(null);
+    }
+  };
+
+  const apiSuccessRate = useMemo(() => {
+    if (memberApiRequests.length === 0) return "—";
+    const successCount = memberApiRequests.filter((r) => r.status === "Success").length;
+    return ((successCount / memberApiRequests.length) * 100).toFixed(1);
+  }, [memberApiRequests]);
+
+  const apiP95 = useMemo(
+    () => calcP95(memberApiRequests.map((r) => r.responseTimeMs)),
+    [memberApiRequests]
+  );
+
+  const enqSuccessRate = useMemo(() => {
+    if (memberEnquiries.length === 0) return "—";
+    const successCount = memberEnquiries.filter((e) => e.status === "Success").length;
+    return ((successCount / memberEnquiries.length) * 100).toFixed(1);
+  }, [memberEnquiries]);
+
+  const enqP95 = useMemo(
+    () => calcP95(memberEnquiries.map((e) => e.responseTimeMs)),
+    [memberEnquiries]
+  );
 
   const batchActive = memberBatches.filter((b) => b.status === "Queued" || b.status === "Processing").length;
-  const batchRecords = memberBatches.reduce((s, b) => s + b.total_records, 0);
-  const batchAvgSuccess =
-    memberBatches.length > 0
-      ? (memberBatches.reduce((s, b) => s + b.success_rate, 0) / memberBatches.length).toFixed(1)
-      : "—";
+  const batchRecords = memberBatches.reduce((s, b) => s + b.totalRecords, 0);
+  const batchAvgSuccess = useMemo(() => {
+    if (memberBatches.length === 0) return "—";
+    return (memberBatches.reduce((s, b) => s + b.successRate, 0) / memberBatches.length).toFixed(1);
+  }, [memberBatches]);
+
+  // Usage-by-product: success-only enquiries; "standard" = core product only, "alternate" = add-on packets used
+  const usageByProductChartData = useMemo(() => {
+    const counts = new Map<string, { standard: number; alternate: number }>();
+    const nameById = new Map(catalogProducts.map((p) => [p.id, p.name]));
+    const successLike = (s: string) => s === "Success" || s === "success";
+    for (const e of memberEnquiries) {
+      if (!e.productId || !successLike(e.status)) continue;
+      const alt = e.alternateDataUsed ?? 0;
+      const cur = counts.get(e.productId) ?? { standard: 0, alternate: 0 };
+      if (alt > 0) cur.alternate += 1;
+      else cur.standard += 1;
+      counts.set(e.productId, cur);
+    }
+    return [...counts.entries()].map(([productId, c]) => ({
+      productId,
+      productName:
+        nameById.get(productId) ??
+        memberEnquiries.find((x) => x.productId === productId)?.productName ??
+        productId,
+      standard: c.standard,
+      alternate: c.alternate,
+    }));
+  }, [catalogProducts, memberEnquiries]);
+
+  const managedApiSlots = institutionManagedApiSlotCount(institution);
+  const allManagedApisEnabled =
+    managedApiSlots > 0 && institution.apisEnabledCount >= managedApiSlots;
 
   return (
     <div className="space-y-6">
-      {/* Summary strip — aligns with Monitoring module; scoped to this member */}
+      {/* Summary strip */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
           <p className="text-caption text-muted-foreground">APIs enabled</p>
-          <p className={cn("text-h4 font-bold mt-1", institution.apisEnabled === 3 ? "text-success" : "text-foreground")}>
-            {institution.apisEnabled}/3
+          <p className={cn("text-h4 font-bold mt-1", allManagedApisEnabled ? "text-success" : "text-foreground")}>
+            {managedApiSlots > 0 ? `${institution.apisEnabledCount}/${managedApiSlots}` : "—"}
           </p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
           <p className="text-caption text-muted-foreground">SLA health</p>
-          <p className={cn("text-h4 font-bold mt-1", institution.slaHealth >= 99 ? "text-success" : "text-foreground")}>
-            {institution.slaHealth > 0 ? `${institution.slaHealth}%` : "—"}
+          <p className={cn("text-h4 font-bold mt-1", (institution.slaHealthPercent ?? 0) >= 99 ? "text-success" : "text-foreground")}>
+            {institution.slaHealthPercent != null && institution.slaHealthPercent > 0
+              ? `${institution.slaHealthPercent}%`
+              : "—"}
           </p>
         </div>
-        <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
           <p className="text-caption text-muted-foreground">Onboarded</p>
-          <p className="text-h4 font-bold mt-1 text-muted-foreground">{institution.onboardedDate || "—"}</p>
+          <p className="text-h4 font-bold mt-1 text-muted-foreground">
+            {institution.onboardedAt ? new Date(institution.onboardedAt).toLocaleDateString() : "—"}
+          </p>
         </div>
         {institution.isSubscriber && institution.creditBalance != null && (
-          <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+          <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
             <p className="text-caption text-muted-foreground">Available credits</p>
             <p className="text-h4 font-bold mt-1 text-foreground">{institution.creditBalance.toLocaleString()}</p>
           </div>
@@ -347,26 +409,35 @@ function OverviewTab({ institution }: { institution: Institution }) {
         {/* Compliance Documents */}
         <div className="bg-card rounded-xl border border-border p-6">
           <h3 className="text-h4 font-semibold text-foreground mb-4">Compliance Documents</h3>
-          <div className="space-y-3">
-            {docs.map((doc) => (
-              <div key={doc.name} className="flex items-center justify-between py-2">
-                <div className="flex items-center gap-3">
-                  {doc.status === "verified" ? (
-                    <CheckCircle2 className="w-4 h-4 text-success" />
-                  ) : (
-                    <AlertTriangle className="w-4 h-4 text-warning" />
-                  )}
-                  <span className="text-body text-foreground">{doc.name}</span>
+          {docs.length === 0 ? (
+            <p className="text-caption text-muted-foreground">No compliance documents on file.</p>
+          ) : (
+            <div className="space-y-3">
+              {docs.map((doc) => (
+                <div key={doc.name} className="flex items-center justify-between py-2">
+                  <div className="flex items-center gap-3">
+                    {doc.status === "verified" ? (
+                      <CheckCircle2 className="w-4 h-4 text-success" />
+                    ) : (
+                      <AlertTriangle className="w-4 h-4 text-warning" />
+                    )}
+                    <span className="text-body text-foreground">{doc.name}</span>
+                  </div>
+                  <button
+                    type="button"
+                    className="text-caption text-primary hover:text-primary/80 flex items-center gap-1 disabled:opacity-50"
+                    disabled={openingDocId === doc.id}
+                    onClick={() => void handleViewDocument(doc)}
+                  >
+                    View <ExternalLink className="w-3 h-3" />
+                  </button>
                 </div>
-                <button className="text-caption text-primary hover:text-primary/80 flex items-center gap-1">
-                  View <ExternalLink className="w-3 h-3" />
-                </button>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* Data Submission (API) — Monitoring-aligned KPIs for this member */}
+        {/* Data Submission (API) */}
         {institution.isDataSubmitter && (
           <section className="space-y-4" aria-labelledby="ov-ds-api">
             <div className="border-b border-border pb-2">
@@ -374,27 +445,30 @@ function OverviewTab({ institution }: { institution: Institution }) {
                 Data Submission (API)
               </h2>
               <p className="text-caption text-muted-foreground mt-1">
-                Scoped to this member&apos;s submission API keys. Labels align with Monitoring → Data Submission API.
+                Scoped to this member's submission API requests. Aligns with Monitoring → Data Submission API.
               </p>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">Requests (sample set)</p>
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
+                <p className="text-caption text-muted-foreground">Total requests</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">{memberApiRequests.length}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Success rate</p>
                 <p className="text-h4 font-bold mt-1 text-success">{apiSuccessRate}{apiSuccessRate !== "—" ? "%" : ""}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">P95 latency</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">{apiP95}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">Active API keys</p>
-                <p className="text-h4 font-bold mt-1 text-foreground">{overviewSubmitterKeys(institution.id).size}</p>
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
+                <p className="text-caption text-muted-foreground">APIs enabled (member)</p>
+                <p className="text-h4 font-bold mt-1 text-foreground">
+                  {managedApiSlots > 0 ? `${institution.apisEnabledCount}/${managedApiSlots}` : "—"}
+                </p>
               </div>
             </div>
+            {/* Trend charts from GET …/overview-charts (member-scoped aggregates) */}
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
               <div className="lg:col-span-7">
                 <div className={CHART_CARD}>
@@ -423,17 +497,23 @@ function OverviewTab({ institution }: { institution: Institution }) {
                     <p className="mt-1 text-caption text-muted-foreground">Distribution of record processing outcomes</p>
                   </div>
                   <div className="flex-1">
-                    <ChartContainer config={successRejectedConfig} className="h-[260px] w-full">
-                      <PieChart>
-                        <Pie data={successVsRejectedData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={4}>
-                          {successVsRejectedData.map((_, i) => (
-                            <Cell key={i} fill={PIE_COLORS[i]} />
-                          ))}
-                        </Pie>
-                        <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                        <ChartLegend content={<ChartLegendContent />} />
-                      </PieChart>
-                    </ChartContainer>
+                    {successVsRejectedData.length === 0 ? (
+                      <p className="text-caption text-muted-foreground flex min-h-[220px] items-center justify-center px-4 text-center">
+                        No submission record outcomes in the last 30 days for this member.
+                      </p>
+                    ) : (
+                      <ChartContainer config={successRejectedConfig} className="h-[260px] w-full">
+                        <PieChart>
+                          <Pie data={successVsRejectedData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={4}>
+                            {successVsRejectedData.map((_, i) => (
+                              <Cell key={i} fill={PIE_COLORS[i]} />
+                            ))}
+                          </Pie>
+                          <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                          <ChartLegend content={<ChartLegendContent />} />
+                        </PieChart>
+                      </ChartContainer>
+                    )}
                   </div>
                 </div>
               </div>
@@ -495,19 +575,19 @@ function OverviewTab({ institution }: { institution: Institution }) {
               </p>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Batches (member)</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">{memberBatches.length}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Queued / Processing</p>
                 <p className="text-h4 font-bold mt-1 text-warning">{batchActive}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Records in scope</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">{batchRecords.toLocaleString()}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Avg success rate</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">
                   {batchAvgSuccess !== "—" ? `${batchAvgSuccess}%` : "—"}
@@ -525,26 +605,26 @@ function OverviewTab({ institution }: { institution: Institution }) {
                 Enquiry (API)
               </h2>
               <p className="text-caption text-muted-foreground mt-1">
-                Scoped to this subscriber member&apos;s keys. Labels align with Monitoring → Inquiry API.
+                Scoped to this subscriber member's enquiries. Aligns with Monitoring → Inquiry API.
               </p>
             </div>
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">Enquiries (sample set)</p>
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
+                <p className="text-caption text-muted-foreground">Enquiries</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">{memberEnquiries.length}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">Success rate</p>
                 <p className="text-h4 font-bold mt-1 text-success">{enqSuccessRate}{enqSuccessRate !== "—" ? "%" : ""}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
                 <p className="text-caption text-muted-foreground">P95 latency</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">{enqP95}</p>
               </div>
-              <div className="bg-card rounded-xl border border-border p-4 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
-                <p className="text-caption text-muted-foreground">Alt-data calls</p>
+              <div className="bg-card rounded-xl border border-border p-4 shadow-sm">
+                <p className="text-caption text-muted-foreground">Total enquiry types</p>
                 <p className="text-h4 font-bold mt-1 text-foreground">
-                  {memberEnquiries.reduce((s, e) => s + e.alternate_data_used, 0)}
+                  {new Set(memberEnquiries.map((e) => e.enquiryType)).size || "—"}
                 </p>
               </div>
             </div>
@@ -576,17 +656,23 @@ function OverviewTab({ institution }: { institution: Institution }) {
                     <p className="mt-1 text-caption text-muted-foreground">Distribution of enquiry outcomes</p>
                   </div>
                   <div className="flex-1">
-                    <ChartContainer config={successFailedConfig} className="h-[260px] w-full">
-                      <PieChart>
-                        <Pie data={successVsFailedData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={4}>
-                          {successVsFailedData.map((_, i) => (
-                            <Cell key={i} fill={PIE_COLORS[i]} />
-                          ))}
-                        </Pie>
-                        <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
-                        <ChartLegend content={<ChartLegendContent />} />
-                      </PieChart>
-                    </ChartContainer>
+                    {successVsFailedData.length === 0 ? (
+                      <p className="text-caption text-muted-foreground flex min-h-[220px] items-center justify-center px-4 text-center">
+                        No enquiry outcomes in the last 30 days for this member.
+                      </p>
+                    ) : (
+                      <ChartContainer config={successFailedConfig} className="h-[260px] w-full">
+                        <PieChart>
+                          <Pie data={successVsFailedData} dataKey="value" nameKey="name" innerRadius={55} outerRadius={85} paddingAngle={4}>
+                            {successVsFailedData.map((_, i) => (
+                              <Cell key={i} fill={PIE_COLORS[i]} />
+                            ))}
+                          </Pie>
+                          <ChartTooltip content={<ChartTooltipContent nameKey="name" />} />
+                          <ChartLegend content={<ChartLegendContent />} />
+                        </PieChart>
+                      </ChartContainer>
+                    )}
                   </div>
                 </div>
               </div>
@@ -597,13 +683,13 @@ function OverviewTab({ institution }: { institution: Institution }) {
                   <div className="mb-4">
                     <h2 className="text-h4 font-semibold text-foreground">Usage by Data Products</h2>
                     <p className="mt-1 text-caption text-muted-foreground">
-                      Catalogue product IDs on the axis; hover for full product name. Stacked: core-only vs add-on hits per enquiry.
+                      Successful enquiries only — core product vs add-on alternate data usage per catalogue id.
                     </p>
                   </div>
                   <div className="flex-1">
                     {usageByProductChartData.length === 0 ? (
                       <p className="text-caption text-muted-foreground flex min-h-[220px] items-center justify-center px-4 text-center">
-                        No enquiries in this sample for this member.
+                        No successful product-scoped enquiries in the current window for this member.
                       </p>
                     ) : (
                       <ChartContainer config={sourceConfig} className="h-[260px] w-full">
@@ -615,9 +701,7 @@ function OverviewTab({ institution }: { institution: Institution }) {
                             content={
                               <ChartTooltipContent
                                 labelFormatter={(_, payload) => {
-                                  const row = payload?.[0]?.payload as
-                                    | { productId: string; productName: string }
-                                    | undefined;
+                                  const row = payload?.[0]?.payload as { productId: string; productName: string } | undefined;
                                   return row ? `${row.productName} (${row.productId})` : "";
                                 }}
                               />
@@ -662,159 +746,289 @@ function OverviewTab({ institution }: { institution: Institution }) {
 
 /* ─────────────── API & ACCESS TAB ─────────────── */
 
-interface ApiCardData {
-  name: string;
-  enabled: boolean;
-  rateLimit: string;
-  ipWhitelist: string[];
-  lastUsed: string;
-}
+type ApiAccessCardKey = "dataSubmission" | "enquiry";
 
-function ApiAccessTab({ isDataSubmitter, isSubscriber }: { isDataSubmitter: boolean; isSubscriber: boolean }) {
-  const [envTab, setEnvTab] = useState<"sandbox" | "uat" | "prod">("sandbox");
-  const [editingApi, setEditingApi] = useState<string | null>(null);
+function ApiAccessTab({
+  institutionId,
+  isDataSubmitter,
+  isSubscriber,
+}: {
+  institutionId: number;
+  isDataSubmitter: boolean;
+  isSubscriber: boolean;
+}) {
+  const [editingKey, setEditingKey] = useState<ApiAccessCardKey | null>(null);
   const [editRate, setEditRate] = useState("");
 
-  const submitterApis: ApiCardData[] = institutionDetailData.apiAccess.submitterApis;
-  const subscriberApis: ApiCardData[] = institutionDetailData.apiAccess.subscriberApis;
-  const keys = institutionDetailData.apiAccess.apiKeys;
+  const { data: apiAccessData } = useInstitutionApiAccess(institutionId);
+  const { mutate: patchApiAccess, isPending: patchingAccess } = usePatchInstitutionApiAccess(institutionId);
+  const access = apiAccessData ?? defaultInstitutionApiAccessPayload();
 
-  const apis = [
-    ...(isDataSubmitter ? submitterApis : []),
-    ...(isSubscriber ? subscriberApis : []),
-  ];
+  const { data: apiKeys = [], isLoading: keysLoading } = useApiKeys(institutionId);
+  const { mutate: createKey, isPending: creatingKey } = useCreateApiKey(institutionId);
+  const { mutate: regenerate, isPending: regenerating } = useRegenerateApiKey();
+  const { mutate: revoke, isPending: revoking } = useRevokeApiKey();
+
+  const apiCards = useMemo(() => {
+    const cards: Array<{
+      key: ApiAccessCardKey;
+      name: string;
+      enabled: boolean;
+      rateLimit: string;
+      ipWhitelist: string[];
+      lastUsed: string;
+      concurrentLimit?: number;
+    }> = [];
+    if (isDataSubmitter) {
+      const s = access.dataSubmission;
+      cards.push({
+        key: "dataSubmission",
+        name: "Data Submission API",
+        enabled: s.enabled,
+        rateLimit: `${s.rateLimitPerMin}/min`,
+        ipWhitelist: s.ipWhitelist ?? [],
+        lastUsed: "—",
+      });
+    }
+    if (isSubscriber) {
+      const e = access.enquiry;
+      cards.push({
+        key: "enquiry",
+        name: "Enquiry API",
+        enabled: e.enabled,
+        rateLimit: `${e.rateLimitPerMin}/min`,
+        ipWhitelist: e.ipWhitelist ?? [],
+        lastUsed: "—",
+        concurrentLimit: e.concurrentLimit,
+      });
+    }
+    return cards;
+  }, [access, isDataSubmitter, isSubscriber]);
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-2">
-        {(["sandbox", "uat", "prod"] as const).map((env) => (
-          <button
-            key={env}
-            onClick={() => setEnvTab(env)}
-            className={cn(
-              "px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors",
-              envTab === env
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-muted-foreground hover:bg-muted/80"
-            )}
-          >
-            {env === "prod" ? "Production" : env.toUpperCase()}
-          </button>
-        ))}
-      </div>
-
       {/* API Keys Table */}
       <div className="bg-card rounded-xl border border-border overflow-hidden">
         <div className="flex items-center justify-between p-5 border-b border-border">
           <h3 className="text-h4 font-semibold text-foreground">API Keys</h3>
-          <button className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors">
-            Generate New Key
+          <button
+            type="button"
+            disabled={creatingKey}
+            onClick={() => createKey("sandbox")}
+            className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-caption font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            {creatingKey ? "Generating…" : "Generate New Key"}
           </button>
         </div>
         <div className="min-w-0 overflow-x-auto">
-          <table className="w-full min-w-max">
-            <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
-              <tr className="border-b border-border">
-                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Key</th>
-                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Created</th>
-                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Status</th>
-                <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-border">
-              {keys.map((k, i) => (
-                <tr key={i}>
-                  <td className="px-5 py-4 text-body text-foreground">{k.key}</td>
-                  <td className="px-5 py-4 text-body text-muted-foreground">{k.created}</td>
-                  <td className="px-5 py-4">
-                    <span className={cn("px-2.5 py-1 rounded-full capitalize bg-success/15 text-success", badgeTextClasses)}>{k.status}</span>
-                  </td>
-                  <td className="px-5 py-4">
-                    <div className="flex gap-2">
-                      <button className="px-3 py-1 rounded-lg border border-border text-caption font-medium text-primary hover:bg-primary/10 transition-colors">
-                        Rotate
-                      </button>
-                      <button className="px-3 py-1 rounded-lg border border-destructive/30 text-caption font-medium text-destructive hover:bg-destructive/10 transition-colors">
-                        Revoke
-                      </button>
-                    </div>
-                  </td>
+          {keysLoading ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">Loading keys…</div>
+          ) : apiKeys.length === 0 ? (
+            <div className="py-8 text-center text-sm text-muted-foreground">No API keys found for this institution.</div>
+          ) : (
+            <table className="w-full min-w-max">
+              <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
+                <tr className="border-b border-border">
+                  <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Environment</th>
+                  <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Key Prefix</th>
+                  <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Created</th>
+                  <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Last Used</th>
+                  <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Status</th>
+                  <th className={cn("text-left px-5 py-3", tableHeaderClasses)}>Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {apiKeys.map((k) => (
+                  <tr key={k.id}>
+                    <td className="px-5 py-4 text-body text-muted-foreground capitalize">
+                      {k.environment ?? "—"}
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex min-w-0 max-w-[min(100%,20rem)] items-center gap-2">
+                        <span className="truncate font-mono text-body text-foreground" title={`${k.keyPrefix} (prefix only)`}>
+                          {k.keyPrefix}••••••••
+                        </span>
+                        <button
+                          type="button"
+                          className="shrink-0 rounded-md border border-border p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                          aria-label={`Copy key prefix for key ${k.id}`}
+                          title="Copy key prefix (full secret is not shown)"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(k.keyPrefix);
+                              toast.success("Key prefix copied");
+                            } catch {
+                              toast.error("Could not copy to clipboard");
+                            }
+                          }}
+                        >
+                          <Copy className="h-4 w-4" aria-hidden />
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-5 py-4 text-body text-muted-foreground">
+                      {k.createdAt ? new Date(k.createdAt).toLocaleDateString() : "—"}
+                    </td>
+                    <td className="px-5 py-4 text-body text-muted-foreground">
+                      {k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : "Never"}
+                    </td>
+                    <td className="px-5 py-4">
+                      <span className={cn(
+                        "px-2.5 py-1 rounded-full capitalize",
+                        badgeTextClasses,
+                        k.status?.toLowerCase() === "active"
+                          ? "bg-success/15 text-success"
+                          : "bg-destructive/15 text-destructive"
+                      )}>
+                        {k.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-4">
+                      <div className="flex gap-2">
+                        <button
+                          disabled={regenerating}
+                          onClick={() => regenerate(k.id)}
+                          className="px-3 py-1 rounded-lg border border-border text-caption font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                        >
+                          Rotate
+                        </button>
+                        <button
+                          disabled={revoking}
+                          onClick={() => revoke(k.id)}
+                          className="px-3 py-1 rounded-lg border border-destructive/30 text-caption font-medium text-destructive hover:bg-destructive/10 transition-colors disabled:opacity-50"
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
       {/* API Cards */}
-      <div className={cn("grid gap-4", apis.length <= 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-3")}>
-        {apis.map((api) => (
-          <div key={api.name} className="bg-card rounded-xl border border-border p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-body font-semibold text-foreground">{api.name}</h4>
-              <div className={cn(
-                "w-10 h-6 rounded-full flex items-center px-0.5 transition-colors cursor-pointer",
-                api.enabled ? "bg-success justify-end" : "bg-muted justify-start"
-              )}>
-                <div className="w-5 h-5 rounded-full bg-card shadow-sm" />
+      {apiCards.length > 0 && (
+        <div className={cn("grid gap-4", apiCards.length <= 2 ? "grid-cols-1 md:grid-cols-2" : "grid-cols-1 md:grid-cols-3")}>
+          {apiCards.map((api) => (
+            <div key={api.key} className="bg-card rounded-xl border border-border p-5">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="text-body font-semibold text-foreground">{api.name}</h4>
+                <button
+                  type="button"
+                  disabled={patchingAccess}
+                  onClick={() => {
+                    const patch =
+                      api.key === "dataSubmission"
+                        ? { dataSubmission: { enabled: !api.enabled } }
+                        : { enquiry: { enabled: !api.enabled } };
+                    patchApiAccess(patch);
+                  }}
+                  className={cn(
+                    "w-10 h-6 rounded-full flex items-center px-0.5 transition-colors shrink-0",
+                    api.enabled ? "bg-success justify-end" : "bg-muted justify-start",
+                    patchingAccess ? "opacity-50" : "cursor-pointer"
+                  )}
+                  aria-label={`${api.enabled ? "Disable" : "Enable"} ${api.name}`}
+                  aria-pressed={api.enabled}
+                >
+                  <span className="sr-only">Toggle API enabled</span>
+                  <span className="w-5 h-5 rounded-full bg-card shadow-sm block" />
+                </button>
               </div>
-            </div>
-            <div className="space-y-1.5">
-              <div className="flex justify-between items-center">
-                <span className="text-caption text-muted-foreground">Rate Limit</span>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-caption text-foreground font-medium">{api.rateLimit}</span>
-                  {api.rateLimit !== "N/A" && (
+              <div className="space-y-1.5">
+                <div className="flex justify-between items-center">
+                  <span className="text-caption text-muted-foreground">Rate Limit</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-caption text-foreground font-medium">{api.rateLimit}</span>
                     <button
-                      onClick={() => { setEditingApi(api.name); setEditRate(api.rateLimit.replace("/min", "")); }}
-                      className="px-2 py-0.5 rounded border border-primary/30 text-caption font-medium text-primary hover:bg-primary/10 transition-colors"
+                      type="button"
+                      disabled={patchingAccess}
+                      onClick={() => {
+                        setEditingKey(api.key);
+                        setEditRate(String(api.rateLimit.replace("/min", "")));
+                      }}
+                      className="px-2 py-0.5 rounded border border-primary/30 text-caption font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
                     >
                       Edit
                     </button>
-                  )}
+                  </div>
                 </div>
+                <div className="flex justify-between">
+                  <span className="text-caption text-muted-foreground">IP Whitelist</span>
+                  <span className="text-caption text-foreground">{api.ipWhitelist.length > 0 ? `${api.ipWhitelist.length} IPs` : "—"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-caption text-muted-foreground">Last Used</span>
+                  <span className="text-caption text-foreground">{api.lastUsed}</span>
+                </div>
+                {api.key === "enquiry" && api.concurrentLimit != null && (
+                  <>
+                    <div className="flex justify-between">
+                      <span className="text-caption text-muted-foreground">Concurrent Limit</span>
+                      <span className="text-caption text-foreground font-medium">{api.concurrentLimit}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-caption text-muted-foreground">Credit Check Config</span>
+                      <span className="text-caption text-foreground">Default</span>
+                    </div>
+                  </>
+                )}
               </div>
-              <div className="flex justify-between">
-                <span className="text-caption text-muted-foreground">IP Whitelist</span>
-                <span className="text-caption text-foreground">{api.ipWhitelist.length > 0 ? `${api.ipWhitelist.length} IPs` : "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-caption text-muted-foreground">Last Used</span>
-                <span className="text-caption text-foreground">{api.lastUsed}</span>
-              </div>
-              {isSubscriber && api.name === "Enquiry API" && (
-                <>
-                  <div className="flex justify-between">
-                    <span className="text-caption text-muted-foreground">Concurrent Limit</span>
-                    <span className="text-caption text-foreground font-medium">50</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-caption text-muted-foreground">Credit Check Config</span>
-                    <span className="text-caption text-foreground">Default</span>
-                  </div>
-                </>
-              )}
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
 
       {/* Edit Rate Limit Dialog */}
-      <Dialog open={!!editingApi} onOpenChange={(open) => !open && setEditingApi(null)}>
+      <Dialog
+        open={!!editingKey}
+        onOpenChange={(open) => {
+          if (!open) setEditingKey(null);
+        }}
+      >
         <DialogContent className="max-w-sm">
           <DialogHeader>
-            <DialogTitle>Edit Rate Limit — {editingApi}</DialogTitle>
+            <DialogTitle>
+              Edit Rate Limit —{" "}
+              {editingKey === "dataSubmission" ? "Data Submission API" : editingKey === "enquiry" ? "Enquiry API" : ""}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 mt-2">
             <div>
               <label className="block text-xs font-medium text-muted-foreground mb-1.5">Rate Limit (requests/min)</label>
-              <Input type="number" value={editRate} onChange={(e) => setEditRate(e.target.value)} min={1} />
+              <Input type="number" value={editRate} onChange={(e) => setEditRate(e.target.value)} min={1} disabled={patchingAccess} />
             </div>
             <div className="flex gap-3 justify-end">
-              <button onClick={() => setEditingApi(null)} className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors">
+              <button
+                type="button"
+                disabled={patchingAccess}
+                onClick={() => setEditingKey(null)}
+                className="px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:bg-muted transition-colors disabled:opacity-50"
+              >
                 Cancel
               </button>
-              <button onClick={() => setEditingApi(null)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
+              <button
+                type="button"
+                disabled={patchingAccess}
+                onClick={() => {
+                  if (!editingKey) return;
+                  const n = Math.max(1, Math.floor(Number(editRate)));
+                  if (!Number.isFinite(n)) {
+                    toast.error("Enter a valid rate (requests per minute).");
+                    return;
+                  }
+                  patchApiAccess(
+                    editingKey === "dataSubmission"
+                      ? { dataSubmission: { rateLimitPerMin: n } }
+                      : { enquiry: { rateLimitPerMin: n } },
+                    { onSuccess: () => setEditingKey(null) }
+                  );
+                }}
+                className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
                 Save
               </button>
             </div>

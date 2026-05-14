@@ -4,42 +4,59 @@ import { DashboardLayout } from "@/components/layout/DashboardLayout";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses, badgeTextClasses, detailPageTabTriggerBaseClasses } from "@/lib/typography";
 import {
   consortiumListLabel,
   consortiumListLabelStyles,
-  consortiumTypeBadgeClass,
 } from "@/data/consortiums-mock";
-import { useCatalogMock } from "@/contexts/CatalogMockContext";
+import { useConsortium, useConsortiumCbsMembers, useConsortiumMembers } from "@/hooks/api/useConsortiums";
+import type { ConsortiumCbsMember, ConsortiumMember } from "@/services/consortiums.service";
 
-const DETAIL_TABS = ["Overview", "Members", "Data Contribution"] as const;
+const DETAIL_TABS = ["Overview", "Members", "Data policy"] as const;
 
 export default function ConsortiumDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const {
-    consortiums,
-    membersByConsortiumId,
-    contributionSummaryByConsortiumId,
-  } = useCatalogMock();
   const [activeTab, setActiveTab] =
     useState<(typeof DETAIL_TABS)[number]>("Overview");
 
-  const consortium = useMemo(
-    () => consortiums.find((c) => c.id === id),
-    [consortiums, id]
-  );
-  const members = useMemo(
-    () => (id ? membersByConsortiumId[id] ?? [] : []),
-    [id, membersByConsortiumId]
-  );
-  const contributionSummary = useMemo(
-    () => (id ? contributionSummaryByConsortiumId[id] : undefined),
-    [id, contributionSummaryByConsortiumId]
-  );
+  const { data: consortium, isLoading } = useConsortium(id ?? "");
+  const { data: membersData } = useConsortiumMembers(id ?? "");
+  const { data: cbsMembersData, isPending: cbsMembersLoading } = useConsortiumCbsMembers(id ?? "");
+
+  const members: ConsortiumMember[] = useMemo(() => {
+    if (!membersData) return [];
+    const raw = Array.isArray(membersData)
+      ? membersData
+      : ((membersData as { content?: unknown[] }).content ?? []);
+    return raw.map((item) => {
+      const m = item as Record<string, unknown>;
+      const reg =
+        typeof m.registrationNumber === "string"
+          ? m.registrationNumber
+          : typeof m.registrationnumber === "string"
+            ? m.registrationnumber
+            : undefined;
+      return { ...(item as ConsortiumMember), registrationNumber: reg };
+    });
+  }, [membersData]);
+
+  const cbsMembers: ConsortiumCbsMember[] = useMemo(() => {
+    if (!cbsMembersData) return [];
+    return Array.isArray(cbsMembersData) ? cbsMembersData : [];
+  }, [cbsMembersData]);
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center py-20">
+          <p className="text-caption text-muted-foreground">Loading consortium…</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   if (!consortium) {
     return (
@@ -86,13 +103,6 @@ export default function ConsortiumDetailPage() {
                 {consortium.name}
               </h1>
               <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                <Badge
-                  variant="secondary"
-                  className={cn(badgeTextClasses, consortiumTypeBadgeClass[consortium.type])}
-                >
-                  {consortium.type}
-                </Badge>
-                <span className="h-1 w-1 rounded-full bg-muted-foreground" />
                 <span
                   className={cn(
                     "rounded-full px-2 py-0.5",
@@ -116,7 +126,7 @@ export default function ConsortiumDetailPage() {
           </Button>
         </div>
 
-        <div className="rounded-xl border border-border bg-card px-1.5 py-1.5 shadow-[0_1px_3px_rgba(15,23,42,0.06)]">
+        <div className="rounded-xl border border-border bg-card px-1.5 py-1.5 shadow-sm">
           <div className="overflow-x-auto overflow-y-hidden -mx-0.5 md:overflow-visible md:mx-0">
             <div className="flex items-center gap-0.5 min-w-0 w-max md:w-full md:flex-wrap md:min-w-0">
               {DETAIL_TABS.map((tab) => (
@@ -145,14 +155,6 @@ export default function ConsortiumDetailPage() {
                 <CardTitle>Details</CardTitle>
               </CardHeader>
               <CardContent className="space-y-2 text-[10px] text-muted-foreground">
-                <p>
-                  <span className="text-foreground font-medium">Purpose:</span>{" "}
-                  {consortium.purpose}
-                </p>
-                <p>
-                  <span className="text-foreground font-medium">Governance:</span>{" "}
-                  {consortium.governanceModel}
-                </p>
                 <p>
                   <span className="text-foreground font-medium">Status:</span>{" "}
                   {statusLabel}
@@ -188,19 +190,12 @@ export default function ConsortiumDetailPage() {
                 <CardTitle>Data policy</CardTitle>
               </CardHeader>
               <CardContent className="text-[10px] text-muted-foreground space-y-1">
-                <p>Share loan data: {consortium.dataPolicy.shareLoanData ? "Yes" : "No"}</p>
                 <p>
-                  Share repayment history:{" "}
-                  {consortium.dataPolicy.shareRepaymentHistory ? "Yes" : "No"}
+                  <span className="text-foreground font-medium">Data visibility:</span>{" "}
+                  <span className="tabular-nums">{consortium.dataVisibility ?? "—"}</span>
                 </p>
-                <p>Allow aggregation: {consortium.dataPolicy.allowAggregation ? "Yes" : "No"}</p>
-                <p>
-                  Visibility:{" "}
-                  {consortium.dataPolicy.dataVisibility === "masked_pii"
-                    ? "Masked PII"
-                    : consortium.dataPolicy.dataVisibility === "derived"
-                    ? "Derived"
-                    : "Full details"}
+                <p className="text-caption text-muted-foreground">
+                  Product-level masked-field unmasking allow-lists are configured in the consortium wizard (Edit → Data policy).
                 </p>
               </CardContent>
             </Card>
@@ -210,27 +205,23 @@ export default function ConsortiumDetailPage() {
         {activeTab === "Members" && (
           <div className="space-y-3">
             <div className="md:hidden space-y-3">
-              {members.map((m) => (
-                <Card key={`${m.institutionId}-${m.institutionName}`}>
-                  <CardContent className="pt-4 space-y-1">
-                    <p className="text-[10px] font-medium text-foreground">{m.institutionName}</p>
-                    <p className="text-caption text-muted-foreground">
-                      Role: {m.role} · Joined {m.joinedDate}
-                    </p>
-                    <span
-                      className={cn(
-                        "inline-flex mt-1 px-2 py-0.5 rounded-full capitalize",
-                        badgeTextClasses,
-                        m.status === "active"
-                          ? "bg-success/15 text-success"
-                          : "bg-warning/15 text-warning"
-                      )}
-                    >
-                      {m.status}
-                    </span>
-                  </CardContent>
-                </Card>
-              ))}
+              {members.length === 0 ? (
+                <p className="text-caption text-muted-foreground py-6 text-center">No members found.</p>
+              ) : (
+                members.map((m) => (
+                  <Card key={m.id ?? `${m.institutionId}-${m.institutionName}`}>
+                    <CardContent className="pt-4 space-y-1">
+                      <p className="text-[10px] font-mono text-foreground tabular-nums">
+                        {m.registrationNumber ?? "—"}
+                      </p>
+                      <p className="text-[10px] font-medium text-foreground">{m.institutionName}</p>
+                      <p className="text-caption text-muted-foreground">
+                        Joined {m.joinedAt ? m.joinedAt.split("T")[0] : "—"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
             <div className="hidden md:block bg-card rounded-xl border border-border overflow-hidden">
               <div className="min-w-0 overflow-x-auto">
@@ -238,13 +229,10 @@ export default function ConsortiumDetailPage() {
                   <thead className="bg-muted/80">
                     <tr className="border-b border-border">
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
-                        Institution
+                        Member ID
                       </th>
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
-                        Role
-                      </th>
-                      <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
-                        Status
+                        Member name
                       </th>
                       <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>
                         Joined
@@ -252,76 +240,89 @@ export default function ConsortiumDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {members.map((m) => (
-                      <tr
-                        key={`${m.institutionId}-${m.institutionName}`}
-                        className="border-b border-border last:border-0"
-                      >
-                        <td className="px-4 py-3 text-[10px]">{m.institutionName}</td>
-                        <td className="px-4 py-3 text-[10px] text-muted-foreground">{m.role}</td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={cn(
-                              "px-2 py-0.5 rounded-full capitalize",
-                              badgeTextClasses,
-                              m.status === "active"
-                                ? "bg-success/15 text-success"
-                                : "bg-warning/15 text-warning"
-                            )}
-                          >
-                            {m.status}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-[10px] text-muted-foreground tabular-nums">
-                          {m.joinedDate}
+                    {members.length === 0 ? (
+                      <tr>
+                        <td colSpan={3} className="px-4 py-8 text-center text-caption text-muted-foreground">
+                          No members found for this consortium.
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      members.map((m) => (
+                        <tr
+                          key={m.id ?? `${m.institutionId}-${m.institutionName}`}
+                          className="border-b border-border last:border-0"
+                        >
+                          <td className="px-4 py-3 text-[10px] font-mono tabular-nums">
+                            {m.registrationNumber ?? "—"}
+                          </td>
+                          <td className="px-4 py-3 text-[10px]">{m.institutionName}</td>
+                          <td className="px-4 py-3 text-[10px] text-muted-foreground tabular-nums">
+                            {m.joinedAt ? m.joinedAt.split("T")[0] : "—"}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>
             </div>
+
+            <div className="space-y-2 pt-2">
+              <h3 className="text-caption font-medium text-foreground">CBS members (external)</h3>
+              {cbsMembersLoading ? (
+                <p className="text-caption text-muted-foreground py-2">Loading CBS members…</p>
+              ) : cbsMembers.length === 0 ? (
+                <p className="text-caption text-muted-foreground py-2">No CBS members configured.</p>
+              ) : (
+                <div className="rounded-xl border border-border bg-card overflow-hidden">
+                  <div className="min-w-0 overflow-x-auto">
+                    <table className="w-full min-w-max">
+                      <thead className="bg-muted/80">
+                        <tr className="border-b border-border">
+                          <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>Member ID</th>
+                          <th className={cn(tableHeaderClasses, "px-4 py-3 text-left")}>Member Name</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {cbsMembers.map((row) => (
+                          <tr key={row.id} className="border-b border-border last:border-0">
+                            <td className="px-4 py-3 text-[10px] font-mono">{row.memberId}</td>
+                            <td className="px-4 py-3 text-[10px] text-muted-foreground">{row.displayName ?? "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
-        {activeTab === "Data Contribution" && (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {activeTab === "Data policy" && (
+          <div className="grid gap-4 sm:grid-cols-2">
             <Card>
-              <CardHeader className="px-3 pt-3 pb-1">
-                <CardTitle className="text-[10px] font-medium text-muted-foreground">Total records shared</CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-3">
-                <p className="text-h3 font-bold tabular-nums text-foreground">
-                  {contributionSummary?.totalRecordsShared ?? "—"}
-                </p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardHeader className="px-3 pt-3 pb-1">
-                <CardTitle className="text-[10px] font-medium text-muted-foreground">Last updated</CardTitle>
-              </CardHeader>
-              <CardContent className="px-3 pb-3">
-                <p className="text-[10px] text-muted-foreground">
-                  {contributionSummary?.lastUpdated ?? "—"}
-                </p>
-              </CardContent>
-            </Card>
-            <Card className="sm:col-span-2 lg:col-span-3">
               <CardHeader className="pb-2">
-                <CardTitle>Data types</CardTitle>
+                <CardTitle>Visibility</CardTitle>
               </CardHeader>
-              <CardContent>
-                {(contributionSummary?.dataTypes.length ?? 0) === 0 ? (
-                  <p className="text-caption text-muted-foreground">No data types listed yet.</p>
-                ) : (
-                  <div className="flex flex-wrap gap-2">
-                    {contributionSummary!.dataTypes.map((t) => (
-                      <Badge key={t} variant="secondary" className="font-normal">
-                        {t}
-                      </Badge>
-                    ))}
-                  </div>
-                )}
+              <CardContent className="space-y-2 text-[10px] text-muted-foreground">
+                <p>
+                  <span className="text-foreground font-medium">Data visibility:</span>{" "}
+                  <span className="tabular-nums">{consortium.dataVisibility ?? "—"}</span>
+                </p>
+                <p className="text-caption text-muted-foreground">
+                  Product-level masked-field unmasking allow-lists are configured in the consortium wizard (Edit → Data policy).
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle>Audit</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2 text-[10px] text-muted-foreground">
+                <p className="text-caption text-muted-foreground">
+                  Updates to product-level data policies create Governance audit log entries (action type: <span className="font-mono">DATA_POLICY_UPDATED</span>).
+                </p>
               </CardContent>
             </Card>
           </div>

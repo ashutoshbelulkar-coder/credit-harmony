@@ -6,6 +6,8 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import type { EnquiryLogEntry } from "@/data/monitoring-mock";
+import { cn } from "@/lib/utils";
+import { enquiryStatusLabel, enquiryStatusTextClass } from "@/lib/status-badges";
 
 interface EnquiryDetailDrawerProps {
   enquiry: EnquiryLogEntry | null;
@@ -74,8 +76,8 @@ export function EnquiryDetailDrawer({ enquiry, onClose, filterContextSummary }: 
             <dl className="space-y-1.5 text-caption">
               <div className="flex justify-between">
                 <dt className="text-muted-foreground">Status</dt>
-                <dd className={enquiry.status === "Success" ? "text-success font-medium" : "text-destructive font-medium"}>
-                  {enquiry.status}
+                <dd className={cn(enquiryStatusTextClass(enquiry.status))}>
+                  {enquiryStatusLabel(enquiry.status)}
                 </dd>
               </div>
               <div className="flex justify-between">

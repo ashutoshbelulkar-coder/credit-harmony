@@ -1,4 +1,11 @@
-export type ApprovalType = "institution" | "schema_mapping" | "consortium" | "product";
+export type ApprovalType =
+  | "institution"
+  | "schema_mapping"
+  | "schema_master"
+  | "consortium"
+  | "consortium_membership"
+  | "product"
+  | "alert_rule";
 export type ApprovalStatus = "pending" | "approved" | "rejected" | "changes_requested";
 
 export interface ApprovalItem {
