@@ -935,7 +935,7 @@ function Detail({
       <dt className="text-[10px] leading-[14px] uppercase tracking-wider text-muted-foreground">{label}</dt>
       <dd
         className={cn(
-          "mt-0.5 text-caption text-foreground break-words",
+          "mt-0.5 text-body font-medium text-foreground break-words",
           mono && "font-mono"
         )}
       >
