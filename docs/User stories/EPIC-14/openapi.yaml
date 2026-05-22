@@ -1,0 +1,1912 @@
+openapi: 3.1.0
+
+info:
+  title: HCB Batch Pipeline API
+  description: |
+    Production API for the HCB Credit Bureau Batch Pipeline (EPIC-14 v2).
+    Covers batch job administration, SFTP event monitoring, KPI reporting,
+    and Data Quality Report retrieval.
+
+    ## Authentication
+    All endpoints require a Bearer JWT obtained from the HCB OAuth2 authorization server.
+    API key authentication is supported for machine-to-machine integrations.
+
+    ## Idempotency
+    POST mutation endpoints support idempotency via `X-Request-ID`.
+    Duplicate calls with the same `X-Request-ID` within 60 seconds return the cached response.
+
+    ## Timestamp format
+    All timestamps are ISO 8601 UTC: `2026-03-31T10:00:00Z`
+
+    ## PII Policy
+    Fields classified as PII are masked with `[REDACTED]` in all API responses.
+
+    ## Roles
+    - `BUREAU_ADMIN`: Full pipeline administration access.
+    - `DATA_OPERATOR`: View + act on PAUSED jobs (resume/override); cannot retry or cancel.
+    - `OPS_ENGINEER`: Read-only monitoring access.
+    - `INSTITUTION`: Institution users authenticated via API key; scoped to own institution's data only.
+      Enforced via JWT claim `institution_id`. If `institution_id` claim does not match the requested
+      job's `institutionId`, a 403 is returned.
+
+    ## Error Responses
+    All endpoints may return `500 Internal Server Error` in the case of unexpected failures.
+    The response body follows the `ErrorResponse` schema with `errorCode: ERR_INTERNAL`.
+  version: "2.0.0"
+  contact:
+    name: HCB Platform Engineering
+    email: platform@hcb.internal
+  license:
+    name: Proprietary
+    identifier: LicenseRef-HCB-Internal
+
+servers:
+  - url: https://api-dev.hcb.internal/api/v1
+    description: Development
+  - url: https://api-staging.hcb.internal/api/v1
+    description: Staging
+  - url: https://api.hcb.internal/api/v1
+    description: Production
+
+security:
+  - BearerAuth: []
+  - ApiKeyAuth: []
+
+tags:
+  - name: batch-jobs
+    description: Batch job listing, detail, and administration
+  - name: sftp-events
+    description: SFTP file event monitoring and health
+  - name: monitoring
+    description: KPI metrics and chart data
+  - name: data-quality
+    description: Data Quality Reports and DQI scores
+
+paths:
+
+  /batch-jobs:
+    get:
+      tags: [batch-jobs]
+      operationId: listBatchJobs
+      summary: List batch jobs
+      description: Retrieve a paginated, filterable list of batch jobs with key metrics.
+      parameters:
+        - $ref: '#/components/parameters/institutionIdQuery'
+        - name: jobStatus
+          in: query
+          schema:
+            $ref: '#/components/schemas/JobStatus'
+        - name: intakeChannel
+          in: query
+          schema:
+            type: string
+            enum: [SFTP, API, SIMULATION]
+        - name: detectedFormat
+          in: query
+          schema:
+            $ref: '#/components/schemas/FormatType'
+        - name: submittedFrom
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: submittedTo
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: isPermanentlyFailed
+          in: query
+          schema:
+            type: boolean
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [submittedAt, completedAt, dqiScore]
+            default: submittedAt
+        - name: sortDir
+          in: query
+          schema:
+            type: string
+            enum: [ASC, DESC]
+            default: DESC
+      responses:
+        '200':
+          description: Paginated list of batch jobs
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobListResponse'
+              example:
+                requestId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                correlationId: null
+                traceId: "trace-abc-456"
+                timestamp: "2026-03-31T11:00:00Z"
+                data:
+                  - batchJobId: "bj-00001"
+                    institutionId: "FNB-001"
+                    jobStatus: "COMPLETED"
+                    statusDisplay: "COMPLETED"
+                    detectedFormat: "CSV"
+                    totalRecords: 5000
+                    processedRecords: 4977
+                    failedRecords: 23
+                    dqiScore: 96.6
+                    submittedAt: "2026-03-31T09:59:58Z"
+                    completedAt: "2026-03-31T10:02:05Z"
+                    retryCount: 0
+                    isPermanentlyFailed: false
+                pagination:
+                  page: 1
+                  size: 20
+                  totalElements: 1
+                  totalPages: 1
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /batch-jobs/kpis:
+    get:
+      tags: [monitoring]
+      operationId: getBatchKpis
+      summary: Get batch KPI metrics
+      description: |
+        Extended KPI metrics aggregated over a time window. Includes volume, success/failure rates,
+        performance, IR Engine health, DQI, and SFTP operational health.
+      parameters:
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Window start (default today 00:00 UTC)
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+          description: Window end (default now)
+        - $ref: '#/components/parameters/institutionIdQuery'
+        - name: sourceType
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: KPI metrics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KpiResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /batch-jobs/charts:
+    get:
+      tags: [monitoring]
+      operationId: getBatchCharts
+      summary: Get batch chart time-series data
+      parameters:
+        - name: metric
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [VOLUME, SUCCESS_RATE, DQI_TREND, VALIDATION_FAILURE_RATE]
+        - name: granularity
+          in: query
+          schema:
+            type: string
+            enum: [HOUR, DAY, WEEK]
+            default: DAY
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/institutionIdQuery'
+      responses:
+        '200':
+          description: Chart time-series data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChartResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /batch-jobs/sftp-events:
+    get:
+      tags: [sftp-events]
+      operationId: listSftpEvents
+      summary: List SFTP file events
+      description: Paginated, filterable list of SFTP file lifecycle events.
+      parameters:
+        - $ref: '#/components/parameters/institutionIdQuery'
+        - name: eventStatus
+          in: query
+          schema:
+            $ref: '#/components/schemas/SftpEventStatus'
+        - name: detectedFormat
+          in: query
+          schema:
+            $ref: '#/components/schemas/FormatType'
+        - name: isDuplicate
+          in: query
+          schema:
+            type: boolean
+        - name: from
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - $ref: '#/components/parameters/page'
+        - $ref: '#/components/parameters/size'
+      responses:
+        '200':
+          description: Paginated list of SFTP events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SftpEventListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /batch-jobs/sftp-events/{id}:
+    get:
+      tags: [sftp-events]
+      operationId: getSftpEventDetail
+      summary: Get SFTP event detail
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: SFTP event ID
+      responses:
+        '200':
+          description: SFTP event detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SftpEventDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /batch-jobs/sftp-health:
+    get:
+      tags: [sftp-events]
+      operationId: getSftpHealth
+      summary: Get SFTP folder health
+      description: |
+        Real-time counts of files in each SFTP lifecycle folder plus stuck-file detection.
+        Used by EPIC-13 operational health widget and EPIC-10 alerts.
+      parameters:
+        - $ref: '#/components/parameters/institutionIdQuery'
+      responses:
+        '200':
+          description: SFTP health status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SftpHealthResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+
+  /batch-jobs/{id}/detail:
+    get:
+      tags: [batch-jobs]
+      operationId: getBatchJobDetail
+      summary: Get full batch job execution detail
+      description: |
+        Returns phases, stages, error samples, SFTP event, S3 paths, DQI score,
+        IR Engine status, and all tracking metadata for a batch job.
+        For jobs with no phase logs (legacy), returns flat stages array.
+      parameters:
+        - $ref: '#/components/parameters/batchJobId'
+      responses:
+        '200':
+          description: Batch job detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchJobDetailResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /batch-jobs/{id}/dqr:
+    get:
+      tags: [data-quality]
+      operationId: getBatchJobDqr
+      summary: Get Data Quality Report
+      description: |
+        Retrieves the Data Quality Report (DQR) and Data Quality Index (DQI) for a batch job.
+        Available once the job reaches a terminal or PAUSED state with P6 executed.
+        INSTITUTION role users may only access DQRs for their own institution's jobs.
+      parameters:
+        - $ref: '#/components/parameters/batchJobId'
+      responses:
+        '200':
+          description: Data Quality Report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DqrResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          description: DQR not yet available — job still in progress
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                status: 422
+                errorCode: "ERR_DQR_NOT_GENERATED"
+                message: "DQR is not yet available. Job is still in PROCESSING status."
+
+  /batch-jobs/{id}/retry:
+    post:
+      tags: [batch-jobs]
+      operationId: retryBatchJob
+      summary: Retry a failed batch job
+      description: |
+        Retries a FAILED batch job, restarting from `last_successful_phase + 1`.
+        Exponential backoff schedule: attempt 1=30s, 2=90s, 3=270s.
+        Blocked if `isPermanentlyFailed = true`.
+      parameters:
+        - $ref: '#/components/parameters/batchJobId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RetryRequest'
+            example:
+              reason: "Transient IR Engine failure resolved."
+      responses:
+        '200':
+          description: Job queued for retry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RetryResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Retry blocked — permanently failed or conflicting state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                requestId: "..."
+                status: 409
+                errorCode: "ERR_RETRY_LIMIT_EXCEEDED"
+                message: "Job has reached maximum retry limit of 3 attempts."
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /batch-jobs/{id}/cancel:
+    post:
+      tags: [batch-jobs]
+      operationId: cancelBatchJob
+      summary: Cancel a queued or in-progress batch job
+      description: |
+        Cancels the job. Cancellation flag is set immediately; the current stage's
+        atomic unit completes before halting. P6_POST_PROC always runs after cancel.
+        File is moved to /cancelled/ SFTP folder.
+        NOTE: P5 committed chunks are NOT rolled back.
+      parameters:
+        - $ref: '#/components/parameters/batchJobId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CancelRequest'
+      responses:
+        '200':
+          description: Job cancelled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /batch-jobs/{id}/resume:
+    post:
+      tags: [batch-jobs]
+      operationId: resumeBatchJob
+      summary: Resume a paused batch job
+      description: |
+        Resumes a PAUSED job. Pipeline restarts from the paused phase with valid records.
+        Failed records from the paused phase remain excluded.
+        Requires DATA_OPERATOR or BUREAU_ADMIN role.
+      parameters:
+        - $ref: '#/components/parameters/batchJobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResumeRequest'
+            example:
+              reason: "Reviewed error samples. Source issue identified. Proceeding with valid records."
+      responses:
+        '200':
+          description: Job resumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /batch-jobs/{id}/override-pause:
+    post:
+      tags: [batch-jobs]
+      operationId: overridePause
+      summary: Override threshold pause and advance with valid records
+      description: |
+        Operator overrides the threshold gate, advancing the pipeline with only the
+        valid records. Failed records are permanently excluded for this run.
+        Job will complete as PARTIALLY_COMPLETED.
+        Requires DATA_OPERATOR or BUREAU_ADMIN role.
+      parameters:
+        - $ref: '#/components/parameters/batchJobId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OverridePauseRequest'
+            example:
+              action: "ADVANCE_WITH_VALID"
+              reason: "Known source schema change. Failed records will be resubmitted next cycle."
+      responses:
+        '200':
+          description: Pause overridden; job advancing with valid records
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverridePauseResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: OAuth2 JWT from HCB authorization server
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for machine-to-machine integrations
+
+  parameters:
+    batchJobId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Batch job identifier
+      example: "bj-00001"
+
+    institutionIdQuery:
+      name: institutionId
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Filter by institution identifier
+      example: "FNB-001"
+
+    page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+    size:
+      name: size
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 20
+
+  responses:
+    BadRequest:
+      description: Bad request — invalid parameters or business rule violation
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            requestId: "a1b2c3d4-..."
+            timestamp: "2026-03-31T10:00:00Z"
+            status: 400
+            errorCode: "ERR_JOB_NOT_RETRYABLE"
+            message: "Job is not in FAILED status and cannot be retried."
+            details: []
+
+    Unauthorized:
+      description: Missing or invalid JWT
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 401
+            errorCode: "ERR_UNAUTHORIZED"
+            message: "Authorization header missing or token expired."
+
+    Forbidden:
+      description: Insufficient role or permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 403
+            errorCode: "ERR_FORBIDDEN"
+            message: "Required role: BUREAU_ADMIN."
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 404
+            errorCode: "ERR_JOB_NOT_FOUND"
+            message: "No batch job found with ID bj-99999."
+
+    Conflict:
+      description: Conflict with current resource state
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    TooManyRequests:
+      description: Rate limit exceeded
+      headers:
+        X-Rate-Limit-Reset:
+          schema:
+            type: integer
+          description: Unix timestamp when rate limit resets
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            status: 429
+            errorCode: "ERR_RATE_LIMITED"
+            message: "Rate limit exceeded. Retry after 60 seconds."
+
+    InternalError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+  schemas:
+
+    # ─────────────────────────────────────────
+    # ENUMS
+    # ─────────────────────────────────────────
+
+    JobStatus:
+      type: string
+      enum:
+        - QUEUED
+        - PROCESSING
+        - PAUSED
+        - COMPLETED
+        - PARTIALLY_COMPLETED
+        - FAILED
+        - CANCELLED
+      description: |
+        Lifecycle status of a batch job.
+        - `QUEUED`: Created, awaiting execution. Serial lock may apply.
+        - `PROCESSING`: Pipeline actively executing phases.
+        - `PAUSED`: Halted at threshold gate (P2/P3) or IR Engine circuit open. Awaits operator action.
+        - `COMPLETED`: All records processed, zero failures.
+        - `PARTIALLY_COMPLETED`: Completed with some failures below threshold. Business alias: PARTIAL_SUCCESS.
+        - `FAILED`: Terminated due to error. Retry may be possible if not permanently failed.
+        - `CANCELLED`: Operator-cancelled. P6 post-processing still runs.
+
+    PhaseStatus:
+      type: string
+      enum:
+        - pending
+        - running
+        - completed
+        - paused
+        - failed
+        - skipped
+      description: |
+        - `pending`: Phase not yet started.
+        - `running`: Phase actively executing.
+        - `completed`: Phase completed within threshold.
+        - `paused`: Phase reached threshold gate.
+        - `failed`: Phase terminated with error.
+        - `skipped`: Phase skipped (e.g., after cancel or override).
+
+    SftpEventStatus:
+      type: string
+      enum:
+        - DETECTED
+        - STABLE
+        - QUEUED
+        - PROCESSING
+        - PROCESSED
+        - FAILED
+        - QUARANTINED
+        - DUPLICATE
+        - CANCELLED
+        - PAUSED
+        - REJECTED
+      description: |
+        - `DETECTED`: File found in /incoming/ folder.
+        - `STABLE`: File size stable; ready for processing.
+        - `QUEUED`: Batch job created; file moved to processing/.
+        - `PROCESSING`: Pipeline running.
+        - `PROCESSED`: Pipeline completed; file in processed/.
+        - `FAILED`: Pipeline failed; file in failed/.
+        - `QUARANTINED`: File moved to quarantine/ (duplicate, too large, unknown format, no schema).
+        - `DUPLICATE`: Alias for QUARANTINED with is_duplicate=true.
+        - `CANCELLED`: Job cancelled; file in cancelled/.
+        - `PAUSED`: Job paused; file remains in processing/.
+        - `REJECTED`: Institution inactive or pre-pipeline rejection.
+
+    FormatType:
+      type: string
+      enum:
+        - CSV
+        - JSON
+        - JSONL
+        - FIXED_WIDTH
+        - XML
+        - UNKNOWN
+      description: |
+        - `CSV`: Delimited flat file (comma, pipe, tab, semicolon).
+        - `JSON`: Top-level JSON array of objects.
+        - `JSONL`: One JSON object per line (newline-delimited).
+        - `FIXED_WIDTH`: Fixed-width fields; layout in schema registry.
+        - `XML`: XML envelope; record element in schema registry.
+        - `UNKNOWN`: Format undetermined — results in quarantine.
+
+    DetectionMethod:
+      type: string
+      enum:
+        - AGENTIC
+        - EXTENSION
+        - CONTENT_PROBE
+        - EXPLICIT
+        - FILENAME_HINT
+        - HEADER_MATCH
+        - FALLBACK
+      description: |
+        How format or schema was detected.
+        - `AGENTIC`: AgenticParserService (AI-driven) — primary.
+        - `EXTENSION`: From file extension.
+        - `CONTENT_PROBE`: First 4 KB content analysis (deterministic fallback).
+        - `EXPLICIT`: Source type explicitly provided.
+        - `FILENAME_HINT`: Matched from institution filename pattern config.
+        - `HEADER_MATCH`: Jaccard similarity of file headers vs mapping source paths.
+        - `FALLBACK`: Institution has exactly one approved mapping.
+
+    NotificationStatus:
+      type: string
+      enum:
+        - SENT
+        - PARTIAL
+        - FAILED
+        - NOT_APPLICABLE
+      description: |
+        - `SENT`: All channels delivered successfully.
+        - `PARTIAL`: Some channels delivered; at least one failed.
+        - `FAILED`: All channels failed.
+        - `NOT_APPLICABLE`: No notification required.
+
+    ErrorSeverity:
+      type: string
+      enum:
+        - CRITICAL
+        - WARNING
+        - INFO
+      description: |
+        - `CRITICAL`: Record rejected; excluded from all downstream processing.
+        - `WARNING`: Record flagged but proceeds; reflected in DQR.
+        - `INFO`: Log only; no record impact.
+
+    SnapshotType:
+      type: string
+      enum:
+        - JOB_START
+        - JOB_COMPLETE
+        - JOB_FAILED
+        - JOB_PARTIAL
+        - JOB_PAUSED
+        - PHASE_COMPLETE
+        - PERIODIC
+
+    # ─────────────────────────────────────────
+    # REQUEST MODELS
+    # ─────────────────────────────────────────
+
+    RetryRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          description: Optional operator reason for the retry
+
+    CancelRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          description: Optional reason for cancellation
+
+    ResumeRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: Operator's justification for resuming; appended to batch_jobs.paused_reason
+
+    OverridePauseRequest:
+      type: object
+      required: [action, reason]
+      properties:
+        action:
+          type: string
+          enum: [ADVANCE_WITH_VALID]
+          description: Override action. Currently only ADVANCE_WITH_VALID is supported.
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: Operator justification; stored in audit log
+
+    # ─────────────────────────────────────────
+    # BASE RESPONSE WRAPPER
+    # ─────────────────────────────────────────
+
+    BaseResponse:
+      type: object
+      required: [requestId, timestamp]
+      properties:
+        requestId:
+          type: string
+          format: uuid
+          description: Server-generated or echoed X-Request-ID
+        correlationId:
+          type: string
+          nullable: true
+          description: Correlation ID from request or batch job
+        traceId:
+          type: string
+          description: Distributed trace identifier
+        timestamp:
+          type: string
+          format: date-time
+          description: Response generation timestamp (UTC)
+
+    PaginationMeta:
+      type: object
+      required: [page, size, totalElements, totalPages]
+      properties:
+        page:
+          type: integer
+        size:
+          type: integer
+        totalElements:
+          type: integer
+        totalPages:
+          type: integer
+
+    ErrorDetail:
+      type: object
+      properties:
+        field:
+          type: string
+        value:
+          description: Offending value (PII-masked if applicable)
+        message:
+          type: string
+
+    ErrorResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          required: [status, errorCode, message]
+          properties:
+            status:
+              type: integer
+              description: HTTP status code
+            errorCode:
+              type: string
+              description: Machine-readable error code
+            message:
+              type: string
+              description: Human-readable error message
+            details:
+              type: array
+              items:
+                $ref: '#/components/schemas/ErrorDetail'
+
+    # ─────────────────────────────────────────
+    # BATCH JOB SCHEMAS
+    # ─────────────────────────────────────────
+
+    BatchJobSummary:
+      type: object
+      required: [batchJobId, institutionId, jobStatus, submittedAt]
+      properties:
+        batchJobId:
+          type: string
+        institutionId:
+          type: string
+        institutionName:
+          type: string
+          nullable: true
+        jobStatus:
+          $ref: '#/components/schemas/JobStatus'
+        statusDisplay:
+          type: string
+          description: Business-facing label. PARTIALLY_COMPLETED returns "PARTIAL_SUCCESS".
+        intakeChannel:
+          type: string
+          enum: [SFTP, API, SIMULATION]
+        intakeMode:
+          type: string
+          enum: [PUSH, PULL]
+        originalFilename:
+          type: string
+          nullable: true
+        detectedFormat:
+          $ref: '#/components/schemas/FormatType'
+          nullable: true
+        sourceType:
+          type: string
+          nullable: true
+        totalRecords:
+          type: integer
+          nullable: true
+        processedRecords:
+          type: integer
+          nullable: true
+        failedRecords:
+          type: integer
+          nullable: true
+        tradelinesInserted:
+          type: integer
+          nullable: true
+        newConsumersCreated:
+          type: integer
+          nullable: true
+        validationFailureRate:
+          type: number
+          format: double
+          nullable: true
+          description: Decimal ratio (e.g. 0.046 = 4.6%)
+        mappingCoveragePercent:
+          type: number
+          format: double
+          nullable: true
+        dqiScore:
+          type: number
+          format: double
+          nullable: true
+          description: 0–100; null if P6 not yet executed
+        submittedAt:
+          type: string
+          format: date-time
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        retryCount:
+          type: integer
+          default: 0
+        isPermanentlyFailed:
+          type: boolean
+          default: false
+
+    BatchJobListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/BatchJobSummary'
+            pagination:
+              $ref: '#/components/schemas/PaginationMeta'
+
+    BatchPhaseLog:
+      type: object
+      required: [phaseName, phaseStatus]
+      properties:
+        phaseName:
+          type: string
+          enum: [P1_PRE_PROCS, P2_VALIDTION, P3_STANDARZN, P4_IDENT_RES, P5_DATA_LOAD, P6_POST_PROC]
+        phaseStatus:
+          $ref: '#/components/schemas/PhaseStatus'
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        processedCount:
+          type: integer
+        failedCount:
+          type: integer
+        skippedCount:
+          type: integer
+          nullable: true
+        mappedCount:
+          type: integer
+          nullable: true
+        unmappedCount:
+          type: integer
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        retryAttempt:
+          type: integer
+          default: 0
+
+    BatchStageLog:
+      type: object
+      required: [stageName, phaseName, stageStatus]
+      properties:
+        stageName:
+          type: string
+          enum:
+            - S11_BTCH_CRE
+            - S12_FILE_INT
+            - S13_REC_PARS
+            - S14_SCHM_LKP
+            - S21_MAND_CHK
+            - S22_L1_VALID
+            - S23_DUPE_CHK
+            - S31_SCHM_CNV
+            - S32_BIZ_XFRM
+            - S33_L2_VALID
+            - S41_CLST_ASN
+            - S51_DATA_LOD
+            - S61_ERR_REPT
+            - S62_DQ_REPRT
+            - S63_NOTIF_TR
+        phaseName:
+          type: string
+        stageStatus:
+          type: string
+          enum: [pending, running, completed, failed, skipped]
+        recordsProcessed:
+          type: integer
+          nullable: true
+        recordsFailed:
+          type: integer
+          nullable: true
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        metadata:
+          type: object
+          nullable: true
+          description: Stage-specific metadata (e.g. parser type, IR Engine call stats)
+          additionalProperties: true
+        retryAttempt:
+          type: integer
+          default: 0
+
+    BatchErrorSample:
+      type: object
+      properties:
+        rowNumber:
+          type: integer
+        errorCode:
+          type: string
+          description: e.g. VALIDATION_L1_FORMAT_FAILED, VALIDATION_MANDATORY_FIELD_MISSING
+        errorMessage:
+          type: string
+        fieldName:
+          type: string
+          nullable: true
+        fieldValue:
+          type: string
+          nullable: true
+          description: PII fields are masked as [REDACTED]
+        errorType:
+          type: string
+          enum: [MANDATORY, FORMAT, CROSS_FIELD, DUPLICATE, TRANSFORMATION, PARSE, SCHEMA_DETECTION]
+        severity:
+          $ref: '#/components/schemas/ErrorSeverity'
+        correlationId:
+          type: string
+          nullable: true
+
+    SftpEventSummary:
+      type: object
+      properties:
+        sftpPath:
+          type: string
+        fileSize:
+          type: integer
+        checksumSha256:
+          type: string
+        detectedAt:
+          type: string
+          format: date-time
+        eventStatus:
+          $ref: '#/components/schemas/SftpEventStatus'
+
+    BatchJobDetail:
+      allOf:
+        - $ref: '#/components/schemas/BatchJobSummary'
+        - type: object
+          properties:
+            correlationId:
+              type: string
+            schemaRegistryId:
+              type: string
+              nullable: true
+            profileId:
+              type: string
+              nullable: true
+            mappingId:
+              type: string
+              nullable: true
+            mappingVersion:
+              type: integer
+              nullable: true
+            schemaDetectionMethod:
+              $ref: '#/components/schemas/DetectionMethod'
+              nullable: true
+            schemaDetectionConfidence:
+              type: number
+              format: double
+              nullable: true
+            s3StagingPath:
+              type: string
+              nullable: true
+            dqrUrl:
+              type: string
+              format: uri
+              nullable: true
+            errorReportUrl:
+              type: string
+              format: uri
+              nullable: true
+            driftAlertTriggered:
+              type: boolean
+            failureReason:
+              type: string
+              nullable: true
+            lastSuccessfulPhase:
+              type: string
+              nullable: true
+            pausedAt:
+              type: string
+              format: date-time
+              nullable: true
+            pausedReason:
+              type: string
+              nullable: true
+            resumedAt:
+              type: string
+              format: date-time
+              nullable: true
+            resumedBy:
+              type: string
+              nullable: true
+            cancelledAt:
+              type: string
+              format: date-time
+              nullable: true
+            cancelledBy:
+              type: string
+              nullable: true
+            notificationStatus:
+              $ref: '#/components/schemas/NotificationStatus'
+            notificationChannelsJson:
+              type: object
+              nullable: true
+              description: Per-channel delivery status
+              additionalProperties:
+                type: string
+            irEngineResponseStatus:
+              type: string
+              nullable: true
+              enum: [OK, TIMEOUT, PARTIAL, CIRCUIT_OPEN]
+            existingConsumersUpdated:
+              type: integer
+              nullable: true
+            phases:
+              description: |
+                Phase logs. Null for legacy jobs that predate the phase-log schema.
+                When null, use the flat `stages` array for execution detail.
+              nullable: true
+              type: array
+              items:
+                $ref: '#/components/schemas/BatchPhaseLog'
+            stages:
+              description: |
+                Stage logs. Always present. For jobs with phases, stages are nested under phases.
+                For legacy jobs (phases=null), this is the only execution detail available.
+              type: array
+              items:
+                $ref: '#/components/schemas/BatchStageLog'
+            errorSamples:
+              type: array
+              maxItems: 100
+              items:
+                $ref: '#/components/schemas/BatchErrorSample'
+            sftpEvent:
+              $ref: '#/components/schemas/SftpEventSummary'
+              nullable: true
+
+    BatchJobDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/BatchJobDetail'
+
+    # ─────────────────────────────────────────
+    # DQR SCHEMAS
+    # ─────────────────────────────────────────
+
+    DqrComponents:
+      type: object
+      required: [missingFieldsRatio, invalidFormatRatio, duplicateRatio, schemaDriftRatio]
+      properties:
+        missingFieldsRatio:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          description: mandatory_failed_count / total_records
+        invalidFormatRatio:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          description: l1_format_failed_count / total_records
+        duplicateRatio:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          description: duplicate_failed_count / total_records
+        schemaDriftRatio:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 1
+          description: unmapped_field_count / total_field_count
+
+    DqrWeights:
+      type: object
+      properties:
+        missingFields:
+          type: number
+          format: double
+          default: 0.30
+        invalidFormat:
+          type: number
+          format: double
+          default: 0.30
+        duplicates:
+          type: number
+          format: double
+          default: 0.20
+        schemaDrift:
+          type: number
+          format: double
+          default: 0.20
+
+    DqrSummary:
+      type: object
+      properties:
+        totalRecords:
+          type: integer
+        processedRecords:
+          type: integer
+        failedRecords:
+          type: integer
+        mandatoryFailedCount:
+          type: integer
+        l1FormatFailedCount:
+          type: integer
+        duplicateFailedCount:
+          type: integer
+        l2CrossFieldFailedCount:
+          type: integer
+        unmappedFieldCount:
+          type: integer
+        totalFieldCount:
+          type: integer
+
+    DqrData:
+      type: object
+      required: [batchJobId, institutionId, dqiScore, rawDqs, components]
+      properties:
+        batchJobId:
+          type: string
+        institutionId:
+          type: string
+        retryAttempt:
+          type: integer
+          default: 0
+        dqiScore:
+          type: number
+          format: double
+          minimum: 0
+          maximum: 100
+          description: Data Quality Index. Formula: (1 - raw_dqs) * 100, clamped to [0, 100].
+        rawDqs:
+          type: number
+          format: double
+          description: Weighted sum of DQS components before inversion.
+        components:
+          $ref: '#/components/schemas/DqrComponents'
+        weights:
+          $ref: '#/components/schemas/DqrWeights'
+        summary:
+          $ref: '#/components/schemas/DqrSummary'
+        l1BreakdownByField:
+          type: object
+          nullable: true
+          description: Count of L1 failures per field name
+          additionalProperties:
+            type: integer
+        l2Breakdown:
+          type: object
+          nullable: true
+          description: Count of L2 cross-field failures per rule name
+          additionalProperties:
+            type: integer
+        dqrS3Path:
+          type: string
+          nullable: true
+          description: S3 object key for full DQR JSON
+        dqrSftpPath:
+          type: string
+          nullable: true
+          description: SFTP path where DQR was uploaded
+        dqrPresignedUrl:
+          type: string
+          format: uri
+          nullable: true
+          description: Pre-signed S3 URL (TTL 7 days)
+        dqrPresignedUrlExpiresAt:
+          type: string
+          format: date-time
+          nullable: true
+        generatedAt:
+          type: string
+          format: date-time
+        uploadedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    DqrResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/DqrData'
+
+    # ─────────────────────────────────────────
+    # SFTP SCHEMAS
+    # ─────────────────────────────────────────
+
+    SftpEvent:
+      type: object
+      required: [id, institutionId, originalFilename, eventStatus, detectedAt]
+      properties:
+        id:
+          type: integer
+        institutionId:
+          type: string
+        originalFilename:
+          type: string
+        sftpPath:
+          type: string
+        processingPath:
+          type: string
+          nullable: true
+        outcomePath:
+          type: string
+          nullable: true
+        fileSizeBytes:
+          type: integer
+          nullable: true
+        checksumSha256:
+          type: string
+          nullable: true
+        detectedFormat:
+          $ref: '#/components/schemas/FormatType'
+          nullable: true
+        formatDetectionMethod:
+          $ref: '#/components/schemas/DetectionMethod'
+          nullable: true
+        eventStatus:
+          $ref: '#/components/schemas/SftpEventStatus'
+        batchJobId:
+          type: string
+          nullable: true
+        isDuplicate:
+          type: boolean
+          default: false
+        originalSftpEventId:
+          type: integer
+          nullable: true
+        errorCode:
+          type: string
+          nullable: true
+        errorMessage:
+          type: string
+          nullable: true
+        sourceTypeHint:
+          type: string
+          nullable: true
+        schemaRegistryId:
+          type: string
+          nullable: true
+        mappingId:
+          type: string
+          nullable: true
+        schemaDetectionMethod:
+          $ref: '#/components/schemas/DetectionMethod'
+          nullable: true
+        intakeMode:
+          type: string
+          enum: [PUSH, PULL]
+          nullable: true
+        detectedAt:
+          type: string
+          format: date-time
+        stableConfirmedAt:
+          type: string
+          format: date-time
+          nullable: true
+        queuedAt:
+          type: string
+          format: date-time
+          nullable: true
+        processedAt:
+          type: string
+          format: date-time
+          nullable: true
+        failedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    SftpEventListResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: array
+              items:
+                $ref: '#/components/schemas/SftpEvent'
+            pagination:
+              $ref: '#/components/schemas/PaginationMeta'
+
+    SftpEventDetailResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              $ref: '#/components/schemas/SftpEvent'
+
+    StuckFile:
+      type: object
+      properties:
+        sftpEventId:
+          type: integer
+        institutionId:
+          type: string
+        originalFilename:
+          type: string
+        processingPath:
+          type: string
+        stableConfirmedAt:
+          type: string
+          format: date-time
+        stuckForMs:
+          type: integer
+        linkedBatchJobId:
+          type: string
+          nullable: true
+        linkedJobStatus:
+          $ref: '#/components/schemas/JobStatus'
+          nullable: true
+
+    QuarantinedFile:
+      type: object
+      properties:
+        sftpEventId:
+          type: integer
+        institutionId:
+          type: string
+        originalFilename:
+          type: string
+        errorCode:
+          type: string
+        quarantinedAt:
+          type: string
+          format: date-time
+
+    SftpHealthSummary:
+      type: object
+      required: [filesInProcessing, filesInFailed, filesInQuarantine]
+      properties:
+        filesInProcessing:
+          type: integer
+        filesStuckInProcessingOver30Min:
+          type: integer
+        filesInFailed:
+          type: integer
+        filesInQuarantine:
+          type: integer
+        filesInCancelled:
+          type: integer
+        jobsPaused:
+          type: integer
+        jobsPermanentlyFailed:
+          type: integer
+        pollerStatus:
+          type: string
+          enum: [HEALTHY, DEGRADED, DOWN]
+        lastSuccessfulPollAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    SftpHealthResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [overall, summary]
+              properties:
+                overall:
+                  type: string
+                  enum: [HEALTHY, DEGRADED, CRITICAL]
+                  description: |
+                    - HEALTHY: No files stuck, quarantine empty, poller running.
+                    - DEGRADED: Some files stuck or quarantined.
+                    - CRITICAL: Poller down or multiple stuck files.
+                summary:
+                  $ref: '#/components/schemas/SftpHealthSummary'
+                stuckFiles:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/StuckFile'
+                quarantinedFiles:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/QuarantinedFile'
+
+    # ─────────────────────────────────────────
+    # MONITORING SCHEMAS
+    # ─────────────────────────────────────────
+
+    KpiVolumeData:
+      type: object
+      properties:
+        jobsSubmitted:
+          type: integer
+        jobsCompleted:
+          type: integer
+        jobsPartial:
+          type: integer
+        jobsFailed:
+          type: integer
+        jobsPaused:
+          type: integer
+        jobsCancelled:
+          type: integer
+        jobsPermanentlyFailed:
+          type: integer
+        totalRecordsProcessed:
+          type: integer
+        totalTradelines:
+          type: integer
+        newConsumers:
+          type: integer
+        sftpFilesReceived:
+          type: integer
+        sftpFilesByFormat:
+          type: object
+          additionalProperties:
+            type: integer
+
+    KpiRatesData:
+      type: object
+      properties:
+        batchSuccessRate:
+          type: number
+          format: double
+        batchPartialRate:
+          type: number
+          format: double
+        batchFailureRate:
+          type: number
+          format: double
+        avgValidationFailureRate:
+          type: number
+          format: double
+        duplicateFileRate:
+          type: number
+          format: double
+        schemaDetectionFailureCount:
+          type: integer
+        avgMappingCoveragePercent:
+          type: number
+          format: double
+        avgDqiScore:
+          type: number
+          format: double
+
+    KpiPerformanceData:
+      type: object
+      properties:
+        p95EndToEndDurationMs:
+          type: integer
+        p95SftpToQueueLatencyMs:
+          type: integer
+        avgValidationDurationMs:
+          type: integer
+        avgLoadDurationMs:
+          type: integer
+        throughputRecordsPerMinute:
+          type: number
+          format: double
+
+    KpiIrEngineData:
+      type: object
+      properties:
+        callSuccessRate:
+          type: number
+          format: double
+        p95LatencyMs:
+          type: integer
+        circuitBreakerOpenings:
+          type: integer
+
+    KpiDqiData:
+      type: object
+      properties:
+        avgDqiScore:
+          type: number
+          format: double
+        jobsWithDqiBelow70:
+          type: integer
+        dqrDeliverySuccessRate:
+          type: number
+          format: double
+
+    KpiSftpData:
+      type: object
+      properties:
+        filesInProcessing:
+          type: integer
+        filesStuckInProcessing:
+          type: integer
+        filesInQuarantine:
+          type: integer
+        filesInFailed:
+          type: integer
+        driftAlertsTriggered:
+          type: integer
+
+    KpiResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              properties:
+                window:
+                  type: object
+                  properties:
+                    from:
+                      type: string
+                      format: date-time
+                    to:
+                      type: string
+                      format: date-time
+                volume:
+                  $ref: '#/components/schemas/KpiVolumeData'
+                rates:
+                  $ref: '#/components/schemas/KpiRatesData'
+                performance:
+                  $ref: '#/components/schemas/KpiPerformanceData'
+                irEngine:
+                  $ref: '#/components/schemas/KpiIrEngineData'
+                dqi:
+                  $ref: '#/components/schemas/KpiDqiData'
+                sftp:
+                  $ref: '#/components/schemas/KpiSftpData'
+
+    ChartDataPoint:
+      type: object
+      required: [timestamp, value]
+      properties:
+        timestamp:
+          type: string
+          format: date-time
+        value:
+          type: number
+          format: double
+
+    ChartResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [metric, granularity, series]
+              properties:
+                metric:
+                  type: string
+                granularity:
+                  type: string
+                series:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ChartDataPoint'
+
+    # ─────────────────────────────────────────
+    # MUTATION RESPONSE SCHEMAS
+    # ─────────────────────────────────────────
+
+    BackoffSchedule:
+      type: object
+      properties:
+        attempt:
+          type: integer
+        minimumWaitMs:
+          type: integer
+        executionNotBefore:
+          type: string
+          format: date-time
+
+    RetryResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [batchJobId, batchJobStatus, retryCount]
+              properties:
+                batchJobId:
+                  type: string
+                batchJobStatus:
+                  $ref: '#/components/schemas/JobStatus'
+                retryCount:
+                  type: integer
+                maxRetryCount:
+                  type: integer
+                isPermanentlyFailed:
+                  type: boolean
+                backoffSchedule:
+                  $ref: '#/components/schemas/BackoffSchedule'
+                lastSuccessfulPhase:
+                  type: string
+                  nullable: true
+                restartingFromPhase:
+                  type: string
+                  nullable: true
+
+    CancelResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [batchJobId, batchJobStatus]
+              properties:
+                batchJobId:
+                  type: string
+                batchJobStatus:
+                  $ref: '#/components/schemas/JobStatus'
+                cancelledAt:
+                  type: string
+                  format: date-time
+                cancelledBy:
+                  type: string
+                phaseAtCancellation:
+                  type: string
+                  nullable: true
+                recordsProcessedBeforeCancel:
+                  type: integer
+                  nullable: true
+                sftpFileMovedTo:
+                  type: string
+                  nullable: true
+
+    ResumeResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [batchJobId, batchJobStatus]
+              properties:
+                batchJobId:
+                  type: string
+                batchJobStatus:
+                  $ref: '#/components/schemas/JobStatus'
+                resumedAt:
+                  type: string
+                  format: date-time
+                resumedBy:
+                  type: string
+                resumingFromPhase:
+                  type: string
+                validRecordsProceeding:
+                  type: integer
+                failedRecordsExcluded:
+                  type: integer
+
+    OverridePauseResponse:
+      allOf:
+        - $ref: '#/components/schemas/BaseResponse'
+        - type: object
+          properties:
+            data:
+              type: object
+              required: [batchJobId, batchJobStatus, action]
+              properties:
+                batchJobId:
+                  type: string
+                batchJobStatus:
+                  $ref: '#/components/schemas/JobStatus'
+                overriddenAt:
+                  type: string
+                  format: date-time
+                overriddenBy:
+                  type: string
+                action:
+                  type: string
+                  enum: [ADVANCE_WITH_VALID]
+                validRecordsAdvancing:
+                  type: integer
+                failedRecordsPermanentlyExcluded:
+                  type: integer
+                resumingFromPhase:
+                  type: string
