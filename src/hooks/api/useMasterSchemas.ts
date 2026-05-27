@@ -13,6 +13,7 @@ import {
 } from "@/services/master-schema.service";
 import type { MasterSchemaField } from "@/types/master-schema";
 import type { SourceType } from "@/types/schema-mapper";
+import type { TreePathNode } from "@/types/datasource-onboarding";
 
 export function useMasterSchemasList(
   params?: MasterSchemaListParams,
@@ -54,11 +55,20 @@ export function useMasterSchemaSourceTypes(options?: { enabled?: boolean; allowM
 export function useCreateMasterSchema() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: (body: { name: string; sourceType: SourceType; description: string; fields: MasterSchemaField[]; rawJson?: unknown }) =>
-      createMasterSchema(body),
+    mutationFn: (body: {
+      name: string;
+      sourceType: SourceType;
+      description: string;
+      fields: MasterSchemaField[];
+      rawJson?: unknown;
+      /** When provided, this nested tree becomes the canonical representation. */
+      tree?: TreePathNode[];
+    }) => createMasterSchema(body),
     onSuccess: (schema) => {
       qc.invalidateQueries({ queryKey: QK.masterSchemas.all() });
       qc.setQueryData(QK.masterSchemas.detail(schema.id), schema);
+      qc.invalidateQueries({ queryKey: QK.masterPathCatalog.all() });
+      qc.invalidateQueries({ queryKey: QK.auditLogs.all() });
       toast.success("Schema created");
     },
     onError: (e: ApiError) => toast.error(e.message),
@@ -68,11 +78,25 @@ export function useCreateMasterSchema() {
 export function useUpdateMasterSchema() {
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, body }: { id: string; body: { name?: string; description?: string; fields?: MasterSchemaField[]; rawJson?: unknown } }) =>
-      updateMasterSchema(id, body),
+    mutationFn: ({
+      id,
+      body,
+    }: {
+      id: string;
+      body: {
+        name?: string;
+        description?: string;
+        fields?: MasterSchemaField[];
+        rawJson?: unknown;
+        /** When provided, this nested tree replaces the previous canonical record. */
+        tree?: TreePathNode[];
+      };
+    }) => updateMasterSchema(id, body),
     onSuccess: (schema) => {
       qc.invalidateQueries({ queryKey: QK.masterSchemas.all() });
       qc.setQueryData(QK.masterSchemas.detail(schema.id), schema);
+      qc.invalidateQueries({ queryKey: QK.masterPathCatalog.all() });
+      qc.invalidateQueries({ queryKey: QK.auditLogs.all() });
       toast.success("Schema updated");
     },
     onError: (e: ApiError) => toast.error(e.message),
@@ -86,6 +110,7 @@ export function useSubmitMasterSchemaApproval() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: QK.masterSchemas.all() });
       qc.invalidateQueries({ queryKey: QK.approvals.all() });
+      qc.invalidateQueries({ queryKey: QK.auditLogs.all() });
       toast.success("Submitted to approval queue");
     },
     onError: (e: ApiError) => toast.error(e.message),
