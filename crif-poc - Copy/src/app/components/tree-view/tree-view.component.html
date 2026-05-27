@@ -1,0 +1,131 @@
+<div class="tree-container">
+  <div class="profile-actions">
+    <button type="button" class="profile-btn export-btn" (click)="exportProfile()">Export JSON</button>
+  </div>
+
+  <div class="tree-tools">
+    <div class="tree-toolbar-line">
+      <div class="search-box">
+        <span class="search-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" focusable="false">
+            <path
+              d="M10 4a6 6 0 1 1 0 12 6 6 0 0 1 0-12zm0-2a8 8 0 1 0 4.9 14.3l4.4 4.4 1.4-1.4-4.4-4.4A8 8 0 0 0 10 2z" />
+          </svg>
+        </span>
+        <input type="text" class="search-input" [(ngModel)]="searchQuery" (ngModelChange)="onSearchQueryChange()"
+          placeholder="Search by field name, code, or type">
+      </div>
+
+      <div class="tree-toolbar-actions">
+        <button type="button" class="icon-tool-btn secondary" (click)="clearSearch()" [disabled]="!searchQuery"
+          title="Clear search" aria-label="Clear search">
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path
+              d="M18.3 5.71 12 12l6.3 6.29-1.41 1.41L10.59 13.41 4.29 19.7 2.88 18.29 9.17 12 2.88 5.71 4.29 4.3l6.3 6.29 6.29-6.3z" />
+          </svg>
+        </button>
+        <button type="button" class="icon-tool-btn" (click)="expandAll()" [disabled]="filteredDatasources.length === 0"
+          title="Expand all" aria-label="Expand all">
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path d="M0 0h24v24H0z" fill="none" />
+            <path
+              d="M12 5.83L15.17 9l1.41-1.41L12 3 7.41 7.59 8.83 9 12 5.83zm0 12.34L8.83 15l-1.41 1.41L12 21l4.59-4.59L15.17 15 12 18.17z" />
+          </svg>
+        </button>
+        <button type="button" class="icon-tool-btn secondary" (click)="collapseAll()"
+          [disabled]="expandedNodeIds.size === 0" title="Collapse all" aria-label="Collapse all">
+          <svg viewBox="0 0 24 24" focusable="false" aria-hidden="true">
+            <path d="M0 0h24v24H0z" fill="none" />
+            <path
+              d="M7.41 18.59L8.83 20 12 16.83 15.17 20l1.41-1.41L12 14l-4.59 4.59zm9.18-13.18L15.17 4 12 7.17 8.83 4 7.41 5.41 12 10l4.59-4.59z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+
+  <div *ngFor="let datasourceView of filteredDatasources; trackBy: trackDatasource" class="datasource-section">
+    <div class="datasource-header">
+      <div>
+        <strong>{{ datasourceView.datasource.name }}</strong>
+        <div class="datasource-meta">{{ datasourceView.datasource.sourceType }} · {{ datasourceView.datasource.status }}
+        </div>
+      </div>
+      <div class="datasource-count">{{ datasourceView.visibleNodes }}/{{ datasourceView.totalNodes }}</div>
+    </div>
+
+    <div class="tree-root" *ngIf="datasourceView.nodes.length > 0; else noMatchesForDatasource">
+      <div *ngFor="let item of datasourceView.nodes; trackBy: trackTreeItem" class="tree-node">
+        <ng-container *ngTemplateOutlet="nodeTemplate; context: { item: item }"></ng-container>
+      </div>
+    </div>
+
+    <ng-template #noMatchesForDatasource>
+      <div class="no-results">No fields match the current search.</div>
+    </ng-template>
+
+    <div class="add-buttons">
+      <button class="add-btn" (click)="addRootField(datasourceView.datasource)" title="Add Field">+ FIELD</button>
+      <button class="add-btn" (click)="addRootObject(datasourceView.datasource)" title="Add Object">+ OBJECT</button>
+      <button class="add-btn" (click)="addRootArray(datasourceView.datasource)" title="Add Array">+ ARRAY</button>
+    </div>
+  </div>
+
+  <div class="no-results global" *ngIf="filteredDatasources.length === 0">
+    No fields match the current search.
+  </div>
+</div>
+
+<ng-template #nodeTemplate let-item="item">
+  <div class="node-wrapper">
+    <div class="node-item" [class.selected]="selectedNodeId === item.node.id"
+      [class.match]="!!searchQuery && item.matchesSearch" (click)="selectNode(item.node)">
+      <span class="toggle-icon" *ngIf="item.children.length > 0"
+        (click)="toggleNode(item.node.id); $event.stopPropagation()">
+        {{ isExpanded(item.node.id) ? '▼' : '▶' }}
+      </span>
+      <span class="toggle-icon spacer" *ngIf="item.children.length === 0"></span>
+      <span class="node-icon" [class.field-icon]="item.node.nodeType === 'FIELD'"
+        [class.object-icon]="item.node.nodeType === 'OBJECT'" [class.array-icon]="item.node.nodeType === 'ARRAY'"
+        [ngSwitch]="item.node.nodeType">
+        <span *ngSwitchCase="'FIELD'">📄</span>
+        <span *ngSwitchCase="'OBJECT'">📦</span>
+        <span *ngSwitchCase="'ARRAY'">📚</span>
+      </span>
+      <span class="node-name">{{ item.node.name }}</span>
+      <button type="button" class="delete-btn" title="Delete node" aria-label="Delete node"
+        (click)="requestDeleteNode(item.node); $event.stopPropagation()">
+        <svg class="delete-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+          <path
+            d="M9 3h6l1 2h4v2H4V5h4l1-2zm1 6h2v8h-2V9zm4 0h2v8h-2V9zM7 9h2v8H7V9zm1 11h8a2 2 0 0 0 2-2V8H6v10a2 2 0 0 0 2 2z" />
+        </svg>
+      </button>
+    </div>
+
+    <div class="children" *ngIf="isExpanded(item.node.id) && item.children.length > 0">
+      <div *ngFor="let child of item.children; trackBy: trackTreeItem" class="tree-node">
+        <ng-container *ngTemplateOutlet="nodeTemplate; context: { item: child }"></ng-container>
+      </div>
+    </div>
+
+    <div class="child-add-buttons" *ngIf="showChildActions(item.node)">
+      <button class="add-btn small" (click)="addField(item.node)" title="Add Field">+ F</button>
+      <button class="add-btn small" (click)="addObject(item.node)" title="Add Object">+ O</button>
+      <button class="add-btn small" (click)="addArray(item.node)" title="Add Array">+ A</button>
+    </div>
+  </div>
+</ng-template>
+
+<div class="delete-modal-overlay" *ngIf="pendingDeleteNode" (click)="cancelDeleteNode()">
+  <div class="delete-modal" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle"
+    (click)="$event.stopPropagation()">
+    <div class="delete-modal-badge">Confirm Delete</div>
+    <h3 id="deleteModalTitle">Delete {{ pendingDeleteNode.name }}?</h3>
+    <p>This action will remove the selected node from the profile.</p>
+    <div class="delete-modal-actions">
+      <button type="button" class="modal-btn secondary" (click)="cancelDeleteNode()">Cancel</button>
+      <button type="button" class="modal-btn danger" (click)="confirmDeleteNode()">Delete</button>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,417 @@
+<div class="config-container">
+  <div class="pk-pattern-row">
+    <label class="pk-pattern-label">PK Pattern</label>
+    <input type="text" class="pk-pattern-input" [value]="pkPattern"
+      placeholder="e.g. SCHEMA#datasourceId"
+      (change)="pkPatternSave.emit($any($event.target).value)">
+  </div>
+
+  <div class="config-toolbar">
+    <span class="toolbar-title">Schema Configuration</span>
+    <div class="toolbar-actions">
+      <span class="save-status" [class.error]="saveStatusType === 'error'" *ngIf="saveStatus">{{ saveStatus }}</span>
+      <button type="button" class="save-btn" [disabled]="!schemaValidation.isValid" (click)="saveTree()">Finish</button>
+    </div>
+  </div>
+
+  <div class="validation-panel" *ngIf="!schemaValidation.isValid">
+    <div class="validation-title">Schema validation</div>
+    <ul>
+      <li *ngFor="let error of schemaValidation.errors">{{ error }}</li>
+    </ul>
+  </div>
+
+  <div class="view-tabs">
+    <button type="button" class="tab-btn" [class.active]="activeView === 'configuration'"
+      (click)="setActiveView('configuration')">
+      Schema Configuration
+    </button>
+    <button type="button" class="tab-btn" [class.active]="activeView === 'profileJson'"
+      (click)="setActiveView('profileJson')">
+      Field Profile JSON
+    </button>
+  </div>
+
+  <div *ngIf="activeView === 'review' && getActiveDatasource() as datasource" class="tab-panel review-tab-panel">
+    <div class="review-panel">
+      <div class="review-panel-header">
+        <div>
+          <div class="review-label">Profile Status</div>
+          <div class="review-status-row">
+            <span class="review-status-badge" [class.pending]="datasource.profileReviewStatus === 'PENDING'"
+              [class.approved]="datasource.profileReviewStatus === 'APPROVED'"
+              [class.rejected]="datasource.profileReviewStatus === 'REJECTED'"
+              [class.changes]="datasource.profileReviewStatus === 'CHANGES_REQUESTED'">
+              {{ datasource.profileReviewStatus.replace('_', ' ') }}
+            </span>
+            <span class="review-datasource-name">{{ datasource.name }}</span>
+          </div>
+        </div>
+        <div class="review-actions">
+          <button type="button" class="review-btn approve-btn" (click)="submitReviewAction('APPROVE')">Approve</button>
+          <button type="button" class="review-btn reject-btn" (click)="submitReviewAction('REJECT')">Reject</button>
+          <button type="button" class="review-btn changes-btn" (click)="submitReviewAction('REQUEST_CHANGES')">Request
+            Changes</button>
+        </div>
+      </div>
+
+      <div class="review-feedback" [class.error]="reviewStatusType === 'error'" *ngIf="reviewStatusMessage">{{
+        reviewStatusMessage }}</div>
+
+      <div class="review-comment-box">
+        <label for="reviewComment">Review Comment</label>
+        <textarea id="reviewComment" [(ngModel)]="reviewCommentDraft" class="form-input review-comment-input" rows="3"
+          placeholder="Add an approval note or describe requested changes"></textarea>
+      </div>
+
+      <div class="review-history">
+        <div class="review-history-title">Review Activity</div>
+        <div class="review-comment-list" *ngIf="getReviewComments().length > 0; else noReviewComments">
+          <div class="review-comment-item" *ngFor="let comment of getReviewComments()">
+            <div class="review-comment-meta">
+              <span class="review-comment-action">{{ getReviewActionLabel(comment.action) }}</span>
+              <span class="review-comment-time">{{ formatReviewTimestamp(comment.createdAt) }}</span>
+            </div>
+            <div class="review-comment-text">{{ comment.comment || 'No comment provided.' }}</div>
+          </div>
+        </div>
+        <ng-template #noReviewComments>
+          <div class="review-empty">No review activity yet.</div>
+        </ng-template>
+      </div>
+    </div>
+  </div>
+
+  <div *ngIf="activeView === 'configuration' && selectedNode" class="config-panel">
+    <ng-container *ngIf="isFieldNode(); else containerEditor">
+      <ng-container *ngIf="getFieldProfile() as profile">
+        <div class="section">
+          <h3 class="section-title">Field Profile</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>SK Pattern</label>
+              <input type="text" [(ngModel)]="profile.SK" (change)="updateFieldProfile()" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Field Name</label>
+              <input type="text" [(ngModel)]="profile.FieldName" (change)="updateFieldProfile()" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Display Name</label>
+              <input type="text" [(ngModel)]="profile.DisplayName" (change)="updateFieldProfile()" class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Data Type</label>
+              <select [(ngModel)]="profile.DataType" (change)="onProfileDataTypeChange(profile)" class="form-input">
+                <option *ngFor="let type of dataTypes" [value]="type">{{ type }}</option>
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3 class="section-title">Mapping Field</h3>
+          <div class="form-grid">
+            <div class="form-group">
+              <label>Source Path</label>
+              <input type="text" [(ngModel)]="profile.SourceMapping.SourcePath" (change)="updateFieldProfile()"
+                class="form-input">
+            </div>
+            <div class="form-group">
+              <label>Target Path</label>
+              <div class="path-picker-inline">
+                <input type="text" readonly [(ngModel)]="profile.SourceMapping.TargetPath"
+                  class="form-input path-display">
+                <button type="button" class="picker-btn" (click)="openTargetPathModal(profile)"
+                  title="Open path picker">🔍 Browse</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3 class="section-title">Validation</h3>
+
+          <div class="validation-group">
+            <h4 class="subsection-title">Field Validation</h4>
+            <div class="rules-list">
+              <div *ngFor="let rule of profile.Validation.Rules; let i = index" class="rule-row">
+                <select [(ngModel)]="rule.Rule" (change)="onRuleTypeChange(rule); updateFieldProfile()"
+                  class="form-input">
+                  <option *ngFor="let type of validationRuleTypes" [value]="type">{{ type }}</option>
+                </select>
+                <select [(ngModel)]="rule.Severity" (change)="updateFieldProfile()" class="form-input">
+                  <option *ngFor="let severity of severities" [value]="severity">{{ severity }}</option>
+                </select>
+                <input *ngIf="needsRuleValue(rule.Rule)" type="number" [(ngModel)]="rule.Value"
+                  (change)="updateFieldProfile()" class="form-input" [placeholder]="getRuleValuePlaceholder(rule.Rule)">
+                <input *ngIf="needsRulePattern(rule.Rule)" type="text" [(ngModel)]="rule.Pattern"
+                  (change)="updateFieldProfile()" class="form-input" placeholder="Pattern">
+                <input type="text" [(ngModel)]="rule.Message" (change)="updateFieldProfile()" class="form-input"
+                  placeholder="Message">
+                <button type="button" class="remove-btn" (click)="removeFieldRule(i)">x</button>
+              </div>
+            </div>
+
+            <div class="rule-row add-rule-row">
+              <select [(ngModel)]="newFieldRule.Rule" (change)="onRuleTypeChange(newFieldRule)" class="form-input">
+                <option *ngFor="let type of validationRuleTypes" [value]="type">{{ type }}</option>
+              </select>
+              <select [(ngModel)]="newFieldRule.Severity" class="form-input">
+                <option *ngFor="let severity of severities" [value]="severity">{{ severity }}</option>
+              </select>
+              <input *ngIf="needsRuleValue(newFieldRule.Rule)" type="number" [(ngModel)]="newFieldRule.Value"
+                class="form-input" [placeholder]="getRuleValuePlaceholder(newFieldRule.Rule)">
+              <input *ngIf="needsRulePattern(newFieldRule.Rule)" type="text" [(ngModel)]="newFieldRule.Pattern"
+                class="form-input" placeholder="Pattern">
+              <input type="text" [(ngModel)]="newFieldRule.Message" class="form-input" placeholder="Message">
+              <button type="button" class="add-item-btn" (click)="addFieldRule()">Add</button>
+            </div>
+          </div>
+
+          <div class="validation-group" *ngIf="isScalarFieldProfile(profile)">
+            <h4 class="subsection-title">Business Validation</h4>
+            <div class="add-item">
+              <select [(ngModel)]="newBusinessValidation" class="form-input">
+                <option *ngFor="let type of fieldBusinessValidationTypes" [value]="type">{{ type }}</option>
+              </select>
+              <button type="button" class="add-item-btn" (click)="addBusinessValidation(profile)">Add</button>
+            </div>
+            <div class="items-list">
+              <div *ngFor="let validationType of profile.BusinessValidations; let i = index" class="item">
+                <span class="item-badge">{{ validationType }}</span>
+                <button class="remove-btn" (click)="removeBusinessValidation(profile, i)">x</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="validation-group" *ngIf="isScalarFieldProfile(profile)">
+            <h4 class="subsection-title">Cross Field Validation</h4>
+            <div class="rules-list">
+              <div *ngFor="let crossValidation of profile.CrossFieldValidations; let i = index" class="cross-field-row">
+                <div class="cross-field-path">
+                  <input type="text" readonly [(ngModel)]="crossValidation.FieldPath" class="form-input path-display"
+                    placeholder="Click to select">
+                  <button type="button" class="picker-btn" (click)="openCrossFieldPathModal(profile, i)"
+                    title="Open path picker">🔍</button>
+                </div>
+                <input type="text" [(ngModel)]="crossValidation.Rule" (change)="updateFieldProfile()" class="form-input"
+                  placeholder="Rule">
+                <select [(ngModel)]="crossValidation.Severity" (change)="updateFieldProfile()" class="form-input">
+                  <option *ngFor="let severity of severities" [value]="severity">{{ severity }}</option>
+                </select>
+                <button type="button" class="remove-btn" (click)="removeCrossFieldValidation(profile, i)">x</button>
+              </div>
+            </div>
+
+            <div class="cross-field-row add-cross-field-row">
+              <div class="cross-field-path">
+                <input type="text" readonly [(ngModel)]="newCrossFieldValidation.FieldPath"
+                  class="form-input path-display" placeholder="Click to select">
+                <button type="button" class="picker-btn" (click)="openCrossFieldAddModal(profile)"
+                  title="Open path picker">🔍</button>
+              </div>
+              <input type="text" [(ngModel)]="newCrossFieldValidation.Rule" class="form-input" placeholder="Rule">
+              <select [(ngModel)]="newCrossFieldValidation.Severity" class="form-input">
+                <option *ngFor="let severity of severities" [value]="severity">{{ severity }}</option>
+              </select>
+              <button type="button" class="add-item-btn" (click)="addCrossFieldValidation(profile)">Add</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h3 class="section-title">Defaults & Transformations</h3>
+          <div class="form-group" *ngIf="isScalarFieldProfile(profile)">
+            <label>Value Input Mode</label>
+            <select [(ngModel)]="profile.ValueMode" (change)="onValueModeChange(profile)" class="form-input">
+              <option *ngFor="let mode of valueModes" [value]="mode">{{ mode }}</option>
+            </select>
+          </div>
+          <div class="form-group" *ngIf="isScalarFieldProfile(profile) && profile.ValueMode === 'DEFAULT'">
+            <label>Default Value</label>
+            <input type="text" [(ngModel)]="profile.DefaultValue" (change)="updateFieldProfile()" class="form-input">
+          </div>
+          <div class="form-group" *ngIf="isScalarFieldProfile(profile) && profile.ValueMode === 'ENUM'">
+            <label>Possible Values</label>
+            <div class="add-item">
+              <input type="text" [(ngModel)]="newPossibleValue" class="form-input" placeholder="Enter possible value">
+              <button type="button" class="add-item-btn" (click)="addPossibleValue(profile)">Add</button>
+            </div>
+            <div class="items-list">
+              <div *ngFor="let value of profile.PossibleValues; let i = index" class="item">
+                <span class="item-badge">{{ value }}</span>
+                <button class="remove-btn" (click)="removePossibleValue(profile, i)">x</button>
+              </div>
+            </div>
+          </div>
+          <div class="add-item">
+            <select [(ngModel)]="newFieldTransformation" class="form-input">
+              <option *ngFor="let type of transformationTypes" [value]="type">{{ type }}</option>
+            </select>
+            <button type="button" class="add-item-btn" (click)="addFieldTransformation()">Add</button>
+          </div>
+          <div class="items-list">
+            <div *ngFor="let transformation of profile.Transformations; let i = index" class="item">
+              <span class="item-badge">{{ transformation }}</span>
+              <button class="remove-btn" (click)="removeFieldTransformation(i)">x</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="section" *ngIf="isScalarFieldProfile(profile)">
+          <h3 class="section-title">Field Intelligence</h3>
+          <div class="form-grid">
+            <div class="form-group checkbox-group">
+              <label>PII</label>
+              <label class="checkbox-label">
+                <input type="checkbox" [ngModel]="profile.IsPII" disabled>
+                Contains sensitive data
+              </label>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Description</label>
+            <textarea [ngModel]="profile.Description" class="form-input description-input" rows="3" readonly></textarea>
+          </div>
+          <div class="form-group">
+            <label>Similar Fields</label>
+            <div class="items-list">
+              <div *ngFor="let similarField of profile.SimilarFields; let i = index" class="item">
+                <span class="item-badge">{{ similarField }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </ng-container>
+    </ng-container>
+
+    <ng-template #containerEditor>
+      <div class="section">
+        <h3 class="section-title">Container Information</h3>
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Name</label>
+            <input type="text" [(ngModel)]="selectedNode.name" (change)="updateNode()" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>Code</label>
+            <input type="text" [(ngModel)]="selectedNode.code" (change)="updateNode()" class="form-input">
+          </div>
+          <div class="form-group">
+            <label>Node Type</label>
+            <select [(ngModel)]="selectedNode.nodeType" (change)="updateNode()" class="form-input">
+              <option value="OBJECT">OBJECT</option>
+              <option value="ARRAY">ARRAY</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Data Type</label>
+            <select [(ngModel)]="selectedNode.dataType" (change)="updateNode()" class="form-input">
+              <option value="OBJECT">OBJECT</option>
+              <option value="ARRAY">ARRAY</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">Mapping</h3>
+        <div class="form-group">
+          <label>Source Mapping</label>
+          <input type="text" [(ngModel)]="selectedNode.sourceMapping" placeholder="$.path.to.source"
+            (change)="updateNode()" class="form-input full-width">
+        </div>
+        <div class="form-group">
+          <label>Destination Mapping</label>
+          <input type="text" [(ngModel)]="selectedNode.destinationMapping" placeholder="destination.path"
+            (change)="updateNode()" class="form-input full-width">
+        </div>
+      </div>
+
+      <div class="section">
+        <h3 class="section-title">Children</h3>
+        <div class="child-actions">
+          <button class="action-btn" (click)="addChildOfType('FIELD')">+ Field</button>
+          <button class="action-btn" (click)="addChildOfType('OBJECT')">+ Object</button>
+          <button class="action-btn" (click)="addChildOfType('ARRAY')">+ Array</button>
+        </div>
+      </div>
+    </ng-template>
+
+    <div class="config-footer-actions">
+      <button type="button" class="save-btn footer-save-btn" [disabled]="!schemaValidation.isValid"
+        (click)="saveTree()">
+        Save
+      </button>
+    </div>
+  </div>
+
+  <div *ngIf="activeView === 'configuration' && !selectedNode" class="empty-state">
+    <p>Select a node from the tree to configure</p>
+  </div>
+
+  <div *ngIf="activeView === 'profileJson'" class="tab-panel">
+    <div class="panel-card" *ngIf="hasFieldProfileSelected(); else noFieldSelected">
+      <h3>Selected Field Profile JSON</h3>
+      <pre class="profile-json">{{ getSelectedFieldProfileJson() }}</pre>
+    </div>
+
+    <ng-template #noFieldSelected>
+      <div class="empty-state compact">
+        <p>Select a FIELD node in Schema Configuration to preview its profile JSON.</p>
+      </div>
+    </ng-template>
+
+    <div class="panel-card" *ngIf="hasSavedTree()">
+      <h3>Generated Field Profiles JSON</h3>
+      <pre class="profile-json">{{ savedJson }}</pre>
+    </div>
+  </div>
+
+  <div *ngIf="activeView === 'savedTree'" class="saved-tree-panel">
+    <div class="saved-tree-header">
+      <h3>Saved Tree</h3>
+    </div>
+
+    <div *ngIf="hasSavedTree(); else noSavedTree" class="saved-tree-content">
+      <div *ngFor="let datasource of savedDatasources" class="saved-datasource">
+        <div class="saved-datasource-name">{{ datasource.name }}</div>
+        <div *ngFor="let node of datasource.nodes" class="saved-tree-node">
+          <ng-container *ngTemplateOutlet="savedNodeTemplate; context: { node: node }"></ng-container>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <app-tree-path-picker-modal [treeNodes]="masterPathTree"
+    [currentPath]="currentEditingProfile?.SourceMapping?.TargetPath ?? ''" [isOpen]="targetPathModalOpen"
+    (pathSelected)="onTargetPathFromModal($event)" (manualPathChange)="onTargetPathManualFromModal($event)"
+    (close)="closeTargetPathModal()">
+  </app-tree-path-picker-modal>
+
+  <app-tree-path-picker-modal [treeNodes]="masterPathTree"
+    [currentPath]="selectedCrossFieldIndex >= 0 ? (currentEditingProfile?.CrossFieldValidations?.[selectedCrossFieldIndex]?.FieldPath ?? '') : newCrossFieldValidation.FieldPath"
+    [isOpen]="crossFieldPathModalOpen"
+    (pathSelected)="selectedCrossFieldIndex >= 0 ? onCrossFieldPathFromModal($event) : onCrossFieldAddFromModal($event)"
+    (manualPathChange)="selectedCrossFieldIndex >= 0 ? onCrossFieldPathManualFromModal($event) : onCrossFieldAddManualFromModal($event)"
+    (close)="closeCrossFieldPathModal()">
+  </app-tree-path-picker-modal>
+
+  <ng-template #noSavedTree>
+    <p class="saved-empty">No saved tree yet</p>
+  </ng-template>
+
+  <ng-template #savedNodeTemplate let-node="node">
+    <div class="saved-node-row">
+      <span class="saved-node-type">{{ node.nodeType }}</span>
+      <span class="saved-node-name">{{ node.name }}</span>
+      <span class="saved-node-code">{{ node.code }}</span>
+    </div>
+    <div class="saved-node-children" *ngIf="node.children.length > 0">
+      <div *ngFor="let child of node.children" class="saved-tree-node">
+        <ng-container *ngTemplateOutlet="savedNodeTemplate; context: { node: child }"></ng-container>
+      </div>
+    </div>
+  </ng-template>
+</div>

@@ -1,0 +1,55 @@
+<div class="modal-backdrop" *ngIf="isOpen" (click)="onBackdropClick($event)">
+  <div class="modal-dialog">
+    <div class="modal-header">
+      <h2>Select Master Model Path</h2>
+      <button class="close-btn" (click)="closeModal()" title="Close modal">
+        ✕
+      </button>
+    </div>
+
+    <div class="modal-body">
+      <div class="picker-section tree-section">
+        <h3>Master Model Paths</h3>
+        <div class="tree-container">
+          <div *ngIf="treeNodes.length === 0" class="empty-message">
+            No paths available
+          </div>
+          <div class="tree-scroll">
+            <ng-container *ngFor="let node of treeNodes">
+              <app-tree-path-node
+                [node]="node"
+                [depth]="0"
+                [expandedNodes]="expandedNodes"
+                (toggle)="toggleNode($event)"
+                (selectPath)="selectPath($event)">
+              </app-tree-path-node>
+            </ng-container>
+          </div>
+        </div>
+      </div>
+
+      <div class="picker-section manual-section">
+        <h3>Or Enter Manually</h3>
+        <div class="manual-container">
+          <textarea
+            class="manual-path-input"
+            placeholder="Enter custom path (e.g., company.name)"
+            [(ngModel)]="manualPath"></textarea>
+          <div class="format-hints">
+            <p><strong>Dot notation:</strong> BasicInformation.CompanyName</p>
+            <p><strong>Array paths:</strong> Managers.ManagerData[*].Name</p>
+            <p><strong>Nested arrays:</strong> Address[*].Details[*].City</p>
+          </div>
+          <button class="use-manual-btn" (click)="selectManualPath()" [disabled]="!manualPath.trim()">
+            Use This Path
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div class="modal-footer">
+      <button class="cancel-btn" (click)="closeModal()">Cancel</button>
+      <p class="current-path">Current: <code>{{ currentPath || 'Not set' }}</code></p>
+    </div>
+  </div>
+</div>
