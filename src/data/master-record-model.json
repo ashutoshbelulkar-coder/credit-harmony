@@ -1,0 +1,264 @@
+{
+  "tree": [
+    {
+      "key": "BasicInformation",
+      "fullPath": "BasicInformation",
+      "isArray": false,
+      "isLeaf": false,
+      "nodeType": "OBJECT",
+      "dataType": "OBJECT",
+      "children": [
+        {
+          "key": "CompanyName",
+          "fullPath": "BasicInformation.CompanyName",
+          "isArray": false,
+          "isLeaf": true,
+          "nodeType": "FIELD",
+          "dataType": "STRING",
+          "children": [],
+          "profile": {
+            "pk": "MASTER#ENTITY",
+            "sk": "FIELD#BasicInformation.CompanyName",
+            "fieldPath": "BasicInformation.CompanyName",
+            "fieldName": "CompanyName",
+            "displayName": "Company Name",
+            "dataType": "STRING",
+            "sourcePath": "$.subscriber.company_name",
+            "targetPath": "BasicInformation.CompanyName",
+            "validationRules": [
+              { "Rule": "NOT_EMPTY", "Severity": "Error", "Message": "Company name is required." },
+              { "Rule": "MAX_LENGTH", "Severity": "Warning", "Value": 120, "Message": "Company name should be 120 chars or less." }
+            ],
+            "businessValidations": ["MANDATORY_CHECK"],
+            "crossFieldValidations": [],
+            "valueMode": "DEFAULT",
+            "defaultValue": null,
+            "possibleValues": [],
+            "transformations": ["TRIM"],
+            "isPii": false,
+            "similarFields": ["LegalName", "RegisteredName"],
+            "description": "Registered legal name of the customer entity."
+          }
+        },
+        {
+          "key": "PAN",
+          "fullPath": "BasicInformation.PAN",
+          "isArray": false,
+          "isLeaf": true,
+          "nodeType": "FIELD",
+          "dataType": "STRING",
+          "children": [],
+          "profile": {
+            "pk": "MASTER#ENTITY",
+            "sk": "FIELD#BasicInformation.PAN",
+            "fieldPath": "BasicInformation.PAN",
+            "fieldName": "PAN",
+            "displayName": "PAN Number",
+            "dataType": "STRING",
+            "sourcePath": "$.subscriber.pan_number",
+            "targetPath": "BasicInformation.PAN",
+            "validationRules": [
+              { "Rule": "REGEX", "Severity": "Error", "Pattern": "^[A-Z]{5}[0-9]{4}[A-Z]$", "Message": "PAN must match AAAAA9999A." }
+            ],
+            "businessValidations": ["FORMAT_CHECK"],
+            "crossFieldValidations": [
+              { "FieldPath": "BasicInformation.CompanyName", "Rule": "REQUIRED_IF", "Severity": "Warning" }
+            ],
+            "valueMode": "DEFAULT",
+            "defaultValue": null,
+            "possibleValues": [],
+            "transformations": ["ALL_CAPS", "TRIM"],
+            "isPii": true,
+            "similarFields": ["TaxId"],
+            "description": "Permanent Account Number (10-character alphanumeric)."
+          }
+        },
+        {
+          "key": "Email",
+          "fullPath": "BasicInformation.Email",
+          "isArray": false,
+          "isLeaf": true,
+          "nodeType": "FIELD",
+          "dataType": "STRING",
+          "children": [],
+          "profile": {
+            "pk": "MASTER#ENTITY",
+            "sk": "FIELD#BasicInformation.Email",
+            "fieldPath": "BasicInformation.Email",
+            "fieldName": "Email",
+            "displayName": "Email Address",
+            "dataType": "STRING",
+            "sourcePath": "$.subscriber.email",
+            "targetPath": "BasicInformation.Email",
+            "validationRules": [
+              { "Rule": "REGEX", "Severity": "Error", "Pattern": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$", "Message": "Email must be a valid address." }
+            ],
+            "businessValidations": ["FORMAT_CHECK"],
+            "crossFieldValidations": [],
+            "valueMode": "DEFAULT",
+            "defaultValue": null,
+            "possibleValues": [],
+            "transformations": ["ALL_LOWERCASE", "TRIM"],
+            "isPii": true,
+            "similarFields": ["EmailAddress", "ContactEmail"],
+            "description": "Primary contact email."
+          }
+        }
+      ]
+    },
+    {
+      "key": "Accounts",
+      "fullPath": "Accounts",
+      "isArray": true,
+      "isLeaf": false,
+      "nodeType": "ARRAY",
+      "dataType": "ARRAY",
+      "children": [
+        {
+          "key": "[*]",
+          "fullPath": "Accounts[*]",
+          "isArray": false,
+          "isLeaf": false,
+          "nodeType": "OBJECT",
+          "dataType": "OBJECT",
+          "children": [
+            {
+              "key": "AccountNumber",
+              "fullPath": "Accounts[*].AccountNumber",
+              "isArray": false,
+              "isLeaf": true,
+              "nodeType": "FIELD",
+              "dataType": "STRING",
+              "children": [],
+              "profile": {
+                "pk": "MASTER#ACCOUNT",
+                "sk": "FIELD#Accounts[*].AccountNumber",
+                "fieldPath": "Accounts[*].AccountNumber",
+                "fieldName": "AccountNumber",
+                "displayName": "Account Number",
+                "dataType": "STRING",
+                "sourcePath": "$.subscriber.accounts[*].account_no",
+                "targetPath": "Accounts[*].AccountNumber",
+                "validationRules": [
+                  { "Rule": "NOT_EMPTY", "Severity": "Error", "Message": "Account number is required." }
+                ],
+                "businessValidations": ["MANDATORY_CHECK"],
+                "crossFieldValidations": [],
+                "valueMode": "DEFAULT",
+                "defaultValue": null,
+                "possibleValues": [],
+                "transformations": ["TRIM"],
+                "isPii": true,
+                "similarFields": ["AcctNo"],
+                "description": "Unique account identifier as issued by the source."
+              }
+            },
+            {
+              "key": "Status",
+              "fullPath": "Accounts[*].Status",
+              "isArray": false,
+              "isLeaf": true,
+              "nodeType": "FIELD",
+              "dataType": "STRING",
+              "children": [],
+              "profile": {
+                "pk": "MASTER#ACCOUNT",
+                "sk": "FIELD#Accounts[*].Status",
+                "fieldPath": "Accounts[*].Status",
+                "fieldName": "Status",
+                "displayName": "Account Status",
+                "dataType": "STRING",
+                "sourcePath": "$.subscriber.accounts[*].status",
+                "targetPath": "Accounts[*].Status",
+                "validationRules": [
+                  { "Rule": "NOT_EMPTY", "Severity": "Error", "Message": "Status is required." }
+                ],
+                "businessValidations": ["DOMAIN_CHECK"],
+                "crossFieldValidations": [],
+                "valueMode": "ENUM",
+                "defaultValue": null,
+                "possibleValues": ["ACTIVE", "INACTIVE", "SUSPENDED", "CLOSED"],
+                "transformations": ["ALL_CAPS"],
+                "isPii": false,
+                "similarFields": ["AccountState"],
+                "description": "Current operational status of the account."
+              }
+            },
+            {
+              "key": "Balance",
+              "fullPath": "Accounts[*].Balance",
+              "isArray": false,
+              "isLeaf": true,
+              "nodeType": "FIELD",
+              "dataType": "NUMBER",
+              "children": [],
+              "profile": {
+                "pk": "MASTER#ACCOUNT",
+                "sk": "FIELD#Accounts[*].Balance",
+                "fieldPath": "Accounts[*].Balance",
+                "fieldName": "Balance",
+                "displayName": "Balance",
+                "dataType": "NUMBER",
+                "sourcePath": "$.subscriber.accounts[*].balance",
+                "targetPath": "Accounts[*].Balance",
+                "validationRules": [],
+                "businessValidations": ["RANGE_CHECK"],
+                "crossFieldValidations": [
+                  { "FieldPath": "Accounts[*].Status", "Rule": "FORBIDDEN_IF", "Severity": "Info" }
+                ],
+                "valueMode": "DEFAULT",
+                "defaultValue": "0",
+                "possibleValues": [],
+                "transformations": [],
+                "isPii": false,
+                "similarFields": ["CurrentBalance"],
+                "description": "Current balance for the account."
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ContactInformation",
+      "fullPath": "ContactInformation",
+      "isArray": false,
+      "isLeaf": false,
+      "nodeType": "OBJECT",
+      "dataType": "OBJECT",
+      "children": [
+        {
+          "key": "MobileNumber",
+          "fullPath": "ContactInformation.MobileNumber",
+          "isArray": false,
+          "isLeaf": true,
+          "nodeType": "FIELD",
+          "dataType": "STRING",
+          "children": [],
+          "profile": {
+            "pk": "MASTER#ENTITY",
+            "sk": "FIELD#ContactInformation.MobileNumber",
+            "fieldPath": "ContactInformation.MobileNumber",
+            "fieldName": "MobileNumber",
+            "displayName": "Mobile Number",
+            "dataType": "STRING",
+            "sourcePath": "$.subscriber.mobile",
+            "targetPath": "ContactInformation.MobileNumber",
+            "validationRules": [
+              { "Rule": "REGEX", "Severity": "Error", "Pattern": "^[0-9]{10}$", "Message": "Mobile must be 10 digits." }
+            ],
+            "businessValidations": ["FORMAT_CHECK"],
+            "crossFieldValidations": [],
+            "valueMode": "DEFAULT",
+            "defaultValue": null,
+            "possibleValues": [],
+            "transformations": ["TRIM"],
+            "isPii": true,
+            "similarFields": ["Phone", "PrimaryContact"],
+            "description": "Primary contact mobile number."
+          }
+        }
+      ]
+    }
+  ]
+}

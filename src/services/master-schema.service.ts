@@ -12,6 +12,60 @@ import type {
   MasterSchemaVersionEntry,
 } from "@/types/master-schema";
 import type { SourceType } from "@/types/schema-mapper";
+import type { TreePathNode } from "@/types/datasource-onboarding";
+
+// Nested-tree augmentation: services now accept and persist a `tree` field
+// alongside the legacy `fields` array. The server (or mock fallback) treats
+// `tree` as the canonical record when present and recomputes `fields[]` /
+// `fieldCount` from its leaves. Existing callers that only know about `fields`
+// continue to work unchanged.
+export type MasterSchemaWithTree = MasterSchema & { tree?: TreePathNode[] };
+
+/** Walks a TreePathNode[] and yields scalar leaves (FIELD nodes). */
+export function flattenTreeLeaves(tree: TreePathNode[]): TreePathNode[] {
+  const out: TreePathNode[] = [];
+  const visit = (node: TreePathNode) => {
+    if (node.isLeaf) {
+      out.push(node);
+      return;
+    }
+    for (const child of node.children ?? []) visit(child);
+  };
+  for (const root of tree ?? []) visit(root);
+  return out;
+}
+
+/** Derive a flat MasterSchemaField[] for legacy consumers from a tree. */
+export function fieldsFromTree(tree: TreePathNode[]): MasterSchemaField[] {
+  return flattenTreeLeaves(tree).map((leaf) => ({
+    name: leaf.fullPath,
+    dataType: schemaDataTypeToLegacy(leaf.dataType),
+    required: !!(leaf.profile?.validationRules ?? []).some(
+      (r) => r.Rule === "NOT_EMPTY" && r.Severity === "Error",
+    ),
+    masking: leaf.profile?.isPii ? "partial" : "none",
+    description: leaf.profile?.description ?? "",
+  }));
+}
+
+function schemaDataTypeToLegacy(t: TreePathNode["dataType"]): MasterSchemaField["dataType"] {
+  switch (t) {
+    case "STRING":
+      return "string";
+    case "NUMBER":
+      return "decimal";
+    case "BOOLEAN":
+      return "boolean";
+    case "DATE":
+      return "date";
+    case "OBJECT":
+      return "object";
+    case "ARRAY":
+      return "array";
+    default:
+      return "string";
+  }
+}
 
 const BASE = "/v1/master-schemas";
 
@@ -268,7 +322,9 @@ export async function createMasterSchema(body: {
   description: string;
   fields: MasterSchemaField[];
   rawJson?: unknown;
-}): Promise<MasterSchema> {
+  /** Optional canonical nested tree; when present, fields are derived from it. */
+  tree?: TreePathNode[];
+}): Promise<MasterSchemaWithTree> {
   try {
     return await post(`${BASE}`, body);
   } catch (err) {
@@ -276,14 +332,16 @@ export async function createMasterSchema(body: {
       ensureHydrated();
       const now = new Date().toISOString();
       const id = `msm-local-${Date.now()}`;
-      const schema: MasterSchema = {
+      const derivedFields = body.tree ? fieldsFromTree(body.tree) : null;
+      const finalFields = derivedFields ?? body.fields ?? [];
+      const schema: MasterSchemaWithTree = {
         id,
         name: body.name,
         sourceType: body.sourceType,
         description: body.description,
         version: "v1.0",
         status: "draft",
-        fields: body.fields ?? [],
+        fields: finalFields,
         createdBy: "You",
         updatedBy: "You",
         createdAt: now,
@@ -294,11 +352,12 @@ export async function createMasterSchema(body: {
             title: body.name,
             type: "object",
             properties: Object.fromEntries(
-              (body.fields ?? []).map((f) => [f.name, { type: f.dataType }])
+              finalFields.map((f) => [f.name, { type: f.dataType }])
             ),
           } as const),
         versions: [],
         impact: { apis: [], products: [], institutions: [] },
+        ...(body.tree ? { tree: body.tree } : {}),
       };
       const v: MasterSchemaVersionEntry = {
         id: `${id}-ver-v1.0`,
@@ -320,8 +379,11 @@ export async function createMasterSchema(body: {
 
 export async function updateMasterSchema(
   id: string,
-  body: Partial<Pick<MasterSchema, "name" | "description" | "fields" | "rawJson">>
-): Promise<MasterSchema> {
+  body: Partial<Pick<MasterSchema, "name" | "description" | "fields" | "rawJson">> & {
+    /** When supplied, becomes the canonical record and `fields[]` is rederived. */
+    tree?: TreePathNode[];
+  }
+): Promise<MasterSchemaWithTree> {
   try {
     return await put(`${BASE}/${encodeURIComponent(id)}`, body);
   } catch (err) {
@@ -329,19 +391,21 @@ export async function updateMasterSchema(
       ensureHydrated();
       const idx = localSchemas.findIndex((s) => s.id === id);
       if (idx < 0) throw err;
-      const prev = localSchemas[idx];
+      const prev = localSchemas[idx] as MasterSchemaWithTree;
       const now = new Date().toISOString();
       const newVersion = nextMinorVersion(prev.version);
-      const updated: MasterSchema = {
+      const derivedFields = body.tree ? fieldsFromTree(body.tree) : null;
+      const updated: MasterSchemaWithTree = {
         ...deepClone(prev),
         name: body.name ?? prev.name,
         description: body.description ?? prev.description,
-        fields: body.fields ?? prev.fields,
+        fields: derivedFields ?? body.fields ?? prev.fields,
         rawJson: body.rawJson ?? prev.rawJson,
         version: newVersion,
         updatedAt: now,
         updatedBy: "You",
         status: prev.status === "active" ? "pending" : prev.status,
+        ...(body.tree ? { tree: body.tree } : prev.tree ? { tree: prev.tree } : {}),
       };
 
       const diff = diffFields(prev.fields ?? [], updated.fields ?? []);

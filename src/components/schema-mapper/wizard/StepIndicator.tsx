@@ -1,25 +1,47 @@
-import { Check, FileInput, Sparkles, ShieldCheck, SendHorizonal, ArrowLeft } from "lucide-react";
+import { Check, FileText, Sparkles, ShieldCheck, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import type { WizardStep } from "@/types/schema-mapper";
+import type { DatasourceWizardStep } from "@/types/datasource-onboarding";
 
-const STEPS: { key: WizardStep; label: string; shortLabel: string; icon: React.ElementType }[] = [
-  { key: "source_ingestion", label: "Upload Source Schema", shortLabel: "Upload", icon: FileInput },
-  { key: "llm_field_intelligence", label: "LLM Field Intelligence", shortLabel: "Field Intel", icon: Sparkles },
-  { key: "auto_rule_preview", label: "Validation Rules", shortLabel: "Rules", icon: ShieldCheck },
-  { key: "governance_actions", label: "Governance Actions", shortLabel: "Governance", icon: SendHorizonal },
+/**
+ * Step configuration consumed by the StepIndicator. The component is now
+ * generic over its `key` string so the same chrome can host the legacy
+ * 4-step Schema Mapper wizard *and* the new 3-step POC Datasource
+ * Onboarding wizard.
+ */
+export interface StepConfig {
+  key: string;
+  label: string;
+  shortLabel: string;
+  icon: React.ElementType;
+}
+
+/**
+ * Canonical 3-step Datasource Onboarding wizard sequence.
+ * (Replaces the legacy 4-step `source_ingestion → llm_field_intelligence →
+ * auto_rule_preview → governance_actions` sequence per migration plan.)
+ */
+export const STEPS: StepConfig[] = [
+  { key: "datasource_details", label: "Datasource Details", shortLabel: "Details", icon: FileText },
+  { key: "profile_generation", label: "Profile Generation", shortLabel: "Generate", icon: Sparkles },
+  { key: "profile_review", label: "Profile Review", shortLabel: "Review", icon: ShieldCheck },
 ];
 
+export const DATASOURCE_ONBOARDING_STEPS: StepConfig[] = STEPS;
+
 interface StepIndicatorProps {
-  currentStep: WizardStep;
-  completedSteps: Set<WizardStep>;
+  currentStep: string;
+  completedSteps: Set<string> | Set<DatasourceWizardStep>;
   onBack?: () => void;
   isFirst?: boolean;
   className?: string;
+  /** Override the displayed steps; defaults to the POC 3-step sequence. */
+  steps?: StepConfig[];
 }
 
-export function StepIndicator({ currentStep, completedSteps, onBack, isFirst, className }: StepIndicatorProps) {
-  const currentIdx = STEPS.findIndex((s) => s.key === currentStep);
+export function StepIndicator({ currentStep, completedSteps, onBack, isFirst, className, steps = STEPS }: StepIndicatorProps) {
+  const completedAsStrings = completedSteps as Set<string>;
+  const currentIdx = steps.findIndex((s) => s.key === currentStep);
 
   return (
     <div
@@ -45,8 +67,8 @@ export function StepIndicator({ currentStep, completedSteps, onBack, isFirst, cl
             </div>
           )}
 
-          {STEPS.map((step, idx) => {
-            const isCompleted = completedSteps.has(step.key);
+          {steps.map((step, idx) => {
+            const isCompleted = completedAsStrings.has(step.key);
             const isCurrent = step.key === currentStep;
             const isPast = idx < currentIdx;
 
@@ -94,7 +116,6 @@ export function StepIndicator({ currentStep, completedSteps, onBack, isFirst, cl
                       )}
                       title={step.label}
                     >
-                      {/* Use short labels to avoid overlap on laptop; full label only on very wide (2xl) */}
                       <span className="hidden 2xl:inline">{step.label}</span>
                       <span className="2xl:hidden">{step.shortLabel}</span>
                     </p>
@@ -123,8 +144,8 @@ export function StepIndicator({ currentStep, completedSteps, onBack, isFirst, cl
           </Button>
         )}
 
-        {STEPS.map((step, idx) => {
-          const isCompleted = completedSteps.has(step.key);
+        {steps.map((step, idx) => {
+          const isCompleted = completedAsStrings.has(step.key);
           const isCurrent = step.key === currentStep;
           const isPast = idx < currentIdx;
 
@@ -171,5 +192,3 @@ export function StepIndicator({ currentStep, completedSteps, onBack, isFirst, cl
     </div>
   );
 }
-
-export { STEPS };

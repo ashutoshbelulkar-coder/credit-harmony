@@ -161,4 +161,18 @@ export const QK = {
     versions: (id: string) => ["master-schemas", String(id), "versions"] as const,
     impact: (id: string) => ["master-schemas", String(id), "impact"] as const,
   },
+
+  // ── Datasource Onboarding ──────────────────────────────────────────────────
+  datasourceOnboarding: {
+    all: () => ["datasource-onboarding"] as const,
+    list: (params?: Record<string, unknown>) =>
+      ["datasource-onboarding", "list", params ?? {}] as const,
+    detail: (id: string) => ["datasource-onboarding", String(id)] as const,
+    review: (id: string) => ["datasource-onboarding", String(id), "review"] as const,
+  },
+
+  // ── Master Path Catalog (union of all master schema trees) ────────────────
+  masterPathCatalog: {
+    all: () => ["master-path-catalog"] as const,
+  },
 } as const;

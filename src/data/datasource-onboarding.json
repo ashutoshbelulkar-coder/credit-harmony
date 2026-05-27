@@ -1,0 +1,327 @@
+{
+  "datasources": [
+    {
+      "id": "ds-1001",
+      "name": "Jio Telecom Onboarding",
+      "sourceType": "JSON",
+      "domainSourceType": "telecom",
+      "dataLayout": "STRUCTURED",
+      "dataSubmitterInstitutionId": "1",
+      "status": "ACTIVE",
+      "pkPattern": "JIO#TELECOM#{consumerId}",
+      "profileReviewStatus": "APPROVED",
+      "masterSchemaId": "msm-1001",
+      "createdBy": "Priya Sharma",
+      "updatedBy": "Priya Sharma",
+      "createdAt": "2026-02-04T10:15:00Z",
+      "updatedAt": "2026-02-18T09:30:00Z",
+      "reviewComments": [
+        {
+          "id": "rev-1001-1",
+          "action": "APPROVE",
+          "comment": "Profile matches master schema; PII handling verified.",
+          "createdAt": "2026-02-18T09:30:00Z",
+          "author": "Jane Smith"
+        }
+      ],
+      "nodes": [
+        {
+          "id": "node-1001-basic",
+          "name": "BasicInformation",
+          "code": "BASIC_INFO",
+          "nodeType": "OBJECT",
+          "dataType": "OBJECT",
+          "sourceMapping": "$.subscriber",
+          "destinationMapping": "BasicInformation",
+          "validations": [],
+          "businessRules": [],
+          "transformations": [],
+          "children": [
+            {
+              "id": "node-1001-basic-companyName",
+              "name": "CompanyName",
+              "code": "COMPANY_NAME",
+              "nodeType": "FIELD",
+              "dataType": "STRING",
+              "sourceMapping": "$.subscriber.company_name",
+              "destinationMapping": "BasicInformation.CompanyName",
+              "validations": [
+                { "id": "v-1", "type": "NOT_EMPTY" }
+              ],
+              "businessRules": [
+                { "id": "br-1", "code": "MANDATORY_CHECK" }
+              ],
+              "transformations": [
+                { "id": "t-1", "type": "TRIM" }
+              ],
+              "children": [],
+              "fieldProfile": {
+                "PK": "TELECOM#JIO",
+                "SK": "FIELD#BasicInformation.CompanyName",
+                "FieldPath": "BasicInformation.CompanyName",
+                "Section": "BasicInformation",
+                "FieldName": "CompanyName",
+                "DisplayName": "Company Name",
+                "DataType": "STRING",
+                "IsPII": false,
+                "SimilarFields": ["LegalName", "RegisteredName"],
+                "Description": "Registered legal name of the telecom customer entity.",
+                "Validation": {
+                  "Type": "STRING",
+                  "Rules": [
+                    { "Rule": "NOT_EMPTY", "Severity": "Error", "Message": "Company name is required." },
+                    { "Rule": "MAX_LENGTH", "Severity": "Warning", "Value": 120, "Message": "Company name should be 120 chars or less." }
+                  ]
+                },
+                "BusinessValidations": ["MANDATORY_CHECK"],
+                "CrossFieldValidations": [],
+                "SourceMapping": {
+                  "SourceType": "JSON",
+                  "SourcePath": "$.subscriber.company_name",
+                  "TargetPath": "BasicInformation.CompanyName"
+                },
+                "ValueMode": "DEFAULT",
+                "DefaultValue": null,
+                "PossibleValues": [],
+                "Transformations": ["TRIM"]
+              }
+            },
+            {
+              "id": "node-1001-basic-pan",
+              "name": "PAN",
+              "code": "PAN_NUMBER",
+              "nodeType": "FIELD",
+              "dataType": "STRING",
+              "sourceMapping": "$.subscriber.pan_number",
+              "destinationMapping": "BasicInformation.PAN",
+              "validations": [
+                { "id": "v-2", "type": "REGEX" }
+              ],
+              "businessRules": [
+                { "id": "br-2", "code": "FORMAT_CHECK" }
+              ],
+              "transformations": [
+                { "id": "t-2", "type": "ALL_CAPS" }
+              ],
+              "children": [],
+              "fieldProfile": {
+                "PK": "TELECOM#JIO",
+                "SK": "FIELD#BasicInformation.PAN",
+                "FieldPath": "BasicInformation.PAN",
+                "Section": "BasicInformation",
+                "FieldName": "PAN",
+                "DisplayName": "PAN Number",
+                "DataType": "STRING",
+                "IsPII": true,
+                "SimilarFields": ["TaxId"],
+                "Description": "Permanent Account Number (10-character alphanumeric).",
+                "Validation": {
+                  "Type": "STRING",
+                  "Rules": [
+                    { "Rule": "REGEX", "Severity": "Error", "Pattern": "^[A-Z]{5}[0-9]{4}[A-Z]$", "Message": "PAN must match AAAAA9999A." }
+                  ]
+                },
+                "BusinessValidations": ["FORMAT_CHECK"],
+                "CrossFieldValidations": [
+                  { "FieldPath": "BasicInformation.CompanyName", "Rule": "REQUIRED_IF", "Severity": "Warning" }
+                ],
+                "SourceMapping": {
+                  "SourceType": "JSON",
+                  "SourcePath": "$.subscriber.pan_number",
+                  "TargetPath": "BasicInformation.PAN"
+                },
+                "ValueMode": "DEFAULT",
+                "DefaultValue": null,
+                "PossibleValues": [],
+                "Transformations": ["ALL_CAPS", "TRIM"]
+              }
+            }
+          ]
+        },
+        {
+          "id": "node-1001-accounts",
+          "name": "Accounts",
+          "code": "ACCOUNTS",
+          "nodeType": "ARRAY",
+          "dataType": "ARRAY",
+          "sourceMapping": "$.subscriber.accounts[*]",
+          "destinationMapping": "Accounts[*]",
+          "validations": [],
+          "businessRules": [],
+          "transformations": [],
+          "children": [
+            {
+              "id": "node-1001-accounts-item",
+              "name": "[*]",
+              "code": "ITEM",
+              "nodeType": "OBJECT",
+              "dataType": "OBJECT",
+              "sourceMapping": "$.subscriber.accounts[*]",
+              "destinationMapping": "Accounts[*]",
+              "validations": [],
+              "businessRules": [],
+              "transformations": [],
+              "children": [
+                {
+                  "id": "node-1001-accounts-item-status",
+                  "name": "Status",
+                  "code": "STATUS",
+                  "nodeType": "FIELD",
+                  "dataType": "STRING",
+                  "sourceMapping": "$.subscriber.accounts[*].status",
+                  "destinationMapping": "Accounts[*].Status",
+                  "validations": [{ "id": "v-3", "type": "NOT_EMPTY" }],
+                  "businessRules": [{ "id": "br-3", "code": "DOMAIN_CHECK" }],
+                  "transformations": [{ "id": "t-3", "type": "ALL_CAPS" }],
+                  "children": [],
+                  "fieldProfile": {
+                    "PK": "TELECOM#JIO",
+                    "SK": "FIELD#Accounts[*].Status",
+                    "FieldPath": "Accounts[*].Status",
+                    "Section": "Accounts",
+                    "FieldName": "Status",
+                    "DisplayName": "Account Status",
+                    "DataType": "STRING",
+                    "IsPII": false,
+                    "SimilarFields": ["AccountState"],
+                    "Description": "Current operational status of the account.",
+                    "Validation": {
+                      "Type": "STRING",
+                      "Rules": [
+                        { "Rule": "NOT_EMPTY", "Severity": "Error", "Message": "Status is required." }
+                      ]
+                    },
+                    "BusinessValidations": ["DOMAIN_CHECK"],
+                    "CrossFieldValidations": [],
+                    "SourceMapping": {
+                      "SourceType": "JSON",
+                      "SourcePath": "$.subscriber.accounts[*].status",
+                      "TargetPath": "Accounts[*].Status"
+                    },
+                    "ValueMode": "ENUM",
+                    "DefaultValue": null,
+                    "PossibleValues": ["ACTIVE", "INACTIVE", "SUSPENDED", "CLOSED"],
+                    "Transformations": ["ALL_CAPS"]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ds-1002",
+      "name": "HDFC Bank Onboarding",
+      "sourceType": "JSON",
+      "domainSourceType": "bank",
+      "dataLayout": "STRUCTURED",
+      "dataSubmitterInstitutionId": "1",
+      "status": "ACTIVE",
+      "pkPattern": "HDFC#BANK#{accountId}",
+      "profileReviewStatus": "PENDING",
+      "masterSchemaId": "msm-1004",
+      "createdBy": "Rohan Mehta",
+      "updatedBy": "Rohan Mehta",
+      "createdAt": "2026-03-02T11:00:00Z",
+      "updatedAt": "2026-03-12T08:45:00Z",
+      "reviewComments": [],
+      "nodes": []
+    },
+    {
+      "id": "ds-1003",
+      "name": "Tata Power Utility Onboarding",
+      "sourceType": "CSV",
+      "domainSourceType": "utility",
+      "dataLayout": "STRUCTURED",
+      "dataSubmitterInstitutionId": "1",
+      "status": "ACTIVE",
+      "pkPattern": "TATA#UTILITY#{consumerNo}",
+      "profileReviewStatus": "CHANGES_REQUESTED",
+      "masterSchemaId": "msm-1003",
+      "createdBy": "Anita Verma",
+      "updatedBy": "Bob Wilson",
+      "createdAt": "2026-02-22T09:20:00Z",
+      "updatedAt": "2026-03-05T16:10:00Z",
+      "reviewComments": [
+        {
+          "id": "rev-1003-1",
+          "action": "REQUEST_CHANGES",
+          "comment": "Possible PII flag missing on consumer_number; please re-classify before resubmission.",
+          "createdAt": "2026-03-05T16:10:00Z",
+          "author": "Bob Wilson"
+        }
+      ],
+      "nodes": []
+    },
+    {
+      "id": "ds-1004",
+      "name": "GST Portal Onboarding",
+      "sourceType": "XML",
+      "domainSourceType": "gst",
+      "dataLayout": "UNSTRUCTURED",
+      "dataSubmitterInstitutionId": "1",
+      "status": "INACTIVE",
+      "pkPattern": "GST#{gstin}",
+      "profileReviewStatus": "REJECTED",
+      "masterSchemaId": "msm-1002",
+      "createdBy": "Karan Singh",
+      "updatedBy": "Jane Smith",
+      "createdAt": "2026-01-15T07:30:00Z",
+      "updatedAt": "2026-02-02T14:40:00Z",
+      "reviewComments": [
+        {
+          "id": "rev-1004-1",
+          "action": "REJECT",
+          "comment": "XML payload structure deviates from canonical taxonomy.",
+          "createdAt": "2026-02-02T14:40:00Z",
+          "author": "Jane Smith"
+        }
+      ],
+      "nodes": []
+    },
+    {
+      "id": "ds-1005",
+      "name": "Airtel Telecom Onboarding",
+      "sourceType": "JSON",
+      "domainSourceType": "telecom",
+      "dataLayout": "STRUCTURED",
+      "dataSubmitterInstitutionId": "1",
+      "status": "ACTIVE",
+      "pkPattern": "AIRTEL#TELECOM#{consumerId}",
+      "profileReviewStatus": "APPROVED",
+      "masterSchemaId": "msm-1001",
+      "createdBy": "Priya Sharma",
+      "updatedBy": "Priya Sharma",
+      "createdAt": "2026-01-30T08:00:00Z",
+      "updatedAt": "2026-02-10T12:20:00Z",
+      "reviewComments": [
+        {
+          "id": "rev-1005-1",
+          "action": "APPROVE",
+          "comment": "Approved alongside Jio Telecom onboarding for unified telecom schema.",
+          "createdAt": "2026-02-10T12:20:00Z",
+          "author": "Jane Smith"
+        }
+      ],
+      "nodes": []
+    },
+    {
+      "id": "ds-1006",
+      "name": "BSNL Telecom Onboarding",
+      "sourceType": "JSON",
+      "domainSourceType": "telecom",
+      "dataLayout": "STRUCTURED",
+      "dataSubmitterInstitutionId": "1",
+      "status": "ACTIVE",
+      "pkPattern": "BSNL#TELECOM#{consumerId}",
+      "profileReviewStatus": "PENDING",
+      "createdBy": "Karan Singh",
+      "updatedBy": "Karan Singh",
+      "createdAt": "2026-03-18T09:15:00Z",
+      "updatedAt": "2026-03-18T09:15:00Z",
+      "reviewComments": [],
+      "nodes": []
+    }
+  ]
+}

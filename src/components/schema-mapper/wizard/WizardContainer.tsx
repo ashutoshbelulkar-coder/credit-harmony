@@ -1,7 +1,23 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+/**
+ * WizardContainer — Datasource Onboarding (3-step POC flow).
+ *
+ * Replaces the legacy 4-step Schema Mapper wizard with the migrated POC
+ * sequence: Datasource Details → Profile Generation → Profile Review.
+ *
+ * Behavioural notes:
+ *  - The container hosts wizard chrome (breadcrumb, Cancel, StepIndicator).
+ *  - Step components are presentational; state is fully held here.
+ *  - Persistence goes through React Query mutations (`useCreateDatasource`,
+ *    `useUpdateDatasource`, `useSubmitDatasourceForApproval`,
+ *    `useSubmitDatasourceReview`). No localStorage is used.
+ *  - Feature flag `useDatasourceOnboardingFlow()` gates the new body; when
+ *    OFF, the entire flow falls back to a graceful 1-line message so a
+ *    rollback only requires flipping the env var.
+ */
+import { useCallback, useMemo, useState } from "react";
 import { X } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -10,180 +26,298 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { StepIndicator, STEPS } from "./StepIndicator";
-import { SourceIngestionStep } from "./SourceIngestionStep";
-import { LLMFieldIntelligenceStep } from "./LLMFieldIntelligenceStep";
-import { ValidationRuleStep } from "./ValidationRuleStep";
-import { GovernanceActionsStep } from "./GovernanceActionsStep";
+import { StepIndicator } from "./StepIndicator";
+import { DatasourceDetailsStep, type DatasourceFormShape } from "./DatasourceDetailsStep";
+import { ProfileGenerationStep, type ProfileGenerationFiles } from "./ProfileGenerationStep";
+import { ProfileReviewStep } from "./ProfileReviewStep";
+import {
+  useCreateDatasource,
+  useDatasourceDetail,
+  useDatasourcesList,
+  useSubmitDatasourceForApproval,
+  useSubmitDatasourceReview,
+  useUpdateDatasource,
+} from "@/hooks/api/useDatasourceOnboarding";
+import { useDatasourceOnboardingFlow } from "@/lib/feature-flags";
 import type {
-  WizardStep,
-  IngestedSourceMetadata,
-  ParsedSourceField,
-  SourceFieldStatistics,
-  LLMFieldIntelligenceRow,
-  EnumReconciliation,
-  GeneratedValidationRule,
-  GovernanceSummary,
-} from "@/types/schema-mapper";
-import {
-  llmFieldIntelligenceRowsTelecom,
-  telecomEnumReconciliations,
-  generatedValidationRules,
-  governanceSummaryDefault,
-  masterSchemaTree,
-} from "@/data/schema-mapper-mock";
-import { clientMockFallbackEnabled } from "@/lib/client-mock-fallback";
-import { fieldMappingsToLlmRows, llmRowsToFieldMappings } from "@/lib/schema-mapper-api";
-import { fetchMapping } from "@/services/schema-mapper.service";
-import {
-  useIngestSchema,
-  useCreateMappingJob,
-  usePatchMapping,
-  useSubmitMappingApproval,
-  useSchemaMappingDetail,
-} from "@/hooks/api/useSchemaMapper";
+  Datasource,
+  DatasourceWizardStep,
+  SchemaNode,
+} from "@/types/datasource-onboarding";
 
 interface WizardContainerProps {
   onCancel: () => void;
   onComplete: () => void;
+  /** Optional datasource id when editing an existing record. */
+  datasourceId?: string | null;
 }
 
-export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) {
-  const apiMode = !clientMockFallbackEnabled;
-  const queryClient = useQueryClient();
-  const ingestMutation = useIngestSchema();
-  const createJobMutation = useCreateMappingJob();
-  const patchMutation = usePatchMapping();
-  const submitApprovalMutation = useSubmitMappingApproval();
+const STEP_LABELS: Record<DatasourceWizardStep, string> = {
+  datasource_details: "Datasource Details",
+  profile_generation: "Profile Generation",
+  profile_review: "Profile Review",
+};
 
-  const [currentStep, setCurrentStep] = useState<WizardStep>("source_ingestion");
-  const [completedSteps, setCompletedSteps] = useState<Set<WizardStep>>(new Set());
+const STEP_KEYS: DatasourceWizardStep[] = ["datasource_details", "profile_generation", "profile_review"];
 
-  const [ingestedMetadata, setIngestedMetadata] = useState<IngestedSourceMetadata | null>(null);
-  const [parsedFields, setParsedFields] = useState<ParsedSourceField[]>([]);
-  const [fieldStats, setFieldStats] = useState<SourceFieldStatistics | null>(null);
-  const [schemaVersionId, setSchemaVersionId] = useState<string | null>(null);
-  const [mappingId, setMappingId] = useState<string | null>(null);
-  const [llmRows, setLlmRows] = useState<LLMFieldIntelligenceRow[]>(llmFieldIntelligenceRowsTelecom);
-  const [enumReconciliations, setEnumReconciliations] = useState<EnumReconciliation[]>(telecomEnumReconciliations);
-  const [validationRules, setValidationRules] = useState<GeneratedValidationRule[]>(generatedValidationRules);
-  const [governanceSummary, setGovernanceSummary] = useState<GovernanceSummary | null>(governanceSummaryDefault);
+const EMPTY_FILES: ProfileGenerationFiles = {
+  sampleFiles: [],
+  jsonSchemaFile: null,
+  guideDocFile: null,
+};
 
-  const { data: mappingData } = useSchemaMappingDetail(apiMode ? mappingId : null);
+function defaultDatasourceForm(): DatasourceFormShape {
+  return {
+    name: "",
+    sourceType: "JSON",
+    domainSourceType: "telecom",
+    customDataSourceTypeName: "",
+    dataLayout: "STRUCTURED",
+    dataSubmitterInstitutionId: "",
+    pkPattern: "",
+  };
+}
 
-  const apiSyncedRows = useMemo(() => {
-    if (!mappingData?.fieldMappings?.length) return null;
-    return fieldMappingsToLlmRows(mappingData.fieldMappings);
-  }, [mappingData?.fieldMappings]);
+export function WizardContainer({ onCancel, onComplete, datasourceId }: WizardContainerProps) {
+  const flagOn = useDatasourceOnboardingFlow();
 
-  useEffect(() => {
-    if (!mappingData?.fieldMappings?.length) return;
-    const fm = mappingData.fieldMappings;
-    const mapped = fm.filter((f) => f.canonicalPath).length;
-    const pct = Math.round((mapped / fm.length) * 100);
-    setGovernanceSummary((prev) => ({
-      ...(prev ?? governanceSummaryDefault),
-      mappingCoveragePercent: pct,
-    }));
-  }, [mappingData?.fieldMappings]);
+  if (!flagOn) {
+    return (
+      <div className="space-y-4 animate-fade-in pb-4 sm:pb-6">
+        <div className="flex items-center justify-between">
+          <Breadcrumb>
+            <BreadcrumbList>
+              <BreadcrumbItem>
+                <BreadcrumbLink className="cursor-pointer text-caption" onClick={onCancel}>
+                  Schema Registry
+                </BreadcrumbLink>
+              </BreadcrumbItem>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage className="text-caption">Datasource Onboarding</BreadcrumbPage>
+              </BreadcrumbItem>
+            </BreadcrumbList>
+          </Breadcrumb>
+          <Button variant="ghost" size="sm" onClick={onCancel} className="h-7 gap-1 px-2 text-caption">
+            <X className="h-3 w-3" />
+            <span className="hidden sm:inline">Cancel</span>
+          </Button>
+        </div>
+        <Card className="border-border shadow-sm">
+          <CardContent className="p-8 text-center text-body text-muted-foreground">
+            Datasource onboarding flow is disabled in this environment.
+            Set <code className="font-mono text-foreground">VITE_USE_DATASOURCE_ONBOARDING_FLOW=true</code> to enable.
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
-  const currentIdx = STEPS.findIndex((s) => s.key === currentStep);
+  return <DatasourceOnboardingWizard onCancel={onCancel} onComplete={onComplete} datasourceId={datasourceId} />;
+}
+
+function DatasourceOnboardingWizard({ onCancel, onComplete, datasourceId }: WizardContainerProps) {
+  // Server data
+  const { data: detail } = useDatasourceDetail(datasourceId ?? null, { allowMockFallback: true, enabled: !!datasourceId });
+  const { data: listing } = useDatasourcesList({ page: 0, size: 200 }, { allowMockFallback: true });
+  const createMutation = useCreateDatasource();
+  const updateMutation = useUpdateDatasource();
+  const submitApprovalMutation = useSubmitDatasourceForApproval();
+  const submitReviewMutation = useSubmitDatasourceReview();
+
+  // Wizard state
+  const [currentStep, setCurrentStep] = useState<DatasourceWizardStep>("datasource_details");
+  const [completedSteps, setCompletedSteps] = useState<Set<DatasourceWizardStep>>(new Set());
+  const [activeId, setActiveId] = useState<string | null>(datasourceId ?? null);
+
+  const initialForm: DatasourceFormShape = useMemo(() => {
+    if (detail) {
+      return {
+        name: detail.name,
+        sourceType: detail.sourceType,
+        domainSourceType: detail.domainSourceType,
+        customDataSourceTypeName: detail.customDataSourceTypeName ?? "",
+        dataLayout: detail.dataLayout ?? "STRUCTURED",
+        dataSubmitterInstitutionId: detail.dataSubmitterInstitutionId ?? "",
+        pkPattern: detail.pkPattern,
+      };
+    }
+    return defaultDatasourceForm();
+  }, [detail]);
+
+  const [datasourceForm, setDatasourceForm] = useState<DatasourceFormShape>(initialForm);
+  const [files, setFiles] = useState<ProfileGenerationFiles>(EMPTY_FILES);
+  const [nodes, setNodes] = useState<SchemaNode[]>(detail?.nodes ?? []);
+
+  // Hydrate when detail arrives.
+  useMemo(() => {
+    if (detail) {
+      setDatasourceForm(initialForm);
+      setNodes(detail.nodes ?? []);
+    }
+  }, [detail?.id, initialForm, detail]);
+
+  const existingNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of listing?.content ?? []) {
+      if (d.id !== (datasourceId ?? activeId)) set.add(d.name.trim().toLowerCase());
+    }
+    return set;
+  }, [listing?.content, datasourceId, activeId]);
+
+  const existingCustomTypeNames = useMemo(() => {
+    const set = new Set<string>();
+    for (const d of listing?.content ?? []) {
+      if (d.id === (datasourceId ?? activeId)) continue;
+      if (d.domainSourceType === "custom" && d.customDataSourceTypeName?.trim()) {
+        set.add(d.customDataSourceTypeName.trim().toLowerCase());
+      }
+    }
+    return set;
+  }, [listing?.content, datasourceId, activeId]);
+
+  const currentIdx = STEP_KEYS.findIndex((k) => k === currentStep);
   const isFirst = currentIdx === 0;
 
-  const markComplete = useCallback((step: WizardStep) => {
+  const markComplete = useCallback((step: DatasourceWizardStep) => {
     setCompletedSteps((prev) => new Set([...prev, step]));
   }, []);
 
-  const goNext = useCallback(() => {
-    markComplete(currentStep);
-    if (currentIdx < STEPS.length - 1) {
-      setCurrentStep(STEPS[currentIdx + 1].key);
-    }
-  }, [currentIdx, currentStep, markComplete]);
-
   const goBack = useCallback(() => {
-    if (currentIdx > 0) {
-      setCurrentStep(STEPS[currentIdx - 1].key);
-    }
+    if (currentIdx > 0) setCurrentStep(STEP_KEYS[currentIdx - 1]);
   }, [currentIdx]);
 
-  const handleSourceComplete = useCallback(
-    async (meta: IngestedSourceMetadata, fields: ParsedSourceField[], stats: SourceFieldStatistics) => {
-      setIngestedMetadata(meta);
-      setParsedFields(fields);
-      setFieldStats(stats);
-      if (apiMode) {
-        try {
-          const res = await ingestMutation.mutateAsync({
-            sourceName: meta.sourceName,
-            sourceType: meta.sourceType,
-            dataCategory: meta.dataCategory,
-            versionNumber: meta.versionNumber,
-            effectiveDate: meta.effectiveDate,
-            parsedFields: fields as unknown[],
-            fieldStats: stats as unknown,
+  const handleDetailsComplete = useCallback(
+    async (form: DatasourceFormShape) => {
+      setDatasourceForm(form);
+      markComplete("datasource_details");
+
+      // Persist immediately (explicit save convention).
+      try {
+        if (activeId) {
+          await updateMutation.mutateAsync({
+            id: activeId,
+            body: {
+              name: form.name,
+              sourceType: form.sourceType,
+              domainSourceType: form.domainSourceType,
+              customDataSourceTypeName:
+                form.domainSourceType === "custom" ? form.customDataSourceTypeName.trim() : undefined,
+              status: "ACTIVE",
+              dataLayout: form.dataLayout,
+              dataSubmitterInstitutionId: form.dataSubmitterInstitutionId,
+              pkPattern: form.pkPattern,
+            },
           });
-          setSchemaVersionId(res.schemaVersionId);
-          await queryClient.invalidateQueries({ queryKey: ["schema-mapper", "registry"] });
-          // Mapping job now starts immediately after ingest to skip the similarity step.
-          const job = await createJobMutation.mutateAsync({ schemaVersionId: res.schemaVersionId });
-          setMappingId(job.mappingId);
-        } catch {
-          return;
+        } else {
+          const created = await createMutation.mutateAsync({
+            name: form.name,
+            sourceType: form.sourceType,
+            domainSourceType: form.domainSourceType,
+            customDataSourceTypeName:
+              form.domainSourceType === "custom" ? form.customDataSourceTypeName.trim() : undefined,
+            status: "ACTIVE",
+            dataLayout: form.dataLayout,
+            dataSubmitterInstitutionId: form.dataSubmitterInstitutionId,
+            pkPattern: form.pkPattern,
+          });
+          setActiveId(created.id);
         }
+        setCurrentStep("profile_generation");
+      } catch {
+        // Mutation hook surfaces a toast on error; stay on current step.
       }
-      goNext();
     },
-    [apiMode, goNext, ingestMutation, queryClient, createJobMutation],
+    [activeId, createMutation, updateMutation, markComplete],
   );
 
-  const handleLLMComplete = useCallback(
-    async (rows: LLMFieldIntelligenceRow[], enums: EnumReconciliation[]) => {
-      setLlmRows(rows);
-      setEnumReconciliations(enums);
-      if (apiMode && mappingId) {
+  const handleGenerationComplete = useCallback(
+    async ({ files: nextFiles, nodes: nextNodes }: { files: ProfileGenerationFiles; nodes: SchemaNode[] }) => {
+      setFiles(nextFiles);
+      setNodes(nextNodes);
+      markComplete("profile_generation");
+
+      if (activeId) {
         try {
-          const latest = await fetchMapping(mappingId);
-          const body = llmRowsToFieldMappings(rows, masterSchemaTree, latest.fieldMappings);
-          await patchMutation.mutateAsync({ id: mappingId, body: { fieldMappings: body } });
+          await updateMutation.mutateAsync({
+            id: activeId,
+            body: { nodes: nextNodes },
+          });
         } catch {
           return;
         }
       }
-      goNext();
+      setCurrentStep("profile_review");
     },
-    [apiMode, mappingId, patchMutation, goNext],
+    [activeId, updateMutation, markComplete],
   );
 
-  const handleRulesComplete = useCallback(
-    (rules: GeneratedValidationRule[]) => {
-      setValidationRules(rules);
-      setGovernanceSummary((prev) =>
-        prev ? { ...prev, rulesGenerated: rules.length } : { ...governanceSummaryDefault, rulesGenerated: rules.length },
-      );
-      goNext();
-    },
-    [goNext],
-  );
+  const handleNodesChange = useCallback((next: SchemaNode[]) => {
+    setNodes(next);
+  }, []);
 
-  const handleGovernanceSubmitToQueue = useCallback(async () => {
-    setGovernanceSummary((prev) => ({
-      ...(prev ?? governanceSummaryDefault),
-      evolutionQueueStatus: "AI Proposed",
-    }));
-    if (apiMode && mappingId) {
-      await submitApprovalMutation.mutateAsync(mappingId);
+  const handleSaveDraft = useCallback(async () => {
+    if (!activeId) return;
+    await updateMutation.mutateAsync({ id: activeId, body: { nodes } });
+  }, [activeId, updateMutation, nodes]);
+
+  const handleSubmitApproval = useCallback(async () => {
+    if (!activeId) return;
+    await updateMutation.mutateAsync({ id: activeId, body: { nodes } });
+    await submitApprovalMutation.mutateAsync(activeId);
+  }, [activeId, nodes, submitApprovalMutation, updateMutation]);
+
+  const handleFinish = useCallback(async () => {
+    if (!activeId) {
+      onComplete();
+      return;
     }
-  }, [apiMode, mappingId, submitApprovalMutation]);
-
-  const handleGovernanceSaveDraft = useCallback(() => {
+    await updateMutation.mutateAsync({ id: activeId, body: { nodes } });
+    markComplete("profile_review");
     onComplete();
-  }, [onComplete]);
+  }, [activeId, nodes, onComplete, updateMutation, markComplete]);
 
-  const stepLabel = STEPS[currentIdx]?.label ?? "";
+  const handleSubmitReview = useCallback(
+    async ({ action, comment }: { action: Parameters<typeof submitReviewMutation.mutateAsync>[0]["body"]["action"]; comment: string }) => {
+      if (!activeId) return;
+      await submitReviewMutation.mutateAsync({ id: activeId, body: { action, comment } });
+    },
+    [activeId, submitReviewMutation],
+  );
+
+  // Build a synthetic datasource for the review step when we are creating.
+  const reviewDatasource: Datasource = useMemo(() => {
+    if (detail) {
+      return { ...detail, nodes };
+    }
+    const now = new Date().toISOString();
+    return {
+      id: activeId ?? "ds-new",
+      name: datasourceForm.name,
+      sourceType: datasourceForm.sourceType,
+      domainSourceType: datasourceForm.domainSourceType,
+      customDataSourceTypeName:
+        datasourceForm.domainSourceType === "custom"
+          ? datasourceForm.customDataSourceTypeName.trim() || undefined
+          : undefined,
+      status: "ACTIVE",
+      dataLayout: datasourceForm.dataLayout,
+      dataSubmitterInstitutionId: datasourceForm.dataSubmitterInstitutionId,
+      pkPattern: datasourceForm.pkPattern,
+      profileReviewStatus: "PENDING",
+      reviewComments: [],
+      nodes,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: "You",
+      updatedBy: "You",
+    };
+  }, [detail, activeId, datasourceForm, nodes]);
+
+  const stepLabel = STEP_LABELS[currentStep];
 
   return (
-    <div className="flex flex-col gap-4 animate-fade-in pb-4 md:pb-6">
+    <div className="flex flex-col gap-4 animate-fade-in pb-4 md:pb-6 h-full">
       <div className="flex items-center justify-between gap-2">
         <Breadcrumb>
           <BreadcrumbList>
@@ -194,7 +328,9 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
-              <BreadcrumbLink className="text-caption">Create Mapping</BreadcrumbLink>
+              <BreadcrumbLink className="text-caption">
+                {datasourceId ? `Edit: ${reviewDatasource.name}` : "Create Datasource"}
+              </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator />
             <BreadcrumbItem>
@@ -219,33 +355,33 @@ export function WizardContainer({ onCancel, onComplete }: WizardContainerProps) 
       </div>
 
       <div className="min-h-0 flex-1">
-        {currentStep === "source_ingestion" && (
-          <SourceIngestionStep
-            initialMetadata={ingestedMetadata}
-            onComplete={handleSourceComplete}
+        {currentStep === "datasource_details" && (
+          <DatasourceDetailsStep
+            initial={datasourceForm}
+            existingNames={existingNames}
+            existingCustomTypeNames={existingCustomTypeNames}
+            onComplete={(form) => void handleDetailsComplete(form)}
           />
         )}
-        {currentStep === "llm_field_intelligence" && (
-          <LLMFieldIntelligenceStep
-            initialRows={llmRows}
-            initialEnums={enumReconciliations}
-            apiSyncedRows={apiSyncedRows}
-            mappingJobStatus={mappingData?.status ?? null}
-            onComplete={handleLLMComplete}
+        {currentStep === "profile_generation" && (
+          <ProfileGenerationStep
+            datasourceName={datasourceForm.name}
+            initialFiles={files}
+            initialNodes={nodes}
+            onComplete={(payload) => void handleGenerationComplete(payload)}
           />
         )}
-        {currentStep === "auto_rule_preview" && (
-          <ValidationRuleStep
-            initialRules={validationRules}
-            onComplete={handleRulesComplete}
-          />
-        )}
-        {currentStep === "governance_actions" && (
-          <GovernanceActionsStep
-            governanceSummary={governanceSummary}
-            onSubmitToQueue={handleGovernanceSubmitToQueue}
-            onSaveDraft={handleGovernanceSaveDraft}
-            onComplete={onComplete}
+        {currentStep === "profile_review" && (
+          <ProfileReviewStep
+            datasource={reviewDatasource}
+            nodes={nodes}
+            onNodesChange={handleNodesChange}
+            onSaveDraft={handleSaveDraft}
+            onFinish={handleFinish}
+            onSubmitApproval={handleSubmitApproval}
+            onSubmitReview={handleSubmitReview}
+            isSaving={updateMutation.isPending}
+            isSubmittingApproval={submitApprovalMutation.isPending}
           />
         )}
       </div>

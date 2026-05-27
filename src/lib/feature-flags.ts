@@ -13,3 +13,13 @@ export function showDemoAccountRecoveryUi(): boolean {
 export function showDemoAgentsRequestUi(): boolean {
   return showDemoAccountRecoveryUi();
 }
+
+/**
+ * Datasource Onboarding migration — gate the new 3-step POC wizard and the
+ * tree-based Master Data Model editor. Default ON (the migration is live);
+ * setting `VITE_USE_DATASOURCE_ONBOARDING_FLOW=false` provides a 1-line
+ * rollback to the legacy 4-step Schema Mapper wizard during stabilisation.
+ */
+export function useDatasourceOnboardingFlow(): boolean {
+  return import.meta.env.VITE_USE_DATASOURCE_ONBOARDING_FLOW !== "false";
+}

@@ -1,0 +1,13 @@
+# Build output
+target/
+
+# Local Maven installation
+.maven/
+
+# SQLite database (runtime artifact — seed via SQL scripts)
+data/*.db
+
+# IDE / OS
+*.iml
+.idea/
+.DS_Store

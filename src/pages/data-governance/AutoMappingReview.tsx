@@ -29,10 +29,21 @@ export default function AutoMappingReview() {
     );
   }, [mappingFromQuery, setSearchParams, toast]);
 
-  const handleCreateNew = useCallback(() => setView("wizard"), []);
-  const handleEditEntry = useCallback((_entryId: string) => setView("wizard"), []);
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  const handleCreateNew = useCallback(() => {
+    setEditingId(null);
+    setView("wizard");
+  }, []);
+  const handleEditEntry = useCallback((entryId: string) => {
+    setEditingId(entryId);
+    setView("wizard");
+  }, []);
   const handleViewAudit = useCallback((_entryId: string) => setView("version_diff"), []);
-  const handleBackToRegistry = useCallback(() => setView("registry"), []);
+  const handleBackToRegistry = useCallback(() => {
+    setEditingId(null);
+    setView("registry");
+  }, []);
 
   return (
     <div className="min-h-0">
@@ -47,6 +58,7 @@ export default function AutoMappingReview() {
         <WizardContainer
           onCancel={handleBackToRegistry}
           onComplete={handleBackToRegistry}
+          datasourceId={editingId}
         />
       )}
       {view === "version_diff" && (
