@@ -46,7 +46,7 @@ const ACTION_TYPES = [
 
 interface SelectedEntry {
   id: number;
-  userEmail: string;
+  userEmail?: string;
   actionType: string;
   entityType: string;
   entityId: string;
