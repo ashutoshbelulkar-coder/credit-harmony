@@ -174,15 +174,15 @@ export function buildRegisterDetailsSchema(registerForm: RegisterFormPayload | u
       shape[f.name] = fieldZod(f);
     }
   }
-  let obj = z.object(shape);
+  const base = z.object(shape);
   if (atLeastOne.size > 0) {
     const names = [...atLeastOne];
-    obj = obj.refine((data) => names.some((n) => !!(data as Record<string, unknown>)[n]), {
+    return base.refine((data) => names.some((n) => !!(data as Record<string, unknown>)[n]), {
       message: "At least one participation type must be selected",
       path: [names[0] ?? "isDataSubmitter"],
     });
   }
-  return obj;
+  return base;
 }
 
 export function defaultValuesFromRegisterForm(registerForm: RegisterFormPayload | undefined): RegisterDetailsValues {
