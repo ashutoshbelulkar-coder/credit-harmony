@@ -11,7 +11,7 @@ export const consortiumStatusStyles: Record<ConsortiumStatus, string> = {
   inactive: "bg-muted text-muted-foreground",
 };
 
-export function consortiumListLabel(status: ConsortiumStatus): "Active" | "Draft" {
+export function consortiumListLabel(status: string): "Active" | "Draft" {
   return status === "active" ? "Active" : "Draft";
 }
 
