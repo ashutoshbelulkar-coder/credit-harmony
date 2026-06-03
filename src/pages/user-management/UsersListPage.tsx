@@ -59,7 +59,9 @@ export function UsersListPage() {
   const activateUser = useActivateUser();
   const deactivateUser = useDeactivateUser();
 
-  const allUsers: UserResponse[] = usersData?.content ?? usersData ?? [];
+  const allUsers: UserResponse[] = Array.isArray(usersData)
+    ? usersData
+    : usersData?.content ?? [];
 
   const activeFilterCount = [
     search.trim().length > 0,
