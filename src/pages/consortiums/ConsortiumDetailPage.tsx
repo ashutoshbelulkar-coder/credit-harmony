@@ -75,7 +75,7 @@ export default function ConsortiumDetailPage() {
     );
   }
 
-  const statusLabel = consortiumListLabel(consortium.status);
+  const statusLabel = consortiumListLabel(consortium.status as ConsortiumStatus);
 
   return (
     <DashboardLayout>
