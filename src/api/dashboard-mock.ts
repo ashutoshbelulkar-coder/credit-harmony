@@ -314,9 +314,7 @@ export function createMockDashboardSnapshot(range: DashboardRange): DashboardSna
     href: a.href,
   }));
 
-  const memberQualitySubmitters = institutions
-    .filter((i) => i.status === "active" && i.isDataSubmitter)
-    .map((i) => institutionDisplayLabel(i))
+  const memberQualitySubmitters = [...institutions]
     .sort((a, b) => a.localeCompare(b));
 
   const periods = range.kind === "preset" && range.preset === "7d"
