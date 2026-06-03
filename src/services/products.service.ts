@@ -45,10 +45,10 @@ export async function fetchProducts(params?: ProductListParams): Promise<PagedRe
       const list = (configuredProducts ?? []).map((p) => ({
         id: p.id,
         name: p.name,
-        type: p.category ?? "",
-        status: p.lifecycleStatus ?? "active",
+        type: "",
+        status: p.status ?? "active",
         description: p.description,
-        lastUpdated: p.updatedAt,
+        lastUpdated: p.lastUpdated,
       })) as ProductResponse[];
       const page = params?.page ?? 0;
       const size = params?.size ?? 20;
