@@ -188,7 +188,7 @@ const InstitutionDetail = () => {
         {activeTab === "Billing" && (
           <BillingTab
             institutionId={String(institution.id)}
-            billingModel={institution.billingModel}
+            billingModel={institution.billingModel as BillingModel | undefined}
             creditBalance={institution.creditBalance}
           />
         )}
