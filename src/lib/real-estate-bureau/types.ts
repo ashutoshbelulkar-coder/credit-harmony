@@ -167,6 +167,138 @@ export interface RiskInsight {
   severity: "low" | "medium" | "high";
 }
 
+export type CersaiVerificationStatus = "MATCH FOUND" | "PARTIAL MATCH" | "NO MATCH";
+
+export interface SecurityInterestDetail {
+  securityInterestId: string;
+  creationDate: string;
+  typeOfCharge: string;
+  financingType: string;
+  status: string;
+  registrationTimestamp: string;
+  chargePosition: number;
+}
+
+export interface SecuredCreditorDetail {
+  institutionName: string;
+  institutionType: string;
+  branch: string;
+  officeName: string;
+  city: string;
+  state: string;
+  chargeRank: number;
+}
+
+export interface BorrowerSecurityMapping {
+  borrowerName: string;
+  role: string;
+  ownershipFlag: string;
+  ownershipPercent: number;
+  pan: string;
+}
+
+export interface CersaiAssetDetail {
+  assetId: string;
+  assetCategory: string;
+  assetType: string;
+  assetSubType: string;
+  assetDescription: string;
+}
+
+export interface SecurityInterestHistoryEvent {
+  year: string;
+  title: string;
+  institution: string;
+  amount: string;
+  status: string;
+}
+
+export interface EncumbranceAnalysis {
+  knownMortgages: number;
+  activeCharges: number;
+  releasedCharges: number;
+  currentExposure: string;
+  historicalExposure: string;
+  chargeConcentration: string;
+}
+
+export interface ChargeHierarchy {
+  firstCharge: string;
+  secondCharge: string;
+  pariPassu: string;
+}
+
+export interface CersaiMemberReconciliation {
+  memberOutstanding: string;
+  cersaiSecuredAmount: string;
+  variance: string;
+  status: string;
+}
+
+export interface OwnershipConsistencyParty {
+  name: string;
+  detail: string;
+}
+
+export interface OwnershipConsistencyCheck {
+  memberData: OwnershipConsistencyParty[];
+  cersaiData: OwnershipConsistencyParty[];
+  result: string;
+}
+
+export interface AdvancedBureauInsight {
+  tone: "positive" | "warning";
+  text: string;
+}
+
+export interface PropertyGraphNode {
+  id: string;
+  label: string;
+}
+
+export interface PropertyGraphEdge {
+  from: string;
+  to: string;
+}
+
+export interface DataSourceContribution {
+  source: string;
+  percent: number;
+}
+
+export interface CersaiVerificationSummary {
+  status: CersaiVerificationStatus;
+  securityInterests: number;
+  activeCharges: number;
+  releasedCharges: number;
+  latestRegistration: string;
+  verificationConfidence: number;
+}
+
+export interface PropertyReportEnhancements {
+  bureauSummary: {
+    currentExposure: string;
+    historicalExposure: string;
+    activeCharges: number;
+    historicalCharges: number;
+    riskBandLabel: string;
+  };
+  cersaiVerification: CersaiVerificationSummary;
+  securityInterestDetails: SecurityInterestDetail[];
+  securedCreditors: SecuredCreditorDetail[];
+  borrowerSecurityMapping: BorrowerSecurityMapping[];
+  cersaiAsset: CersaiAssetDetail;
+  securityInterestHistory: SecurityInterestHistoryEvent[];
+  encumbranceAnalysis: EncumbranceAnalysis;
+  chargeHierarchy: ChargeHierarchy;
+  cersaiMemberReconciliation: CersaiMemberReconciliation;
+  ownershipConsistency: OwnershipConsistencyCheck;
+  advancedBureauInsights: AdvancedBureauInsight[];
+  propertyGraph: { nodes: PropertyGraphNode[]; edges: PropertyGraphEdge[] };
+  rawCersaiPayload: Record<string, unknown>;
+  dataSourceContribution: DataSourceContribution[];
+}
+
 export interface PropertyReport {
   reportId: string;
   inquiryId: string;
@@ -199,6 +331,7 @@ export interface PropertyReport {
   riskInsights: RiskInsight[];
   recommendation: RiskLevel;
   recommendationText: string;
+  enhancements: PropertyReportEnhancements;
 }
 
 export interface PendingInquiry {

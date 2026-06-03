@@ -10,7 +10,7 @@ import {
 import { Line, LineChart, XAxis, YAxis, CartesianGrid } from "recharts";
 import type { PropertyReport } from "@/lib/real-estate-bureau/types";
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+export function ReportSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <section className="rounded-xl border border-border bg-card overflow-hidden">
       <h2 className="px-5 py-3 text-body font-semibold text-foreground border-b border-border bg-muted/30">
@@ -31,7 +31,7 @@ export function PropertyOverviewSection({ report }: { report: PropertyReport }) 
     ["Area", report.area],
   ];
   return (
-    <Section title="Property Overview">
+    <ReportSection title="Property Overview">
       <dl className="grid sm:grid-cols-2 gap-3">
         {rows.map(([label, value]) => (
           <div key={label}>
@@ -40,13 +40,13 @@ export function PropertyOverviewSection({ report }: { report: PropertyReport }) 
           </div>
         ))}
       </dl>
-    </Section>
+    </ReportSection>
   );
 }
 
 export function OwnershipSection({ report }: { report: PropertyReport }) {
   return (
-    <Section title="Ownership">
+    <ReportSection title="Ownership">
       <div className="overflow-x-auto">
         <table className="w-full min-w-max">
           <thead>
@@ -69,14 +69,14 @@ export function OwnershipSection({ report }: { report: PropertyReport }) {
           </tbody>
         </table>
       </div>
-    </Section>
+    </ReportSection>
   );
 }
 
 function MortgageTable({ rows, title }: { rows: PropertyReport["activeMortgageList"]; title: string }) {
   if (rows.length === 0) return null;
   return (
-    <Section title={title}>
+    <ReportSection title={title}>
       <div className="overflow-x-auto">
         <table className="w-full min-w-max">
           <thead>
@@ -105,7 +105,7 @@ function MortgageTable({ rows, title }: { rows: PropertyReport["activeMortgageLi
           </tbody>
         </table>
       </div>
-    </Section>
+    </ReportSection>
   );
 }
 
@@ -120,7 +120,7 @@ export function MortgageSections({ report }: { report: PropertyReport }) {
 
 export function CersaiFindingsSection({ report }: { report: PropertyReport }) {
   return (
-    <Section title="CERSAI Findings">
+    <ReportSection title="CERSAI Findings">
       <div className="overflow-x-auto">
         <table className="w-full min-w-max">
           <thead>
@@ -155,13 +155,13 @@ export function CersaiFindingsSection({ report }: { report: PropertyReport }) {
           </tbody>
         </table>
       </div>
-    </Section>
+    </ReportSection>
   );
 }
 
 export function PropertyTimelineSection({ report }: { report: PropertyReport }) {
   return (
-    <Section title="Property Timeline">
+    <ReportSection title="Property Timeline">
       <div className="space-y-4">
         {report.timeline.map((t) => (
           <div key={t.year + t.title} className="flex gap-4">
@@ -173,7 +173,7 @@ export function PropertyTimelineSection({ report }: { report: PropertyReport }) 
           </div>
         ))}
       </div>
-    </Section>
+    </ReportSection>
   );
 }
 
@@ -184,7 +184,7 @@ export function DocumentCompletenessSection({ report }: { report: PropertyReport
     return <XCircle className="h-4 w-4 text-destructive" />;
   };
   return (
-    <Section title="Document Completeness">
+    <ReportSection title="Document Completeness">
       <ul className="space-y-2">
         {report.documentChecklist.map((d) => (
           <li key={d.label} className="flex items-center gap-3 py-1.5">
@@ -196,7 +196,7 @@ export function DocumentCompletenessSection({ report }: { report: PropertyReport
           </li>
         ))}
       </ul>
-    </Section>
+    </ReportSection>
   );
 }
 
@@ -206,7 +206,7 @@ const chartConfig = {
 
 export function ValuationTrendSection({ report }: { report: PropertyReport }) {
   return (
-    <Section title="Property Valuation Trend">
+    <ReportSection title="Property Valuation Trend">
       <ChartContainer config={chartConfig} className="h-[240px] w-full">
         <LineChart data={report.valuationTrend} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
           <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
@@ -222,7 +222,7 @@ export function ValuationTrendSection({ report }: { report: PropertyReport }) {
           />
         </LineChart>
       </ChartContainer>
-    </Section>
+    </ReportSection>
   );
 }
 
@@ -233,7 +233,7 @@ export function RiskInsightsSection({ report }: { report: PropertyReport }) {
     return "border-success/30 bg-success/5";
   };
   return (
-    <Section title="Risk Insights">
+    <ReportSection title="Risk Insights">
       <div className="space-y-3">
         {report.riskInsights.map((r) => (
           <div
@@ -245,7 +245,7 @@ export function RiskInsightsSection({ report }: { report: PropertyReport }) {
           </div>
         ))}
       </div>
-    </Section>
+    </ReportSection>
   );
 }
 
@@ -257,20 +257,20 @@ export function RecommendationSection({ report }: { report: PropertyReport }) {
         ? "border-success"
         : "border-[hsl(var(--risk-medium))]";
   return (
-    <Section title="Recommendation">
+    <ReportSection title="Recommendation">
       <div className={cn("rounded-lg border-l-4 p-4 bg-muted/20", border)}>
         <p className="text-body font-semibold text-foreground">
           {report.recommendation} Risk
         </p>
         <p className="text-body text-muted-foreground mt-2">{report.recommendationText}</p>
       </div>
-    </Section>
+    </ReportSection>
   );
 }
 
 export function InquiryDetailsSection({ report }: { report: PropertyReport }) {
   return (
-    <Section title="Inquiry Details">
+    <ReportSection title="Inquiry Details">
       <dl className="grid sm:grid-cols-2 gap-3">
         <div>
           <dt className="text-caption text-muted-foreground">Inquiry ID</dt>
@@ -299,6 +299,6 @@ export function InquiryDetailsSection({ report }: { report: PropertyReport }) {
           </dd>
         </div>
       </dl>
-    </Section>
+    </ReportSection>
   );
 }

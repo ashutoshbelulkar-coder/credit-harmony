@@ -24,7 +24,10 @@ import {
   Landmark,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { useRealEstateBureauAccess } from "@/lib/real-estate-bureau/feature-gate";
+import {
+  useRealEstateBureauAccess,
+  useRebLimitedNavigation,
+} from "@/lib/real-estate-bureau/feature-gate";
 
 const baseNavItems = [
   { title: "Dashboard", path: "/", icon: LayoutDashboard },
@@ -108,15 +111,22 @@ function sectionIdFromPathname(pathname: string): SidebarSectionId | null {
   return null;
 }
 
+const reportingNavItem = baseNavItems.find((item) => item.path === "/reporting")!;
+
+const rebLimitedNavItems = [realEstateBureauNavItem, reportingNavItem];
+
 export function AppSidebar() {
+  const rebLimitedNav = useRebLimitedNavigation();
   const hasRebAccess = useRealEstateBureauAccess();
-  const navItems = hasRebAccess
-    ? [
-        ...baseNavItems.slice(0, 4),
-        realEstateBureauNavItem,
-        ...baseNavItems.slice(4),
-      ]
-    : baseNavItems;
+  const navItems = rebLimitedNav
+    ? rebLimitedNavItems
+    : hasRebAccess
+      ? [
+          ...baseNavItems.slice(0, 4),
+          realEstateBureauNavItem,
+          ...baseNavItems.slice(4),
+        ]
+      : baseNavItems;
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   /** Accordion: at most one nested section open — follows route, or manual chevron on neutral pages (e.g. dashboard). */

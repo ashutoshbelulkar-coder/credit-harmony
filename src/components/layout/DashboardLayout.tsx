@@ -1,7 +1,12 @@
 import { useState, useEffect } from "react";
-import { useLocation } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { FocusScope } from "@radix-ui/react-focus-scope";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import {
+  hasRebLimitedNavigation,
+  isPathAllowedForRebLimitedUser,
+} from "@/lib/real-estate-bureau/feature-gate";
 import { AppSidebar } from "./AppSidebar";
 import { AppHeader } from "./AppHeader";
 
@@ -10,8 +15,12 @@ interface DashboardLayoutProps {
 }
 
 export function DashboardLayout({ children }: DashboardLayoutProps) {
+  const { user } = useAuth();
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const location = useLocation();
+  const rebRouteBlocked =
+    hasRebLimitedNavigation(user?.email) &&
+    !isPathAllowedForRebLimitedUser(location.pathname);
   const isAgentsSection = location.pathname.startsWith("/agents");
   const isAgentSubscreen = isAgentsSection && location.pathname !== "/agents";
   const showHeader = location.pathname === "/agents" || !isAgentsSection;
@@ -33,6 +42,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     window.scrollTo({ top: 0, left: 0, behavior: "instant" });
     document.querySelector("main")?.scrollTo({ top: 0, left: 0, behavior: "instant" });
   }, [location.pathname]);
+
+  if (rebRouteBlocked) {
+    return <Navigate to="/real-estate-bureau" replace />;
+  }
 
   return (
     <div className="flex h-dvh overflow-hidden w-full bg-background">

@@ -417,6 +417,20 @@ Content-Type: application/json
 | `suspended@hcb.com` | `Suspended@1234` | Analyst | — | **Suspended** — login will return 401 |
 | `david.kim@pacificfin.com` | `David@1234` | Analyst | Pacific Finance | Extra seed user (see `seed_data.sql`) |
 
+### Real Estate Bureau demo accounts (frontend POC)
+
+These accounts are for the **Real Estate Bureau** module demo. Credentials are **not** shown on the login screen; use them when testing the bureau flow in mock or dev mode.
+
+| Label | Email | Password | Post-login menu |
+|-------|-------|----------|-----------------|
+| Demo User | `realestate.demo@crif.com` | `Demo@123` | **Real Estate Bureau**, **Reporting** only |
+| Admin User | `realestate.admin@crif.com` | `Admin@123` | **Real Estate Bureau**, **Reporting** only |
+| Property Analyst | `crif.property@crif.com` | `Admin@123` | **Real Estate Bureau**, **Reporting** only |
+
+After sign-in, these users are redirected to `/real-estate-bureau`. Other sidebar sections (Dashboard, Member Management, Agents, etc.) are hidden; direct navigation to other routes redirects back to Real Estate Bureau.
+
+Source of truth for allowed local-parts: `src/lib/real-estate-bureau/feature-gate.ts` (`ALLOWED_REB_USERS`).
+
 ### Using the Token
 ```bash
 # Include in all subsequent requests

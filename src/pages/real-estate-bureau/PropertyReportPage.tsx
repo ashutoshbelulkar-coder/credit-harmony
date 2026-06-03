@@ -15,6 +15,23 @@ import {
   RiskInsightsSection,
   ValuationTrendSection,
 } from "@/components/real-estate-bureau/report/ReportSections";
+import {
+  AdvancedBureauInsightsSection,
+  BorrowerSecurityMappingSection,
+  CersaiAssetDetailsSection,
+  CersaiMemberReconciliationSection,
+  CersaiVerificationSummarySection,
+  ChargeHierarchySection,
+  DataSourceContributionSection,
+  DetailedAuditDivider,
+  EncumbranceAnalysisSection,
+  OwnershipConsistencySection,
+  PropertyGraphSection,
+  RawCersaiDetailSection,
+  SecuredCreditorDetailsSection,
+  SecurityInterestDetailsSection,
+  SecurityInterestHistorySection,
+} from "@/components/real-estate-bureau/report/ReportEnhancements";
 import { RebErrorState } from "@/components/real-estate-bureau/RebErrorState";
 import { useRealEstateBureau } from "./RealEstateBureauLayout";
 import { exportPropertyReportHtml } from "@/lib/real-estate-bureau/export-report-html";
@@ -72,17 +89,34 @@ export default function PropertyReportPage() {
       <ReportHeader inquiryId={inquiryId} onExport={handleExport} showExport />
 
       <div className="space-y-6" id="reb-report-content">
-        <RiskGauge score={report.riskScore} level={report.riskLevel} />
+        <RiskGauge level={report.riskLevel} />
         <ReportKpiCards report={report} />
+        <CersaiVerificationSummarySection report={report} />
         <PropertyOverviewSection report={report} />
         <OwnershipSection report={report} />
         <MortgageSections report={report} />
         <CersaiFindingsSection report={report} />
-        <PropertyTimelineSection report={report} />
-        <DocumentCompletenessSection report={report} />
         <ValuationTrendSection report={report} />
+        <DocumentCompletenessSection report={report} />
         <RiskInsightsSection report={report} />
         <RecommendationSection report={report} />
+
+        <DetailedAuditDivider />
+
+        <SecurityInterestDetailsSection report={report} />
+        <SecuredCreditorDetailsSection report={report} />
+        <BorrowerSecurityMappingSection report={report} />
+        <CersaiAssetDetailsSection report={report} />
+        <SecurityInterestHistorySection report={report} />
+        <EncumbranceAnalysisSection report={report} />
+        <ChargeHierarchySection report={report} />
+        <CersaiMemberReconciliationSection report={report} />
+        <OwnershipConsistencySection report={report} />
+        <AdvancedBureauInsightsSection report={report} />
+        <PropertyGraphSection report={report} />
+        <PropertyTimelineSection report={report} />
+        <DataSourceContributionSection report={report} />
+        <RawCersaiDetailSection report={report} />
         <InquiryDetailsSection report={report} />
       </div>
     </div>

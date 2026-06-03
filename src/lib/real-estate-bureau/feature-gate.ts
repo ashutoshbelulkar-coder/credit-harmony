@@ -13,7 +13,7 @@ export const ALLOWED_REB_USERS = [
 
 export type AllowedRebUser = (typeof ALLOWED_REB_USERS)[number];
 
-/** Demo credentials shown on login screen (passwords enforced only as documentation in dev mock mode). */
+/** Demo credentials for Real Estate Bureau POC — documented in README.md (not shown on login UI). */
 export const REB_DEMO_ACCOUNTS = [
   { username: "realestate.demo", email: "realestate.demo@crif.com", password: "Demo@123", label: "Demo User" },
   { username: "realestate.admin", email: "realestate.admin@crif.com", password: "Admin@123", label: "Admin User" },
@@ -35,4 +35,24 @@ export function hasRealEstateBureauAccess(email: string | undefined | null): boo
 export function useRealEstateBureauAccess(): boolean {
   const { user } = useAuth();
   return hasRealEstateBureauAccess(user?.email);
+}
+
+/** REB demo users see only Real Estate Bureau + Reporting in the sidebar. */
+export function hasRebLimitedNavigation(email: string | undefined | null): boolean {
+  return hasRealEstateBureauAccess(email);
+}
+
+export function useRebLimitedNavigation(): boolean {
+  const { user } = useAuth();
+  return hasRebLimitedNavigation(user?.email);
+}
+
+export function getPostLoginPath(email: string | undefined | null): string {
+  return hasRebLimitedNavigation(email) ? "/real-estate-bureau" : "/";
+}
+
+export function isPathAllowedForRebLimitedUser(pathname: string): boolean {
+  return (
+    pathname.startsWith("/real-estate-bureau") || pathname.startsWith("/reporting")
+  );
 }

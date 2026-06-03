@@ -6,6 +6,7 @@ import type {
   PropertySearchSuggestion,
   SearchSources,
 } from "./types";
+import { createReportEnhancements } from "./report-enhancement-data";
 
 export const DEFAULT_SEARCH_SOURCES: SearchSources = {
   memberSubmittedData: true,
@@ -115,12 +116,12 @@ function buildReport(
     ],
     riskScore,
     riskLevel,
-    propertyValue: "₹1.42 Cr",
-    totalExposure: "₹98.5 L",
-    activeMortgages: 2,
-    historicalMortgages: 1,
-    ownershipChanges: 2,
-    documentCompleteness: 87,
+    propertyValue: "₹1.32 Cr",
+    totalExposure: "₹85 Lakhs",
+    activeMortgages: 1,
+    historicalMortgages: 2,
+    ownershipChanges: 1,
+    documentCompleteness: 92,
     propertyId,
     propertyType: "Residential",
     propertySubtype: "Apartment",
@@ -129,31 +130,31 @@ function buildReport(
     registrationNumber: "REG/MH/2019/452187",
     area: "1,450 sq.ft. (Carpet)",
     ownership: [
-      { ownerName: borrowerName, ownershipPercent: 70, pan: "ABCDE1234F", role: "Primary Owner" },
-      { ownerName: "Priya Sharma", ownershipPercent: 30, pan: "FGHIJ5678K", role: "Co-Owner" },
+      { ownerName: borrowerName, ownershipPercent: 60, pan: "ABCDE1234F", role: "Primary Owner" },
+      { ownerName: "Priya Sharma", ownershipPercent: 40, pan: "FGHIJ5678K", role: "Co-Owner" },
     ],
     activeMortgageList: [
       {
         lender: "HDFC Bank Ltd.",
-        loanAmount: "₹75.0 L",
-        outstanding: "₹52.3 L",
-        chargeType: "Equitable Mortgage",
+        loanAmount: "₹85.0 L",
+        outstanding: "₹78.2 L",
+        chargeType: "First Charge",
         status: "Active",
-        registrationDate: "2021-06-15",
-      },
-      {
-        lender: "ICICI Bank Ltd.",
-        loanAmount: "₹35.0 L",
-        outstanding: "₹28.7 L",
-        chargeType: "Registered Mortgage",
-        status: "Active",
-        registrationDate: "2023-02-10",
+        registrationDate: "2024-03-18",
       },
     ],
     historicalMortgageList: [
       {
-        lender: "State Bank of India",
+        lender: "ICICI Bank Ltd.",
         loanAmount: "₹45.0 L",
+        outstanding: "₹0",
+        chargeType: "Registered Mortgage",
+        status: "Released",
+        registrationDate: "2020-08-12",
+      },
+      {
+        lender: "State Bank of India",
+        loanAmount: "₹30.0 L",
         outstanding: "₹0",
         chargeType: "Registered Mortgage",
         status: "Closed",
@@ -162,20 +163,20 @@ function buildReport(
     ],
     cersaiFindings: [
       {
-        securityInterestId: "CERSAI/MH/2021/784521",
+        securityInterestId: "400789456123",
         chargeHolder: "HDFC Bank Ltd.",
-        chargeType: "Equitable Mortgage",
-        securedAmount: "₹75.0 L",
-        registrationDate: "2021-06-18",
+        chargeType: "First Charge",
+        securedAmount: "₹85 Lakhs",
+        registrationDate: "18-Mar-2024",
         currentStatus: "Active",
       },
       {
-        securityInterestId: "CERSAI/MH/2023/901234",
+        securityInterestId: "400789456089",
         chargeHolder: "ICICI Bank Ltd.",
-        chargeType: "Registered Mortgage",
-        securedAmount: "₹35.0 L",
-        registrationDate: "2023-02-12",
-        currentStatus: "Active",
+        chargeType: "First Charge",
+        securedAmount: "₹45 Lakhs",
+        registrationDate: "12-Aug-2020",
+        currentStatus: "Released",
       },
     ],
     timeline: [
@@ -228,10 +229,11 @@ function buildReport(
     recommendation: riskLevel,
     recommendationText:
       riskLevel === "Medium"
-        ? "Property presents moderate risk due to multiple active charges and incomplete documentation. Recommended for underwriting with enhanced due diligence on Society NOC and LTV verification. Exposure within acceptable limits at current valuation."
+        ? "Property presents moderate risk due to historical charge activity and exposure growth. CERSAI match verified with reconciled member data within tolerance. Recommended for underwriting with standard encumbrance review."
         : riskLevel === "Low"
           ? "Property profile indicates low risk with clean ownership chain and adequate documentation."
           : "Property presents elevated risk. Recommend senior credit committee review before proceeding.",
+    enhancements: createReportEnhancements(borrowerName, address),
   };
 }
 
