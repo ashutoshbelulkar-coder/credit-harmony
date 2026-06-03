@@ -182,7 +182,7 @@ export type ConsortiumWritePayload = Partial<ConsortiumResponse> & {
   members?: { institutionId: string | number }[];
   /** CBS catalog row ids; replace-all when sent on PATCH. */
   cbsMembers?: { catalogId: string | number }[];
-  dataPolicy?: Record<string, unknown>;
+  dataPolicy?: object;
 };
 
 export async function createConsortium(data: ConsortiumWritePayload): Promise<ConsortiumResponse> {
