@@ -446,8 +446,8 @@ export function del<T = void>(path: string): Promise<T> {
  *
  * @example buildQuery({ status: "active", page: 0, search: "" }) → "?status=active&page=0"
  */
-export function buildQuery(params: Record<string, string | number | boolean | undefined | null>): string {
-  const entries = Object.entries(params).filter(
+export function buildQuery(params: object): string {
+  const entries = Object.entries(params as Record<string, unknown>).filter(
     ([, v]) => v !== null && v !== undefined && v !== ""
   );
   if (entries.length === 0) return "";
