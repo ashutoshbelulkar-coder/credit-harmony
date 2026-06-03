@@ -33,7 +33,7 @@ export function ReportingLayout() {
   // Seed from API when data arrives (once only — mutations tracked locally)
   useEffect(() => {
     if (!apiReports) return;
-    const rows = Array.isArray(apiReports) ? apiReports : (apiReports as { content?: ReportRow[] }).content ?? [];
+    const rows = Array.isArray(apiReports) ? apiReports : (apiReports as unknown as { content?: ReportRow[] }).content ?? [];
     if (rows.length > 0) {
       setReports(rows as ReportRow[]);
     }
