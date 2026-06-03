@@ -46,7 +46,7 @@ export async function fetchReports(params?: ReportListParams): Promise<PagedResp
     if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
       // Import mock inline to avoid circular deps
       const { default: data } = await import("@/data/reporting.json");
-      const list = (data.reports ?? []) as ReportResponse[];
+      const list = (data.reports ?? []) as unknown as ReportResponse[];
       const page = params?.page ?? 0;
       const size = params?.size ?? 20;
       return { content: list.slice(page * size, (page + 1) * size), totalElements: list.length, totalPages: Math.max(1, Math.ceil(list.length / size)), page, size };

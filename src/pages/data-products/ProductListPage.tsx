@@ -37,7 +37,7 @@ function pricingModelFromApi(raw: string | undefined): ProductPricingModel {
 
 /** JDBC/SQLite sometimes returns snake_case or lowercase keys before backend normalization. */
 function readProductCode(api: ProductResponse): string {
-  const x = api as Record<string, unknown>;
+  const x = api as unknown as Record<string, unknown>;
   const v = api.productCode ?? x.productcode ?? x.product_code;
   if (typeof v === "string") return v.trim();
   if (v != null) return String(v).trim();

@@ -49,6 +49,7 @@ import { useApiRequests, useEnquiries } from "@/hooks/api/useMonitoring";
 import { useBatchJobs } from "@/hooks/api/useBatchJobs";
 import { useProducts } from "@/hooks/api/useProducts";
 import type { InstitutionComplianceDoc, InstitutionResponse } from "@/services/institutions.service";
+import type { BillingModel } from "@/data/institutions-mock";
 import { fetchInstitutionDocument } from "@/services/institutions.service";
 import { defaultInstitutionApiAccessPayload } from "@/services/institutions.service";
 import type { ApiRequestRecord, EnquiryRecord } from "@/services/monitoring.service";
@@ -188,7 +189,7 @@ const InstitutionDetail = () => {
         {activeTab === "Billing" && (
           <BillingTab
             institutionId={String(institution.id)}
-            billingModel={institution.billingModel}
+            billingModel={institution.billingModel as BillingModel | undefined}
             creditBalance={institution.creditBalance}
           />
         )}

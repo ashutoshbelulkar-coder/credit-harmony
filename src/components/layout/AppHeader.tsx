@@ -169,7 +169,7 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
                 {user?.email ?? "User"}
               </span>
               <span className="text-caption text-muted-foreground leading-tight truncate">
-                {user?.role ?? "—"}
+                {(user?.roles && user.roles.length > 0 ? user.roles.join(", ") : "—")}
               </span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-muted-foreground hidden md:block shrink-0" />

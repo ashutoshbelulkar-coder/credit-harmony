@@ -198,7 +198,7 @@ function batchJobsFromQuery(data: unknown): BatchJob[] | null {
   const content = (data as { content?: unknown }).content;
   if (!Array.isArray(content)) return null;
   return (content as BatchJobResponse[]).map((r) => {
-    const raw = r as Record<string, unknown>;
+    const raw = r as unknown as Record<string, unknown>;
     const str = (camel: string, snake: string) => {
       const a = raw[camel];
       if (a != null && a !== "") return String(a);

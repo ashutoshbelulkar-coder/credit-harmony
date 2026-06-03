@@ -54,13 +54,13 @@ export async function fetchAuditLogs(
       const { mockActivity } = await import("@/data/user-management-mock");
       let list = (mockActivity ?? []).map((a, i) => ({
         id: i + 1,
-        userEmail: a.userEmail ?? a.user,
-        actionType: a.action ?? a.actionType ?? "UNKNOWN",
-        entityType: a.entityType ?? "SYSTEM",
-        entityId: a.entityId ?? String(i),
-        description: a.description ?? a.details,
-        auditOutcome: a.outcome ?? "SUCCESS",
-        occurredAt: a.timestamp ?? a.time ?? new Date().toISOString(),
+        userEmail: a.userName,
+        actionType: a.action ?? "UNKNOWN",
+        entityType: "SYSTEM",
+        entityId: String(i),
+        description: a.details,
+        auditOutcome: a.status === "Success" ? "SUCCESS" : "FAILURE",
+        occurredAt: a.timestamp ?? new Date().toISOString(),
       })) as AuditLogEntry[];
       const inst = params?.institutionId;
       if (inst && inst !== "all") {

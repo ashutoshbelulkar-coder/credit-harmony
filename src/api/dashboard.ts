@@ -343,7 +343,7 @@ export function useDashboardCommandCenter(range: DashboardRange = { kind: "prese
 export function useDashboardActivity() {
   return useQuery({
     queryKey: QK.dashboard.activity(),
-    queryFn: fetchDashboardActivity,
+    queryFn: ({ signal }) => fetchDashboardActivity(signal),
     staleTime: 30_000,
     refetchInterval: 60_000,
   });
