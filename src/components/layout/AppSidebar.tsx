@@ -21,10 +21,12 @@ import {
   ChevronDown,
   ClipboardCheck,
   Package,
+  Landmark,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { useRealEstateBureauAccess } from "@/lib/real-estate-bureau/feature-gate";
 
-const navItems = [
+const baseNavItems = [
   { title: "Dashboard", path: "/", icon: LayoutDashboard },
   { title: "Member Management", path: "/institutions", icon: Building2 },
   { title: "Data Products", path: "/data-products/products", icon: Package },
@@ -35,6 +37,12 @@ const navItems = [
   { title: "Approval Queue", path: "/approval-queue", icon: ClipboardCheck },
   { title: "User Management", path: "/user-management/users", icon: Users },
 ];
+
+const realEstateBureauNavItem = {
+  title: "Real Estate Bureau",
+  path: "/real-estate-bureau",
+  icon: Landmark,
+};
 
 const institutionSubItems = [
   { title: "Member Institutions", path: "/institutions" },
@@ -101,6 +109,14 @@ function sectionIdFromPathname(pathname: string): SidebarSectionId | null {
 }
 
 export function AppSidebar() {
+  const hasRebAccess = useRealEstateBureauAccess();
+  const navItems = hasRebAccess
+    ? [
+        ...baseNavItems.slice(0, 4),
+        realEstateBureauNavItem,
+        ...baseNavItems.slice(4),
+      ]
+    : baseNavItems;
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
   /** Accordion: at most one nested section open — follows route, or manual chevron on neutral pages (e.g. dashboard). */
@@ -145,10 +161,15 @@ export function AppSidebar() {
           const isDataProducts = item.path.startsWith("/data-products");
           const isMonitoring = item.path === "/monitoring";
           const isUserMgmt = item.path.startsWith("/user-management");
-          const isActive =
-            item.path === "/"
+          const isReb = item.path === "/real-estate-bureau";
+          const isActive = isReb
+            ? location.pathname.startsWith("/real-estate-bureau")
+            : item.path === "/"
               ? location.pathname === "/"
-              : location.pathname.startsWith(item.path.split("/").slice(0, 2).join("/") + (item.path.split("/").length > 2 ? "/" + item.path.split("/")[2] : ""));
+              : location.pathname.startsWith(
+                  item.path.split("/").slice(0, 2).join("/") +
+                    (item.path.split("/").length > 2 ? "/" + item.path.split("/")[2] : "")
+                );
           const isInstitutionsSectionActive =
             institutionSubItems.some(
               (sub) => location.pathname === sub.path || location.pathname.startsWith(sub.path + "/")

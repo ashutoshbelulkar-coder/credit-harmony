@@ -103,6 +103,18 @@ const ProductDetailPage = lazy(() => import("./pages/data-products/ProductDetail
 const ProductFormPage = lazy(() => import("./pages/data-products/ProductFormPage"));
 const EnquirySimulationPage = lazy(() => import("./pages/agents/EnquirySimulationPage"));
 
+const RealEstateBureauLayout = lazy(() =>
+  import("./pages/real-estate-bureau/RealEstateBureauLayout").then((m) => ({
+    default: m.RealEstateBureauLayout,
+  }))
+);
+const RealEstateBureauHome = lazy(() => import("./pages/real-estate-bureau/RealEstateBureauHome"));
+const NewInquiryPage = lazy(() => import("./pages/real-estate-bureau/NewInquiryPage"));
+const PropertyMatchSelectionPage = lazy(() =>
+  import("./pages/real-estate-bureau/PropertyMatchSelectionPage")
+);
+const PropertyReportPage = lazy(() => import("./pages/real-estate-bureau/PropertyReportPage"));
+
 function PageLoader() {
   return (
     <div className="flex flex-col gap-4 p-6">
@@ -195,6 +207,12 @@ function AppRoutes() {
             <Route path="users" element={<UsersListPage />} />
             <Route path="roles" element={<RolesPermissionsPage />} />
             <Route path="activity" element={<ActivityLogPage />} />
+          </Route>
+          <Route path="/real-estate-bureau" element={<ProtectedRoute><RealEstateBureauLayout /></ProtectedRoute>}>
+            <Route index element={<RealEstateBureauHome />} />
+            <Route path="new" element={<NewInquiryPage />} />
+            <Route path="match/:inquiryId" element={<PropertyMatchSelectionPage />} />
+            <Route path="report/:inquiryId" element={<PropertyReportPage />} />
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -23,6 +23,7 @@ import {
 
 import { toast } from "sonner";
 import { showDemoAccountRecoveryUi } from "@/lib/feature-flags";
+import { REB_DEMO_ACCOUNTS } from "@/lib/real-estate-bureau/feature-gate";
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -503,11 +504,31 @@ export default function Login() {
             )}
           </div>
 
+          {showDemoAccountRecoveryUi() && step === "credentials" && (
+            <motion.div
+              className="mt-6 rounded-lg border border-border bg-muted/40 p-4 text-left"
+              {...stagger}
+              {...staggerDelay(6)}
+            >
+              <p className="text-[11px] font-semibold text-foreground mb-2">
+                Real Estate Bureau — Demo accounts
+              </p>
+              <ul className="space-y-1.5 text-[10px] text-muted-foreground">
+                {REB_DEMO_ACCOUNTS.map((acc) => (
+                  <li key={acc.username}>
+                    <span className="font-medium text-foreground">{acc.label}:</span>{" "}
+                    {acc.email} / {acc.password}
+                  </li>
+                ))}
+              </ul>
+            </motion.div>
+          )}
+
           {/* Trust Indicators */}
           <motion.div
             className="mt-6 flex items-center justify-center gap-6"
             {...stagger}
-            {...staggerDelay(6)}
+            {...staggerDelay(7)}
           >
             {trustIndicators.map(({ icon: Icon, label }) => (
               <div
