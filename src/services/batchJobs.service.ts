@@ -155,7 +155,7 @@ export async function fetchBatchDetail(id: string): Promise<BatchJobDetailRespon
     return await get<BatchJobDetailResponse>(`${BASE}/${id}/detail`);
   } catch (err) {
     if (clientMockFallbackEnabled && isNetworkOrServerError(err)) {
-      return (mockBatchDetails[id] as Record<string, unknown> | undefined) ?? null;
+      return (mockBatchDetails[id] as unknown as Record<string, unknown> | undefined) ?? null;
     }
     throw err;
   }
