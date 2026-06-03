@@ -19,7 +19,7 @@ export interface ProductResponse {
   /** Present when product was created or updated via the catalogue API (Fastify dev API). */
   packetIds?: string[];
   packetConfigs?: unknown[];
-  enquiryConfig?: Record<string, unknown>;
+  enquiryConfig?: object;
   pricingModel?: string;
 }
 
