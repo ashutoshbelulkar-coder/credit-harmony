@@ -54,3 +54,6 @@ inject_section_8.py
 replace_credit.py
 node-v24.11.1-win-x64/
 backend/data/hcb_platform.db
+
+# Property bureau docs and generated assets (local only)
+docs/property-bureau/
