@@ -1,51 +1,44 @@
-# ABC HFC — Property Bureau Sample Submission (Q1 2026)
+# ABC HFC — V1.1 Sample Submission Package
 
-Synthetic **member data submission** package for **ABC Housing Finance Company Limited** (`MEMBER_INSTITUTION_CODE`: `HFC0000042`).  
-Complies with [Member Data Submission Standard V1.0](../member-data-submission-standard/README.md).
+Synthetic sample for **ABC Housing Finance Company Limited** (`HFC0000042`).  
+Aligned with **Property Bureau Member Data Submission Standard V1.1** (Option B — dense single file).
 
-> **Disclaimer:** All names, PANs, mobiles, emails, and addresses are fictional test data. Do not use for production or credit decisions.
+> All data is fictional. Do not use for credit decisions.
 
-## Package contents
+## Primary package (`data-submission/`)
 
-| File | Records | Description |
-|------|---------|-------------|
-| `00_SUBMISSION_MANIFEST.csv` | 10 | File inventory and row counts |
-| `01_FILE_HEADER.csv` | 1 | Batch metadata (`SUBMISSION_TYPE=FULL`) |
-| `02_PROPERTY_MASTER.csv` | **75** | Collateral across 40+ Indian cities |
-| `03_OWNERSHIP.csv` | 85 | Primary + co-owners (30% co-ownership on ~11 properties) |
-| `04_BORROWER.csv` | 75 | Individuals and non-individual borrowers |
-| `05_CO_BORROWER.csv` | 15 | Spouse / family / business partner |
-| `06_LOAN_ACCOUNT.csv` | 75 | ACTIVE, CLOSED, SETTLED, RESTRUCTURED, WRITTEN_OFF |
-| `07_MORTGAGE_CHARGE.csv` | 79 | FIRST_CHARGE, REGISTERED_MORTGAGE, PARI_PASSU, etc. |
-| `08_VALUATION.csv` | 75 | Market / fair / distress valuations |
-| `09_DOCUMENT_STATUS.csv` | 75 | Document custody attestation |
-| `ABC_HFC_PROPERTY_SUBMISSION_2026Q1_FULL.csv` | 416 | **Combined** multi-record file (all types) |
+| File | Rows | Description |
+|------|------|-------------|
+| **`PROPERTY_BUREAU_SUBMISSION.csv`** | **75** | **Primary file** — one row per loan account; all V1.1 fields on each row |
+| `OWNERSHIP_SUPPLEMENT.csv` | ~11 | Extra co-owners (when ownership ≠ 100% single owner) |
+| `CO_BORROWER_SUPPLEMENT.csv` | ~7 | Additional co-borrowers beyond first inline row |
+| `00_SUBMISSION_MANIFEST.csv` | 3 | Package inventory |
 
-## Coverage highlights
+### Coverage
 
-- **Geography:** 40 location profiles — MH, KA, TN, TS, DL, HR, UP, WB, GJ, RJ, MP, KL, PB, BR, JH, OD, AS, UK, GA, AP, CH
-- **Property types:** RESIDENTIAL, COMMERCIAL, INDUSTRIAL, AGRICULTURAL, MIXED_USE
-- **Subtypes:** APARTMENT, VILLA, ROW_HOUSE, PLOT, OFFICE, SHOP, WAREHOUSE, FACTORY, LAND
-- **Matching keys:** CTS (Maharashtra), Khata (Karnataka), survey numbers (rural/agri), municipal PID, registration numbers
-- **Borrower types:** INDIVIDUAL, PRIVATE_LIMITED, LLP, PARTNERSHIP
-- **Area units:** SQFT, SQM, ACRE, GUNTHA, BIGHA
+- 20+ cities across India (MH, KA, TN, TS, DL, HR, UP, WB, GJ, RJ, MP, KL, …)
+- Property types: RESIDENTIAL, COMMERCIAL, INDUSTRIAL, AGRICULTURAL, MIXED_USE
+- Account statuses: ACTIVE, CLOSED, SETTLED, RESTRUCTURED, WRITTEN_OFF
+- V1.1 fields: `BUILDING_UNIT_IDENTIFIER`, `MUNICIPAL_AUTHORITY_ID`, `TITLE_DOCUMENT_NUMBER`, `BORROWER_ADDRESS_SAME_AS_PROPERTY`, etc.
 
-## Link keys
-
-| Key | Example |
-|-----|---------|
-| `SUBMISSION_REFERENCE` | `ABC-HFC-PROP-2026-Q1-001` |
-| `MEMBER_PROPERTY_REFERENCE` | `ABC-COL-0001` … `ABC-COL-0075` |
-| `MEMBER_LOAN_ACCOUNT_NUMBER` | `ABC-HL-0001` … `ABC-HL-0075` |
-
-## Regeneration
+## Regenerate
 
 ```bash
-python "docs/property-bureau/ABC HFC Sample data/generate_sample_submission.py"
+cd "docs/property-bureau/ABC HFC Sample data"
+python generate_sample_submission.py
 ```
 
-## Submission reference
+Then refresh the master workbook:
 
-- **Reporting period end:** 2026-03-31  
-- **Submission date:** 2026-04-15  
-- **Contact:** collateral.data@abchfc.example.in
+```bash
+cd docs/property-bureau
+python build_master_workbook.py
+```
+
+## Legacy files (parent folder)
+
+Older multi-file CSVs (`01_FILE_HEADER.csv` … `ABC_HFC_PROPERTY_SUBMISSION_2026Q1_FULL.csv`) are **V1.0 format** — retained for reference only. Use **`data-submission/`** for V1.1.
+
+## Official standard
+
+[Property_Bureau_Member_Data_Submission_Standard_V1.1.xlsx](../Property_Bureau_Member_Data_Submission_Standard_V1.1.xlsx)

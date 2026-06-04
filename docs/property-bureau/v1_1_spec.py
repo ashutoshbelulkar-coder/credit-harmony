@@ -27,9 +27,9 @@ FIELDS_V11 = [
      "If supplied, bureau compares to received count (INFO on mismatch).", "", "75", "", "Demoted per FB-017.",
      "Critical Evaluation §5 VR-002", "N"),
 
-    ("SUBMISSION_CONTROL", "RECORD_TYPE", "Legacy combined-file record discriminator only.", "ENUM", "20", "C",
-     "Required only in legacy single CSV; not used in multi-file V1.1 primary format.", "RECORD_TYPE", "PROPERTY", "",
-     "Legacy format only.", "Critical Evaluation §2 P1", "N"),
+    ("SUBMISSION_CONTROL", "RECORD_TYPE", "Legacy sparse combined-file discriminator — omit in Option B dense file.", "ENUM", "20", "L",
+     "Not used in primary dense single-file submission.", "RECORD_TYPE", "", "",
+     "Deprecated; use dense PROPERTY_BUREAU_SUBMISSION.csv.", "V1.1 Option B primary", "N"),
 
     ("INSTITUTION_REFERENCE", "MEMBER_LOAN_ACCOUNT_NUMBER", "Member loan account number.", "STRING", "40", "Y",
      "Unique ACTIVE per institution per period.", "", "ABC-HL-0001", "", "",
@@ -432,15 +432,41 @@ MATCHING_SCORE = [
     ("CTS_NUMBER", 15), ("SURVEY_NUMBER", 15), ("TITLE_DOCUMENT_NUMBER", 15),
 ]
 
+# Option B — primary V1.1 format: one row per loan/collateral package (dense, non-sparse)
+DENSE_SINGLE_FILE_NAME = "PROPERTY_BUREAU_SUBMISSION.csv"
+
+DENSE_SINGLE_FILE_LAYOUT = [
+    (DENSE_SINGLE_FILE_NAME, "DENSE_SUBMISSION", "1..n", "One row per MEMBER_LOAN_ACCOUNT_NUMBER; all core fields populated on each row"),
+    ("OWNERSHIP_SUPPLEMENT.csv", "OWNERSHIP_SUPPLEMENT", "0..9 per property", "Additional owners when >1 owner; link MEMBER_PROPERTY_REFERENCE"),
+    ("CO_BORROWER_SUPPLEMENT.csv", "CO_BORROWER_SUPPLEMENT", "0..4 per loan", "Additional co-borrowers when >1; link MEMBER_LOAN_ACCOUNT_NUMBER"),
+]
+
 MULTI_FILE_LAYOUT = [
-    ("01_SUBMISSION_HEADER.csv", "FILE_HEADER", "1", "SUBMISSION_REFERENCE, MEMBER_INSTITUTION_CODE, REPORTING_PERIOD_END, SUBMISSION_TYPE, CONTACT_EMAIL, TOTAL_RECORD_COUNT"),
-    ("02_PROPERTY.csv", "PROPERTY", "1..n", "MEMBER_PROPERTY_REFERENCE + PROPERTY_CORE + PROPERTY_LOCATION + PROPERTY_IDENTIFIERS + PROPERTY_PHYSICAL + TITLE + GEOCODE + EXTENDED"),
+    ("01_SUBMISSION_HEADER.csv", "FILE_HEADER", "1", "Alternate: multi-file package for core-banking batch exports"),
+    ("02_PROPERTY.csv", "PROPERTY", "1..n", "MEMBER_PROPERTY_REFERENCE + property sections"),
     ("03_OWNERSHIP.csv", "OWNERSHIP", "1..10 per property", "MEMBER_PROPERTY_REFERENCE + OWNERSHIP fields"),
-    ("04_BORROWER.csv", "BORROWER", "1 per loan", "MEMBER_LOAN_ACCOUNT_NUMBER, MEMBER_PROPERTY_REFERENCE + BORROWER + BORROWER_ADDRESS"),
+    ("04_BORROWER.csv", "BORROWER", "1 per loan", "MEMBER_LOAN_ACCOUNT_NUMBER + BORROWER + BORROWER_ADDRESS"),
     ("05_CO_BORROWER.csv", "CO_BORROWER", "0..5", "MEMBER_LOAN_ACCOUNT_NUMBER + CO_BORROWER fields"),
     ("06_LOAN_ACCOUNT.csv", "LOAN_ACCOUNT", "1 per loan", "MEMBER_LOAN_ACCOUNT_NUMBER + LOAN fields"),
     ("07_MORTGAGE_CHARGE.csv", "MORTGAGE_CHARGE", "1..n", "MEMBER_LOAN_ACCOUNT_NUMBER + CHARGE fields"),
     ("08_VALUATION.csv", "VALUATION", "0..n", "MEMBER_PROPERTY_REFERENCE + VALUATION fields"),
     ("09_DOCUMENT_STATUS.csv", "DOCUMENT_STATUS", "0..1 per property", "MEMBER_PROPERTY_REFERENCE + DOCUMENT fields"),
-    ("LEGACY_COMBINED.csv", "ALL", "Optional", "RECORD_TYPE discriminator — secondary format only"),
 ]
+
+LEGACY_LAYOUT = [
+    ("LEGACY_RECORD_TYPE_COMBINED.csv", "LEGACY", "Deprecated", "Sparse multi-record single file with RECORD_TYPE column — do not use for new integrations"),
+]
+
+
+def dense_submission_column_order() -> list[str]:
+    """Column order for Option B dense single-file submission."""
+    priority = [
+        "SUBMISSION_REFERENCE", "MEMBER_INSTITUTION_CODE", "REPORTING_PERIOD_END", "SUBMISSION_TYPE",
+        "CONTACT_EMAIL", "TOTAL_RECORD_COUNT",
+        "MEMBER_LOAN_ACCOUNT_NUMBER", "MEMBER_PROPERTY_REFERENCE", "MEMBER_CUSTOMER_ID",
+    ]
+    skip = {"RECORD_TYPE"}
+    names = [f[1] for f in FIELDS_V11 if f[1] not in skip]
+    ordered = [n for n in priority if n in names]
+    ordered += [n for n in names if n not in ordered]
+    return ordered

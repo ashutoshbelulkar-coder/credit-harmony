@@ -12,26 +12,32 @@ from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
 from v1_1_spec import (
+    DENSE_SINGLE_FILE_LAYOUT,
+    DENSE_SINGLE_FILE_NAME,
     ENUMS_V11,
     FIELDS_V11,
     INDIAN_STATES,
+    LEGACY_LAYOUT,
     MATCHING_SCORE,
     MULTI_FILE_LAYOUT,
     REMOVED_FIELDS_V10,
     VALIDATIONS_V11,
     VERSION,
     PREVIOUS_VERSION,
+    dense_submission_column_order,
 )
 
 ROOT = Path(__file__).parent
 SPEC_DIR = ROOT / "member-data-submission-standard"
+SAMPLE_DIR = ROOT / "ABC HFC Sample data" / "data-submission"
 OUTPUT = ROOT / "Property_Bureau_Member_Data_Submission_Standard_V1.1.xlsx"
 
 HEADER_FILL = PatternFill("solid", fgColor="1F4E79")
 HEADER_FONT = Font(bold=True, color="FFFFFF")
 
 FEEDBACK_MATRIX = [
-    ("FB-001", "P1", "§2", "Flat-file RECORD_TYPE sparse design", "Accepted", "Multi-file CSV primary; legacy combined CSV secondary", "High", "High", "Low", "~40% ETL"),
+    ("FB-001", "P1", "§2", "Flat-file RECORD_TYPE sparse design", "Accepted", "Dense single-file primary (Option B); multi-file alternate", "High", "High", "Low", "~40% ETL"),
+    ("FB-045", "P1", "Option B", "Dense single-file for fintech", "Accepted", "PROPERTY_BUREAU_SUBMISSION.csv + supplements", "High", "High", "Low", "Simplest integration"),
     ("FB-002", "P1", "§2", "Remove PROPERTY_AGE_YEARS", "Accepted", "Bureau-derived", "None", "Low", "None", "1 field"),
     ("FB-003", "P1", "§2", "Remove DATA_AS_OF_DATE", "Accepted", "Use REPORTING_PERIOD_END", "None", "Low", "None", "1 field"),
     ("FB-004", "P1", "§2", "Remove DELIMITER/ENCODING/FILE_VERSION", "Accepted", "API/manifest metadata", "None", "Low", "None", "3 fields"),
@@ -107,7 +113,7 @@ def field_rows():
         if mand == "C":
             cond = val[:200] if val else "See Validation Rules"
         opt = "Y" if mand == "N" else "N"
-        mand_col = "Y" if mand == "Y" else ("N" if mand == "N" else "Conditional")
+        mand_col = "Y" if mand == "Y" else ("Legacy" if mand == "L" else ("Conditional" if mand == "C" else "N"))
         rows.append({
             "Field Category": cat,
             "Field Name": name,
@@ -204,19 +210,32 @@ def build_template():
     rows = []
     rows.append({"Section": "INDEX", "Item": "Standard", "Value": f"Property Bureau Member Data Submission Standard {VERSION}"})
     rows.append({"Section": "INDEX", "Item": "Supersedes", "Value": PREVIOUS_VERSION + " workbook and distributed CSVs"})
-    rows.append({"Section": "INDEX", "Item": "Primary format", "Value": "Multi-file CSV package (UTF-8 BOM)"})
-    rows.append({"Section": "INDEX", "Item": "Secondary format", "Value": "LEGACY_COMBINED.csv with RECORD_TYPE (deprecated)"})
-    rows.append({"Section": "INDEX", "Item": "API / JSON", "Value": "V2 roadmap — JSONL typed records recommended (FB-033)"})
+    rows.append({"Section": "INDEX", "Item": "Primary format (Option B)", "Value": f"Single dense CSV: {DENSE_SINGLE_FILE_NAME} — one row per loan account"})
+    rows.append({"Section": "INDEX", "Item": "Supplements", "Value": "OWNERSHIP_SUPPLEMENT.csv, CO_BORROWER_SUPPLEMENT.csv (when needed)"})
+    rows.append({"Section": "INDEX", "Item": "Alternate format", "Value": "Multi-file CSV package for core-banking batch exports"})
+    rows.append({"Section": "INDEX", "Item": "Deprecated", "Value": "RECORD_TYPE sparse combined file"})
+    rows.append({"Section": "INDEX", "Item": "API / JSON", "Value": "V2 roadmap — JSONL typed records (FB-033)"})
     rows.append({"Section": "INDEX", "Item": "ACK", "Value": "Bureau returns accepted/rejected/warning counts per Rule ID (FB-036)"})
     rows.append({"Section": "", "Item": "", "Value": ""})
 
-    rows.append({"Section": "MULTI_FILE", "Item": "File", "Value": "Record Type | Cardinality | Key columns"})
-    for layout in MULTI_FILE_LAYOUT:
+    rows.append({"Section": "DENSE_SINGLE_FILE", "Item": "File", "Value": "Record Type | Cardinality | Description"})
+    for layout in DENSE_SINGLE_FILE_LAYOUT:
         rows.append({
-            "Section": "MULTI_FILE",
+            "Section": "DENSE_SINGLE_FILE",
             "Item": layout[0],
             "Value": f"{layout[1]} | {layout[2]} | {layout[3]}",
         })
+    rows.append({"Section": "", "Item": "", "Value": ""})
+
+    rows.append({"Section": "MULTI_FILE_ALT", "Item": "File", "Value": "Alternate multi-file package"})
+    for layout in MULTI_FILE_LAYOUT:
+        rows.append({
+            "Section": "MULTI_FILE_ALT",
+            "Item": layout[0],
+            "Value": f"{layout[1]} | {layout[2]} | {layout[3]}",
+        })
+    for layout in LEGACY_LAYOUT:
+        rows.append({"Section": "LEGACY", "Item": layout[0], "Value": layout[3]})
     rows.append({"Section": "", "Item": "", "Value": ""})
 
     rows.append({"Section": "DERIVED", "Item": "Field", "Value": "Derivation logic"})
@@ -236,19 +255,34 @@ def build_template():
         rows.append({"Section": "DERIVED", "Item": name, "Value": logic})
 
     rows.append({"Section": "", "Item": "", "Value": ""})
-    rows.append({"Section": "COLUMN_ORDER", "Item": "#", "Value": "Field | Mandatory"})
-    for i, f in enumerate(FIELDS_V11, 1):
-        if f[1] == "RECORD_TYPE":
-            continue
-        rows.append({
-            "Section": "COLUMN_ORDER",
-            "Item": str(i),
-            "Value": f"{f[1]} | {f[5]}",
-        })
+    rows.append({"Section": "COLUMN_ORDER", "Item": "#", "Value": "Dense file column | Mandatory"})
+    cols = dense_submission_column_order()
+    for i, name in enumerate(cols, 1):
+        f = next((x for x in FIELDS_V11 if x[1] == name), None)
+        mand = f[5] if f else ""
+        rows.append({"Section": "COLUMN_ORDER", "Item": str(i), "Value": f"{name} | {mand}"})
     return rows
 
 
+def load_abc_dense_sample():
+    path = SAMPLE_DIR / DENSE_SINGLE_FILE_NAME
+    if not path.exists():
+        return [], []
+    rows = []
+    with path.open(encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        cols = reader.fieldnames or []
+        for row in reader:
+            rows.append(row)
+    return list(cols), rows
+
+
 def build_samples():
+    """Prefer ABC HFC dense sample; fallback to five demo scenarios."""
+    cols, abc_rows = load_abc_dense_sample()
+    if abc_rows:
+        return cols, abc_rows[:75]
+
     """Five full-scenario sample rows (one property package each)."""
     scenarios = [
         {
@@ -337,7 +371,7 @@ def build_samples():
 
 def build_change_log():
     return [
-        ("CL-001", VERSION, "FB-001..FB-040", "Multi-file primary submission format"),
+        ("CL-001", VERSION, "FB-001..FB-040", "Multi-file alternate; dense single-file primary (Option B)"),
         ("CL-002", VERSION, "FB-003,FB-021", "Removed 21 derivable/constant fields — see Removed Fields sheet note"),
         ("CL-003", VERSION, "FB-009,FB-011,FB-012", "Field consolidations (building, title, municipal)"),
         ("CL-004", VERSION, "FB-013,FB-037,FB-038", "Enum updates: ENTITY_TYPE, DOCUMENT SURRENDERED, CHARGE PENDING_REGISTRATION"),
@@ -346,6 +380,7 @@ def build_change_log():
         ("CL-007", VERSION, "FB-039", "Mandatory matrix merged into Field Specification"),
         ("CL-008", VERSION, "FB-033,FB-035,FB-036", "Architecture notes: API V2, split submission, ACK"),
         ("CL-009", VERSION, "FB-044", "Aadhaar integration deferred to V2"),
+        ("CL-010", VERSION, "FB-045 / Option B", "Dense single-file primary; ABC sample in data-submission/"),
     ]
 
 
@@ -387,7 +422,8 @@ def main():
         ["COMPLETENESS AUDIT", ""],
         ["All P1/P2 feedback implemented", "YES"],
         ["All P3/P4 feedback implemented", "YES except split property/loan mandatory (V1.2)"],
-        ["API-first primary format", "PARTIAL — documented V2; multi-file CSV V1.1"],
+        ["Primary submission format", f"Option B dense CSV ({DENSE_SINGLE_FILE_NAME})"],
+        ["API-first format", "PARTIAL — documented V2; multi-file CSV alternate"],
         ["Regulatory data preserved", "YES — no mandatory regulatory field removed"],
         ["Duplicate fields removed", "YES — 28 V1.0 fields retired"],
         ["Duplicate validation rules", "YES — deduplicated"],
@@ -434,8 +470,14 @@ def main():
     ]
     write_sheet(ws6, ftm_headers, [dict(zip(ftm_headers, row)) for row in FEEDBACK_MATRIX])
 
-    wb.save(OUTPUT)
-    print(f"Created {OUTPUT}")
+    try:
+        wb.save(OUTPUT)
+        out_path = OUTPUT
+    except PermissionError:
+        out_path = ROOT / "Property_Bureau_Member_Data_Submission_Standard_V1.1_generated.xlsx"
+        wb.save(out_path)
+        print(f"NOTE: Close open workbook to overwrite {OUTPUT.name}")
+    print(f"Created {out_path}")
     print(f"Fields: {len(FIELDS_V11)} | Removed from V1.0: {len(REMOVED_FIELDS_V10)} | Feedback items: {len(FEEDBACK_MATRIX)}")
 
 

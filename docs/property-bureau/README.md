@@ -12,8 +12,8 @@ Optimized per *Property_Bureau_Submission_Standard_Critical_Evaluation.docx* (Ju
 | Field Specification | 94 fields (incl. optional enrichment) — mandatory, conditional, derived, source lineage |
 | Enum Master | Consolidated enums incl. ENTITY_TYPE, MUNICIPAL_ID_TYPE |
 | Validation Rules | Deduplicated rules with severity (ERROR/WARNING/INFO) |
-| Member Submission Template | **Multi-file CSV** primary format + legacy combined |
-| Sample Submission Data | 5 scenarios: APARTMENT, PLOT, COMMERCIAL, AGRICULTURAL, VILLA |
+| Member Submission Template | **Option B:** dense `PROPERTY_BUREAU_SUBMISSION.csv` + supplements |
+| Sample Submission Data | ABC HFC 75-row dense sample (from `ABC HFC Sample data/data-submission/`) |
 | Feedback Traceability | 44 feedback items mapped to actions |
 
 ## Regenerate
@@ -28,7 +28,7 @@ Requires `openpyxl`.
 ## V1.1 highlights
 
 - **~12% fewer core fields** than V1.0 (107 → 94 incl. enrichment); **28 fields retired**
-- **Multi-file CSV** replaces sparse single-file as primary format
+- **Dense single-file CSV (Option B)** — one row per loan; multi-file is alternate
 - **21 fields removed** (derivable, constant, or redundant) — bureau computes at ingestion
 - **Borrower address** simplified (5 fields + same-as-property flag)
 - **Matching** uses score model (≥60) vs binary 3-CRITICAL rule
