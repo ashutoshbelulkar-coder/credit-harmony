@@ -1,0 +1,90 @@
+﻿Field Name,Field Category,MATCHING_IMPORTANCE,Mandatory (Y/N),Business Description,Validation Rules
+PROPERTY_TYPE,PROPERTY_IDENTIFICATION,HIGH,Y,High-level classification of the collateral property.,Must be one of PROPERTY_TYPE enum.
+PROPERTY_SUBTYPE,PROPERTY_IDENTIFICATION,HIGH,Y,Granular property classification.,Must be valid for PROPERTY_TYPE per crosswalk; see enum master.
+PROPERTY_DESCRIPTION,PROPERTY_IDENTIFICATION,MEDIUM,N,Free-text collateral description from loan file.,Printable ASCII and Unicode; no control characters.
+PROJECT_NAME,PROPERTY_IDENTIFICATION,CRITICAL,N,Registered project or township name.,"Required when PROPERTY_SUBTYPE in (APARTMENT,VILLA,ROW_HOUSE) and urban."
+BUILDING_NAME,PROPERTY_IDENTIFICATION,CRITICAL,N,Building / wing / tower name or number.,"Required when PROPERTY_SUBTYPE in (APARTMENT,OFFICE,SHOP)."
+TOWER_NAME,PROPERTY_IDENTIFICATION,HIGH,N,Tower or block identifier within project.,Alphanumeric and common separators.
+FLAT_NUMBER,PROPERTY_IDENTIFICATION,CRITICAL,N,Flat / unit / door number.,"Mandatory for APARTMENT, OFFICE, SHOP subtypes."
+FLOOR_NUMBER,PROPERTY_IDENTIFICATION,HIGH,N,Floor or level of unit.,Alphanumeric; G/UG/LG allowed.
+PLOT_NUMBER,PROPERTY_IDENTIFICATION,CRITICAL,N,Plot or survey subdivision number.,"Mandatory for PLOT, LAND, VILLA, ROW_HOUSE, WAREHOUSE, FACTORY when issued."
+SURVEY_NUMBER,PROPERTY_IDENTIFICATION,CRITICAL,N,Revenue survey / khasra / survey number.,Mandatory for non-urban PLOT/LAND/AGRICULTURAL; alphanumeric with / and -.
+CTS_NUMBER,PROPERTY_IDENTIFICATION,CRITICAL,N,City survey / CTS / block number (Maharashtra and equivalents).,Mandatory when property in CTS-governed municipal areas.
+KHATA_NUMBER,PROPERTY_IDENTIFICATION,CRITICAL,N,Municipal khata / assessment number.,State-specific format preserved as submitted.
+MUNICIPAL_PROPERTY_ID,PROPERTY_IDENTIFICATION,CRITICAL,N,Municipal corporation property ID / PID.,As printed on property tax bill.
+PROPERTY_TAX_NUMBER,PROPERTY_IDENTIFICATION,HIGH,N,Property tax assessment or PTIN.,Numeric or alphanumeric per ULB.
+REGISTRATION_NUMBER,PROPERTY_IDENTIFICATION,CRITICAL,N,Sub-registrar document registration number.,Format varies by state; preserve leading zeros.
+SALE_DEED_NUMBER,PROPERTY_IDENTIFICATION,CRITICAL,N,Sale deed / conveyance document number.,Pair with REGISTRATION_DATE for uniqueness.
+REGISTRATION_DATE,PROPERTY_IDENTIFICATION,HIGH,N,Date of property registration at sub-registrar.,ISO 8601; required if REGISTRATION_NUMBER populated.
+REGISTRAR_OFFICE,PROPERTY_IDENTIFICATION,MEDIUM,N,Sub-registrar office name or jurisdiction.,Free text; include district if known.
+OCCUPANCY_STATUS,PROPERTY_IDENTIFICATION,LOW,N,Current occupancy of collateral.,Must be one of OCCUPANCY_STATUS enum.
+CONSTRUCTION_STATUS,PROPERTY_IDENTIFICATION,MEDIUM,Y,Built-up versus under-construction status.,Must be one of CONSTRUCTION_STATUS enum.
+ADDRESS_LINE_1,PROPERTY_LOCATION,CRITICAL,Y,Primary address line (house/plot/street).,Minimum 10 characters after trim; no-only-punctuation.
+ADDRESS_LINE_2,PROPERTY_LOCATION,HIGH,N,Secondary address line.,Printable characters.
+LOCALITY,PROPERTY_LOCATION,CRITICAL,Y,Neighbourhood / area / village name.,Minimum 3 characters.
+LANDMARK,PROPERTY_LOCATION,MEDIUM,N,Nearby landmark for disambiguation.,
+CITY,PROPERTY_LOCATION,CRITICAL,Y,City or town name.,Letters and spaces; official name preferred.
+DISTRICT,PROPERTY_LOCATION,HIGH,Y,Administrative district.,Must align with STATE.
+STATE,PROPERTY_LOCATION,CRITICAL,Y,Indian state or UT code.,Must be one of INDIAN_STATE_UT enum (ISO-style 2–3 letter bureau codes).
+PINCODE,PROPERTY_LOCATION,CRITICAL,Y,India Post 6-digit PIN code.,Regex: ^[1-9][0-9]{5}$
+COUNTRY,PROPERTY_LOCATION,LOW,Y,Country of property.,Default IN; only IN supported in V1.
+LATITUDE,PROPERTY_LOCATION,MEDIUM,N,WGS84 latitude in decimal degrees.,Range -90 to 90; up to 8 decimal places.
+LONGITUDE,PROPERTY_LOCATION,MEDIUM,N,WGS84 longitude in decimal degrees.,Range -180 to 180; up to 8 decimal places.
+BUILT_UP_AREA,PROPERTY_PHYSICAL,MEDIUM,N,Carpet or built-up area numeric value.,Positive; > 0 when PROPERTY_SUBTYPE not LAND.
+LAND_AREA,PROPERTY_PHYSICAL,MEDIUM,N,Land area numeric value.,"Mandatory for PLOT, LAND, AGRICULTURAL subtypes."
+AREA_UNIT,PROPERTY_PHYSICAL,LOW,N,Unit of measure for area fields.,Required if BUILT_UP_AREA or LAND_AREA populated.
+NUMBER_OF_FLOORS,PROPERTY_PHYSICAL,LOW,N,Total floors in building.,1–200.
+YEAR_OF_CONSTRUCTION,PROPERTY_PHYSICAL,LOW,N,Year built or expected completion.,1900–current year + 5 for under construction.
+PROPERTY_AGE_YEARS,PROPERTY_PHYSICAL,LOW,N,Age in years at REPORTING_PERIOD_END.,0–150; may be derived by member.
+OWNER_SEQUENCE,PROPERTY_OWNERSHIP,HIGH,Y,Sequence for multiple owners on same property.,Starts at 1; unique per MEMBER_PROPERTY_REFERENCE.
+OWNER_NAME,PROPERTY_OWNERSHIP,CRITICAL,Y,Legal name of property owner as per title.,Minimum 3 characters; no numeric-only.
+OWNER_PAN,PROPERTY_OWNERSHIP,CRITICAL,N,Permanent Account Number of owner.,Regex: ^[A-Z]{5}[0-9]{4}[A-Z]$; required for INDIVIDUAL owners when available.
+OWNER_TYPE,PROPERTY_OWNERSHIP,HIGH,Y,Type of owning entity.,Must be one of BORROWER_TYPE enum.
+OWNERSHIP_PERCENT,PROPERTY_OWNERSHIP,HIGH,Y,Percentage ownership share.,0.01–100.00; sum per property must equal 100.00 ±0.01.
+OWNERSHIP_ROLE,PROPERTY_OWNERSHIP,MEDIUM,Y,Role of party on title.,Must be one of OWNERSHIP_ROLE enum.
+TITLE_DOCUMENT_TYPE,PROPERTY_OWNERSHIP,MEDIUM,N,Primary title document held.,Must be one of TITLE_DOCUMENT_TYPE enum.
+TITLE_DOCUMENT_DATE,PROPERTY_OWNERSHIP,MEDIUM,N,Date of primary title document.,ISO 8601.
+BORROWER_TYPE,BORROWER,HIGH,Y,Legal constitution of primary borrower.,Must be one of BORROWER_TYPE enum.
+BORROWER_NAME,BORROWER,CRITICAL,Y,Primary borrower legal name.,Minimum 3 characters.
+BORROWER_PAN,BORROWER,CRITICAL,N,PAN of primary borrower.,Regex: ^[A-Z]{5}[0-9]{4}[A-Z]$; mandatory for INDIVIDUAL.
+BORROWER_DATE_OF_BIRTH,BORROWER,MEDIUM,N,Date of birth for individual borrowers.,ISO 8601; age 18–100; required for INDIVIDUAL.
+BORROWER_MOBILE,BORROWER,LOW,N,Registered mobile (India).,Regex: ^[6-9][0-9]{9}$
+BORROWER_EMAIL,BORROWER,LOW,N,Registered email.,RFC 5322 simplified.
+CO_BORROWER_FLAG,BORROWER,LOW,N,Indicates co-borrowers reported in separate rows.,Y or N.
+CO_BORROWER_SEQUENCE,CO_BORROWER,MEDIUM,N,Sequence number of co-borrower.,Required when CO_BORROWER_FLAG=Y; unique per loan.
+CO_BORROWER_NAME,CO_BORROWER,HIGH,N,Co-borrower legal name.,Required when CO_BORROWER_SEQUENCE populated.
+CO_BORROWER_PAN,CO_BORROWER,HIGH,N,Co-borrower PAN.,PAN regex when populated.
+CO_BORROWER_RELATIONSHIP,CO_BORROWER,LOW,N,Relationship to primary borrower.,Must be one of RELATIONSHIP_TYPE enum.
+PRODUCT_TYPE,LOAN_ACCOUNT,LOW,Y,Member loan product category.,Must be one of LOAN_PRODUCT_TYPE enum.
+SANCTION_DATE,LOAN_ACCOUNT,LOW,Y,Loan sanction date.,ISO 8601; <= DISBURSEMENT_DATE.
+DISBURSEMENT_DATE,LOAN_ACCOUNT,LOW,N,First disbursement date.,ISO 8601; >= SANCTION_DATE.
+SANCTION_AMOUNT,LOAN_ACCOUNT,LOW,Y,Sanctioned loan amount in INR.,Positive; max 9999999999999999.99.
+CURRENT_OUTSTANDING,LOAN_ACCOUNT,LOW,Y,Principal outstanding as of REPORTING_PERIOD_END.,Non-negative; <= SANCTION_AMOUNT unless top-up.
+INTEREST_RATE,LOAN_ACCOUNT,LOW,N,Current annual interest rate percent.,0–100.
+ACCOUNT_STATUS,LOAN_ACCOUNT,LOW,Y,Lifecycle status of loan account.,Must be one of ACCOUNT_STATUS enum.
+ACCOUNT_STATUS_DATE,LOAN_ACCOUNT,LOW,Y,Effective date of current ACCOUNT_STATUS.,ISO 8601.
+TENURE_MONTHS,LOAN_ACCOUNT,LOW,N,Original tenure in months.,1–600.
+EMI_AMOUNT,LOAN_ACCOUNT,LOW,N,Current EMI amount in INR.,Non-negative.
+DPD,LOAN_ACCOUNT,LOW,N,Days past due on REPORTING_PERIOD_END.,0–9999.
+NPA_CLASSIFICATION,LOAN_ACCOUNT,LOW,N,Asset classification per RBI norms.,Must be one of NPA_CLASSIFICATION enum.
+CHARGE_SEQUENCE,MORTGAGE_CHARGE,LOW,Y,Sequence for multiple charges on same loan.,Starts at 1 per MEMBER_LOAN_ACCOUNT_NUMBER.
+CHARGE_TYPE,MORTGAGE_CHARGE,MEDIUM,Y,Type of mortgage charge created.,Must be one of CHARGE_TYPE enum.
+CHARGE_AMOUNT,MORTGAGE_CHARGE,LOW,Y,Amount secured by charge in INR.,Positive.
+CHARGE_REGISTRATION_DATE,MORTGAGE_CHARGE,MEDIUM,N,Date charge registered or documented.,ISO 8601; required for REGISTERED_MORTGAGE.
+CHARGE_REGISTRATION_NUMBER,MORTGAGE_CHARGE,HIGH,N,Registrar or member charge reference.,Required when CHARGE_TYPE=REGISTERED_MORTGAGE.
+CHARGE_STATUS,MORTGAGE_CHARGE,LOW,Y,Active or released status of charge.,Must be one of CHARGE_STATUS enum.
+CHARGE_RELEASE_DATE,MORTGAGE_CHARGE,LOW,N,Date charge was released.,Required when CHARGE_STATUS=RELEASED.
+PRIOR_CHARGE_EXISTS,MORTGAGE_CHARGE,MEDIUM,N,Whether prior charge exists from another lender.,Y or N.
+PRIOR_CHARGE_HOLDER_NAME,MORTGAGE_CHARGE,MEDIUM,N,Name of prior charge holder if known.,Required when PRIOR_CHARGE_EXISTS=Y.
+VALUATION_SEQUENCE,VALUATION,LOW,N,Sequence for multiple valuations.,Starts at 1; latest marked IS_LATEST_VALUATION=Y.
+VALUATION_DATE,VALUATION,LOW,N,Date of valuation.,ISO 8601; required if VALUATION_AMOUNT populated.
+VALUATION_AMOUNT,VALUATION,LOW,N,Market value in INR.,Positive.
+VALUATION_TYPE,VALUATION,LOW,N,Basis of valuation.,Must be one of VALUATION_TYPE enum.
+VALUATOR_NAME,VALUATION,LOW,N,Approved valuer or firm name.,
+IS_LATEST_VALUATION,VALUATION,LOW,N,Flags the current collateral valuation.,Exactly one Y per MEMBER_PROPERTY_REFERENCE.
+TITLE_DEED_AVAILABILITY,DOCUMENT_STATUS,LOW,N,Member custody status of title deed.,Must be one of DOCUMENT_AVAILABILITY enum.
+SALE_DEED_AVAILABILITY,DOCUMENT_STATUS,LOW,N,Sale deed availability.,DOCUMENT_AVAILABILITY enum.
+ENCUMBRANCE_CERTIFICATE_AVAILABILITY,DOCUMENT_STATUS,LOW,N,EC availability.,DOCUMENT_AVAILABILITY enum.
+OCCUPANCY_CERTIFICATE_AVAILABILITY,DOCUMENT_STATUS,LOW,N,OC availability for under-construction/completed.,DOCUMENT_AVAILABILITY enum.
+APPROVED_PLAN_AVAILABILITY,DOCUMENT_STATUS,LOW,N,Building plan approval availability.,DOCUMENT_AVAILABILITY enum.
+LAST_DOCUMENT_REVIEW_DATE,DOCUMENT_STATUS,LOW,N,Date member last reviewed collateral documents.,ISO 8601.

@@ -1,0 +1,10 @@
+﻿Record Type,Cardinality,Key Fields Included,Mandatory in V1,Notes
+FILE_HEADER,One row per file,"SUBMISSION_REFERENCE, MEMBER_INSTITUTION_CODE, REPORTING_PERIOD_END, SUBMISSION_DATE, SUBMISSION_TYPE, DATA_AS_OF_DATE, CONTACT_EMAIL, TOTAL_RECORD_COUNT",Y,First row; comma-delimited UTF-8 with BOM.
+PROPERTY,One row per collateral property,All PROPERTY_* and PROPERTY_LOCATION fields + INSTITUTION_REFERENCE.MEMBER_PROPERTY_REFERENCE,Y,Core property master.
+OWNERSHIP,One row per owner,"MEMBER_PROPERTY_REFERENCE, OWNER_* fields",Y,Up to 10 rows per property.
+BORROWER,One row per loan,"MEMBER_LOAN_ACCOUNT_NUMBER, MEMBER_PROPERTY_REFERENCE, BORROWER_*",Y,Primary borrower.
+CO_BORROWER,Optional rows,"MEMBER_LOAN_ACCOUNT_NUMBER, CO_BORROWER_*",N,Max 5 per loan.
+LOAN_ACCOUNT,One row per loan,"MEMBER_LOAN_ACCOUNT_NUMBER, LOAN_ACCOUNT_*",Y,Linked to property via MEMBER_PROPERTY_REFERENCE on BORROWER row.
+MORTGAGE_CHARGE,One or more per loan,"MEMBER_LOAN_ACCOUNT_NUMBER, MORTGAGE_CHARGE_*",Y,At least one charge for ACTIVE loans.
+VALUATION,Optional rows,"MEMBER_PROPERTY_REFERENCE, VALUATION_*",N,Recommended quarterly.
+DOCUMENT_STATUS,One row per property,"MEMBER_PROPERTY_REFERENCE, DOCUMENT_STATUS_*",N,Member document custody attestation.
