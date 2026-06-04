@@ -1,31 +1,44 @@
 # Property Bureau — Member Data Submission
 
-## Single source of truth
+## Single source of truth (V1.1)
 
-**[Property_Bureau_Member_Data_Submission_Standard_V1.0.xlsx](./Property_Bureau_Member_Data_Submission_Standard_V1.0.xlsx)**
+**[Property_Bureau_Member_Data_Submission_Standard_V1.1.xlsx](./Property_Bureau_Member_Data_Submission_Standard_V1.1.xlsx)**
 
-Official consolidated workbook for member institution onboarding and periodic collateral data submission. Contains all six required sheets:
+Optimized per *Property_Bureau_Submission_Standard_Critical_Evaluation.docx* (June 2026). Supersedes V1.0 workbook and all distributed CSV artifacts.
 
-| # | Sheet | Content |
-|---|--------|---------|
-| 1 | Field Specification | Master data dictionary (107 fields) with source lineage |
-| 2 | Enum Master | All enums + property type crosswalk + record types |
-| 3 | Validation Rules | File- and field-level rules with error messages |
-| 4 | Mandatory vs Optional Matrix | Mandatory, conditional, and optional flags |
-| 5 | Member Submission Template | V1 single-file CSV layout for Banks / HFCs / NBFCs |
-| 6 | Sample Submission Data | ABC HFC realistic sample (75 properties, all permutations) |
+| Sheet | Purpose |
+|-------|---------|
+| Standard Overview | Version, completeness audit, change log, removed fields |
+| Field Specification | 94 fields (incl. optional enrichment) — mandatory, conditional, derived, source lineage |
+| Enum Master | Consolidated enums incl. ENTITY_TYPE, MUNICIPAL_ID_TYPE |
+| Validation Rules | Deduplicated rules with severity (ERROR/WARNING/INFO) |
+| Member Submission Template | **Multi-file CSV** primary format + legacy combined |
+| Sample Submission Data | 5 scenarios: APARTMENT, PLOT, COMMERCIAL, AGRICULTURAL, VILLA |
+| Feedback Traceability | 44 feedback items mapped to actions |
 
-## Regenerate workbook
+## Regenerate
 
 ```bash
-python docs/property-bureau/build_master_workbook.py
+cd docs/property-bureau
+python build_master_workbook.py
 ```
 
-Requires `openpyxl`. Merges specification CSVs and ABC HFC sample data automatically.
+Requires `openpyxl`.
 
-## Superseded artifacts
+## V1.1 highlights
 
-The following folders contain **source/generator files only** — do not distribute CSVs to members; use the Excel workbook above:
+- **~12% fewer core fields** than V1.0 (107 → 94 incl. enrichment); **28 fields retired**
+- **Multi-file CSV** replaces sparse single-file as primary format
+- **21 fields removed** (derivable, constant, or redundant) — bureau computes at ingestion
+- **Borrower address** simplified (5 fields + same-as-property flag)
+- **Matching** uses score model (≥60) vs binary 3-CRITICAL rule
 
-- `member-data-submission-standard/` — spec generators and build inputs
-- `ABC HFC Sample data/` — sample generator and build inputs
+## Build inputs (not for distribution)
+
+- `v1_1_spec.py` — canonical V1.1 field/enum/validation definitions
+- `member-data-submission-standard/` — V1.0 CSV sources (see SUPERSEDED.md)
+- `ABC HFC Sample data/` — sample generator (see SUPERSEDED.md)
+
+## Superseded
+
+- `Property_Bureau_Member_Data_Submission_Standard_V1.0.xlsx` — retain for audit only

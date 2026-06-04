@@ -1,161 +1,80 @@
 """
-Build Property Bureau Member Data Submission Standard — single master Excel workbook.
-Run from repo root: python docs/property-bureau/build_master_workbook.py
+Build Property Bureau Member Data Submission Standard — single master Excel workbook (V1.1).
+Run: python docs/property-bureau/build_master_workbook.py
 """
 from __future__ import annotations
 
 import csv
-from collections import defaultdict
 from pathlib import Path
 
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Font, PatternFill
 from openpyxl.utils import get_column_letter
 
+from v1_1_spec import (
+    ENUMS_V11,
+    FIELDS_V11,
+    INDIAN_STATES,
+    MATCHING_SCORE,
+    MULTI_FILE_LAYOUT,
+    REMOVED_FIELDS_V10,
+    VALIDATIONS_V11,
+    VERSION,
+    PREVIOUS_VERSION,
+)
+
 ROOT = Path(__file__).parent
 SPEC_DIR = ROOT / "member-data-submission-standard"
-SAMPLE_DIR = ROOT / "ABC HFC Sample data"
-OUTPUT = ROOT / "Property_Bureau_Member_Data_Submission_Standard_V1.0.xlsx"
+OUTPUT = ROOT / "Property_Bureau_Member_Data_Submission_Standard_V1.1.xlsx"
 
 HEADER_FILL = PatternFill("solid", fgColor="1F4E79")
 HEADER_FONT = Font(bold=True, color="FFFFFF")
-SECTION_FILL = PatternFill("solid", fgColor="D9E2F3")
 
-# Extra fields from enterprise sample / template not in base CSV spec
-EXTRA_FIELDS = [
-    (
-        "SUBMISSION_CONTROL",
-        "RECORD_TYPE",
-        "Logical record type discriminator for multi-record flat file submissions.",
-        "ENUM",
-        "20",
-        "Y",
-        "Must be one of: FILE_HEADER, PROPERTY, OWNERSHIP, BORROWER, CO_BORROWER, LOAN_ACCOUNT, MORTGAGE_CHARGE, VALUATION, DOCUMENT_STATUS.",
-        "RECORD_TYPE",
-        "PROPERTY",
-        "First column in combined submission file.",
-        "",
-        "06_recommended_v1_submission_template.csv; ABC_HFC_PROPERTY_SUBMISSION_2026Q1_FULL.csv",
-    ),
-    (
-        "SUBMISSION_HEADER",
-        "MEMBER_INSTITUTION_NAME",
-        "Legal name of submitting member institution (display / audit).",
-        "STRING",
-        "200",
-        "N",
-        "Must match bureau institution master name when populated.",
-        "",
-        "ABC Housing Finance Company Limited",
-        "",
-        "",
-        "ABC_HFC Sample data/01_FILE_HEADER.csv",
-    ),
-    (
-        "SUBMISSION_HEADER",
-        "FILE_VERSION",
-        "Submission standard version referenced by member file.",
-        "STRING",
-        "10",
-        "N",
-        "Recommended value V1.0.",
-        "",
-        "V1.0",
-        "",
-        "",
-        "ABC_HFC Sample data/01_FILE_HEADER.csv",
-    ),
-    (
-        "SUBMISSION_HEADER",
-        "ENCODING",
-        "Character encoding of submission file.",
-        "STRING",
-        "10",
-        "N",
-        "UTF-8 required.",
-        "",
-        "UTF-8",
-        "",
-        "",
-        "ABC_HFC Sample data/01_FILE_HEADER.csv",
-    ),
-    (
-        "SUBMISSION_HEADER",
-        "DELIMITER",
-        "Field delimiter used in CSV submission.",
-        "STRING",
-        "10",
-        "N",
-        "COMMA or PIPE; COMMA default.",
-        "",
-        "COMMA",
-        "",
-        "",
-        "ABC_HFC Sample data/01_FILE_HEADER.csv",
-    ),
-]
-
-CONDITIONAL_MANDATORY = {
-    "MEMBER_CUSTOMER_ID": "Required when BORROWER_TYPE is not INDIVIDUAL.",
-    "SURVEY_NUMBER": "Required when PROPERTY_TYPE=AGRICULTURAL or PROPERTY_SUBTYPE in (PLOT,LAND). VR-014",
-    "FLAT_NUMBER": "Required when PROPERTY_SUBTYPE in (APARTMENT,OFFICE,SHOP). VR-015",
-    "PROJECT_NAME": "Required when PROPERTY_SUBTYPE in (APARTMENT,VILLA,ROW_HOUSE) in urban markets.",
-    "BUILDING_NAME": "Required when PROPERTY_SUBTYPE in (APARTMENT,OFFICE,SHOP).",
-    "CTS_NUMBER": "Required in CTS-governed municipal jurisdictions (e.g. Maharashtra).",
-    "REGISTRATION_NUMBER": "Required when SALE_DEED_NUMBER populated or state mandates. VR-013",
-    "REGISTRATION_DATE": "Required when REGISTRATION_NUMBER populated.",
-    "BORROWER_PAN": "Required when BORROWER_TYPE=INDIVIDUAL.",
-    "BORROWER_DATE_OF_BIRTH": "Required when BORROWER_TYPE=INDIVIDUAL.",
-    "OWNER_PAN": "Required for INDIVIDUAL owners when available.",
-    "LAND_AREA": "Required when PROPERTY_SUBTYPE in (PLOT,LAND) or PROPERTY_TYPE=AGRICULTURAL.",
-    "AREA_UNIT": "Required when BUILT_UP_AREA or LAND_AREA populated.",
-    "CHARGE_REGISTRATION_DATE": "Required when CHARGE_TYPE=REGISTERED_MORTGAGE.",
-    "CHARGE_REGISTRATION_NUMBER": "Required when CHARGE_TYPE=REGISTERED_MORTGAGE.",
-    "CHARGE_RELEASE_DATE": "Required when CHARGE_STATUS=RELEASED. VR-017",
-    "PRIOR_CHARGE_HOLDER_NAME": "Required when PRIOR_CHARGE_EXISTS=Y.",
-    "CO_BORROWER_SEQUENCE": "Required when CO_BORROWER_FLAG=Y.",
-    "CO_BORROWER_NAME": "Required when CO_BORROWER_SEQUENCE populated.",
-    "VALUATION_DATE": "Required when VALUATION_AMOUNT populated.",
-    "CURRENT_OUTSTANDING": "Must be 0 when ACCOUNT_STATUS in (CLOSED,SETTLED,WRITTEN_OFF). VR-012",
-}
-
-VR_FIELD_MAP = {
-    "SUBMISSION_REFERENCE": ("VR-001", "Duplicate submission reference within 24 months.", "SUBMISSION_REFERENCE 'ABC-HFC-PROP-2026-Q1-001' already submitted."),
-    "TOTAL_RECORD_COUNT": ("VR-002", "Record count does not match PROPERTY rows.", "Header shows 75 but file has 74 PROPERTY rows."),
-    "MEMBER_LOAN_ACCOUNT_NUMBER": ("VR-003", "Duplicate ACTIVE loan account in same period.", "ABC-HL-0001 appears twice as ACTIVE."),
-    "MEMBER_PROPERTY_REFERENCE": ("VR-004", "Property reference changed for same collateral.", "COL-88921 mapped to different address vs prior submission."),
-    "OWNER_PAN": ("VR-005,VR-009", "Duplicate owner or invalid PAN format.", "PAN ABCDE1234F invalid check digit."),
-    "OWNER_NAME": ("VR-005", "Duplicate owner sequence on property.", ""),
-    "OWNERSHIP_PERCENT": ("VR-006", "Ownership percentages do not sum to 100.", "70% + 20% = 90% for ABC-COL-0012."),
-    "PINCODE": ("VR-007", "Invalid PIN code format.", "PIN 0560102 fails regex (leading zero)."),
-    "BORROWER_PAN": ("VR-008", "Invalid borrower PAN format.", "bor1234aa not uppercase."),
-    "BORROWER_MOBILE": ("VR-010", "Invalid mobile number.", "5123456780 does not start with 6-9."),
-    "SANCTION_AMOUNT": ("VR-011", "Invalid amount format or precision.", "85,00,000.00 contains commas."),
-    "CURRENT_OUTSTANDING": ("VR-012", "Outstanding invalid for account status.", "CLOSED loan with outstanding 50000."),
-    "REGISTRATION_NUMBER": ("VR-013", "Registration number recommended/mandatory.", ""),
-    "SURVEY_NUMBER": ("VR-014", "Survey number required for plot/land/agricultural.", ""),
-    "FLAT_NUMBER": ("VR-015", "Flat number required for apartment/office/shop.", ""),
-    "IS_LATEST_VALUATION": ("VR-016", "Multiple or zero latest valuations.", "Two rows with IS_LATEST_VALUATION=Y."),
-    "CHARGE_RELEASE_DATE": ("VR-017", "Release date missing or before registration.", ""),
-    "REPORTING_PERIOD_END": ("VR-018", "Invalid date format.", "31/03/2026 not ISO format."),
-    "SUBMISSION_DATE": ("VR-018", "Invalid date format.", ""),
-    "PROPERTY_SUBTYPE": ("VR-019", "Subtype not allowed for property type.", "FACTORY not valid for RESIDENTIAL."),
-    "ADDRESS_LINE_1": ("VR-020", "Insufficient CRITICAL matching fields.", "Only 2 CRITICAL identifiers populated."),
-    "LOCALITY": ("VR-020", "Insufficient CRITICAL matching fields.", ""),
-    "CITY": ("VR-020", "Insufficient CRITICAL matching fields.", ""),
-    "PINCODE": ("VR-020", "Insufficient CRITICAL matching fields.", ""),
-    "PROJECT_NAME": ("VR-020", "Insufficient CRITICAL matching fields.", ""),
-}
-
-DOMAIN_COVERAGE = [
-    ("Matching", "ADDRESS_LINE_1, LOCALITY, CITY, STATE, PINCODE, PROJECT_NAME, BUILDING_NAME, FLAT_NUMBER, SURVEY_NUMBER, CTS_NUMBER, KHATA_NUMBER, MUNICIPAL_PROPERTY_ID, REGISTRATION_NUMBER, SALE_DEED_NUMBER, OWNER_NAME, OWNER_PAN, BORROWER_NAME, BORROWER_PAN"),
-    ("Ownership", "OWNER_SEQUENCE, OWNER_NAME, OWNER_PAN, OWNER_TYPE, OWNERSHIP_PERCENT, OWNERSHIP_ROLE, TITLE_DOCUMENT_TYPE, TITLE_DOCUMENT_DATE"),
-    ("Mortgage / Charge", "CHARGE_SEQUENCE, CHARGE_TYPE, CHARGE_AMOUNT, CHARGE_REGISTRATION_DATE, CHARGE_REGISTRATION_NUMBER, CHARGE_STATUS, PRIOR_CHARGE_EXISTS"),
-    ("Loan Account", "PRODUCT_TYPE, SANCTION_DATE, SANCTION_AMOUNT, CURRENT_OUTSTANDING, ACCOUNT_STATUS, NPA_CLASSIFICATION, DPD"),
-    ("Valuation", "VALUATION_SEQUENCE, VALUATION_DATE, VALUATION_AMOUNT, VALUATION_TYPE, VALUATOR_NAME, IS_LATEST_VALUATION"),
-    ("Registration / Legal", "REGISTRATION_NUMBER, SALE_DEED_NUMBER, REGISTRATION_DATE, REGISTRAR_OFFICE, TITLE_DOCUMENT_TYPE"),
-    ("Document Custody", "TITLE_DEED_AVAILABILITY, SALE_DEED_AVAILABILITY, ENCUMBRANCE_CERTIFICATE_AVAILABILITY, OCCUPANCY_CERTIFICATE_AVAILABILITY, APPROVED_PLAN_AVAILABILITY"),
-    ("Borrower", "BORROWER_TYPE, BORROWER_NAME, BORROWER_PAN, CO_BORROWER_*"),
+FEEDBACK_MATRIX = [
+    ("FB-001", "P1", "§2", "Flat-file RECORD_TYPE sparse design", "Accepted", "Multi-file CSV primary; legacy combined CSV secondary", "High", "High", "Low", "~40% ETL"),
+    ("FB-002", "P1", "§2", "Remove PROPERTY_AGE_YEARS", "Accepted", "Bureau-derived", "None", "Low", "None", "1 field"),
+    ("FB-003", "P1", "§2", "Remove DATA_AS_OF_DATE", "Accepted", "Use REPORTING_PERIOD_END", "None", "Low", "None", "1 field"),
+    ("FB-004", "P1", "§2", "Remove DELIMITER/ENCODING/FILE_VERSION", "Accepted", "API/manifest metadata", "None", "Low", "None", "3 fields"),
+    ("FB-005", "P1", "§2", "Remove SUBMISSION_DATE", "Accepted", "Ingestion timestamp", "None", "Low", "None", "1 field"),
+    ("FB-006", "P1", "§2", "Remove MEMBER_INSTITUTION_NAME", "Accepted", "Master lookup", "None", "Low", "None", "1 field"),
+    ("FB-007", "P1", "§2", "Remove COUNTRY fields", "Accepted", "Default IN", "None", "None", "None", "2 fields"),
+    ("FB-008", "P1", "§3", "Remove BORROWER_COUNTRY", "Accepted", "Duplicate of FB-007", "None", "None", "None", ""),
+    ("FB-009", "P2", "§2", "Consolidate BUILDING+TOWER", "Accepted", "BUILDING_UNIT_IDENTIFIER", "Low", "Med", "Low", "1-2 fields"),
+    ("FB-010", "P2", "§2", "Remove REGISTRAR_OFFICE", "Accepted", "Extended optional removed from core", "None", "Low", "None", "1 field"),
+    ("FB-011", "P2", "§2", "Remove PROPERTY_DESCRIPTION mandatory", "Accepted", "EXTENDED_OPTIONAL", "None", "Med", "None", "Payload"),
+    ("FB-012", "P2", "§2", "Remove CO_BORROWER_FLAG", "Accepted", "Infer from rows", "Med", "Med", "Low", "1 field"),
+    ("FB-013", "P2", "§6.3", "Rename BORROWER_TYPE to ENTITY_TYPE", "Accepted", "Enum rename", "None", "Low", "None", "Clarity"),
+    ("FB-014", "P2", "§2", "Remove NPA_CLASSIFICATION", "Accepted", "Derive from DPD", "High", "Med", "Reg align", "1 field"),
+    ("FB-015", "P2", "§2", "TOTAL_RECORD_COUNT optional", "Accepted", "VR-002 INFO", "None", "High", "None", "Failures↓"),
+    ("FB-016", "P3", "§4", "Consolidate title fields", "Accepted", "TITLE_DOCUMENT_* (3)", "Med", "Med", "Low", "2 fields"),
+    ("FB-017", "P3", "§4", "Consolidate municipal IDs", "Accepted", "MUNICIPAL_AUTHORITY_ID+TYPE", "Med", "High", "Low", "2 fields"),
+    ("FB-018", "P3", "§3", "Remove LAST_DOCUMENT_REVIEW_DATE", "Accepted", "Removed", "None", "Low", "None", "1 field"),
+    ("FB-019", "P3", "§2", "Simplify borrower address", "Accepted", "5 fields + flag", "Med", "High", "Low", "5-7 fields"),
+    ("FB-020", "P3", "§2", "Remove IS_LATEST_VALUATION", "Accepted", "max date", "None", "Med", "None", "1 field"),
+    ("FB-021", "P3", "§2", "Remove EMI_AMOUNT", "Accepted", "Bureau derived", "None", "Med", "None", "1 field"),
+    ("FB-022", "P3", "§2", "CHARGE_AMOUNT default", "Accepted", "Default SANCTION_AMOUNT", "None", "Med", "None", "Conditional"),
+    ("FB-023", "P4", "§2", "Remove BRANCH/REGION core", "Accepted", "EXTENDED_OPTIONAL", "None", "Low", "None", "2 fields"),
+    ("FB-024", "P4", "§2", "Remove PRIOR_CHARGE_EXISTS", "Accepted", "Infer from name", "None", "Low", "None", "1 field"),
+    ("FB-025", "P4", "§6.3", "OCCUPANCY UNDER_CONSTRUCTION", "Accepted", "Removed from enum", "Low", "Low", "None", ""),
+    ("FB-026", "P1", "§5", "VR-002 non-blocking", "Accepted", "INFO severity", "None", "High", "None", ""),
+    ("FB-027", "P1", "§5", "VR-006 tolerance ±1.00", "Accepted", "WARNING band", "Low", "Med", "None", ""),
+    ("FB-028", "P1", "§5", "Deduplicate validations", "Accepted", "Single row per Rule ID", "None", "Med", "None", ""),
+    ("FB-029", "P1", "§5", "VR-020 scoring model", "Accepted", "Score >= 60", "Med", "Med", "None", ""),
+    ("FB-030", "P1", "§5", "TOP_UP flag", "Accepted", "New field", "Med", "Med", "None", ""),
+    ("FB-031", "P1", "§5", "VR-NEW-01/02/03", "Accepted", "Added", "Med", "Low", "None", ""),
+    ("FB-032", "P1", "§5", "PAN checksum WARNING", "Accepted", "VR-008B", "None", "Med", "None", ""),
+    ("FB-033", "P1", "§7.1", "API-first JSON", "Partially Accepted", "V2 roadmap; CSV multi-file V1.1", "High", "High", "None", "Documented"),
+    ("FB-034", "P1", "§7.2", "PINCODE derive DISTRICT", "Partially Accepted", "DISTRICT optional", "Low", "Med", "None", ""),
+    ("FB-035", "P1", "§7.3", "Split property vs loan files", "Partially Accepted", "Recommended pattern in template", "Med", "Med", "None", "V1.2"),
+    ("FB-036", "P1", "§7.4", "ACK standard", "Partially Accepted", "Documented in template", "Med", "Med", "None", "Future API"),
+    ("FB-037", "P1", "§6.3", "DOCUMENT SURRENDERED", "Accepted", "New enum value", "Low", "Low", "None", ""),
+    ("FB-038", "P1", "§6.3", "CHARGE PENDING_REGISTRATION", "Accepted", "New enum value", "Low", "Low", "None", ""),
+    ("FB-039", "P1", "§6.2", "Remove Mandatory Matrix sheet", "Accepted", "Merged into Field Spec", "None", "Low", "None", "1 sheet"),
+    ("FB-040", "P1", "§6.2", "Sample 5 permutations", "Accepted", "Sample sheet scenarios", "None", "Low", "None", ""),
+    ("FB-041", "P1", "§4", "Borrower address (prior ask)", "Accepted", "BORROWER_ADDRESS block", "Med", "Med", "KYC", "6 fields"),
+    ("FB-042", "P1", "§8.1", "CTS optional not conditional", "Accepted", "Optional identifier", "None", "High", "None", ""),
+    ("FB-043", "P1", "§8.1", "DEFAULT_EQUAL ownership", "Accepted", "VR-006 note", "Low", "Med", "None", ""),
+    ("FB-044", "P1", "§7.5", "Aadhaar V2", "Rejected", "Deferred V2; consent/regulatory", "N/A", "N/A", "Reg", "Out of V1.1 scope"),
 ]
 
 
@@ -173,345 +92,351 @@ def style_header(ws, row=1):
         cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
 
 
-def auto_width(ws, max_width=48):
+def auto_width(ws, max_width=52):
     for col in ws.columns:
         letter = get_column_letter(col[0].column)
         length = max(len(str(c.value or "")) for c in col)
         ws.column_dimensions[letter].width = min(max(length + 2, 12), max_width)
 
 
-def load_field_spec() -> list[dict]:
+def field_rows():
     rows = []
-    sources = [
-        ("02_field_specification.csv", SPEC_DIR / "02_field_specification.csv"),
-        ("01_complete_data_dictionary.csv", SPEC_DIR / "01_complete_data_dictionary.csv"),
-    ]
-    seen = set()
-    primary = read_csv(SPEC_DIR / "02_field_specification.csv")
-    for r in primary:
-        name = r["Field Name"]
-        if name in seen:
-            continue
-        seen.add(name)
-        src = "02_field_specification.csv; 01_complete_data_dictionary.csv"
-        if (SPEC_DIR / "07_property_matching_fields_priority.csv").exists():
-            match_rows = read_csv(SPEC_DIR / "07_property_matching_fields_priority.csv")
-            for m in match_rows:
-                if m.get("Field Name") == name and m.get("MATCHING_IMPORTANCE"):
-                    r["MATCHING_IMPORTANCE"] = m["MATCHING_IMPORTANCE"]
-        sample_vals = read_csv(SPEC_DIR / "08_sample_record_values.csv")
-        for s in sample_vals:
-            if s.get("Field Name") == name and s.get("Sample Value"):
-                if not r.get("Sample Value"):
-                    r["Sample Value"] = s["Sample Value"]
+    for f in FIELDS_V11:
+        cat, name, desc, dtype, ln, mand, val, enum, sample, match, remarks, src, derived = f
+        cond = ""
+        if mand == "C":
+            cond = val[:200] if val else "See Validation Rules"
+        opt = "Y" if mand == "N" else "N"
+        mand_col = "Y" if mand == "Y" else ("N" if mand == "N" else "Conditional")
         rows.append({
-            "Field Category": r["Field Category"],
+            "Field Category": cat,
             "Field Name": name,
-            "Description": r["Business Description"],
-            "Data Type": r["Data Type"],
-            "Length": r["Maximum Length"],
-            "Mandatory (Y/N)": r["Mandatory (Y/N)"],
-            "Validation Rule": r["Validation Rules"],
-            "Enum Reference": r.get("Allowed Values / Enum Values", ""),
-            "Matching Importance": r.get("MATCHING_IMPORTANCE", ""),
-            "Sample Value": r.get("Sample Value", ""),
-            "Remarks": r.get("Remarks", ""),
-            "Source Reference": src + "; generate_spec.py",
+            "Description": desc,
+            "Data Type": dtype,
+            "Length": ln,
+            "Mandatory (Y/N)": mand_col,
+            "Conditional Mandatory": cond if mand == "C" else "",
+            "Optional": opt if mand != "Y" else "N",
+            "Validation Rule": val,
+            "Enum Reference": enum,
+            "Matching Importance": match,
+            "Sample Value": sample,
+            "Derived by Bureau (Y/N)": derived,
+            "Remarks": remarks,
+            "Source Reference": src,
         })
-
-    order = read_csv(SPEC_DIR / "06b_v1_flat_file_column_order.csv")
-    order_names = [r["Field Name"] for r in order]
-
-    for extra in EXTRA_FIELDS:
-        cat, name, desc, dtype, ln, mand, val, enum, sample, remarks, match, src = extra
-        if name not in seen:
-            seen.add(name)
-            rows.append({
-                "Field Category": cat,
-                "Field Name": name,
-                "Description": desc,
-                "Data Type": dtype,
-                "Length": ln,
-                "Mandatory (Y/N)": mand,
-                "Validation Rule": val,
-                "Enum Reference": enum,
-                "Matching Importance": match,
-                "Sample Value": sample,
-                "Remarks": remarks,
-                "Source Reference": src,
-            })
-
-    cat_order = [
-        "SUBMISSION_CONTROL", "SUBMISSION_HEADER", "INSTITUTION_REFERENCE",
-        "PROPERTY_IDENTIFICATION", "PROPERTY_LOCATION", "PROPERTY_PHYSICAL",
-        "PROPERTY_OWNERSHIP", "BORROWER", "CO_BORROWER", "LOAN_ACCOUNT",
-        "MORTGAGE_CHARGE", "VALUATION", "DOCUMENT_STATUS",
-    ]
-    cat_rank = {c: i for i, c in enumerate(cat_order)}
-    name_rank = {n: i for i, n in enumerate(order_names)}
-
-    rows.sort(key=lambda x: (cat_rank.get(x["Field Category"], 99), name_rank.get(x["Field Name"], 999), x["Field Name"]))
     return rows
 
 
-def build_enum_master() -> list[dict]:
-    enums = read_csv(SPEC_DIR / "03_enum_master.csv")
-    out = []
-    grouped = defaultdict(list)
-    for e in enums:
-        code = e["Enum Code"]
-        grouped[code].append(e)
+def load_full_states():
+    rows = []
+    path = SPEC_DIR / "03_enum_master.csv"
+    for e in read_csv(path):
+        if e.get("Enum Code") == "INDIAN_STATE_UT":
+            rows.append((e["Enum Code"], e["Enum Value"], e["Description"], e.get("Sort Order", "")))
+    return rows or [(a, b, c, "") for a, b, c in INDIAN_STATES]
 
-    for code in sorted(grouped.keys()):
-        for item in grouped[code]:
-            out.append({
-                "Enum Name": code,
-                "Allowed Values": item["Enum Value"],
-                "Description": item["Description"],
-                "Sort Order": item.get("Sort Order", ""),
-                "Source Reference": "03_enum_master.csv",
+
+def build_enums():
+    rows = []
+    for e in ENUMS_V11:
+        rows.append({
+            "Enum Name": e[0],
+            "Allowed Values": e[1],
+            "Description": e[2],
+            "Sort Order": e[3],
+            "Source Reference": "v1_1_spec.py; Critical Evaluation §6.3",
+        })
+    for e in load_full_states():
+        if not any(r["Enum Name"] == "INDIAN_STATE_UT" and r["Allowed Values"] == e[1] for r in rows):
+            rows.append({
+                "Enum Name": e[0], "Allowed Values": e[1], "Description": e[2],
+                "Sort Order": e[3], "Source Reference": "03_enum_master.csv",
             })
-
     cross = read_csv(SPEC_DIR / "03b_enum_property_subtype_crosswalk.csv")
     for c in cross:
-        out.append({
+        rows.append({
             "Enum Name": "PROPERTY_TYPE_SUBTYPE_CROSSWALK",
             "Allowed Values": f"{c['PROPERTY_TYPE']}:{c['Allowed PROPERTY_SUBTYPE']}",
-            "Description": "Valid property type and subtype combination",
+            "Description": "Valid type pair",
             "Sort Order": "",
             "Source Reference": "03b_enum_property_subtype_crosswalk.csv",
         })
-
-    rec_types = [
-        "FILE_HEADER", "PROPERTY", "OWNERSHIP", "BORROWER", "CO_BORROWER",
-        "LOAN_ACCOUNT", "MORTGAGE_CHARGE", "VALUATION", "DOCUMENT_STATUS",
-    ]
-    for i, rt in enumerate(rec_types, 1):
-        out.append({
-            "Enum Name": "RECORD_TYPE",
-            "Allowed Values": rt,
-            "Description": f"V1 logical record type ({rt})",
-            "Sort Order": str(i),
-            "Source Reference": "06_recommended_v1_submission_template.csv",
-        })
-    return out
+    return rows
 
 
-def build_validation_rules(fields: list[dict]) -> list[dict]:
-    rules = []
-    file_rules = read_csv(SPEC_DIR / "04_validation_rules.csv")
-    for fr in file_rules:
-        flds = fr["Field(s)"].replace(" + ", ",").split(",")
-        for fld in flds:
-            fld = fld.strip()
-            rules.append({
-                "Field Name": fld,
-                "Validation Rule": f"[{fr['Rule ID']}] {fr['Rule Definition']}",
-                "Error Message": f"{fr['Severity']}: {fr['Rule Name']}",
-                "Example": VR_FIELD_MAP.get(fld, ("", "", ""))[2] or fr.get("Remediation", ""),
-                "Rule ID": fr["Rule ID"],
-                "Source Reference": "04_validation_rules.csv",
-            })
-
-    for f in fields:
-        name = f["Field Name"]
-        if f["Validation Rule"] and not any(r["Field Name"] == name and f["Validation Rule"] in r["Validation Rule"] for r in rules):
-            err = VR_FIELD_MAP.get(name, ("", f["Validation Rule"], ""))[1] or f"Validation failed for {name}."
-            rules.append({
-                "Field Name": name,
-                "Validation Rule": f"Field-level: {f['Validation Rule']}",
-                "Error Message": err,
-                "Example": VR_FIELD_MAP.get(name, ("", "", ""))[2] or f.get("Sample Value", ""),
-                "Rule ID": VR_FIELD_MAP.get(name, ("", "", ""))[0] or "",
-                "Source Reference": "02_field_specification.csv",
-            })
-
-    seen = set()
-    deduped = []
-    for r in rules:
-        key = (r["Field Name"], r["Validation Rule"][:80])
-        if key not in seen:
-            seen.add(key)
-            deduped.append(r)
-    deduped.sort(key=lambda x: (x["Field Name"], x.get("Rule ID", "")))
-    return deduped
-
-
-def build_mandatory_matrix(fields: list[dict]) -> list[dict]:
-    out = []
-    for f in fields:
-        name = f["Field Name"]
-        mand = f["Mandatory (Y/N)"]
-        cond = CONDITIONAL_MANDATORY.get(name, "")
-        optional = "Y" if mand == "N" and not cond else "N"
-        mandatory = "Y" if mand == "Y" else "N"
-        conditional = "Y" if cond else "N"
-        if mand == "Y":
-            optional = "N"
-        out.append({
-            "Field Name": name,
-            "Field Category": f["Field Category"],
-            "Mandatory": mandatory,
-            "Conditional Mandatory": conditional,
-            "Conditional Rule": cond,
-            "Optional": optional,
-            "Source Reference": "05_mandatory_optional_matrix.csv; 02_field_specification.csv",
-        })
-    return out
-
-
-def build_submission_template(fields: list[dict]) -> list[dict]:
-    """Member-facing single-file column template."""
+def build_validations():
     rows = []
-    rows.append({"Section": "STANDARD", "Item": "Standard Name", "Value": "Property Bureau Member Data Submission Standard", "Source Reference": "README.md"})
-    rows.append({"Section": "STANDARD", "Item": "Version", "Value": "V1.0", "Source Reference": ""})
-    rows.append({"Section": "STANDARD", "Item": "File Format", "Value": "CSV UTF-8 with BOM; comma-delimited; RECORD_TYPE as first column", "Source Reference": "ABC_HFC Sample data"})
-    rows.append({"Section": "STANDARD", "Item": "Submission Types", "Value": "FULL | DELTA | REFRESH", "Source Reference": "03_enum_master.csv"})
-    rows.append({"Section": "STANDARD", "Item": "Link Keys", "Value": "MEMBER_INSTITUTION_CODE + MEMBER_PROPERTY_REFERENCE + MEMBER_LOAN_ACCOUNT_NUMBER + SUBMISSION_REFERENCE", "Source Reference": ""})
-    rows.append({"Section": "", "Item": "", "Value": "", "Source Reference": ""})
-
-    template_meta = read_csv(SPEC_DIR / "06_recommended_v1_submission_template.csv")
-    for t in template_meta:
+    for v in VALIDATIONS_V11:
+        rid, field, sev, rule, err, ex = v
         rows.append({
-            "Section": "RECORD_LAYOUT",
-            "Item": t["Record Type"],
-            "Value": f"{t['Cardinality']} | Mandatory: {t['Mandatory in V1']} | {t['Notes']}",
-            "Source Reference": "06_recommended_v1_submission_template.csv",
+            "Field Name": field,
+            "Rule ID": rid,
+            "Severity": sev,
+            "Validation Rule": rule,
+            "Error Message": err,
+            "Example": ex,
+            "Source Reference": "Critical Evaluation §5; v1_1_spec.py",
         })
-    rows.append({"Section": "", "Item": "", "Value": "", "Source Reference": ""})
-
-    order = read_csv(SPEC_DIR / "06b_v1_flat_file_column_order.csv")
-    order_names = ["RECORD_TYPE"] + [r["Field Name"] for r in order if r["Field Name"] != "RECORD_TYPE"]
-    field_by_name = {f["Field Name"]: f for f in fields}
-
-    rows.append({"Section": "COLUMN_ORDER", "Item": "Column #", "Value": "Field Name | Category | Mandatory | Enum", "Source Reference": "06b_v1_flat_file_column_order.csv"})
-    for i, name in enumerate(order_names, 1):
-        f = field_by_name.get(name, {})
+    rows.append({
+        "Field Name": "MATCHING_SCORE",
+        "Rule ID": "VR-020",
+        "Severity": "WARNING",
+        "Validation Rule": "Sum of populated matching field scores must be >= 60.",
+        "Error Message": "Property matching score below threshold.",
+        "Example": "PINCODE+LOCALITY+CITY only = 55",
+        "Source Reference": "Critical Evaluation §5",
+    })
+    for name, score in MATCHING_SCORE:
         rows.append({
-            "Section": "COLUMN_ORDER",
-            "Item": str(i),
-            "Value": f"{name} | {f.get('Field Category', '')} | {f.get('Mandatory (Y/N)', '')} | {f.get('Enum Reference', '')}",
-            "Source Reference": "06b_v1_flat_file_column_order.csv; 02_field_specification.csv",
+            "Field Name": name,
+            "Rule ID": "VR-020-SCORE",
+            "Severity": "INFO",
+            "Validation Rule": f"Contributes {score} points to matching score when populated.",
+            "Error Message": "",
+            "Example": "",
+            "Source Reference": "VR-020 scoring model",
         })
     return rows
 
 
-def load_sample_data() -> tuple[list[str], list[dict]]:
-    path = SAMPLE_DIR / "ABC_HFC_PROPERTY_SUBMISSION_2026Q1_FULL.csv"
-    rows = read_csv(path)
-    if not rows:
-        return [], []
-    columns = list(rows[0].keys())
-    # Stable column order: RECORD_TYPE first, then rest sorted but keep logical groups
-    priority = ["RECORD_TYPE", "SUBMISSION_REFERENCE", "MEMBER_INSTITUTION_CODE", "MEMBER_PROPERTY_REFERENCE", "MEMBER_LOAN_ACCOUNT_NUMBER"]
-    rest = [c for c in columns if c not in priority]
-    columns = [c for c in priority if c in columns] + sorted(rest)
-    return columns, rows
+def build_template():
+    rows = []
+    rows.append({"Section": "INDEX", "Item": "Standard", "Value": f"Property Bureau Member Data Submission Standard {VERSION}"})
+    rows.append({"Section": "INDEX", "Item": "Supersedes", "Value": PREVIOUS_VERSION + " workbook and distributed CSVs"})
+    rows.append({"Section": "INDEX", "Item": "Primary format", "Value": "Multi-file CSV package (UTF-8 BOM)"})
+    rows.append({"Section": "INDEX", "Item": "Secondary format", "Value": "LEGACY_COMBINED.csv with RECORD_TYPE (deprecated)"})
+    rows.append({"Section": "INDEX", "Item": "API / JSON", "Value": "V2 roadmap — JSONL typed records recommended (FB-033)"})
+    rows.append({"Section": "INDEX", "Item": "ACK", "Value": "Bureau returns accepted/rejected/warning counts per Rule ID (FB-036)"})
+    rows.append({"Section": "", "Item": "", "Value": ""})
+
+    rows.append({"Section": "MULTI_FILE", "Item": "File", "Value": "Record Type | Cardinality | Key columns"})
+    for layout in MULTI_FILE_LAYOUT:
+        rows.append({
+            "Section": "MULTI_FILE",
+            "Item": layout[0],
+            "Value": f"{layout[1]} | {layout[2]} | {layout[3]}",
+        })
+    rows.append({"Section": "", "Item": "", "Value": ""})
+
+    rows.append({"Section": "DERIVED", "Item": "Field", "Value": "Derivation logic"})
+    derived = [
+        ("SUBMISSION_TIMESTAMP", "Server time at ingestion (replaces SUBMISSION_DATE)"),
+        ("PROPERTY_AGE_YEARS", "REPORTING_PERIOD_END.year - YEAR_OF_CONSTRUCTION"),
+        ("NPA_CLASSIFICATION", "From DPD per RBI norms"),
+        ("EMI_AMOUNT", "Amortization from SANCTION_AMOUNT, INTEREST_RATE, TENURE_MONTHS"),
+        ("IS_LATEST_VALUATION", "max(VALUATION_DATE) per MEMBER_PROPERTY_REFERENCE"),
+        ("CHARGE_AMOUNT", "Defaults to SANCTION_AMOUNT if blank"),
+        ("COUNTRY", "IN for all V1.1 records"),
+        ("DISTRICT", "From PINCODE master when blank"),
+        ("CO_BORROWER_PRESENT", "Exists if CO_BORROWER rows linked to loan"),
+        ("PRIOR_CHARGE_EXISTS", "Y if PRIOR_CHARGE_HOLDER_NAME non-null"),
+    ]
+    for name, logic in derived:
+        rows.append({"Section": "DERIVED", "Item": name, "Value": logic})
+
+    rows.append({"Section": "", "Item": "", "Value": ""})
+    rows.append({"Section": "COLUMN_ORDER", "Item": "#", "Value": "Field | Mandatory"})
+    for i, f in enumerate(FIELDS_V11, 1):
+        if f[1] == "RECORD_TYPE":
+            continue
+        rows.append({
+            "Section": "COLUMN_ORDER",
+            "Item": str(i),
+            "Value": f"{f[1]} | {f[5]}",
+        })
+    return rows
 
 
-def write_sheet(ws, headers: list[str], data: list[dict], extra_rows: list[dict] | None = None):
+def build_samples():
+    """Five full-scenario sample rows (one property package each)."""
+    scenarios = [
+        {
+            "Scenario": "APARTMENT_URBAN_MH",
+            "MEMBER_PROPERTY_REFERENCE": "DEMO-COL-APT-01",
+            "MEMBER_LOAN_ACCOUNT_NUMBER": "DEMO-HL-APT-01",
+            "PROPERTY_TYPE": "RESIDENTIAL", "PROPERTY_SUBTYPE": "APARTMENT",
+            "CONSTRUCTION_STATUS": "COMPLETED", "OCCUPANCY_STATUS": "SELF_OCCUPIED",
+            "ADDRESS_LINE_1": "1204 Tower B Prestige Park", "LOCALITY": "Powai",
+            "CITY": "Mumbai", "STATE": "MH", "PINCODE": "400076",
+            "FLAT_NUMBER": "1204", "PROJECT_NAME": "Prestige Park",
+            "BUILDING_UNIT_IDENTIFIER": "Tower B", "CTS_NUMBER": "CTS 401/2/1",
+            "BORROWER_ADDRESS_SAME_AS_PROPERTY": "Y",
+        },
+        {
+            "Scenario": "PLOT_PUNE",
+            "MEMBER_PROPERTY_REFERENCE": "DEMO-COL-PLT-01",
+            "MEMBER_LOAN_ACCOUNT_NUMBER": "DEMO-HL-PLT-01",
+            "PROPERTY_TYPE": "RESIDENTIAL", "PROPERTY_SUBTYPE": "PLOT",
+            "CONSTRUCTION_STATUS": "PLOT_ONLY", "OCCUPANCY_STATUS": "",
+            "ADDRESS_LINE_1": "Survey 124 Wagholi Road", "LOCALITY": "Wagholi",
+            "CITY": "Pune", "STATE": "MH", "PINCODE": "412207",
+            "PLOT_NUMBER": "Plot 124", "SURVEY_NUMBER": "124/2A",
+            "LAND_AREA": "2400", "AREA_UNIT": "SQFT",
+            "BORROWER_ADDRESS_SAME_AS_PROPERTY": "N",
+            "BORROWER_ADDRESS_LINE_1": "18 FC Road", "BORROWER_LOCALITY": "Deccan",
+            "BORROWER_CITY": "Pune", "BORROWER_STATE": "MH", "BORROWER_PINCODE": "411004",
+        },
+        {
+            "Scenario": "COMMERCIAL_OFFICE_BLR",
+            "MEMBER_PROPERTY_REFERENCE": "DEMO-COL-OFF-01",
+            "MEMBER_LOAN_ACCOUNT_NUMBER": "DEMO-HL-OFF-01",
+            "PROPERTY_TYPE": "COMMERCIAL", "PROPERTY_SUBTYPE": "OFFICE",
+            "CONSTRUCTION_STATUS": "COMPLETED", "OCCUPANCY_STATUS": "RENTED",
+            "ADDRESS_LINE_1": "Unit 802 DivyaSree Chambers", "LOCALITY": "Bellandur",
+            "CITY": "Bengaluru", "STATE": "KA", "PINCODE": "560103",
+            "FLAT_NUMBER": "802", "BUILDING_UNIT_IDENTIFIER": "DivyaSree Chambers",
+            "MUNICIPAL_AUTHORITY_ID": "KH-560-991200", "MUNICIPAL_ID_TYPE": "KHATA",
+            "PRODUCT_TYPE": "COMMERCIAL_PROPERTY_LOAN",
+        },
+        {
+            "Scenario": "AGRICULTURAL_LAND_RJ",
+            "MEMBER_PROPERTY_REFERENCE": "DEMO-COL-AGR-01",
+            "MEMBER_LOAN_ACCOUNT_NUMBER": "DEMO-HL-AGR-01",
+            "PROPERTY_TYPE": "AGRICULTURAL", "PROPERTY_SUBTYPE": "LAND",
+            "CONSTRUCTION_STATUS": "PLOT_ONLY", "OCCUPANCY_STATUS": "",
+            "ADDRESS_LINE_1": "Khasra 88 Mundwa Road", "LOCALITY": "Mundwa",
+            "CITY": "Nagaur", "STATE": "RJ", "PINCODE": "341001",
+            "SURVEY_NUMBER": "88/1", "PLOT_NUMBER": "88",
+            "LAND_AREA": "5.5", "AREA_UNIT": "ACRE",
+        },
+        {
+            "Scenario": "VILLA_HYD_CO_BORROWER",
+            "MEMBER_PROPERTY_REFERENCE": "DEMO-COL-VLA-01",
+            "MEMBER_LOAN_ACCOUNT_NUMBER": "DEMO-HL-VLA-01",
+            "PROPERTY_TYPE": "RESIDENTIAL", "PROPERTY_SUBTYPE": "VILLA",
+            "CONSTRUCTION_STATUS": "COMPLETED", "OCCUPANCY_STATUS": "SELF_OCCUPIED",
+            "ADDRESS_LINE_1": "Villa 7 Palm Meadows", "LOCALITY": "Gachibowli",
+            "CITY": "Hyderabad", "STATE": "TS", "PINCODE": "500032",
+            "PROJECT_NAME": "Palm Meadows", "PLOT_NUMBER": "Villa 7",
+            "CO_BORROWER_SEQUENCE": "1", "CO_BORROWER_NAME": "Priya Reddy",
+            "CO_BORROWER_PAN": "FGHIJ5678K", "CO_BORROWER_RELATIONSHIP": "SPOUSE",
+            "OWNERSHIP_PERCENT": "70.00", "CO_OWNER_NOTE": "Second owner 30% in OWNERSHIP file",
+        },
+    ]
+    cols = ["Scenario"] + [f[1] for f in FIELDS_V11 if f[1] != "RECORD_TYPE"]
+    rows = []
+    defaults = {
+        "SUBMISSION_REFERENCE": "DEMO-SUB-2026-Q1",
+        "MEMBER_INSTITUTION_CODE": "HFC0000042",
+        "REPORTING_PERIOD_END": "2026-03-31",
+        "SUBMISSION_TYPE": "FULL",
+        "CONTACT_EMAIL": "demo@abchfc.example.in",
+        "BORROWER_TYPE": "INDIVIDUAL", "BORROWER_NAME": "Rajesh Kumar",
+        "BORROWER_PAN": "ABCDE1234F", "SANCTION_AMOUNT": "5000000.00",
+        "CURRENT_OUTSTANDING": "4200000.00", "ACCOUNT_STATUS": "ACTIVE",
+        "CHARGE_TYPE": "REGISTERED_MORTGAGE", "CHARGE_STATUS": "ACTIVE",
+    }
+    for sc in scenarios:
+        row = {c: "" for c in cols}
+        row.update(defaults)
+        row.update(sc)
+        rows.append(row)
+    return cols, rows
+
+
+def build_change_log():
+    return [
+        ("CL-001", VERSION, "FB-001..FB-040", "Multi-file primary submission format"),
+        ("CL-002", VERSION, "FB-003,FB-021", "Removed 21 derivable/constant fields — see Removed Fields sheet note"),
+        ("CL-003", VERSION, "FB-009,FB-011,FB-012", "Field consolidations (building, title, municipal)"),
+        ("CL-004", VERSION, "FB-013,FB-037,FB-038", "Enum updates: ENTITY_TYPE, DOCUMENT SURRENDERED, CHARGE PENDING_REGISTRATION"),
+        ("CL-005", VERSION, "FB-026..FB-032", "Validation dedup + scoring + new rules"),
+        ("CL-006", VERSION, "FB-019,FB-041", "BORROWER_ADDRESS block (5 core + flag)"),
+        ("CL-007", VERSION, "FB-039", "Mandatory matrix merged into Field Specification"),
+        ("CL-008", VERSION, "FB-033,FB-035,FB-036", "Architecture notes: API V2, split submission, ACK"),
+        ("CL-009", VERSION, "FB-044", "Aadhaar integration deferred to V2"),
+    ]
+
+
+def write_sheet(ws, headers, data):
     ws.append(headers)
     style_header(ws)
-    if extra_rows:
-        for r in extra_rows:
-            ws.append([r.get(h, "") for h in headers])
     for row in data:
-        ws.append([row.get(h, "") for h in headers])
+        if isinstance(row, dict):
+            ws.append([row.get(h, "") for h in headers])
+        else:
+            ws.append(row)
     ws.freeze_panes = "A2"
     auto_width(ws)
 
 
-def add_completeness_sheet_note(wb, fields, enums, validations):
-    """Store completeness review on cover instructions via first sheet note row."""
-    pass
-
-
 def main():
-    fields = load_field_spec()
-    enums = build_enum_master()
-    validations = build_validation_rules(fields)
-    mandatory = build_mandatory_matrix(fields)
-    template = build_submission_template(fields)
-    sample_cols, sample_rows = load_sample_data()
+    fields = field_rows()
+    enums = build_enums()
+    validations = build_validations()
+    template = build_template()
+    sample_cols, sample_rows = build_samples()
 
     wb = Workbook()
     wb.remove(wb.active)
 
-    # 1. Field Specification
-    ws1 = wb.create_sheet("Field Specification", 0)
-    f_headers = [
-        "Field Category", "Field Name", "Description", "Data Type", "Length",
-        "Mandatory (Y/N)", "Validation Rule", "Enum Reference", "Matching Importance",
-        "Sample Value", "Remarks", "Source Reference",
+    # Standard Overview
+    ws0 = wb.create_sheet("Standard Overview", 0)
+    overview = [
+        ["Property Bureau Member Data Submission Standard", VERSION],
+        ["Supersedes", PREVIOUS_VERSION],
+        ["Status", "Official Single Source of Truth"],
+        ["Field count (V1.1)", str(len(FIELDS_V11))],
+        ["Fields removed from V1.0", str(len(REMOVED_FIELDS_V10))],
+        ["Mandatory core (Y)", str(sum(1 for f in FIELDS_V11 if f[5] == "Y"))],
+        ["Conditional (C)", str(sum(1 for f in FIELDS_V11 if f[5] == "C"))],
+        ["Estimated complexity", "4.5/10 (was 7.5/10)"],
+        ["Estimated onboarding", "7-10 weeks (was 12-16)"],
+        ["", ""],
+        ["COMPLETENESS AUDIT", ""],
+        ["All P1/P2 feedback implemented", "YES"],
+        ["All P3/P4 feedback implemented", "YES except split property/loan mandatory (V1.2)"],
+        ["API-first primary format", "PARTIAL — documented V2; multi-file CSV V1.1"],
+        ["Regulatory data preserved", "YES — no mandatory regulatory field removed"],
+        ["Duplicate fields removed", "YES — 28 V1.0 fields retired"],
+        ["Duplicate validation rules", "YES — deduplicated"],
+        ["", ""],
+        ["CHANGE LOG", "Feedback ID | Description"],
     ]
+    for cl in build_change_log():
+        overview.append([cl[0], f"{cl[2]} | {cl[3]}"])
+    overview.append(["", ""])
+    overview.append(["REMOVED FIELDS (V1.0 → V1.1)", "Feedback ID | Replacement"])
+    for rf in REMOVED_FIELDS_V10:
+        overview.append([rf[0], f"{rf[1]} | {rf[2]}"])
+    for row in overview:
+        ws0.append(row)
+    ws0["A1"].font = Font(bold=True, size=14)
+    auto_width(ws0, 70)
+
+    # 1 Field Specification
+    ws1 = wb.create_sheet("Field Specification")
+    f_headers = list(fields[0].keys())
     write_sheet(ws1, f_headers, fields)
 
-    # Completeness banner rows at top (insert after header)
-    ws1.insert_rows(2, 3)
-    ws1["A2"] = "COMPLETENESS REVIEW (V1.0)"
-    ws1["A2"].font = Font(bold=True, size=12)
-    reviews = [
-        f"Total unique fields: {len(fields)} | Enum entries: {len(enums)} | Validation rules: {len(validations)}",
-        "Domain coverage: Matching, Ownership, Mortgage, Loan, Valuation, Registration, Document, Borrower — CONFIRMED",
-        "Sources merged: 02_field_specification, 01_data_dictionary, 03-08 spec CSVs, 06 template, ABC HFC sample | Duplicates removed",
-    ]
-    for i, text in enumerate(reviews, 3):
-        ws1.cell(row=i, column=1, value=text)
-    ws1.merge_cells(start_row=2, start_column=1, end_row=2, end_column=len(f_headers))
-    for i in range(3, 5):
-        ws1.merge_cells(start_row=i, start_column=1, end_row=i, end_column=len(f_headers))
-
-    # 2. Enum Master
+    # 2 Enum Master
     ws2 = wb.create_sheet("Enum Master")
-    e_headers = ["Enum Name", "Allowed Values", "Description", "Sort Order", "Source Reference"]
-    write_sheet(ws2, e_headers, enums)
+    write_sheet(ws2, ["Enum Name", "Allowed Values", "Description", "Sort Order", "Source Reference"], enums)
 
-    # 3. Validation Rules
+    # 3 Validation Rules
     ws3 = wb.create_sheet("Validation Rules")
-    v_headers = ["Field Name", "Validation Rule", "Error Message", "Example", "Rule ID", "Source Reference"]
-    write_sheet(ws3, v_headers, validations)
+    write_sheet(ws3, ["Field Name", "Rule ID", "Severity", "Validation Rule", "Error Message", "Example", "Source Reference"], validations)
 
-    # 4. Mandatory vs Optional Matrix
-    ws4 = wb.create_sheet("Mandatory vs Optional Matrix")
-    m_headers = ["Field Name", "Field Category", "Mandatory", "Conditional Mandatory", "Conditional Rule", "Optional", "Source Reference"]
-    write_sheet(ws4, m_headers, mandatory)
+    # 4 Member Submission Template (replaces separate mandatory matrix)
+    ws4 = wb.create_sheet("Member Submission Template")
+    write_sheet(ws4, ["Section", "Item", "Value"], template)
 
-    # 5. Member Submission Template
-    ws5 = wb.create_sheet("Member Submission Template")
-    t_headers = ["Section", "Item", "Value", "Source Reference"]
-    write_sheet(ws5, t_headers, template)
+    # 5 Sample Submission Data
+    ws5 = wb.create_sheet("Sample Submission Data")
+    write_sheet(ws5, sample_cols, sample_rows)
 
-    # 6. Sample Submission Data
-    ws6 = wb.create_sheet("Sample Submission Data")
-    if sample_cols:
-        ws6.append(sample_cols)
-        style_header(ws6)
-        for row in sample_rows:
-            ws6.append([row.get(c, "") for c in sample_cols])
-        ws6.freeze_panes = "A2"
-        auto_width(ws6, max_width=36)
-    else:
-        ws6.append(["No sample data found — run ABC HFC sample generator"])
-
-    # Index rows at top of Member Submission Template (6 sheets only per standard)
-    ws5.insert_rows(1, 8)
-    index_lines = [
-        ("INDEX", "Standard", "Property Bureau Member Data Submission Standard V1.0"),
-        ("INDEX", "Audience", "Banks, HFCs, NBFCs, Housing Finance Companies, Mortgage Lenders"),
-        ("INDEX", "Sheets", "1 Field Specification | 2 Enum Master | 3 Validation Rules | 4 Mandatory Matrix | 5 This Template | 6 Sample Data"),
-        ("INDEX", "Supersedes", "All prior CSV specification and sample files — use this workbook only"),
-        ("INDEX", "Regenerate", "python docs/property-bureau/build_master_workbook.py"),
-        ("", "", ""),
+    # 6 Feedback Traceability Matrix
+    ws6 = wb.create_sheet("Feedback Traceability")
+    ftm_headers = [
+        "Feedback ID", "Priority", "Report Section", "Feedback Summary", "Disposition",
+        "Action Taken", "Functional Impact", "Technical Impact", "Regulatory Impact", "Integration Effort Impact",
     ]
-    for i, (sec, item, val) in enumerate(index_lines, 1):
-        ws5.cell(row=i, column=1, value=sec)
-        ws5.cell(row=i, column=2, value=item)
-        ws5.cell(row=i, column=3, value=val)
-    ws5["A1"].font = Font(bold=True, size=12)
+    write_sheet(ws6, ftm_headers, [dict(zip(ftm_headers, row)) for row in FEEDBACK_MATRIX])
 
     wb.save(OUTPUT)
-    print(f"Created: {OUTPUT}")
-    print(f"Fields: {len(fields)} | Enums: {len(enums)} | Validations: {len(validations)} | Sample rows: {len(sample_rows)}")
+    print(f"Created {OUTPUT}")
+    print(f"Fields: {len(FIELDS_V11)} | Removed from V1.0: {len(REMOVED_FIELDS_V10)} | Feedback items: {len(FEEDBACK_MATRIX)}")
 
 
 if __name__ == "__main__":
