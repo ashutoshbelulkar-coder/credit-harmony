@@ -1,0 +1,11 @@
+﻿File Name,Record Type,Row Count,Description
+01_FILE_HEADER.csv,FILE_HEADER,1,Batch control
+02_PROPERTY_MASTER.csv,PROPERTY,75,Collateral master
+03_OWNERSHIP.csv,OWNERSHIP,85,Title holders
+04_BORROWER.csv,BORROWER,75,Primary borrower
+05_CO_BORROWER.csv,CO_BORROWER,15,Co-borrowers
+06_LOAN_ACCOUNT.csv,LOAN_ACCOUNT,75,Loan accounts
+07_MORTGAGE_CHARGE.csv,MORTGAGE_CHARGE,79,Charges
+08_VALUATION.csv,VALUATION,75,Valuations
+09_DOCUMENT_STATUS.csv,DOCUMENT_STATUS,75,Document custody
+ABC_HFC_PROPERTY_SUBMISSION_2026Q1_FULL.csv,ALL,555,Combined multi-record file
