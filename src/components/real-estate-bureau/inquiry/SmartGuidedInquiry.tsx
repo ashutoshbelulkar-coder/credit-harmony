@@ -2,14 +2,11 @@ import { useMemo, useState } from "react";
 import {
   Building2,
   ChevronDown,
-  FileSearch,
   HelpCircle,
-  Home,
   Plus,
   Sparkles,
   Trash2,
   User,
-  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -27,6 +24,11 @@ import {
 import { PropertySmartSearch } from "@/components/real-estate-bureau/inquiry/PropertySmartSearch";
 import { SCENARIO_1_FORM, SCENARIO_2_FORM } from "@/lib/real-estate-bureau/mock-data";
 import {
+  BUREAU_ID_TYPES,
+  bureauIdPlaceholder,
+  formatBureauIdValue,
+} from "@/lib/real-estate-bureau/bureau-id-types";
+import {
   getMissingPropertyDetailFields,
   smartInquiryToFormData,
   type SmartInquiryInput,
@@ -34,36 +36,11 @@ import {
 import type {
   CoBorrowerEntry,
   InquiryFormData,
-  InquirySearchType,
   PropertySearchSuggestion,
 } from "@/lib/real-estate-bureau/types";
 import { toast } from "sonner";
 
-const SEARCH_TYPES: {
-  value: InquirySearchType;
-  title: string;
-  description: string;
-  icon: React.ElementType;
-}[] = [
-  {
-    value: "borrower_property",
-    title: "Borrower + Property",
-    description: "Match a borrower to a property using what you know",
-    icon: Users,
-  },
-  {
-    value: "property_only",
-    title: "Property Only",
-    description: "Identify a property without borrower linkage",
-    icon: Home,
-  },
-  {
-    value: "registration",
-    title: "Registration Details",
-    description: "Trace via sale deed or registrar references",
-    icon: FileSearch,
-  },
-];
+const SEARCH_TYPE = "borrower_property" as const;
 
 const ASSISTANCE = [
   {
@@ -85,10 +62,11 @@ export interface SmartGuidedInquiryProps {
 }
 
 export function SmartGuidedInquiry({ onSubmit }: SmartGuidedInquiryProps) {
-  const [searchType, setSearchType] = useState<InquirySearchType>("borrower_property");
   const [borrowerName, setBorrowerName] = useState("");
   const [mobile, setMobile] = useState("");
-  const [pan, setPan] = useState("");
+  const [idType, setIdType] = useState("PAN");
+  const [idNumber, setIdNumber] = useState("");
+  const [currentAddress, setCurrentAddress] = useState("");
   const [dob, setDob] = useState("");
   const [email, setEmail] = useState("");
   const [coBorrowers, setCoBorrowers] = useState<CoBorrowerEntry[]>([]);
@@ -104,10 +82,13 @@ export function SmartGuidedInquiry({ onSubmit }: SmartGuidedInquiryProps) {
 
   const smartInput: SmartInquiryInput = useMemo(
     () => ({
-      searchType,
+      searchType: SEARCH_TYPE,
       borrowerName,
       mobile,
-      pan,
+      pan: idType === "PAN" ? idNumber : "",
+      idType,
+      idNumber,
+      currentAddress,
       dob,
       email,
       propertyQuery,
@@ -116,10 +97,11 @@ export function SmartGuidedInquiry({ onSubmit }: SmartGuidedInquiryProps) {
       registration,
     }),
     [
-      searchType,
       borrowerName,
       mobile,
-      pan,
+      idType,
+      idNumber,
+      currentAddress,
       dob,
       email,
       propertyQuery,
@@ -129,14 +111,13 @@ export function SmartGuidedInquiry({ onSubmit }: SmartGuidedInquiryProps) {
     ]
   );
 
-  const showBorrower = searchType === "borrower_property" || searchType === "registration";
-
   const loadScenario = (which: 1 | 2) => {
     const form = which === 1 ? SCENARIO_1_FORM : SCENARIO_2_FORM;
-    setSearchType("borrower_property");
     setBorrowerName(form.borrower.borrowerName);
     setMobile(form.borrower.mobileNumber);
-    setPan(form.borrower.pan);
+    setIdType(form.borrower.idType ?? "PAN");
+    setIdNumber(form.borrower.idNumber ?? form.borrower.pan);
+    setCurrentAddress(form.borrower.currentAddress ?? "");
     setDob(form.borrower.dateOfBirth);
     setEmail(form.borrower.email);
     setCoBorrowers(
@@ -146,6 +127,8 @@ export function SmartGuidedInquiry({ onSubmit }: SmartGuidedInquiryProps) {
               id: newCoBorrowerId(),
               name: form.borrower.coBorrowerName,
               pan: form.borrower.coBorrowerPan ?? "",
+              idType: "PAN",
+              idNumber: form.borrower.coBorrowerPan ?? "",
               mobile: "",
               relationship: "Co-Borrower",
             },
@@ -179,7 +162,7 @@ export function SmartGuidedInquiry({ onSubmit }: SmartGuidedInquiryProps) {
       toast.error(`Complete property details: ${missingProperty.join(", ")}.`);
       return false;
     }
-    if (showBorrower && (!borrowerName.trim() || !mobile.trim())) {
+    if (!borrowerName.trim() || !mobile.trim()) {
       toast.error("Borrower name and mobile number are required.");
       return false;
     }
@@ -219,48 +202,8 @@ export function SmartGuidedInquiry({ onSubmit }: SmartGuidedInquiryProps) {
       </div>
 
       <div className="space-y-5 min-w-0">
-          {/* Step 1 */}
           <section className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm">
-            <StepLabel step={1} title="What are you searching for?" />
-            <div className="grid sm:grid-cols-2 gap-2 mt-3">
-              {SEARCH_TYPES.map(({ value, title, description, icon: Icon }) => {
-                const selected = searchType === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    onClick={() => setSearchType(value)}
-                    className={cn(
-                      "flex items-start gap-3 rounded-lg border p-3 text-left transition-colors",
-                      selected
-                        ? "border-primary bg-primary/5 ring-1 ring-primary/20"
-                        : "border-border hover:bg-muted/40"
-                    )}
-                  >
-                    <span
-                      className={cn(
-                        "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
-                        selected ? "border-primary" : "border-muted-foreground/40"
-                      )}
-                    >
-                      {selected && <span className="h-2 w-2 rounded-full bg-primary" />}
-                    </span>
-                    <span className="min-w-0">
-                      <Icon className="h-3.5 w-3.5 text-primary mb-1" />
-                      <span className="text-body font-semibold text-foreground block">
-                        {title}
-                      </span>
-                      <span className="text-caption text-muted-foreground">{description}</span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {showBorrower && (
-            <section className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm">
-              <StepLabel step={2} title="Borrower details" />
+              <StepLabel step={1} title="Borrower details" />
               <p className="text-caption text-muted-foreground mt-1 mb-4">
                 Tell us what you know — the bureau will enrich the rest.
               </p>
@@ -279,15 +222,21 @@ export function SmartGuidedInquiry({ onSubmit }: SmartGuidedInquiryProps) {
                     placeholder="10-digit mobile"
                   />
                 </RequiredField>
-                <OptionalField label="PAN">
-                  <Input
-                    value={pan}
-                    onChange={(e) => setPan(e.target.value.toUpperCase())}
-                    placeholder="ABCDE1234F"
-                  />
-                </OptionalField>
+                <BureauIdFields
+                  idType={idType}
+                  idNumber={idNumber}
+                  onIdTypeChange={setIdType}
+                  onIdNumberChange={(v) => setIdNumber(formatBureauIdValue(idType, v))}
+                />
                 <OptionalField label="Date of Birth">
                   <Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
+                </OptionalField>
+                <OptionalField label="Current Address" className="sm:col-span-2">
+                  <Input
+                    value={currentAddress}
+                    onChange={(e) => setCurrentAddress(e.target.value)}
+                    placeholder="House no., street, locality, city, pincode"
+                  />
                 </OptionalField>
                 <OptionalField label="Email" className="sm:col-span-2">
                   <Input
@@ -336,18 +285,38 @@ export function SmartGuidedInquiry({ onSubmit }: SmartGuidedInquiryProps) {
                           }
                         />
                       </OptionalField>
-                      <OptionalField label="PAN">
-                        <Input
-                          value={co.pan}
-                          onChange={(e) =>
-                            setCoBorrowers((list) =>
-                              list.map((c) =>
-                                c.id === co.id ? { ...c, pan: e.target.value.toUpperCase() } : c
-                              )
+                      <BureauIdFields
+                        idType={co.idType ?? "PAN"}
+                        idNumber={co.idNumber ?? co.pan}
+                        onIdTypeChange={(type) =>
+                          setCoBorrowers((list) =>
+                            list.map((c) =>
+                              c.id === co.id
+                                ? {
+                                    ...c,
+                                    idType: type,
+                                    pan: type === "PAN" ? c.idNumber ?? c.pan : "",
+                                  }
+                                : c
                             )
-                          }
-                        />
-                      </OptionalField>
+                          )
+                        }
+                        onIdNumberChange={(v) => {
+                          const type = co.idType ?? "PAN";
+                          const formatted = formatBureauIdValue(type, v);
+                          setCoBorrowers((list) =>
+                            list.map((c) =>
+                              c.id === co.id
+                                ? {
+                                    ...c,
+                                    idNumber: formatted,
+                                    pan: type === "PAN" ? formatted : c.pan,
+                                  }
+                                : c
+                            )
+                          );
+                        }}
+                      />
                       <OptionalField label="Mobile">
                         <Input
                           value={co.mobile}
@@ -395,6 +364,8 @@ export function SmartGuidedInquiry({ onSubmit }: SmartGuidedInquiryProps) {
                         id: newCoBorrowerId(),
                         name: "",
                         pan: "",
+                        idType: "PAN",
+                        idNumber: "",
                         mobile: "",
                         relationship: "Co-Borrower",
                       },
@@ -406,11 +377,9 @@ export function SmartGuidedInquiry({ onSubmit }: SmartGuidedInquiryProps) {
                 </Button>
               </div>
             </section>
-          )}
 
-          {/* Step 3 Property */}
           <section className="rounded-xl border border-border bg-card p-4 sm:p-5 shadow-sm">
-            <StepLabel step={showBorrower ? 3 : 2} title="Property search" />
+            <StepLabel step={2} title="Property search" />
             <p className="text-caption text-muted-foreground mt-1 mb-3">
               Enter what you know — project, address, survey or flat number.
             </p>
@@ -561,6 +530,52 @@ function OptionalField({
         <span className="text-muted-foreground/70 font-normal">(Optional)</span>
       </Label>
       {children}
+    </div>
+  );
+}
+
+function BureauIdFields({
+  idType,
+  idNumber,
+  onIdTypeChange,
+  onIdNumberChange,
+  className,
+}: {
+  idType: string;
+  idNumber: string;
+  onIdTypeChange: (type: string) => void;
+  onIdNumberChange: (value: string) => void;
+  className?: string;
+}) {
+  return (
+    <div className={cn("sm:col-span-2 grid sm:grid-cols-2 gap-3", className)}>
+      <OptionalField label="ID Type">
+        <Select
+          value={idType}
+          onValueChange={(v) => {
+            onIdTypeChange(v);
+            onIdNumberChange(formatBureauIdValue(v, idNumber));
+          }}
+        >
+          <SelectTrigger className="h-9">
+            <SelectValue placeholder="Select ID type" />
+          </SelectTrigger>
+          <SelectContent>
+            {BUREAU_ID_TYPES.map((t) => (
+              <SelectItem key={t.value} value={t.value}>
+                {t.label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </OptionalField>
+      <OptionalField label="ID Number">
+        <Input
+          value={idNumber}
+          onChange={(e) => onIdNumberChange(e.target.value)}
+          placeholder={bureauIdPlaceholder(idType)}
+        />
+      </OptionalField>
     </div>
   );
 }

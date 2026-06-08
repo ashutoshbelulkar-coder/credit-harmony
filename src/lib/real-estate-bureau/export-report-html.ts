@@ -1,4 +1,12 @@
-import type { PropertyReport, RiskLevel } from "./types";
+import {
+  PRE_SCREENING_CONFIG,
+  PRE_SCREENING_OUTCOMES,
+  preScreeningLabel,
+  preScreeningSummary,
+  riskLevelToPreScreeningOutcome,
+  type PreScreeningOutcome,
+} from "./pre-screening";
+import type { PropertyReport } from "./types";
 
 function escapeHtml(s: string): string {
   return s
@@ -96,15 +104,46 @@ function docStatusClass(status: string): string {
   return "doc-missing";
 }
 
-function recommendationActions(level: RiskLevel): { action: string; active: boolean }[] {
-  const all = ["Approve", "Approve With Conditions", "Manual Review", "Decline"];
-  const map: Record<RiskLevel, string> = {
-    Low: "Approve",
-    Medium: "Approve With Conditions",
-    High: "Manual Review",
-  };
-  const pick = level === "High" ? "Manual Review" : map[level];
-  return all.map((a) => ({ action: a, active: a === pick }));
+function resolvePreScreeningOutcome(report: PropertyReport): PreScreeningOutcome {
+  return report.preScreeningOutcome ?? riskLevelToPreScreeningOutcome(report.recommendation);
+}
+
+function preScreeningActionPills(outcome: PreScreeningOutcome): { label: string; active: boolean }[] {
+  return PRE_SCREENING_OUTCOMES.map((key) => ({
+    label: PRE_SCREENING_CONFIG[key].shortLabel,
+    active: key === outcome,
+  }));
+}
+
+function preScreeningHeroClass(outcome: PreScreeningOutcome): string {
+  if (outcome === "pre_screen_approved") return "pre-screen-approved";
+  if (outcome === "pre_screen_conditional") return "pre-screen-conditional";
+  return "pre-screen-manual";
+}
+
+function buildPreScreeningHeroHtml(report: PropertyReport): string {
+  const outcome = resolvePreScreeningOutcome(report);
+  const config = PRE_SCREENING_CONFIG[outcome];
+  const pills = preScreeningActionPills(outcome)
+    .map(
+      (p) =>
+        `<span class="pre-screen-pill${p.active ? " active" : ""}">${escapeHtml(p.label)}</span>`
+    )
+    .join("");
+
+  return `
+    <section class="section pre-screen-hero ${preScreeningHeroClass(outcome)}">
+      <p class="pre-screen-kicker">Pre-Screening Recommendation</p>
+      <div class="pre-screen-layout">
+        <div class="pre-screen-badge">${escapeHtml(config.shortLabel)}</div>
+        <div>
+          <h2 class="pre-screen-title">${escapeHtml(config.label)}</h2>
+          <div class="pre-screen-pills">${pills}</div>
+          <p class="pre-screen-summary">${escapeHtml(report.recommendationText || preScreeningSummary(outcome))}</p>
+          <p class="pre-screen-risk">Risk classification: ${escapeHtml(report.recommendation)}</p>
+        </div>
+      </div>
+    </section>`;
 }
 
 function extractLocality(address: string): string {
@@ -198,10 +237,29 @@ function buildReportStyles(): string {
     .recon-card { padding: 16px; border-radius: 10px; border: 1px solid #e2e8f0; }
     .recon-card.highlight { border-color: #003B79; background: #f0f7ff; }
     .narrative { font-size: 13px; line-height: 1.7; color: #334155; padding: 16px; background: #f8fafc; border-radius: 10px; border-left: 4px solid #003B79; }
-    .rec-actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px; }
-    @media (max-width: 640px) { .rec-actions { grid-template-columns: repeat(2, 1fr); } }
+    .pre-screen-hero { border-width: 2px; }
+    .pre-screen-layout { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+    .pre-screen-badge { min-width: 120px; min-height: 120px; border-radius: 16px; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 13px; font-weight: 800; padding: 16px; border: 2px solid; }
+    .pre-screen-approved .pre-screen-badge { background: #ecfdf5; border-color: #86efac; color: #166534; }
+    .pre-screen-conditional .pre-screen-badge { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+    .pre-screen-manual .pre-screen-badge { background: #fef2f2; border-color: #fecaca; color: #b91c1c; }
+    .pre-screen-kicker { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: #64748b; margin-bottom: 12px; font-weight: 700; }
+    .pre-screen-title { font-size: 20px; font-weight: 800; color: #003B79; margin-bottom: 10px; }
+    .pre-screen-pills { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .pre-screen-pill { font-size: 10px; font-weight: 700; padding: 6px 12px; border-radius: 6px; background: #f1f5f9; color: #64748b; }
+    .pre-screen-pill.active { background: #003B79; color: #fff; }
+    .pre-screen-approved .pre-screen-pill.active { background: #166534; }
+    .pre-screen-conditional .pre-screen-pill.active { background: #b45309; }
+    .pre-screen-manual .pre-screen-pill.active { background: #b91c1c; }
+    .pre-screen-summary { font-size: 13px; color: #475569; line-height: 1.6; max-width: 640px; }
+    .pre-screen-risk { font-size: 11px; color: #64748b; margin-top: 10px; }
+    .rec-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    @media (max-width: 640px) { .rec-actions { grid-template-columns: 1fr; } }
     .rec-btn { padding: 12px; text-align: center; border-radius: 8px; border: 2px solid #e2e8f0; font-size: 11px; font-weight: 600; color: #64748b; }
     .rec-btn.active { border-color: #003B79; background: #003B79; color: #fff; }
+    .rec-btn.active.approved { border-color: #166534; background: #166534; }
+    .rec-btn.active.conditional { border-color: #b45309; background: #b45309; }
+    .rec-btn.active.manual { border-color: #b91c1c; background: #b91c1c; }
     .chart-svg { width: 100%; height: auto; max-height: 200px; }
     .data-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
     .data-table th { background: #f1f5f9; text-align: left; padding: 10px 12px; font-size: 10px; text-transform: uppercase; color: #64748b; }
@@ -239,7 +297,14 @@ function buildReportBody(report: PropertyReport): string {
       ?.matchConfidence ?? e.cersaiVerification.verificationConfidence;
   const locality = extractLocality(report.address);
   const maxExposure = e.encumbranceAnalysis.historicalExposure;
-  const recActions = recommendationActions(report.recommendation);
+  const preScreenOutcome = resolvePreScreeningOutcome(report);
+  const recActions = preScreeningActionPills(preScreenOutcome);
+  const recActiveClass =
+    preScreenOutcome === "pre_screen_approved"
+      ? "approved"
+      : preScreenOutcome === "pre_screen_conditional"
+        ? "conditional"
+        : "manual";
 
   const fraudIndicators = [
     ...e.advancedBureauInsights.map((i) => ({
@@ -257,6 +322,8 @@ function buildReportBody(report: PropertyReport): string {
     <p>${escapeHtml(report.recommendationText)}</p>`;
 
   return `
+    ${buildPreScreeningHeroHtml(report)}
+
     <!-- 1 Executive Summary Dashboard -->
     <section class="section">
       <h2 class="section-title">Executive Summary Dashboard</h2>
@@ -581,13 +648,19 @@ function buildReportBody(report: PropertyReport): string {
       <div class="narrative">${aiNarrative}</div>
     </section>
 
-    <!-- 20 Recommendation -->
+    <!-- 20 Pre-Screening Recommendation -->
     <section class="section">
-      <h2 class="section-title">Recommendation</h2>
+      <h2 class="section-title">Pre-Screening Recommendation</h2>
       <div class="rec-actions">
-        ${recActions.map((a) => `<div class="rec-btn${a.active ? " active" : ""}">${escapeHtml(a.action)}</div>`).join("")}
+        ${recActions
+          .map(
+            (a) =>
+              `<div class="rec-btn${a.active ? ` active ${recActiveClass}` : ""}">${escapeHtml(a.label)}</div>`
+          )
+          .join("")}
       </div>
-      <p><strong>${escapeHtml(report.recommendation)} Risk</strong> — ${escapeHtml(report.recommendationText)}</p>
+      <p><strong>${escapeHtml(preScreeningLabel(preScreenOutcome))}</strong> — ${escapeHtml(report.recommendationText || preScreeningSummary(preScreenOutcome))}</p>
+      <p style="margin-top:8px;font-size:12px;color:#64748b">Risk classification: ${escapeHtml(report.recommendation)}</p>
     </section>
 
     <!-- 21 Inquiry Details -->

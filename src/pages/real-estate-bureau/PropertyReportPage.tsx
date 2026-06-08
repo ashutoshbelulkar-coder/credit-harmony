@@ -89,7 +89,11 @@ export default function PropertyReportPage() {
       <ReportHeader inquiryId={inquiryId} onExport={handleExport} showExport />
 
       <div className="space-y-6" id="reb-report-content">
-        <RiskGauge level={report.riskLevel} />
+        <RiskGauge
+          level={report.riskLevel}
+          outcome={report.preScreeningOutcome}
+          summary={report.recommendationText}
+        />
         <ReportKpiCards report={report} />
         <CersaiVerificationSummarySection report={report} />
         <PropertyOverviewSection report={report} />

@@ -15,6 +15,9 @@ PAIRS = [
     ("suspended@hcb.com", "Suspended@1234"),
     ("james.mthembu@fnb.co.za", "James@1234"),
     ("david.kim@pacificfin.com", "David@1234"),
+    ("realestate.demo@crif.com", "Demo@123"),
+    ("realestate.admin@crif.com", "Admin@123"),
+    ("crif.property@crif.com", "Admin@123"),
 ]
 
 for email, pwd in PAIRS:

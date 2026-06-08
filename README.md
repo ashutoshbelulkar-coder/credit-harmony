@@ -419,7 +419,7 @@ Content-Type: application/json
 
 ### Real Estate Bureau demo accounts (frontend POC)
 
-These accounts are for the **Real Estate Bureau** module demo. Credentials are **not** shown on the login screen; use them when testing the bureau flow in mock or dev mode.
+These accounts are for the **Real Estate Bureau** module demo. Credentials are **not** shown on the login screen; they are seeded in `backend/src/main/resources/db/seed_data.sql` (restart the Spring backend after pulling changes).
 
 | Label | Email | Password | Post-login menu |
 |-------|-------|----------|-----------------|

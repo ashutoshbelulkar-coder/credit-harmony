@@ -162,6 +162,9 @@ INSERT OR IGNORE INTO compliance_documents (institution_id, document_name, docum
 -- sarah.chen@fnb.co.za   → Sarah@1234
 -- james.mthembu@fnb.co.za → James@1234
 -- david.kim@pacificfin.com → David@1234
+-- realestate.demo@crif.com → Demo@123   (Real Estate Bureau demo)
+-- realestate.admin@crif.com → Admin@123 (Real Estate Bureau demo)
+-- crif.property@crif.com → Admin@123     (Real Estate Bureau demo)
 -- ============================================================================
 INSERT OR IGNORE INTO users
     (id, email, password_hash, display_name, given_name, family_name,
@@ -190,7 +193,13 @@ VALUES
 (11, 'james.mthembu@fnb.co.za', '$2b$12$BP7qwA.NKmXKVHvluAE5M.z3m5rY3mPW0gVXeLs7dtPj/Jv9qAWtC',
  'James Mthembu',     'James',   'Mthembu',  'active',    0, 1,           '2024-02-10 00:00:00'),
 (12, 'david.kim@pacificfin.com','$2b$12$DroxkL/KnJEP3kyH9wj0TOFN6A105m3XJGs7J9MlskDzC9AJXCwla',
- 'David Kim',         'David',   'Kim',      'active',    0, 3,           '2024-03-20 00:00:00');
+ 'David Kim',         'David',   'Kim',      'active',    0, 3,           '2024-03-20 00:00:00'),
+(13, 'realestate.demo@crif.com', '$2b$12$aadvCtCnbRkOesHjW6mgA.fiYAbJXhg4ksFSBthl97eTwKhFkStjm',
+ 'REB Demo User',     'REB',     'Demo',     'active',    0, NULL,        '2026-01-01 00:00:00'),
+(14, 'realestate.admin@crif.com','$2b$12$BSFI/Zlc9aOJUp88VBO.Ee4/Ozc7iDtjLU8j7jVnW7NxNg99H4Ag2',
+ 'REB Admin User',    'REB',     'Admin',    'active',    0, NULL,        '2026-01-01 00:00:00'),
+(15, 'crif.property@crif.com',   '$2b$12$m606XcLtejBZ5F6GJhfUiOitBb4i1kbtlv6nn0mr/tMHqU.93gVdG',
+ 'Property Analyst',  'CRIF',    'Property', 'active',    0, NULL,        '2026-01-01 00:00:00');
 
 -- Ensure password hashes match README (INSERT OR IGNORE leaves stale rows on re-seed)
 UPDATE users SET password_hash = '$2b$12$XXkH89KDr2OEbRIYtTBNd.dwaKZdpDAtYkc98lncLpiZfqxuJGf0K' WHERE email = 'admin@hcb.com';
@@ -205,6 +214,9 @@ UPDATE users SET password_hash = '$2b$12$9fOs3X/cPh33YwfCRAQskummA4NpyPGAYoWFkdD
 UPDATE users SET password_hash = '$2b$12$aaNpYk/TirDe0lYOz87BvuG2mDoSenuEmkWJxC6MXYyGClQWAQl5O' WHERE email = 'suspended@hcb.com';
 UPDATE users SET password_hash = '$2b$12$BP7qwA.NKmXKVHvluAE5M.z3m5rY3mPW0gVXeLs7dtPj/Jv9qAWtC' WHERE email = 'james.mthembu@fnb.co.za';
 UPDATE users SET password_hash = '$2b$12$DroxkL/KnJEP3kyH9wj0TOFN6A105m3XJGs7J9MlskDzC9AJXCwla' WHERE email = 'david.kim@pacificfin.com';
+UPDATE users SET password_hash = '$2b$12$aadvCtCnbRkOesHjW6mgA.fiYAbJXhg4ksFSBthl97eTwKhFkStjm' WHERE email = 'realestate.demo@crif.com';
+UPDATE users SET password_hash = '$2b$12$BSFI/Zlc9aOJUp88VBO.Ee4/Ozc7iDtjLU8j7jVnW7NxNg99H4Ag2' WHERE email = 'realestate.admin@crif.com';
+UPDATE users SET password_hash = '$2b$12$m606XcLtejBZ5F6GJhfUiOitBb4i1kbtlv6nn0mr/tMHqU.93gVdG' WHERE email = 'crif.property@crif.com';
 
 -- MFA: only portal demo admin uses email OTP challenge; all others off
 UPDATE users SET mfa_enabled = 0 WHERE LOWER(email) != 'admin@hcb.com';
@@ -225,7 +237,10 @@ INSERT OR IGNORE INTO user_role_assignments (user_id, role_id, institution_id, a
 (9,  3, 2,    1),      -- ops@metrocu → Analyst for Metro CU
 (10, 3, NULL, 1),      -- suspended user → Analyst (suspended account)
 (11, 2, 1,    1),      -- James Mthembu → Bureau Admin for FNB
-(12, 3, 3,    1);      -- David Kim → Analyst for Pacific Finance
+(12, 3, 3,    1),      -- David Kim → Analyst for Pacific Finance
+(13, 3, NULL, 1),      -- realestate.demo → Analyst (REB demo)
+(14, 3, NULL, 1),      -- realestate.admin → Analyst (REB demo)
+(15, 3, NULL, 1);      -- crif.property → Analyst (REB demo)
 
 -- ============================================================================
 -- API KEYS (from institution-detail + monitoring mock data)

@@ -13,6 +13,9 @@ export interface SmartInquiryInput {
   borrowerName: string;
   mobile: string;
   pan: string;
+  idType: string;
+  idNumber: string;
+  currentAddress: string;
   dob: string;
   email: string;
   propertyQuery: string;
@@ -90,7 +93,7 @@ export function computeSearchCompleteness(
 ): SearchCompletenessLevel {
   const hasBorrower = Boolean(input.borrowerName.trim());
   const hasMobile = Boolean(input.mobile.trim());
-  const hasPan = Boolean(input.pan.trim());
+  const hasPan = Boolean(input.idNumber.trim() || input.pan.trim());
   const hasProperty =
     Boolean(input.selectedSuggestion) ||
     Boolean(input.propertyQuery.trim()) ||
@@ -134,7 +137,11 @@ export function computeIdentificationStrength(
       present: Boolean(input.mobile.trim()),
       required: input.searchType === "borrower_property",
     },
-    { label: "PAN", present: Boolean(input.pan.trim()) },
+    {
+      label: input.idType ? `${input.idType} ID` : "Government ID",
+      present: Boolean(input.idNumber.trim() || input.pan.trim()),
+    },
+    { label: "Current Address", present: Boolean(input.currentAddress.trim()) },
     {
       label: "Project Name",
       present: Boolean(
@@ -193,11 +200,20 @@ export function smartInquiryToFormData(
 
   const firstCo = coBorrowers[0];
 
+  const idNumber = (input.idNumber || input.pan).trim();
+  const pan =
+    input.idType === "PAN" || (!input.idType && idNumber)
+      ? idNumber.toUpperCase()
+      : input.pan.trim().toUpperCase();
+
   return {
     borrower: {
       borrowerType: "Individual",
       borrowerName: input.borrowerName.trim(),
-      pan: input.pan.trim().toUpperCase(),
+      pan,
+      idType: input.idType || (idNumber ? "PAN" : undefined),
+      idNumber: idNumber || undefined,
+      currentAddress: input.currentAddress.trim() || undefined,
       dateOfBirth: input.dob,
       mobileNumber: input.mobile.trim(),
       email: input.email.trim(),

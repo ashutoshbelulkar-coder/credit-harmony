@@ -1,7 +1,10 @@
+import type { PreScreeningOutcome } from "./pre-screening";
+
 export type InquiryStatus = "Completed" | "Processing" | "Failed" | "Partial";
 export type MatchStatus = "Single Match" | "Multiple Matches" | "No Match" | "Pending";
 export type ReportStatus = "Ready" | "Pending" | "Failed" | "Partial";
 export type RiskLevel = "Low" | "Medium" | "High";
+export type { PreScreeningOutcome };
 export type RebErrorType =
   | "no_property"
   | "no_cersai"
@@ -23,6 +26,8 @@ export interface CoBorrowerEntry {
   id: string;
   name: string;
   pan: string;
+  idType?: string;
+  idNumber?: string;
   mobile: string;
   relationship: string;
 }
@@ -54,6 +59,9 @@ export interface BorrowerDetails {
   borrowerType: string;
   borrowerName: string;
   pan: string;
+  idType?: string;
+  idNumber?: string;
+  currentAddress?: string;
   dateOfBirth: string;
   mobileNumber: string;
   email: string;
@@ -330,6 +338,7 @@ export interface PropertyReport {
   valuationTrend: ValuationPoint[];
   riskInsights: RiskInsight[];
   recommendation: RiskLevel;
+  preScreeningOutcome: PreScreeningOutcome;
   recommendationText: string;
   enhancements: PropertyReportEnhancements;
 }

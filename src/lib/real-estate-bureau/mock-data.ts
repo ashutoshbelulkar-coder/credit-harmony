@@ -1,3 +1,4 @@
+import { riskLevelToPreScreeningOutcome } from "./pre-screening";
 import type {
   InquiryFormData,
   InquiryHistoryRow,
@@ -21,6 +22,9 @@ export const SCENARIO_1_FORM: InquiryFormData = {
     borrowerType: "Individual",
     borrowerName: "Rahul Sharma",
     pan: "ABCDE1234F",
+    idType: "PAN",
+    idNumber: "ABCDE1234F",
+    currentAddress: "Flat 1204, Tower B, Panchshil Towers, Kharadi, Pune 411014",
     dateOfBirth: "1985-03-15",
     mobileNumber: "9876543210",
     email: "rahul.sharma@email.com",
@@ -60,6 +64,9 @@ export const SCENARIO_2_FORM: InquiryFormData = {
     borrowerType: "Individual",
     borrowerName: "Amit Kulkarni",
     pan: "LMNOP9012Q",
+    idType: "PAN",
+    idNumber: "LMNOP9012Q",
+    currentAddress: "Flat 503, Riverdale Heights, Kharadi, Pune 411014",
     dateOfBirth: "1978-11-22",
     mobileNumber: "9123456789",
     email: "amit.kulkarni@email.com",
@@ -227,12 +234,13 @@ function buildReport(
       },
     ],
     recommendation: riskLevel,
+    preScreeningOutcome: riskLevelToPreScreeningOutcome(riskLevel),
     recommendationText:
       riskLevel === "Medium"
-        ? "Property presents moderate risk due to historical charge activity and exposure growth. CERSAI match verified with reconciled member data within tolerance. Recommended for underwriting with standard encumbrance review."
+        ? "Pre-screening approved with conditions: satisfy encumbrance review, resolve Society NOC gap, and confirm exposure within policy before disbursement."
         : riskLevel === "Low"
-          ? "Property profile indicates low risk with clean ownership chain and adequate documentation."
-          : "Property presents elevated risk. Recommend senior credit committee review before proceeding.",
+          ? "Pre-screening approved: clean ownership chain, adequate documentation, and bureau checks cleared for standard underwriting."
+          : "Manual screening required: elevated encumbrance and documentation concerns — route to credit operations before approval.",
     enhancements: createReportEnhancements(borrowerName, address),
   };
 }

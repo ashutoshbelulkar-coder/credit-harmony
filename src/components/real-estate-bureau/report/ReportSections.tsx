@@ -8,6 +8,11 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { Line, LineChart, XAxis, YAxis, CartesianGrid } from "recharts";
+import {
+  preScreeningLabel,
+  preScreeningSummary,
+  riskLevelToPreScreeningOutcome,
+} from "@/lib/real-estate-bureau/pre-screening";
 import type { PropertyReport } from "@/lib/real-estate-bureau/types";
 
 export function ReportSection({ title, children }: { title: string; children: React.ReactNode }) {
@@ -250,19 +255,24 @@ export function RiskInsightsSection({ report }: { report: PropertyReport }) {
 }
 
 export function RecommendationSection({ report }: { report: PropertyReport }) {
+  const outcome =
+    report.preScreeningOutcome ?? riskLevelToPreScreeningOutcome(report.recommendation);
   const border =
-    report.recommendation === "High"
+    outcome === "manual_screening_required"
       ? "border-destructive"
-      : report.recommendation === "Low"
+      : outcome === "pre_screen_approved"
         ? "border-success"
         : "border-[hsl(var(--risk-medium))]";
   return (
-    <ReportSection title="Recommendation">
+    <ReportSection title="Pre-Screening Recommendation">
       <div className={cn("rounded-lg border-l-4 p-4 bg-muted/20", border)}>
-        <p className="text-body font-semibold text-foreground">
-          {report.recommendation} Risk
+        <p className="text-body font-semibold text-foreground">{preScreeningLabel(outcome)}</p>
+        <p className="text-caption text-muted-foreground mt-1">
+          Risk classification: {report.recommendation}
         </p>
-        <p className="text-body text-muted-foreground mt-2">{report.recommendationText}</p>
+        <p className="text-body text-muted-foreground mt-2">
+          {report.recommendationText || preScreeningSummary(outcome)}
+        </p>
       </div>
     </ReportSection>
   );
