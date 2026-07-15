@@ -1,0 +1,1195 @@
+{
+  "policies": [
+    {
+      "id": "POL_SINGLE",
+      "name": "Standard single approver",
+      "pattern": "single",
+      "trigger": "Product creation & version creation",
+      "roles": [
+        "Product Head"
+      ],
+      "separationOfDuties": true,
+      "description": "Default policy: one eligible Product Head approves. Submitter cannot self-approve."
+    },
+    {
+      "id": "POL_QUORUM",
+      "name": "Governance quorum (2-of-3)",
+      "pattern": "quorum",
+      "trigger": "High-sensitivity products (PII / regulatory)",
+      "roles": [
+        "Product Head",
+        "Governance Committee",
+        "Data Protection Officer"
+      ],
+      "separationOfDuties": true,
+      "description": "Any 2 of 3 configured roles must approve before the version becomes Approved."
+    },
+    {
+      "id": "POL_SEQ",
+      "name": "Sequential Product Head then Governance",
+      "pattern": "sequential",
+      "trigger": "Cross-geography catalogue products",
+      "roles": [
+        "Product Head",
+        "Governance Committee"
+      ],
+      "separationOfDuties": true,
+      "description": "Product Head must approve first; Governance Committee second. Escalates on SLA expiry."
+    }
+  ],
+  "versions": [
+    {
+      "id": "ver_sme_v1",
+      "productCode": "PRD_0001",
+      "name": "SME Cashflow & GST Health Pack",
+      "description": "SME affordability from bank cashflow analysis and GST filing behaviour.",
+      "version": 1,
+      "parentVersionId": null,
+      "status": "inactive",
+      "pricingModel": "per_hit",
+      "price": 45,
+      "lastUpdated": "2025-11-01T10:00:00.000Z",
+      "createdAt": "2025-06-01T09:00:00.000Z",
+      "packetIds": [
+        "PKT_BCF",
+        "PKT_GST"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "PKT_BCF",
+          "selectedFields": [
+            "avg_monthly_balance",
+            "income_stability_score"
+          ]
+        },
+        {
+          "packetId": "PKT_GST",
+          "selectedFields": [
+            "annual_turnover",
+            "gst_compliance_score"
+          ]
+        }
+      ],
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE",
+        "dataType": "LATEST"
+      },
+      "metadata": {
+        "owner": "Priya Sharma",
+        "ownerRole": "Product Owner",
+        "businessUnit": "Commercial Lending",
+        "targetGeography": "India",
+        "targetSegment": "SME",
+        "intendedUse": "Origination affordability",
+        "regulatoryNotes": "Consent-based cashflow + GST; DPDP data-minimisation applied.",
+        "sensitivity": "Medium",
+        "tags": [
+          "sme",
+          "cashflow",
+          "gst"
+        ],
+        "categories": [
+          "Affordability"
+        ],
+        "effectiveStart": "2025-06-15",
+        "effectiveEnd": "2025-12-31"
+      },
+      "consumerCount": 0,
+      "definitionFingerprint": "fp_sme_v1_stub",
+      "approvalCycles": [],
+      "deprecationWindowDays": null,
+      "deprecationNoticeAt": null
+    },
+    {
+      "id": "ver_sme_v2",
+      "productCode": "PRD_0001",
+      "name": "SME Cashflow & GST Health Pack",
+      "description": "SME affordability from bank cashflow, GST filing behaviour and business linkage signals.",
+      "version": 2,
+      "parentVersionId": "ver_sme_v1",
+      "status": "deprecated",
+      "pricingModel": "per_hit",
+      "price": 48,
+      "lastUpdated": "2026-03-01T10:00:00.000Z",
+      "createdAt": "2025-12-01T09:00:00.000Z",
+      "packetIds": [
+        "PKT_BCF",
+        "PKT_GST",
+        "PKT_BLK"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "PKT_BCF",
+          "selectedFields": [
+            "avg_monthly_balance",
+            "income_stability_score",
+            "salary_detected",
+            "emi_outflow"
+          ]
+        },
+        {
+          "packetId": "PKT_GST",
+          "selectedFields": [
+            "annual_turnover",
+            "gst_filing_regular",
+            "gst_compliance_score"
+          ]
+        },
+        {
+          "packetId": "PKT_BLK",
+          "selectedFields": [
+            "related_entities_count",
+            "network_risk_score"
+          ]
+        }
+      ],
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE",
+        "dataType": "LATEST"
+      },
+      "metadata": {
+        "owner": "Priya Sharma",
+        "ownerRole": "Product Owner",
+        "businessUnit": "Commercial Lending",
+        "targetGeography": "India",
+        "targetSegment": "SME",
+        "intendedUse": "Origination affordability",
+        "regulatoryNotes": "Added business linkages packet; wind-down notice issued.",
+        "sensitivity": "Medium",
+        "tags": [
+          "sme",
+          "cashflow",
+          "gst",
+          "linkages"
+        ],
+        "categories": [
+          "Affordability"
+        ],
+        "effectiveStart": "2025-12-15",
+        "effectiveEnd": null
+      },
+      "consumerCount": 18,
+      "definitionFingerprint": "fp_sme_v2_stub",
+      "deprecationWindowDays": 90,
+      "deprecationNoticeAt": "2026-03-01T10:00:00.000Z",
+      "approvalCycles": []
+    },
+    {
+      "id": "ver_sme_v3",
+      "productCode": "PRD_0001",
+      "name": "SME Cashflow & GST Health Pack",
+      "description": "SME affordability from bank cashflow analysis, GST filing behaviour and legal/litigation screening.",
+      "version": 3,
+      "parentVersionId": "ver_sme_v2",
+      "status": "active",
+      "pricingModel": "per_hit",
+      "price": 50,
+      "lastUpdated": "2026-03-20T10:00:00.000Z",
+      "createdAt": "2026-02-10T09:00:00.000Z",
+      "packetIds": [
+        "PKT_BCF",
+        "PKT_GST",
+        "PKT_LEG"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "PKT_BCF",
+          "selectedFields": [
+            "avg_monthly_balance",
+            "income_stability_score",
+            "salary_detected",
+            "emi_outflow"
+          ]
+        },
+        {
+          "packetId": "PKT_GST",
+          "selectedFields": [
+            "annual_turnover",
+            "gst_filing_regular",
+            "gst_compliance_score"
+          ]
+        },
+        {
+          "packetId": "PKT_LEG",
+          "selectedFields": [
+            "active_cases_count",
+            "defaulter_listing_flag",
+            "litigation_recency_months"
+          ]
+        }
+      ],
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE",
+        "dataType": "LATEST"
+      },
+      "metadata": {
+        "owner": "Priya Sharma",
+        "ownerRole": "Product Owner",
+        "businessUnit": "Commercial Lending",
+        "targetGeography": "India",
+        "targetSegment": "SME",
+        "intendedUse": "Origination affordability",
+        "regulatoryNotes": "Latest active version; default for new adoptions.",
+        "sensitivity": "Medium",
+        "tags": [
+          "sme",
+          "cashflow",
+          "gst",
+          "legal"
+        ],
+        "categories": [
+          "Affordability"
+        ],
+        "effectiveStart": "2026-03-01",
+        "effectiveEnd": null
+      },
+      "consumerCount": 42,
+      "definitionFingerprint": "fp_sme_v3_stub",
+      "approvalCycles": [],
+      "deprecationWindowDays": null,
+      "deprecationNoticeAt": null
+    },
+    {
+      "id": "ver_retail_v1",
+      "productCode": "PRD_0002",
+      "name": "Thin-File Onboarding Score",
+      "description": "Thin-file onboarding from telecom behaviour, device footprint and digital spend signals.",
+      "version": 1,
+      "parentVersionId": null,
+      "status": "draft",
+      "pricingModel": "subscription",
+      "price": 12000,
+      "lastUpdated": "2026-03-18T14:30:00.000Z",
+      "createdAt": "2026-03-10T11:00:00.000Z",
+      "packetIds": [
+        "PKT_TBS",
+        "PKT_DEV",
+        "PKT_DSP"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "PKT_TBS",
+          "selectedFields": [
+            "mobile_recharge_consistency",
+            "sim_age_months",
+            "geo_stability_score"
+          ]
+        },
+        {
+          "packetId": "PKT_DEV",
+          "selectedFields": [
+            "device_price_band",
+            "os_current",
+            "financial_apps_installed",
+            "account_tenure_days"
+          ]
+        },
+        {
+          "packetId": "PKT_DSP",
+          "selectedFields": [
+            "ecommerce_spend",
+            "discretionary_income_score",
+            "spend_volatility"
+          ]
+        }
+      ],
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE",
+        "dataType": "LATEST"
+      },
+      "metadata": {
+        "owner": "Arjun Mehta",
+        "ownerRole": "Product Manager",
+        "businessUnit": "Retail Lending",
+        "targetGeography": "India",
+        "targetSegment": "Thin-file retail",
+        "intendedUse": "New-to-lending onboarding",
+        "regulatoryNotes": "Device signals for onboarding only; disparate-impact review pending.",
+        "sensitivity": "High",
+        "tags": [
+          "thin-file",
+          "retail",
+          "telco",
+          "device"
+        ],
+        "categories": [
+          "Alternative Data"
+        ],
+        "effectiveStart": null,
+        "effectiveEnd": null
+      },
+      "consumerCount": 0,
+      "definitionFingerprint": "fp_retail_v1_stub",
+      "approvalCycles": [],
+      "deprecationWindowDays": null,
+      "deprecationNoticeAt": null
+    },
+    {
+      "id": "ver_corp_v1",
+      "productCode": "PRD_0003",
+      "name": "Merchant Trust & Legal Screen",
+      "description": "Merchant trust from GST profile, business linkages and public litigation footprint.",
+      "version": 1,
+      "parentVersionId": null,
+      "status": "active",
+      "pricingModel": "subscription",
+      "price": 28000,
+      "lastUpdated": "2025-09-01T08:00:00.000Z",
+      "createdAt": "2025-08-01T08:00:00.000Z",
+      "packetIds": [
+        "PKT_GST",
+        "PKT_BLK",
+        "PKT_LEG"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "PKT_GST",
+          "selectedFields": [
+            "annual_turnover",
+            "gst_compliance_score"
+          ]
+        },
+        {
+          "packetId": "PKT_BLK",
+          "selectedFields": [
+            "related_entities_count",
+            "network_risk_score"
+          ]
+        },
+        {
+          "packetId": "PKT_LEG",
+          "selectedFields": [
+            "active_cases_count",
+            "defaulter_listing_flag"
+          ]
+        }
+      ],
+      "enquiryConfig": {
+        "impactType": "HIGH",
+        "scope": "NETWORK",
+        "mode": "LIVE",
+        "dataType": "TRENDED"
+      },
+      "metadata": {
+        "owner": "Neha Kapoor",
+        "ownerRole": "Product Owner",
+        "businessUnit": "Merchant Onboarding",
+        "targetGeography": "India",
+        "targetSegment": "Merchants / Sellers",
+        "intendedUse": "Merchant onboarding & monitoring",
+        "regulatoryNotes": "Public-record litigation data only.",
+        "sensitivity": "High",
+        "tags": [
+          "merchant",
+          "gst",
+          "legal"
+        ],
+        "categories": [
+          "Merchant Risk"
+        ],
+        "effectiveStart": "2025-08-15",
+        "effectiveEnd": null
+      },
+      "consumerCount": 11,
+      "definitionFingerprint": "fp_corp_v1_stub",
+      "approvalCycles": [],
+      "deprecationWindowDays": null,
+      "deprecationNoticeAt": null
+    },
+    {
+      "id": "ver_corp_v2",
+      "productCode": "PRD_0003",
+      "name": "Merchant Trust & Legal Screen",
+      "description": "Merchant trust with GST, linkages, litigation and banking cashflow for seller affordability.",
+      "version": 2,
+      "parentVersionId": "ver_corp_v1",
+      "status": "pending_approval",
+      "pricingModel": "subscription",
+      "price": 32000,
+      "lastUpdated": "2026-03-22T09:15:00.000Z",
+      "createdAt": "2026-03-15T09:00:00.000Z",
+      "packetIds": [
+        "PKT_GST",
+        "PKT_BLK",
+        "PKT_LEG",
+        "PKT_BCF"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "PKT_GST",
+          "selectedFields": [
+            "annual_turnover",
+            "gst_compliance_score",
+            "sales_trend"
+          ]
+        },
+        {
+          "packetId": "PKT_BLK",
+          "selectedFields": [
+            "related_entities_count",
+            "shared_directors",
+            "network_risk_score"
+          ]
+        },
+        {
+          "packetId": "PKT_LEG",
+          "selectedFields": [
+            "active_cases_count",
+            "defaulter_listing_flag",
+            "litigation_recency_months"
+          ]
+        },
+        {
+          "packetId": "PKT_BCF",
+          "selectedFields": [
+            "avg_monthly_balance",
+            "income_stability_score",
+            "emi_outflow"
+          ]
+        }
+      ],
+      "enquiryConfig": {
+        "impactType": "HIGH",
+        "scope": "NETWORK",
+        "mode": "LIVE",
+        "dataType": "TRENDED"
+      },
+      "metadata": {
+        "owner": "Neha Kapoor",
+        "ownerRole": "Product Owner",
+        "businessUnit": "Merchant Onboarding",
+        "targetGeography": "India",
+        "targetSegment": "Merchants / Sellers",
+        "intendedUse": "Marketplace seller trust",
+        "regulatoryNotes": "Adds banking cashflow for merchant affordability screening.",
+        "sensitivity": "High",
+        "tags": [
+          "merchant",
+          "gst",
+          "legal",
+          "cashflow"
+        ],
+        "categories": [
+          "Merchant Risk"
+        ],
+        "effectiveStart": "2026-04-01",
+        "effectiveEnd": null
+      },
+      "consumerCount": 0,
+      "definitionFingerprint": "fp_corp_v2_stub",
+      "approvalCycles": [
+        {
+          "id": "sub_corp_v2_c1",
+          "cycleNumber": 1,
+          "status": "pending",
+          "submittedAt": "2026-03-22T09:15:00.000Z",
+          "submittedBy": "Neha Kapoor",
+          "justification": "Expand Merchant Trust pack with banking cashflow for seller affordability.",
+          "policyId": "POL_QUORUM",
+          "fingerprint": "fp_corp_v2_stub",
+          "exceptionRequested": false,
+          "decisions": []
+        }
+      ],
+      "deprecationWindowDays": null,
+      "deprecationNoticeAt": null
+    },
+    {
+      "id": "ver_mfi_v1",
+      "productCode": "PRD_0004",
+      "name": "Payslip & Utility Affordability Pack",
+      "description": "Affordability from verified payslip income, employment insights and utility/rent payment history.",
+      "version": 1,
+      "parentVersionId": null,
+      "status": "approved",
+      "pricingModel": "per_hit",
+      "price": 18,
+      "lastUpdated": "2026-03-25T07:45:00.000Z",
+      "createdAt": "2026-03-01T07:00:00.000Z",
+      "packetIds": [
+        "PKT_PAY",
+        "PKT_UTL",
+        "PKT_EMP"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "PKT_PAY",
+          "selectedFields": [
+            "net_monthly_income",
+            "income_consistency_score",
+            "tenure_months"
+          ]
+        },
+        {
+          "packetId": "PKT_UTL",
+          "selectedFields": [
+            "electricity_ontime_ratio",
+            "rent_ontime_ratio",
+            "missed_payments_12m",
+            "billing_tenure_months"
+          ]
+        },
+        {
+          "packetId": "PKT_EMP",
+          "selectedFields": [
+            "employment_type",
+            "employer_name",
+            "tenure_months",
+            "employment_stability_score"
+          ]
+        }
+      ],
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE",
+        "dataType": "LATEST"
+      },
+      "metadata": {
+        "owner": "Vikram Rao",
+        "ownerRole": "Product Manager",
+        "businessUnit": "Inclusive Finance",
+        "targetGeography": "India — Tier 2/3",
+        "targetSegment": "Salaried / SHG",
+        "intendedUse": "Affordability underwriting",
+        "regulatoryNotes": "Approved; awaiting activation / effective start.",
+        "sensitivity": "Medium",
+        "tags": [
+          "payslip",
+          "employment",
+          "utility",
+          "affordability"
+        ],
+        "categories": [
+          "Affordability"
+        ],
+        "effectiveStart": "2027-01-15",
+        "effectiveEnd": null
+      },
+      "consumerCount": 0,
+      "definitionFingerprint": "fp_mfi_v1_stub",
+      "approvalCycles": [
+        {
+          "id": "sub_mfi_v1_c1",
+          "cycleNumber": 1,
+          "status": "approved",
+          "submittedAt": "2026-03-20T10:00:00.000Z",
+          "submittedBy": "Vikram Rao",
+          "justification": "Launch payslip + employment + utility affordability for SHG and salaried pilots.",
+          "policyId": "POL_SINGLE",
+          "fingerprint": "fp_mfi_v1_stub",
+          "decisions": [
+            {
+              "id": "dec_mfi_1",
+              "actor": "Ananya Iyer",
+              "role": "Product Head",
+              "decision": "approve",
+              "comment": "Aligned with inclusive finance roadmap.",
+              "at": "2026-03-25T07:45:00.000Z"
+            }
+          ]
+        }
+      ],
+      "deprecationWindowDays": null,
+      "deprecationNoticeAt": null
+    },
+    {
+      "id": "ver_trade_v4",
+      "productCode": "PRD_0005",
+      "name": "Legacy GST KYB Pack",
+      "description": "Legacy GST KYB pack retained for audit; past retention window.",
+      "version": 4,
+      "parentVersionId": "ver_trade_v3",
+      "status": "inactive",
+      "pricingModel": "subscription",
+      "price": 18000,
+      "lastUpdated": "2025-01-10T09:00:00.000Z",
+      "createdAt": "2024-06-01T09:00:00.000Z",
+      "packetIds": [
+        "PKT_GST",
+        "PKT_BLK",
+        "PKT_LEG"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "PKT_GST",
+          "selectedFields": [
+            "annual_turnover",
+            "gst_filing_regular"
+          ]
+        },
+        {
+          "packetId": "PKT_BLK",
+          "selectedFields": [
+            "related_entities_count"
+          ]
+        },
+        {
+          "packetId": "PKT_LEG",
+          "selectedFields": [
+            "active_cases_count"
+          ]
+        }
+      ],
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "VERTICAL",
+        "mode": "LIVE",
+        "dataType": "LATEST"
+      },
+      "metadata": {
+        "owner": "Ops Governance",
+        "ownerRole": "Bureau Admin",
+        "businessUnit": "Merchant Onboarding",
+        "targetGeography": "India",
+        "targetSegment": "Trade / KYB",
+        "intendedUse": "Historical KYB",
+        "regulatoryNotes": "Retention elapsed — eligible for archive.",
+        "sensitivity": "Low",
+        "tags": [
+          "legacy",
+          "gst",
+          "kyb"
+        ],
+        "categories": [
+          "KYB"
+        ],
+        "effectiveStart": "2024-06-15",
+        "effectiveEnd": "2024-12-31"
+      },
+      "consumerCount": 0,
+      "definitionFingerprint": "fp_trade_v4_stub",
+      "approvalCycles": [],
+      "deprecationWindowDays": null,
+      "deprecationNoticeAt": null
+    },
+    {
+      "id": "ver_trade_v3",
+      "productCode": "PRD_0005",
+      "name": "Legacy GST KYB Pack",
+      "description": "Prior GST KYB version (archived lineage parent).",
+      "version": 3,
+      "parentVersionId": null,
+      "status": "archived",
+      "pricingModel": "subscription",
+      "price": 16000,
+      "lastUpdated": "2024-05-01T09:00:00.000Z",
+      "createdAt": "2023-01-01T09:00:00.000Z",
+      "packetIds": [
+        "PKT_GST",
+        "PKT_BLK"
+      ],
+      "packetConfigs": [],
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "VERTICAL",
+        "mode": "LIVE",
+        "dataType": "LATEST"
+      },
+      "metadata": {
+        "owner": "Ops Governance",
+        "ownerRole": "Bureau Admin",
+        "businessUnit": "Merchant Onboarding",
+        "targetGeography": "India",
+        "targetSegment": "Trade / KYB",
+        "intendedUse": "Historical KYB",
+        "regulatoryNotes": "Archived.",
+        "sensitivity": "Low",
+        "tags": [
+          "legacy",
+          "gst",
+          "kyb"
+        ],
+        "categories": [
+          "KYB"
+        ],
+        "effectiveStart": "2023-01-15",
+        "effectiveEnd": "2024-05-31"
+      },
+      "consumerCount": 0,
+      "definitionFingerprint": "fp_trade_v3_stub",
+      "approvalCycles": [],
+      "deprecationWindowDays": null,
+      "deprecationNoticeAt": null
+    },
+    {
+      "id": "ver_bnpl_v1",
+      "productCode": "PRD_0006",
+      "name": "BNPL First-Purchase Pack",
+      "description": "First-purchase BNPL eligibility from repayment behaviour, device footprint and digital spend.",
+      "version": 1,
+      "parentVersionId": null,
+      "status": "active",
+      "pricingModel": "per_hit",
+      "price": 28,
+      "lastUpdated": "2026-03-28T12:00:00.000Z",
+      "createdAt": "2026-03-20T12:00:00.000Z",
+      "packetIds": [
+        "PKT_BNPL",
+        "PKT_DEV",
+        "PKT_DSP"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "PKT_BNPL",
+          "selectedFields": [
+            "bnpl_ontime_ratio",
+            "avg_ticket_size",
+            "missed_installments_6m",
+            "bnpl_utilisation"
+          ]
+        },
+        {
+          "packetId": "PKT_DEV",
+          "selectedFields": [
+            "device_price_band",
+            "os_current",
+            "account_tenure_days"
+          ]
+        },
+        {
+          "packetId": "PKT_DSP",
+          "selectedFields": [
+            "ecommerce_spend",
+            "spend_volatility",
+            "discretionary_income_score"
+          ]
+        }
+      ],
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE",
+        "dataType": "LATEST"
+      },
+      "metadata": {
+        "owner": "Sana Qureshi",
+        "ownerRole": "Product Manager",
+        "businessUnit": "Consumer Digital",
+        "targetGeography": "India",
+        "targetSegment": "BNPL retail",
+        "intendedUse": "First-purchase BNPL decisioning",
+        "regulatoryNotes": "Consent-based BNPL + device signals; no traditional bureau inputs.",
+        "sensitivity": "Medium",
+        "tags": [
+          "bnpl",
+          "device",
+          "retail"
+        ],
+        "categories": [
+          "Alternative Data"
+        ],
+        "effectiveStart": "2026-03-25",
+        "effectiveEnd": null
+      },
+      "consumerCount": 9,
+      "definitionFingerprint": "fp_bnpl_v1_stub",
+      "approvalCycles": [],
+      "deprecationWindowDays": null,
+      "deprecationNoticeAt": null
+    },
+    {
+      "id": "ver_devlite_v1",
+      "productCode": "PRD_0007",
+      "name": "Device Risk Score Lite",
+      "description": "Device footprint with digital spend signals for thin-file device risk scoring.",
+      "version": 1,
+      "parentVersionId": null,
+      "status": "deprecated",
+      "pricingModel": "per_hit",
+      "price": 12,
+      "lastUpdated": "2026-02-15T11:00:00.000Z",
+      "createdAt": "2025-09-01T09:00:00.000Z",
+      "packetIds": [
+        "PKT_DEV",
+        "PKT_DSP"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "PKT_DEV",
+          "selectedFields": [
+            "device_price_band",
+            "os_current",
+            "account_tenure_days"
+          ]
+        },
+        {
+          "packetId": "PKT_DSP",
+          "selectedFields": [
+            "ecommerce_spend",
+            "spend_volatility",
+            "discretionary_income_score"
+          ]
+        }
+      ],
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE",
+        "dataType": "LATEST"
+      },
+      "metadata": {
+        "owner": "Arjun Mehta",
+        "ownerRole": "Product Manager",
+        "businessUnit": "Consumer Risk",
+        "targetGeography": "India",
+        "targetSegment": "Retail / Checkout",
+        "intendedUse": "Device and digital-spend screening",
+        "regulatoryNotes": "Deprecated; migrate consumers to Instant Alt-Data or BNPL packs.",
+        "sensitivity": "Medium",
+        "tags": [
+          "device",
+          "digital-spend",
+          "deprecated"
+        ],
+        "categories": [
+          "Alternative Data"
+        ],
+        "effectiveStart": "2025-09-15",
+        "effectiveEnd": "2026-05-15"
+      },
+      "consumerCount": 7,
+      "definitionFingerprint": "fp_devlite_v1_stub",
+      "approvalCycles": [
+        {
+          "id": "sub_devlite_v1_c1",
+          "cycleNumber": 1,
+          "status": "approved",
+          "submittedAt": "2025-09-05T10:00:00.000Z",
+          "submittedBy": "Arjun Mehta",
+          "justification": "Launch lightweight device + fraud screen for thin-file checkout.",
+          "policyId": "POL_SINGLE",
+          "fingerprint": "fp_devlite_v1_stub",
+          "exceptionRequested": false,
+          "decisions": [
+            {
+              "id": "dec_devlite_1",
+              "actor": "Ananya Iyer",
+              "role": "Product Head",
+              "decision": "approve",
+              "comment": "Approved for limited pilot; plan successor pack.",
+              "at": "2025-09-10T12:00:00.000Z"
+            }
+          ]
+        }
+      ],
+      "deprecationWindowDays": 90,
+      "deprecationNoticeAt": "2026-02-15T11:00:00.000Z"
+    },
+    {
+      "id": "ver_gigleg_v1",
+      "productCode": "PRD_0008",
+      "name": "Early Gig Telco Profile",
+      "description": "Retired gig-worker pilot combining telecom behavioural score and digital spend patterns.",
+      "version": 1,
+      "parentVersionId": null,
+      "status": "archived",
+      "pricingModel": "per_hit",
+      "price": 15,
+      "lastUpdated": "2025-06-30T09:00:00.000Z",
+      "createdAt": "2024-03-01T09:00:00.000Z",
+      "packetIds": [
+        "PKT_TBS",
+        "PKT_DSP"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "PKT_TBS",
+          "selectedFields": [
+            "mobile_recharge_consistency",
+            "sim_age_months",
+            "geo_stability_score"
+          ]
+        },
+        {
+          "packetId": "PKT_DSP",
+          "selectedFields": [
+            "ecommerce_spend",
+            "spend_volatility",
+            "discretionary_income_score"
+          ]
+        }
+      ],
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE",
+        "dataType": "LATEST"
+      },
+      "metadata": {
+        "owner": "Vikram Rao",
+        "ownerRole": "Product Manager",
+        "businessUnit": "Inclusive Finance",
+        "targetGeography": "India — Metro",
+        "targetSegment": "Gig workers",
+        "intendedUse": "Historical gig underwriting pilot",
+        "regulatoryNotes": "Archived after retention window; superseded by Gig Worker Alt-Data Profile.",
+        "sensitivity": "Low",
+        "tags": [
+          "gig",
+          "telco",
+          "archived"
+        ],
+        "categories": [
+          "Affordability"
+        ],
+        "effectiveStart": "2024-03-15",
+        "effectiveEnd": "2025-03-31"
+      },
+      "consumerCount": 0,
+      "definitionFingerprint": "fp_gigleg_v1_stub",
+      "approvalCycles": [
+        {
+          "id": "sub_gigleg_v1_c1",
+          "cycleNumber": 1,
+          "status": "approved",
+          "submittedAt": "2024-03-05T09:00:00.000Z",
+          "submittedBy": "Vikram Rao",
+          "justification": "Pilot telco + spend signals for gig onboarding.",
+          "policyId": "POL_SINGLE",
+          "fingerprint": "fp_gigleg_v1_stub",
+          "exceptionRequested": false,
+          "decisions": [
+            {
+              "id": "dec_gigleg_1",
+              "actor": "Ananya Iyer",
+              "role": "Product Head",
+              "decision": "approve",
+              "comment": "Approve pilot with 12-month review.",
+              "at": "2024-03-12T11:30:00.000Z"
+            }
+          ]
+        }
+      ],
+      "deprecationWindowDays": null,
+      "deprecationNoticeAt": null
+    }
+  ],
+  "notifications": [
+    {
+      "id": "ntf_1",
+      "productId": "ver_sme_v2",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v2",
+      "event": "deprecated",
+      "message": "SME Cashflow & GST Health Pack v2 deprecated with 90-day wind-down. Migrate to v3.",
+      "sentAt": "2026-03-01T10:05:00.000Z",
+      "recipients": [
+        "18 subscribed institutions"
+      ]
+    },
+    {
+      "id": "ntf_2",
+      "productId": "ver_sme_v3",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v3",
+      "event": "activated",
+      "message": "SME Cashflow & GST Health Pack v3 is Active and is the default for new adoptions.",
+      "sentAt": "2026-03-01T10:10:00.000Z",
+      "recipients": [
+        "Catalogue consumers",
+        "Internal capabilities"
+      ]
+    },
+    {
+      "id": "ntf_3",
+      "productId": "ver_devlite_v1",
+      "productCode": "PRD_0007",
+      "versionId": "ver_devlite_v1",
+      "event": "deprecated",
+      "message": "Device Risk Score Lite v1 deprecated with 90-day wind-down. Migrate to Instant Alt-Data or BNPL packs.",
+      "sentAt": "2026-02-15T11:05:00.000Z",
+      "recipients": [
+        "7 subscribed institutions"
+      ]
+    },
+    {
+      "id": "ntf_4",
+      "productId": "ver_gigleg_v1",
+      "productCode": "PRD_0008",
+      "versionId": "ver_gigleg_v1",
+      "event": "archived",
+      "message": "Early Gig Telco Profile v1 archived after retention window.",
+      "sentAt": "2025-06-30T09:05:00.000Z",
+      "recipients": [
+        "Internal archive"
+      ]
+    }
+  ],
+  "auditEvents": [
+    {
+      "id": "aud_1",
+      "at": "2026-03-22T09:15:00.000Z",
+      "actor": "Neha Kapoor",
+      "action": "submitted",
+      "productId": "ver_corp_v2",
+      "productCode": "PRD_0003",
+      "versionId": "ver_corp_v2",
+      "version": 2,
+      "summary": "Submitted Merchant Trust & Legal Screen v2 for approval",
+      "justification": "Expand with banking cashflow for seller affordability"
+    },
+    {
+      "id": "aud_2",
+      "at": "2026-03-25T07:45:00.000Z",
+      "actor": "Ananya Iyer",
+      "action": "approved",
+      "productId": "ver_mfi_v1",
+      "productCode": "PRD_0004",
+      "versionId": "ver_mfi_v1",
+      "version": 1,
+      "summary": "Approved Payslip & Utility Affordability Pack v1",
+      "justification": "Aligned with inclusive finance roadmap"
+    },
+    {
+      "id": "aud_3",
+      "at": "2026-03-01T10:00:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "deprecated",
+      "productId": "ver_sme_v2",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v2",
+      "version": 2,
+      "summary": "Deprecated SME Cashflow & GST Health Pack v2 (90-day window)",
+      "justification": "Superseded by v3; migrate consumers"
+    },
+    {
+      "id": "aud_4",
+      "at": "2026-03-01T10:08:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "activated",
+      "productId": "ver_sme_v3",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v3",
+      "version": 3,
+      "summary": "Activated SME Cashflow & GST Health Pack v3",
+      "justification": "Go-live after approval"
+    },
+    {
+      "id": "aud_5",
+      "at": "2026-03-18T14:30:00.000Z",
+      "actor": "Arjun Mehta",
+      "action": "updated",
+      "productId": "ver_retail_v1",
+      "productCode": "PRD_0002",
+      "versionId": "ver_retail_v1",
+      "version": 1,
+      "summary": "Updated packet configuration on Thin-File Onboarding Score draft"
+    },
+    {
+      "id": "aud_6",
+      "at": "2026-02-15T11:00:00.000Z",
+      "actor": "Arjun Mehta",
+      "action": "deprecated",
+      "productId": "ver_devlite_v1",
+      "productCode": "PRD_0007",
+      "versionId": "ver_devlite_v1",
+      "version": 1,
+      "summary": "Deprecated Device Risk Score Lite v1 (90-day window)",
+      "justification": "Superseded by richer alt-data packs; migrate consumers"
+    },
+    {
+      "id": "aud_7",
+      "at": "2025-06-30T09:00:00.000Z",
+      "actor": "Vikram Rao",
+      "action": "archived",
+      "productId": "ver_gigleg_v1",
+      "productCode": "PRD_0008",
+      "versionId": "ver_gigleg_v1",
+      "version": 1,
+      "summary": "Archived Early Gig Telco Profile v1",
+      "justification": "Retention elapsed; superseded by Gig Worker Alt-Data Profile"
+    }
+  ],
+  "dependencies": [
+    {
+      "id": "dep_1",
+      "fromType": "product",
+      "fromId": "ver_sme_v3",
+      "fromLabel": "SME Cashflow & GST Health Pack v3",
+      "toType": "packet",
+      "toId": "PKT_BCF",
+      "toLabel": "Banking Cashflow Summary"
+    },
+    {
+      "id": "dep_2",
+      "fromType": "product",
+      "fromId": "ver_sme_v3",
+      "fromLabel": "SME Cashflow & GST Health Pack v3",
+      "toType": "packet",
+      "toId": "PKT_GST",
+      "toLabel": "GST Business Profile"
+    },
+    {
+      "id": "dep_3",
+      "fromType": "product",
+      "fromId": "ver_sme_v3",
+      "fromLabel": "SME Cashflow & GST Health Pack v3",
+      "toType": "packet",
+      "toId": "PKT_LEG",
+      "toLabel": "Legal & Litigation Signals"
+    },
+    {
+      "id": "dep_4",
+      "fromType": "product",
+      "fromId": "ver_sme_v3",
+      "fromLabel": "SME Cashflow & GST Health Pack v3",
+      "toType": "capability",
+      "toId": "ENQ",
+      "toLabel": "Enquiry API"
+    },
+    {
+      "id": "dep_5",
+      "fromType": "product",
+      "fromId": "ver_corp_v2",
+      "fromLabel": "Merchant Trust & Legal Screen v2",
+      "toType": "packet",
+      "toId": "PKT_BCF",
+      "toLabel": "Banking Cashflow Summary"
+    },
+    {
+      "id": "dep_6",
+      "fromType": "packet",
+      "fromId": "PKT_UTL",
+      "fromLabel": "Utility & Rent Payments",
+      "toType": "capability",
+      "toId": "RPT_AFF",
+      "toLabel": "Affordability Monitoring Report"
+    },
+    {
+      "id": "dep_7",
+      "fromType": "product",
+      "fromId": "ver_retail_v1",
+      "fromLabel": "Thin-File Onboarding Score v1",
+      "toType": "packet",
+      "toId": "PKT_TBS",
+      "toLabel": "Telecom Behavioral Score"
+    },
+    {
+      "id": "dep_8",
+      "fromType": "product",
+      "fromId": "ver_mfi_v1",
+      "fromLabel": "Payslip & Utility Affordability Pack v1",
+      "toType": "capability",
+      "toId": "ENQ",
+      "toLabel": "Enquiry API"
+    },
+    {
+      "id": "dep_9",
+      "fromType": "product",
+      "fromId": "ver_bnpl_v1",
+      "fromLabel": "BNPL First-Purchase Pack v1",
+      "toType": "packet",
+      "toId": "PKT_BNPL",
+      "toLabel": "BNPL Repayment Behaviour"
+    }
+  ]
+}

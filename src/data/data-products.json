@@ -1,108 +1,953 @@
 {
   "productCatalogPacketOptions": [
     {
-      "id": "PKT_BCF", "label": "Banking Cashflow Summary",
+      "id": "PKT_BCF",
+      "label": "Banking Cashflow Summary",
       "description": "Bank statement analysis: credits, debits, balances, salary detection and EMI outflow.",
-      "category": "Financial Data", "sourceType": "bank", "previewKey": "banking_cashflow",
-      "fields": ["avg_monthly_balance","total_credits_6m","total_debits_6m","cash_deposit_ratio","income_stability_score","salary_detected","emi_outflow","bounce_instances","closing_balance_trend"],
-      "derivedFields": ["weighted_cashflow_score", "emi_burden_ratio", "income_stability_index"]
+      "category": "Financial Data",
+      "sourceType": "bank",
+      "previewKey": "banking_cashflow",
+      "fields": [
+        "avg_monthly_balance",
+        "total_credits_6m",
+        "total_debits_6m",
+        "cash_deposit_ratio",
+        "income_stability_score",
+        "salary_detected",
+        "emi_outflow",
+        "bounce_instances",
+        "closing_balance_trend"
+      ],
+      "derivedFields": [
+        "weighted_cashflow_score",
+        "emi_burden_ratio",
+        "income_stability_index"
+      ]
     },
     {
-      "id": "PKT_GST", "label": "GST Business Profile",
+      "id": "PKT_GST",
+      "label": "GST Business Profile",
       "description": "GST filing behaviour, turnover trends, compliance score and customer concentration.",
-      "category": "Business Data", "sourceType": "gst", "previewKey": "gst_business_profile",
-      "fields": ["annual_turnover","gst_filing_regular","gst_return_type","sales_trend","top_customers_concentration","input_output_ratio","gst_compliance_score"],
-      "derivedFields": ["turnover_momentum_index", "compliance_risk_tier"]
+      "category": "Business Data",
+      "sourceType": "gst",
+      "previewKey": "gst_business_profile",
+      "fields": [
+        "annual_turnover",
+        "gst_filing_regular",
+        "gst_return_type",
+        "sales_trend",
+        "top_customers_concentration",
+        "input_output_ratio",
+        "gst_compliance_score"
+      ],
+      "derivedFields": [
+        "turnover_momentum_index",
+        "compliance_risk_tier"
+      ]
     },
     {
-      "id": "PKT_BLK", "label": "Business Linkages",
+      "id": "PKT_BLK",
+      "label": "Business Linkages",
       "description": "Entity network mapping: related firms, shared directors and group-level risk exposure.",
-      "category": "Business Data", "sourceType": "custom", "previewKey": "business_linkages",
-      "fields": ["related_entities_count","shared_directors","high_risk_associations","group_exposure","network_risk_score"],
-      "derivedFields": ["network_risk_rollup", "related_party_exposure_score"]
+      "category": "Business Data",
+      "sourceType": "custom",
+      "previewKey": "business_linkages",
+      "fields": [
+        "related_entities_count",
+        "shared_directors",
+        "high_risk_associations",
+        "group_exposure",
+        "network_risk_score"
+      ],
+      "derivedFields": [
+        "network_risk_rollup",
+        "related_party_exposure_score"
+      ]
     },
     {
-      "id": "PKT_TBS", "label": "Telecom Behavioral Score",
+      "id": "PKT_TBS",
+      "label": "Telecom Behavioral Score",
       "description": "Mobile usage patterns: recharge consistency, device stability and geo-mobility signals.",
-      "category": "Behavioral Data", "sourceType": "telecom", "previewKey": "telecom_behavioral_score",
-      "fields": ["mobile_recharge_consistency","avg_monthly_recharge","data_usage_pattern","device_stability","sim_age_months","geo_stability_score"],
-      "derivedFields": ["telco_credit_proxy", "mobility_stability_index"]
+      "category": "Behavioral Data",
+      "sourceType": "telecom",
+      "previewKey": "telecom_behavioral_score",
+      "fields": [
+        "mobile_recharge_consistency",
+        "avg_monthly_recharge",
+        "data_usage_pattern",
+        "device_stability",
+        "sim_age_months",
+        "geo_stability_score"
+      ],
+      "derivedFields": [
+        "telco_credit_proxy",
+        "mobility_stability_index"
+      ]
     },
     {
-      "id": "PKT_EMP", "label": "Employment Insights",
+      "id": "PKT_EMP",
+      "label": "Employment Insights",
       "description": "Employment type, employer identity, tenure and income variability signals.",
-      "category": "Behavioral Data", "sourceType": "utility", "previewKey": "employment_insights",
-      "fields": ["employment_type","employer_name","tenure_months","salary_estimate","income_variability","employment_stability_score"],
-      "derivedFields": ["employment_verification_confidence", "income_band_estimate"]
+      "category": "Behavioral Data",
+      "sourceType": "custom",
+      "previewKey": "employment_insights",
+      "fields": [
+        "employment_type",
+        "employer_name",
+        "tenure_months",
+        "salary_estimate",
+        "income_variability",
+        "employment_stability_score"
+      ],
+      "derivedFields": [
+        "employment_verification_confidence",
+        "income_band_estimate"
+      ]
     },
     {
-      "id": "PKT_DSP", "label": "Digital Spend Profile",
+      "id": "PKT_DSP",
+      "label": "Digital Spend Profile",
       "description": "UPI/card spend patterns across e-commerce, food, subscriptions and discretionary categories.",
-      "category": "Behavioral Data", "sourceType": "utility", "previewKey": "digital_spend_profile",
-      "fields": ["ecommerce_spend","food_delivery_spend","subscription_services_count","luxury_spend_ratio","spend_volatility","discretionary_income_score"],
-      "derivedFields": ["discretionary_spend_ratio", "digital_credit_appetite_score"]
+      "category": "Behavioral Data",
+      "sourceType": "custom",
+      "previewKey": "digital_spend_profile",
+      "fields": [
+        "ecommerce_spend",
+        "food_delivery_spend",
+        "subscription_services_count",
+        "luxury_spend_ratio",
+        "spend_volatility",
+        "discretionary_income_score"
+      ],
+      "derivedFields": [
+        "discretionary_spend_ratio",
+        "digital_credit_appetite_score"
+      ]
     },
     {
-      "id": "PKT_CON", "label": "Consortium Exposure",
-      "description": "Cross-lender liability: active facilities, DPD history, overleveraging and enquiry velocity.",
-      "category": "Consortium Data", "sourceType": "custom", "previewKey": "consortium_exposure",
-      "fields": ["total_exposure","active_lenders","dpd_instances","overleveraged_flag","recent_enquiries","exposure_growth_trend"],
-      "derivedFields": ["cross_lender_stress_flag", "exposure_velocity_90d"]
+      "id": "PKT_CON",
+      "label": "Marketplace Seller Exposure",
+      "description": "Seller liability and enquiry velocity across marketplace partners (alternate merchant signal).",
+      "category": "Consortium Data",
+      "sourceType": "custom",
+      "previewKey": "marketplace_seller_exposure",
+      "fields": [
+        "total_open_facility_value",
+        "active_partner_count",
+        "delayed_settlement_instances",
+        "overleveraged_flag",
+        "recent_partner_enquiries",
+        "exposure_growth_trend"
+      ],
+      "derivedFields": [
+        "partner_stress_flag",
+        "exposure_velocity_90d"
+      ]
     },
     {
-      "id": "PKT_FRD", "label": "Fraud Risk Signals",
+      "id": "PKT_FRD",
+      "label": "Fraud Risk Signals",
       "description": "Device fingerprint, identity consistency, velocity checks and blacklist screening.",
-      "category": "Fraud Signals", "sourceType": "custom", "previewKey": "fraud_risk_signals",
-      "fields": ["device_mismatch_flag","identity_inconsistency","velocity_checks_failed","blacklist_match","fraud_risk_score"],
-      "derivedFields": ["fraud_probability_model", "identity_consistency_score"]
+      "category": "Fraud Signals",
+      "sourceType": "custom",
+      "previewKey": "fraud_risk_signals",
+      "fields": [
+        "device_mismatch_flag",
+        "identity_inconsistency",
+        "velocity_checks_failed",
+        "blacklist_match",
+        "fraud_risk_score"
+      ],
+      "derivedFields": [
+        "fraud_probability_model",
+        "identity_consistency_score"
+      ]
     },
     {
-      "id": "PKT_SYN", "label": "Synthetic Profile",
+      "id": "PKT_SYN",
+      "label": "Synthetic Profile",
       "description": "Parameterised test profiles for simulation: risk score, income band and scenario tags.",
-      "category": "Synthetic / Test", "sourceType": "custom", "previewKey": "synthetic_profile",
-      "fields": ["risk_score","income_band","profile_type","scenario_tag"],
-      "derivedFields": ["synthetic_profile_version", "scenario_calibration_id"]
+      "category": "Synthetic / Test",
+      "sourceType": "custom",
+      "previewKey": "synthetic_profile",
+      "fields": [
+        "risk_score",
+        "income_band",
+        "profile_type",
+        "scenario_tag"
+      ],
+      "derivedFields": [
+        "synthetic_profile_version",
+        "scenario_calibration_id"
+      ]
+    },
+    {
+      "id": "PKT_BNPL",
+      "label": "BNPL Repayment Behaviour",
+      "description": "Buy-now-pay-later plan history: on-time ratio, ticket size, missed installments and utilisation.",
+      "category": "Behavioral Data",
+      "sourceType": "custom",
+      "previewKey": "bnpl_repayment",
+      "fields": [
+        "bnpl_active_plans",
+        "bnpl_ontime_ratio",
+        "avg_ticket_size",
+        "missed_installments_6m",
+        "bnpl_utilisation",
+        "oldest_plan_months"
+      ],
+      "derivedFields": [
+        "bnpl_reliability_index",
+        "installment_stress_flag"
+      ]
+    },
+    {
+      "id": "PKT_UTL",
+      "label": "Utility & Rent Payments",
+      "description": "UTR-style payment behaviour for electricity, gas, water, broadband and rent: on-time ratios, arrears, disconnects and tenure.",
+      "category": "Behavioral Data",
+      "sourceType": "utility",
+      "previewKey": "utility_rent_payments",
+      "fields": [
+        "service_type",
+        "account_status",
+        "electricity_ontime_ratio",
+        "gas_ontime_ratio",
+        "water_ontime_ratio",
+        "broadband_ontime_ratio",
+        "rent_ontime_ratio",
+        "avg_monthly_utility_spend",
+        "monthly_bill_amount",
+        "outstanding_amount",
+        "max_days_past_due_12m",
+        "missed_payments_12m",
+        "late_payment_instances_12m",
+        "disconnection_count_12m",
+        "unpaid_closed_account_flag",
+        "billing_tenure_months",
+        "payment_status"
+      ],
+      "derivedFields": [
+        "utility_payment_reliability",
+        "rent_consistency_index",
+        "arrears_stress_flag",
+        "seasonal_bill_volatility_index"
+      ]
+    },
+    {
+      "id": "PKT_PAY",
+      "label": "Payslip Income Verification",
+      "description": "Employer payroll evidence: verified net income, pay frequency, tenure and deductions.",
+      "category": "Financial Data",
+      "sourceType": "custom",
+      "previewKey": "payslip_income",
+      "fields": [
+        "net_monthly_income",
+        "employer_name",
+        "pay_frequency",
+        "income_consistency_score",
+        "tenure_months",
+        "statutory_deductions_ratio"
+      ],
+      "derivedFields": [
+        "verified_income_band",
+        "payroll_stability_index"
+      ]
+    },
+    {
+      "id": "PKT_DEV",
+      "label": "Device & Digital Footprint",
+      "description": "Device price band, OS currency, financial-app presence and account tenure signals.",
+      "category": "Behavioral Data",
+      "sourceType": "custom",
+      "previewKey": "device_footprint",
+      "fields": [
+        "device_price_band",
+        "os_current",
+        "financial_apps_installed",
+        "storage_utilisation",
+        "account_tenure_days",
+        "sim_count"
+      ],
+      "derivedFields": [
+        "device_affluence_proxy",
+        "digital_footprint_depth"
+      ]
+    },
+    {
+      "id": "PKT_LEG",
+      "label": "Legal & Litigation Signals",
+      "description": "Public litigation footprint: active/resolved cases, defaulter listings and regulatory actions.",
+      "category": "Business Data",
+      "sourceType": "custom",
+      "previewKey": "legal_litigation",
+      "fields": [
+        "active_cases_count",
+        "resolved_cases_count",
+        "defaulter_listing_flag",
+        "regulatory_actions",
+        "litigation_recency_months"
+      ],
+      "derivedFields": [
+        "legal_risk_tier",
+        "litigation_exposure_score"
+      ]
     }
   ],
   "packetMockData": {
-    "PKT_BCF": { "avg_monthly_balance": 45200, "total_credits_6m": 720000, "total_debits_6m": 690000, "cash_deposit_ratio": 0.18, "income_stability_score": 78, "salary_detected": true, "emi_outflow": 15000, "bounce_instances": 1, "closing_balance_trend": "STABLE" },
-    "PKT_GST": { "annual_turnover": 4800000, "gst_filing_regular": true, "gst_return_type": "GSTR3B", "sales_trend": "GROWING", "top_customers_concentration": 0.42, "input_output_ratio": 0.65, "gst_compliance_score": 82 },
-    "PKT_BLK": { "related_entities_count": 6, "shared_directors": 2, "high_risk_associations": 1, "group_exposure": 3200000, "network_risk_score": 68 },
-    "PKT_TBS": { "mobile_recharge_consistency": 0.92, "avg_monthly_recharge": 349, "data_usage_pattern": "HIGH", "device_stability": "STABLE", "sim_age_months": 48, "geo_stability_score": 85 },
-    "PKT_EMP": { "employment_type": "Salaried", "employer_name": "Infosys Ltd", "tenure_months": 36, "salary_estimate": 85000, "income_variability": "LOW", "employment_stability_score": 88 },
-    "PKT_DSP": { "ecommerce_spend": 120000, "food_delivery_spend": 24000, "subscription_services_count": 5, "luxury_spend_ratio": 0.22, "spend_volatility": "MEDIUM", "discretionary_income_score": 74 },
-    "PKT_CON": { "total_exposure": 950000, "active_lenders": 4, "dpd_instances": 2, "overleveraged_flag": true, "recent_enquiries": 6, "exposure_growth_trend": "INCREASING" },
-    "PKT_FRD": { "device_mismatch_flag": false, "identity_inconsistency": true, "velocity_checks_failed": 2, "blacklist_match": false, "fraud_risk_score": 71 },
-    "PKT_SYN": { "risk_score": 680, "income_band": "MEDIUM", "profile_type": "THIN_FILE", "scenario_tag": "NEW_TO_CREDIT" }
+    "PKT_BCF": {
+      "avg_monthly_balance": 45200,
+      "total_credits_6m": 720000,
+      "total_debits_6m": 690000,
+      "cash_deposit_ratio": 0.18,
+      "income_stability_score": 78,
+      "salary_detected": true,
+      "emi_outflow": 15000,
+      "bounce_instances": 1,
+      "closing_balance_trend": "STABLE"
+    },
+    "PKT_GST": {
+      "annual_turnover": 4800000,
+      "gst_filing_regular": true,
+      "gst_return_type": "GSTR3B",
+      "sales_trend": "GROWING",
+      "top_customers_concentration": 0.42,
+      "input_output_ratio": 0.65,
+      "gst_compliance_score": 82
+    },
+    "PKT_BLK": {
+      "related_entities_count": 6,
+      "shared_directors": 2,
+      "high_risk_associations": 1,
+      "group_exposure": 3200000,
+      "network_risk_score": 68
+    },
+    "PKT_TBS": {
+      "mobile_recharge_consistency": 0.92,
+      "avg_monthly_recharge": 349,
+      "data_usage_pattern": "HIGH",
+      "device_stability": "STABLE",
+      "sim_age_months": 48,
+      "geo_stability_score": 85
+    },
+    "PKT_EMP": {
+      "employment_type": "Salaried",
+      "employer_name": "Infosys Ltd",
+      "tenure_months": 36,
+      "salary_estimate": 85000,
+      "income_variability": "LOW",
+      "employment_stability_score": 88
+    },
+    "PKT_DSP": {
+      "ecommerce_spend": 120000,
+      "food_delivery_spend": 24000,
+      "subscription_services_count": 5,
+      "luxury_spend_ratio": 0.22,
+      "spend_volatility": "MEDIUM",
+      "discretionary_income_score": 74
+    },
+    "PKT_CON": {
+      "total_open_facility_value": 950000,
+      "active_partner_count": 4,
+      "delayed_settlement_instances": 2,
+      "overleveraged_flag": true,
+      "recent_partner_enquiries": 6,
+      "exposure_growth_trend": "INCREASING"
+    },
+    "PKT_FRD": {
+      "device_mismatch_flag": false,
+      "identity_inconsistency": true,
+      "velocity_checks_failed": 2,
+      "blacklist_match": false,
+      "fraud_risk_score": 71
+    },
+    "PKT_SYN": {
+      "risk_score": 680,
+      "income_band": "MEDIUM",
+      "profile_type": "THIN_FILE",
+      "scenario_tag": "NEW_TO_CREDIT"
+    },
+    "PKT_BNPL": {
+      "bnpl_active_plans": 3,
+      "bnpl_ontime_ratio": 0.94,
+      "avg_ticket_size": 4200,
+      "missed_installments_6m": 1,
+      "bnpl_utilisation": 0.38,
+      "oldest_plan_months": 22
+    },
+    "PKT_UTL": {
+      "service_type": "ELECTRICITY",
+      "account_status": "ACTIVE",
+      "electricity_ontime_ratio": 0.97,
+      "gas_ontime_ratio": 0.95,
+      "water_ontime_ratio": 0.98,
+      "broadband_ontime_ratio": 0.99,
+      "rent_ontime_ratio": 0.92,
+      "avg_monthly_utility_spend": 6400,
+      "monthly_bill_amount": 2300,
+      "outstanding_amount": 0,
+      "max_days_past_due_12m": 8,
+      "missed_payments_12m": 1,
+      "late_payment_instances_12m": 2,
+      "disconnection_count_12m": 0,
+      "unpaid_closed_account_flag": false,
+      "billing_tenure_months": 54,
+      "payment_status": "CURRENT"
+    },
+    "PKT_PAY": {
+      "net_monthly_income": 78000,
+      "employer_name": "Infosys Ltd",
+      "pay_frequency": "MONTHLY",
+      "income_consistency_score": 86,
+      "tenure_months": 41,
+      "statutory_deductions_ratio": 0.18
+    },
+    "PKT_DEV": {
+      "device_price_band": "MID",
+      "os_current": true,
+      "financial_apps_installed": 4,
+      "storage_utilisation": 0.62,
+      "account_tenure_days": 780,
+      "sim_count": 1
+    },
+    "PKT_LEG": {
+      "active_cases_count": 0,
+      "resolved_cases_count": 2,
+      "defaulter_listing_flag": false,
+      "regulatory_actions": 0,
+      "litigation_recency_months": 28
+    }
   },
   "dataPackets": [
-    { "id": "PKT_001", "name": "Bureau Score", "category": "Bureau", "source": "Internal", "visibility": "Platform", "status": "active" },
-    { "id": "PKT_002", "name": "Consortium Exposure", "category": "Consortium", "source": "Consortium", "visibility": "Consortium", "status": "active" },
-    { "id": "PKT_003", "name": "Account Aggregation", "category": "Banking", "source": "Partner API", "visibility": "Platform", "status": "active" },
-    { "id": "PKT_004", "name": "GST Turnover Summary", "category": "GST", "source": "GSTN", "visibility": "Platform", "status": "active" },
-    { "id": "PKT_005", "name": "Telco Delinquency Signals", "category": "Telecom", "source": "Telecom", "visibility": "Internal", "status": "draft" },
-    { "id": "PKT_BCF", "name": "Banking Cashflow Summary", "category": "Banking", "source": "Partner API", "visibility": "Platform", "status": "active" },
-    { "id": "PKT_GST", "name": "GST Business Profile", "category": "GST", "source": "GSTN", "visibility": "Platform", "status": "active" },
-    { "id": "PKT_BLK", "name": "Business Linkages", "category": "Bureau", "source": "Internal", "visibility": "Platform", "status": "active" },
-    { "id": "PKT_TBS", "name": "Telecom Behavioral Score", "category": "Telecom", "source": "Telecom", "visibility": "Internal", "status": "active" },
-    { "id": "PKT_EMP", "name": "Employment Insights", "category": "Banking", "source": "Partner API", "visibility": "Platform", "status": "active" },
-    { "id": "PKT_DSP", "name": "Digital Spend Profile", "category": "Banking", "source": "Partner API", "visibility": "Platform", "status": "active" },
-    { "id": "PKT_CON", "name": "Consortium Exposure", "category": "Consortium", "source": "Consortium", "visibility": "Consortium", "status": "active" },
-    { "id": "PKT_FRD", "name": "Fraud Risk Signals", "category": "Bureau", "source": "Internal", "visibility": "Internal", "status": "active" },
-    { "id": "PKT_SYN", "name": "Synthetic Profile", "category": "Bureau", "source": "Internal", "visibility": "Internal", "status": "draft" }
+    {
+      "id": "PKT_001",
+      "name": "Digital Identity Stability",
+      "category": "Bureau",
+      "source": "Internal",
+      "visibility": "Platform",
+      "status": "active"
+    },
+    {
+      "id": "PKT_002",
+      "name": "BNPL Repayment Behaviour",
+      "category": "Consortium",
+      "source": "Partner API",
+      "visibility": "Platform",
+      "status": "active"
+    },
+    {
+      "id": "PKT_003",
+      "name": "Account Aggregation",
+      "category": "Banking",
+      "source": "Partner API",
+      "visibility": "Platform",
+      "status": "active"
+    },
+    {
+      "id": "PKT_004",
+      "name": "GST Turnover Summary",
+      "category": "GST",
+      "source": "GSTN",
+      "visibility": "Platform",
+      "status": "active"
+    },
+    {
+      "id": "PKT_005",
+      "name": "Telco Delinquency Signals",
+      "category": "Telecom",
+      "source": "Telecom",
+      "visibility": "Internal",
+      "status": "draft"
+    },
+    {
+      "id": "PKT_BCF",
+      "name": "Banking Cashflow Summary",
+      "category": "Banking",
+      "source": "Partner API",
+      "visibility": "Platform",
+      "status": "active"
+    },
+    {
+      "id": "PKT_GST",
+      "name": "GST Business Profile",
+      "category": "GST",
+      "source": "GSTN",
+      "visibility": "Platform",
+      "status": "active"
+    },
+    {
+      "id": "PKT_BLK",
+      "name": "Business Linkages",
+      "category": "Bureau",
+      "source": "Internal",
+      "visibility": "Platform",
+      "status": "active"
+    },
+    {
+      "id": "PKT_TBS",
+      "name": "Telecom Behavioral Score",
+      "category": "Telecom",
+      "source": "Telecom",
+      "visibility": "Internal",
+      "status": "active"
+    },
+    {
+      "id": "PKT_EMP",
+      "name": "Employment Insights",
+      "category": "Banking",
+      "source": "Partner API",
+      "visibility": "Platform",
+      "status": "active"
+    },
+    {
+      "id": "PKT_DSP",
+      "name": "Digital Spend Profile",
+      "category": "Banking",
+      "source": "Partner API",
+      "visibility": "Platform",
+      "status": "active"
+    },
+    {
+      "id": "PKT_CON",
+      "name": "Marketplace Seller Exposure",
+      "category": "Consortium",
+      "source": "Partner API",
+      "visibility": "Platform",
+      "status": "active"
+    },
+    {
+      "id": "PKT_FRD",
+      "name": "Fraud Risk Signals",
+      "category": "Bureau",
+      "source": "Internal",
+      "visibility": "Internal",
+      "status": "active"
+    },
+    {
+      "id": "PKT_SYN",
+      "name": "Synthetic Profile",
+      "category": "Bureau",
+      "source": "Internal",
+      "visibility": "Internal",
+      "status": "draft"
+    },
+    {
+      "id": "PKT_BNPL",
+      "name": "BNPL Repayment Behaviour",
+      "category": "Banking",
+      "source": "Partner API",
+      "visibility": "Platform",
+      "status": "active"
+    },
+    {
+      "id": "PKT_UTL",
+      "name": "Utility & Rent Payments",
+      "category": "Telecom",
+      "source": "Utility",
+      "visibility": "Platform",
+      "status": "active"
+    },
+    {
+      "id": "PKT_PAY",
+      "name": "Payslip Income Verification",
+      "category": "Banking",
+      "source": "Partner API",
+      "visibility": "Platform",
+      "status": "active"
+    },
+    {
+      "id": "PKT_DEV",
+      "name": "Device & Digital Footprint",
+      "category": "Telecom",
+      "source": "Internal",
+      "visibility": "Internal",
+      "status": "active"
+    },
+    {
+      "id": "PKT_LEG",
+      "name": "Legal & Litigation Signals",
+      "category": "Bureau",
+      "source": "Internal",
+      "visibility": "Platform",
+      "status": "active"
+    }
   ],
   "configuredProducts": [
-    { "id": "PRD_001", "name": "SME Credit Decision Pack", "packetIds": ["PKT_BCF","PKT_CON","PKT_GST"], "description": "Core SME decisioning combining cashflow analysis, consortium exposure and GST compliance.", "status": "active", "pricingModel": "per_hit", "price": 50, "lastUpdated": "2026-03-20T10:00:00.000Z", "enquiryConfig": { "impactType": "LOW", "scope": "CONSORTIUM", "mode": "LIVE" }, "packetConfigs": [{ "packetId": "PKT_BCF", "selectedFields": ["avg_monthly_balance","income_stability_score","salary_detected","emi_outflow"] }, { "packetId": "PKT_CON", "selectedFields": ["total_exposure","active_lenders","dpd_instances","overleveraged_flag"] }, { "packetId": "PKT_GST", "selectedFields": ["annual_turnover","gst_filing_regular","gst_compliance_score"] }] },
-    { "id": "PRD_002", "name": "Retail Thin-File Pack", "packetIds": ["PKT_TBS","PKT_DSP","PKT_SYN"], "description": "Thin-file retail decisioning using telecom, digital spend and synthetic profile signals.", "status": "draft", "pricingModel": "subscription", "price": 12000, "lastUpdated": "2026-03-18T14:30:00.000Z", "enquiryConfig": { "impactType": "LOW", "scope": "SELF", "mode": "LIVE" }, "packetConfigs": [{ "packetId": "PKT_TBS", "selectedFields": ["mobile_recharge_consistency","sim_age_months","geo_stability_score"] }, { "packetId": "PKT_DSP", "selectedFields": ["ecommerce_spend","discretionary_income_score","spend_volatility"] }, { "packetId": "PKT_SYN", "selectedFields": ["risk_score","income_band","profile_type","scenario_tag"] }] },
-    { "id": "PRD_003", "name": "MSME Fraud Shield", "packetIds": ["PKT_FRD","PKT_BLK","PKT_CON"], "description": "Fraud detection and network risk screening for MSME loan origination.", "status": "active", "pricingModel": "per_hit", "price": 35, "lastUpdated": "2026-03-15T08:20:00.000Z", "enquiryConfig": { "impactType": "LOW", "scope": "NETWORK", "mode": "LIVE" }, "packetConfigs": [] },
-    { "id": "PRD_004", "name": "Salaried Consumer Score", "packetIds": ["PKT_EMP","PKT_BCF","PKT_DSP"], "description": "Income verification and spend behaviour assessment for salaried consumer lending.", "status": "active", "pricingModel": "per_hit", "price": 40, "lastUpdated": "2026-03-12T11:45:00.000Z", "enquiryConfig": { "impactType": "HIGH", "scope": "SELF", "mode": "LIVE" }, "packetConfigs": [] },
-    { "id": "PRD_005", "name": "Trade Finance KYB Pack", "packetIds": ["PKT_GST","PKT_BLK","PKT_CON"], "description": "Know Your Business verification using GST profile, entity linkages and consortium exposure.", "status": "active", "pricingModel": "subscription", "price": 18000, "lastUpdated": "2026-03-10T09:00:00.000Z", "enquiryConfig": { "impactType": "LOW", "scope": "VERTICAL", "mode": "LIVE" }, "packetConfigs": [] },
-    { "id": "PRD_006", "name": "Gig Worker Credit Profile", "packetIds": ["PKT_TBS","PKT_DSP","PKT_BCF"], "description": "Alternative credit assessment for gig economy workers using behavioural and cashflow signals.", "status": "active", "pricingModel": "per_hit", "price": 45, "lastUpdated": "2026-03-08T16:00:00.000Z", "enquiryConfig": { "impactType": "LOW", "scope": "SELF", "mode": "LIVE" }, "packetConfigs": [] },
-    { "id": "PRD_007", "name": "Consortium Exposure Monitor", "packetIds": ["PKT_CON","PKT_FRD"], "description": "Ongoing monitoring of cross-lender liabilities and fraud risk signals for portfolio accounts.", "status": "active", "pricingModel": "subscription", "price": 8500, "lastUpdated": "2026-03-05T13:30:00.000Z", "enquiryConfig": { "impactType": "LOW", "scope": "CONSORTIUM", "mode": "LIVE" }, "packetConfigs": [] },
-    { "id": "PRD_008", "name": "New-to-Credit Onboarding Pack", "packetIds": ["PKT_SYN","PKT_TBS","PKT_EMP"], "description": "Synthetic and alternative data assessment for applicants with no prior credit history.", "status": "draft", "pricingModel": "per_hit", "price": 30, "lastUpdated": "2026-03-02T10:10:00.000Z", "enquiryConfig": { "impactType": "LOW", "scope": "SELF", "mode": "SYNTHETIC" }, "packetConfigs": [] },
-    { "id": "PRD_009", "name": "Large Corporate Risk Suite", "packetIds": ["PKT_BCF","PKT_GST","PKT_BLK","PKT_CON","PKT_FRD"], "description": "Comprehensive risk assessment bundle for large corporate and mid-market borrowers.", "status": "active", "pricingModel": "subscription", "price": 45000, "lastUpdated": "2026-02-28T09:00:00.000Z", "enquiryConfig": { "impactType": "HIGH", "scope": "CONSORTIUM", "mode": "LIVE" }, "packetConfigs": [] },
-    { "id": "PRD_010", "name": "Microfinance Borrower Score", "packetIds": ["PKT_TBS","PKT_BCF","PKT_SYN"], "description": "Lightweight scoring product for microfinance and self-help group lending.", "status": "active", "pricingModel": "per_hit", "price": 18, "lastUpdated": "2026-02-25T07:45:00.000Z", "enquiryConfig": { "impactType": "LOW", "scope": "SELF", "mode": "LIVE" }, "packetConfigs": [] },
-    { "id": "PRD_011", "name": "Digital Lending Quick Score", "packetIds": ["PKT_DSP","PKT_TBS","PKT_FRD"], "description": "Real-time scoring for instant digital loan approvals using spend and telecom behaviour.", "status": "active", "pricingModel": "per_hit", "price": 22, "lastUpdated": "2026-02-20T12:00:00.000Z", "enquiryConfig": { "impactType": "LOW", "scope": "SELF", "mode": "LIVE" }, "packetConfigs": [] },
-    { "id": "PRD_012", "name": "Agri-Business Credit Pack", "packetIds": ["PKT_GST","PKT_BCF","PKT_CON"], "description": "Seasonal cashflow and compliance assessment for agricultural businesses and traders.", "status": "draft", "pricingModel": "per_hit", "price": 38, "lastUpdated": "2026-02-15T15:20:00.000Z", "enquiryConfig": { "impactType": "LOW", "scope": "VERTICAL", "mode": "LIVE" }, "packetConfigs": [] }
+    {
+      "id": "PRD_001",
+      "name": "SME Cashflow & GST Health Pack",
+      "packetIds": [
+        "PKT_BCF",
+        "PKT_GST",
+        "PKT_LEG"
+      ],
+      "description": "SME affordability from cashflow analysis, GST filing behaviour and legal screening.",
+      "status": "active",
+      "pricingModel": "per_hit",
+      "price": 50,
+      "lastUpdated": "2026-03-20T10:00:00.000Z",
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE"
+      },
+      "packetConfigs": [
+        {
+          "packetId": "PKT_BCF",
+          "selectedFields": [
+            "avg_monthly_balance",
+            "income_stability_score",
+            "salary_detected",
+            "emi_outflow"
+          ]
+        },
+        {
+          "packetId": "PKT_GST",
+          "selectedFields": [
+            "annual_turnover",
+            "gst_filing_regular",
+            "gst_compliance_score"
+          ]
+        },
+        {
+          "packetId": "PKT_LEG",
+          "selectedFields": [
+            "active_cases_count",
+            "defaulter_listing_flag",
+            "litigation_recency_months"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PRD_002",
+      "name": "Thin-File Onboarding Score",
+      "packetIds": [
+        "PKT_TBS",
+        "PKT_DEV",
+        "PKT_DSP"
+      ],
+      "description": "Thin-file onboarding using telco behaviour, device footprint and digital spend.",
+      "status": "draft",
+      "pricingModel": "subscription",
+      "price": 12000,
+      "lastUpdated": "2026-03-18T14:30:00.000Z",
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE"
+      },
+      "packetConfigs": [
+        {
+          "packetId": "PKT_TBS",
+          "selectedFields": [
+            "mobile_recharge_consistency",
+            "sim_age_months",
+            "geo_stability_score"
+          ]
+        },
+        {
+          "packetId": "PKT_DEV",
+          "selectedFields": [
+            "device_price_band",
+            "os_current",
+            "financial_apps_installed"
+          ]
+        },
+        {
+          "packetId": "PKT_DSP",
+          "selectedFields": [
+            "ecommerce_spend",
+            "discretionary_income_score",
+            "spend_volatility"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PRD_003",
+      "name": "Device & Digital Risk Pack",
+      "packetIds": [
+        "PKT_DEV",
+        "PKT_DSP",
+        "PKT_TBS"
+      ],
+      "description": "Device footprint, digital spend and telco behaviour for retail and MSME onboarding risk.",
+      "status": "active",
+      "pricingModel": "per_hit",
+      "price": 35,
+      "lastUpdated": "2026-03-15T08:20:00.000Z",
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "NETWORK",
+        "mode": "LIVE"
+      },
+      "packetConfigs": [
+        {
+          "packetId": "PKT_DEV",
+          "selectedFields": [
+            "device_price_band",
+            "os_current",
+            "account_tenure_days"
+          ]
+        },
+        {
+          "packetId": "PKT_DSP",
+          "selectedFields": [
+            "ecommerce_spend",
+            "spend_volatility"
+          ]
+        },
+        {
+          "packetId": "PKT_TBS",
+          "selectedFields": [
+            "mobile_recharge_consistency",
+            "sim_age_months"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PRD_004",
+      "name": "Payslip Affordability Score",
+      "packetIds": [
+        "PKT_PAY",
+        "PKT_UTL",
+        "PKT_EMP"
+      ],
+      "description": "Payslip income verification with employment insights and utility/rent history.",
+      "status": "active",
+      "pricingModel": "per_hit",
+      "price": 40,
+      "lastUpdated": "2026-03-12T11:45:00.000Z",
+      "enquiryConfig": {
+        "impactType": "HIGH",
+        "scope": "SELF",
+        "mode": "LIVE"
+      },
+      "packetConfigs": [
+        {
+          "packetId": "PKT_PAY",
+          "selectedFields": [
+            "net_monthly_income",
+            "income_consistency_score"
+          ]
+        },
+        {
+          "packetId": "PKT_UTL",
+          "selectedFields": [
+            "electricity_ontime_ratio",
+            "rent_ontime_ratio",
+            "missed_payments_12m"
+          ]
+        },
+        {
+          "packetId": "PKT_EMP",
+          "selectedFields": [
+            "employment_type",
+            "employment_stability_score"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PRD_005",
+      "name": "GST KYB & Legal Screen",
+      "packetIds": [
+        "PKT_GST",
+        "PKT_BLK",
+        "PKT_LEG"
+      ],
+      "description": "Know Your Business from GST profile, entity linkages and public litigation signals.",
+      "status": "active",
+      "pricingModel": "subscription",
+      "price": 18000,
+      "lastUpdated": "2026-03-10T09:00:00.000Z",
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "VERTICAL",
+        "mode": "LIVE"
+      },
+      "packetConfigs": []
+    },
+    {
+      "id": "PRD_006",
+      "name": "Gig Worker Alt-Data Profile",
+      "packetIds": [
+        "PKT_TBS",
+        "PKT_DSP",
+        "PKT_BNPL"
+      ],
+      "description": "Gig-economy assessment from telco, digital spend and BNPL repayment behaviour.",
+      "status": "active",
+      "pricingModel": "per_hit",
+      "price": 45,
+      "lastUpdated": "2026-03-08T16:00:00.000Z",
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE"
+      },
+      "packetConfigs": []
+    },
+    {
+      "id": "PRD_007",
+      "name": "BNPL Portfolio Monitor",
+      "packetIds": [
+        "PKT_BNPL",
+        "PKT_DEV"
+      ],
+      "description": "Ongoing monitoring of BNPL installment behaviour with device footprint signals.",
+      "status": "active",
+      "pricingModel": "subscription",
+      "price": 8500,
+      "lastUpdated": "2026-03-05T13:30:00.000Z",
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE"
+      },
+      "packetConfigs": [
+        {
+          "packetId": "PKT_BNPL",
+          "selectedFields": [
+            "bnpl_ontime_ratio",
+            "missed_installments_6m",
+            "bnpl_utilisation"
+          ]
+        },
+        {
+          "packetId": "PKT_DEV",
+          "selectedFields": [
+            "device_price_band",
+            "account_tenure_days"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PRD_008",
+      "name": "New-to-Lending Onboarding Pack",
+      "packetIds": [
+        "PKT_EMP",
+        "PKT_TBS",
+        "PKT_UTL"
+      ],
+      "description": "Employment, telco and utility alternate-data assessment for applicants without traditional lending history.",
+      "status": "draft",
+      "pricingModel": "per_hit",
+      "price": 30,
+      "lastUpdated": "2026-03-02T10:10:00.000Z",
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE"
+      },
+      "packetConfigs": [
+        {
+          "packetId": "PKT_EMP",
+          "selectedFields": [
+            "employment_type",
+            "tenure_months",
+            "employment_stability_score"
+          ]
+        },
+        {
+          "packetId": "PKT_TBS",
+          "selectedFields": [
+            "mobile_recharge_consistency",
+            "geo_stability_score"
+          ]
+        },
+        {
+          "packetId": "PKT_UTL",
+          "selectedFields": [
+            "electricity_ontime_ratio",
+            "billing_tenure_months"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "PRD_009",
+      "name": "Merchant Trust Suite",
+      "packetIds": [
+        "PKT_BCF",
+        "PKT_GST",
+        "PKT_BLK",
+        "PKT_LEG"
+      ],
+      "description": "Merchant trust bundle: cashflow, GST, linkages and litigation signals.",
+      "status": "active",
+      "pricingModel": "subscription",
+      "price": 45000,
+      "lastUpdated": "2026-02-28T09:00:00.000Z",
+      "enquiryConfig": {
+        "impactType": "HIGH",
+        "scope": "NETWORK",
+        "mode": "LIVE"
+      },
+      "packetConfigs": []
+    },
+    {
+      "id": "PRD_010",
+      "name": "SHG Utility Reliability Score",
+      "packetIds": [
+        "PKT_TBS",
+        "PKT_UTL",
+        "PKT_PAY"
+      ],
+      "description": "Lightweight affordability for SHG lending using telco, utility and payslip signals.",
+      "status": "active",
+      "pricingModel": "per_hit",
+      "price": 18,
+      "lastUpdated": "2026-02-25T07:45:00.000Z",
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE"
+      },
+      "packetConfigs": []
+    },
+    {
+      "id": "PRD_011",
+      "name": "Instant Alt-Data Decision Pack",
+      "packetIds": [
+        "PKT_DSP",
+        "PKT_TBS",
+        "PKT_DEV"
+      ],
+      "description": "Real-time alternate-data decisioning from spend, telco and device footprint.",
+      "status": "active",
+      "pricingModel": "per_hit",
+      "price": 22,
+      "lastUpdated": "2026-02-20T12:00:00.000Z",
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "SELF",
+        "mode": "LIVE"
+      },
+      "packetConfigs": []
+    },
+    {
+      "id": "PRD_012",
+      "name": "Agri-Merchant GST Season Pack",
+      "packetIds": [
+        "PKT_GST",
+        "PKT_BCF",
+        "PKT_BLK"
+      ],
+      "description": "Seasonal cashflow, GST compliance and business-linkage assessment for agricultural traders.",
+      "status": "draft",
+      "pricingModel": "per_hit",
+      "price": 38,
+      "lastUpdated": "2026-02-15T15:20:00.000Z",
+      "enquiryConfig": {
+        "impactType": "LOW",
+        "scope": "VERTICAL",
+        "mode": "LIVE"
+      },
+      "packetConfigs": []
+    }
   ]
 }

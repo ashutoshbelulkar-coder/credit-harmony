@@ -55,6 +55,7 @@ const institutionSubItems = [
 
 const dataProductsSubItems = [
   { title: "Product Configurator", path: "/data-products/products" },
+  { title: "Approval Queue", path: "/data-products/approvals" },
   { title: "Enquiry simulation", path: "/data-products/enquiry-simulation" },
 ];
 

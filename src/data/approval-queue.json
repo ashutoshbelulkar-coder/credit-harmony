@@ -184,8 +184,8 @@
     {
       "id": "apq-p01",
       "type": "product",
-      "name": "SME Credit Decision Pack",
-      "description": "New data product — Banking Cashflow + GST Business Profile + Consortium Exposure",
+      "name": "SME Cashflow & GST Health Pack",
+      "description": "New data product — Banking Cashflow + GST Business Profile + Utility Payments",
       "submittedBy": "Riya Menon",
       "submittedAt": "2026-03-12T11:05:00Z",
       "status": "pending",
@@ -201,8 +201,8 @@
     {
       "id": "apq-p02",
       "type": "product",
-      "name": "Retail Thin-File Pack",
-      "description": "Thin-file retail decisioning using telecom, digital spend and employment signals",
+      "name": "Thin-File Onboarding Score",
+      "description": "Thin-file onboarding using telecom, device footprint and digital spend signals",
       "submittedBy": "Arjun Sharma",
       "submittedAt": "2026-03-11T09:40:00Z",
       "status": "pending",

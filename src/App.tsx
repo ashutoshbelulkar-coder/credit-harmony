@@ -101,6 +101,16 @@ const DataProductsLayout = lazy(() =>
 const ProductListPage = lazy(() => import("./pages/data-products/ProductListPage"));
 const ProductDetailPage = lazy(() => import("./pages/data-products/ProductDetailPage"));
 const ProductFormPage = lazy(() => import("./pages/data-products/ProductFormPage"));
+const ProductSubmitPage = lazy(() => import("./pages/data-products/ProductSubmitPage"));
+const ProductVersionsPage = lazy(() => import("./pages/data-products/ProductVersionsPage"));
+const ProductVersionComparePage = lazy(
+  () => import("./pages/data-products/ProductVersionComparePage")
+);
+const ProductApprovalsQueuePage = lazy(() => import("./pages/data-products/ApprovalQueuePage"));
+const ProductApprovalReviewPage = lazy(() => import("./pages/data-products/ApprovalReviewPage"));
+const ProductCataloguePage = lazy(() => import("./pages/data-products/ProductCataloguePage"));
+const ProductAuditPage = lazy(() => import("./pages/data-products/ProductAuditPage"));
+const ApprovalPoliciesPage = lazy(() => import("./pages/data-products/ApprovalPoliciesPage"));
 const EnquirySimulationPage = lazy(() => import("./pages/agents/EnquirySimulationPage"));
 
 const RealEstateBureauLayout = lazy(() =>
@@ -161,8 +171,16 @@ function AppRoutes() {
             <Route path="data-packets" element={<Navigate to="/data-products/products" replace />} />
             <Route path="products/create" element={<ProductFormPage />} />
             <Route path="products/:id/edit" element={<ProductFormPage />} />
+            <Route path="products/:id/submit" element={<ProductSubmitPage />} />
+            <Route path="products/:id/versions/compare" element={<ProductVersionComparePage />} />
+            <Route path="products/:id/versions" element={<ProductVersionsPage />} />
             <Route path="products/:id" element={<ProductDetailPage />} />
             <Route path="products" element={<ProductListPage />} />
+            <Route path="approvals/:submissionId" element={<ProductApprovalReviewPage />} />
+            <Route path="approvals" element={<ProductApprovalsQueuePage />} />
+            <Route path="catalogue" element={<ProductCataloguePage />} />
+            <Route path="audit" element={<ProductAuditPage />} />
+            <Route path="policies" element={<ApprovalPoliciesPage />} />
             <Route path="enquiry-simulation" element={<EnquirySimulationPage />} />
           </Route>
           <Route path="/api-access" element={<ProtectedRoute><PlaceholderPage title="API & Access Control" description="Manage API keys, rate limits, and access permissions" /></ProtectedRoute>} />

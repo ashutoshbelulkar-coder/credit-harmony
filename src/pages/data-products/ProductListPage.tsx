@@ -3,13 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Search, Eye, Pencil, Plus, FlaskConical } from "lucide-react";
+import { Search, Eye, Pencil, Plus, FlaskConical, RotateCcw } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { tableHeaderClasses, badgeTextClasses } from "@/lib/typography";
-import { SkeletonTable } from "@/components/ui/skeleton-table";
-import { ApiErrorCard } from "@/components/ui/api-error-card";
-import { useProducts } from "@/hooks/api/useProducts";
+import { tableHeaderClasses } from "@/lib/typography";
 import {
   Select,
   SelectContent,
@@ -17,97 +13,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { productPricingLabel } from "@/data/data-products-mock";
+import { BRD_STATUS_LABEL, type BrdLifecycleStatus } from "@/data/product-management-types";
+import { ProductStatusBadge } from "@/components/data-products/ProductStatusBadge";
 import {
-  configuredProducts,
-  productPricingLabel,
-  productStatusFromApi,
-  type ConfiguredProduct,
-  type ProductLifecycleStatus,
-  type ProductPricingModel,
-} from "@/data/data-products-mock";
-import type { ProductResponse } from "@/services/products.service";
+  productMgmtStore,
+  useProductMgmtStore,
+} from "@/lib/product-management-demo-store";
+import { toast } from "sonner";
 
-/** Row in the table: API id drives routes; optional productCode is shown as “Product ID”. */
-type ProductListRow = ConfiguredProduct & { productCode?: string };
-
-function pricingModelFromApi(raw: string | undefined): ProductPricingModel {
-  if (raw?.toUpperCase() === "SUBSCRIPTION") return "subscription";
-  return "per_hit";
-}
-
-/** JDBC/SQLite sometimes returns snake_case or lowercase keys before backend normalization. */
-function readProductCode(api: ProductResponse): string {
-  const x = api as unknown as Record<string, unknown>;
-  const v = api.productCode ?? x.productcode ?? x.product_code;
-  if (typeof v === "string") return v.trim();
-  if (v != null) return String(v).trim();
-  return "";
-}
-
-function mergeApiProductWithCatalog(api: ProductResponse): ProductListRow {
-  const code = readProductCode(api);
-  const cfg = code ? configuredProducts.find((p) => p.id === code) : undefined;
-  const pm = pricingModelFromApi(api.pricingModel);
-
-  if (cfg) {
-    return {
-      ...cfg,
-      id: api.id,
-      name: api.name,
-      description: api.description ?? cfg.description,
-      status: productStatusFromApi(api.status),
-      lastUpdated: api.lastUpdated ?? cfg.lastUpdated,
-      pricingModel: pm,
-      productCode: readProductCode(api) || undefined,
-    };
-  }
-
-  return {
-    id: api.id,
-    name: api.name,
-    packetIds: [],
-    description: api.description ?? "",
-    status: productStatusFromApi(api.status),
-    pricingModel: pm,
-    price: 0,
-    lastUpdated: api.lastUpdated ?? new Date().toISOString(),
-    productCode: readProductCode(api) || undefined,
-  };
-}
-
-const statusStyles: Record<ProductLifecycleStatus, string> = {
-  active: "bg-success/15 text-success",
-  draft: "bg-warning/15 text-warning",
-  approval_pending: "bg-primary/15 text-primary",
-};
-
-const statusLabel: Record<ProductLifecycleStatus, string> = {
-  active: "Active",
-  draft: "Draft",
-  approval_pending: "Approval Pending",
-};
+const ALL_STATUSES = Object.keys(BRD_STATUS_LABEL) as BrdLifecycleStatus[];
 
 export default function ProductListPage() {
   const navigate = useNavigate();
-  const { data: apiProducts, isLoading, isError, error, refetch } = useProducts({ size: 200 });
-  const products = useMemo((): ProductListRow[] => {
-    const apiList = apiProducts?.content ?? [];
-    return apiList.map((api) => mergeApiProductWithCatalog(api));
-  }, [apiProducts]);
+  useProductMgmtStore();
+  const heads = productMgmtStore.listCatalogueHeads();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
   const filtered = useMemo(() => {
-    return products.filter((p) => {
+    return heads.filter((p) => {
       const q = search.toLowerCase();
       const matchSearch =
         p.name.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q);
-      const matchStatus =
-        statusFilter === "all" || p.status === statusFilter;
+        p.description.toLowerCase().includes(q) ||
+        p.productCode.toLowerCase().includes(q) ||
+        p.id.toLowerCase().includes(q) ||
+        p.metadata.owner.toLowerCase().includes(q) ||
+        p.metadata.tags.some((t) => t.toLowerCase().includes(q));
+      const matchStatus = statusFilter === "all" || p.status === statusFilter;
       return matchSearch && matchStatus;
     });
-  }, [products, search, statusFilter]);
+  }, [heads, search, statusFilter]);
 
   const formatUpdated = (iso: string) => {
     try {
@@ -132,12 +69,26 @@ export default function ProductListPage() {
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <h1 className="text-h2 font-semibold text-foreground">Products</h1>
+          <h1 className="text-h2 font-semibold text-foreground">Product Configurator</h1>
           <p className="mt-0.5 text-caption text-muted-foreground">
-            Configure catalogue products from internal data packets, pricing, and enquiry settings.
+            Govern data products with packet configuration, versioning, and lifecycle (demo data).
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="h-9 w-9 shrink-0"
+            title="Reset demo"
+            aria-label="Reset demo"
+            onClick={() => {
+              productMgmtStore.reset();
+              toast.success("Demo data reset");
+            }}
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -147,7 +98,11 @@ export default function ProductListPage() {
             <FlaskConical className="h-3.5 w-3.5" />
             Enquiry simulation
           </Button>
-          <Button type="button" className="gap-1.5 shrink-0" onClick={() => navigate("/data-products/products/create")}>
+          <Button
+            type="button"
+            className="gap-1.5 shrink-0"
+            onClick={() => navigate("/data-products/products/create")}
+          >
             <Plus className="h-3.5 w-3.5" />
             Create product
           </Button>
@@ -160,24 +115,24 @@ export default function ProductListPage() {
           <Input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search products..."
+            placeholder="Search name, ID, owner, tags…"
             className="pl-10"
           />
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[160px]">
+          <SelectTrigger className="w-full sm:w-[200px]">
             <SelectValue placeholder="Status" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All statuses</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="draft">Draft</SelectItem>
+            {ALL_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {BRD_STATUS_LABEL[s]}
+              </SelectItem>
+            ))}
           </SelectContent>
         </Select>
       </div>
-
-      {isLoading && <SkeletonTable rows={5} cols={5} />}
-      {isError && <ApiErrorCard error={error} onRetry={() => refetch()} />}
 
       <div className="md:hidden space-y-3">
         {filtered.length === 0 ? (
@@ -185,49 +140,48 @@ export default function ProductListPage() {
             No products match your filters.
           </p>
         ) : (
-          filtered.map((p) => (
-            <div
-              key={p.id}
-              className="rounded-xl border border-border bg-card p-4 space-y-2 shadow-sm"
-            >
-              <div className="flex items-start justify-between gap-2">
-                <span className="text-body font-medium text-foreground">{p.name}</span>
-                <Badge
-                  variant="outline"
-                  className={cn(badgeTextClasses, statusStyles[p.status])}
-                >
-                  {statusLabel[p.status]}
-                </Badge>
+          filtered.map((p) => {
+            const versionCount = productMgmtStore.getVersionsByCode(p.productCode).length;
+            return (
+              <div
+                key={p.id}
+                className="rounded-xl border border-border bg-card p-4 space-y-2 shadow-sm"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-body font-medium text-foreground">{p.name}</span>
+                  <ProductStatusBadge status={p.status} />
+                </div>
+                <p className="text-caption text-muted-foreground">
+                  {p.productCode} · v{p.version} · {versionCount} version{versionCount !== 1 ? "s" : ""}
+                </p>
+                <p className="text-caption text-muted-foreground">
+                  {productPricingLabel[p.pricingModel]}
+                </p>
+                <div className="flex gap-2 pt-1">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1"
+                    onClick={() => navigate(`/data-products/products/${p.id}`)}
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    View
+                  </Button>
+                  {p.status === "draft" && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-1"
+                      onClick={() => navigate(`/data-products/products/${p.id}/edit`)}
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                      Edit
+                    </Button>
+                  )}
+                </div>
               </div>
-              <p className="text-caption text-muted-foreground">
-                Product ID: {p.productCode ?? p.id}
-              </p>
-              <p className="text-caption text-muted-foreground">
-                {p.packetIds.length} packets · {productPricingLabel[p.pricingModel]} · Updated{" "}
-                {formatUpdated(p.lastUpdated)}
-              </p>
-              <div className="flex gap-2 pt-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-1"
-                  onClick={() => navigate(`/data-products/products/${p.id}`)}
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  View
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="gap-1"
-                  onClick={() => navigate(`/data-products/products/${p.id}/edit`)}
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                  Edit
-                </Button>
-              </div>
-            </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -236,25 +190,18 @@ export default function ProductListPage() {
           <table className="w-full min-w-max">
             <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
               <tr className="border-b border-border">
-                {[
-                  "Product ID",
-                  "Product name",
-                  "Packets",
-                  "Status",
-                  "Last updated",
-                  "",
-                ].map((label) => (
-                  <th
-                    key={label || "act"}
-                    className={cn(
-                      tableHeaderClasses,
-                      "px-4 py-3 text-left font-medium",
-                      label === "" && "w-40 text-right"
-                    )}
-                  >
-                    {label}
-                  </th>
-                ))}
+                {["ID", "Product", "Ver.", "Status", "Updated", ""].map((label) => (
+                    <th
+                      key={label || "act"}
+                      className={cn(
+                        tableHeaderClasses,
+                        "px-4 py-3 text-left font-medium",
+                        label === "" && "w-40 text-right"
+                      )}
+                    >
+                      {label}
+                    </th>
+                  ))}
               </tr>
             </thead>
             <tbody>
@@ -274,22 +221,16 @@ export default function ProductListPage() {
                     className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
                   >
                     <td className="px-4 py-3 text-caption text-muted-foreground tabular-nums">
-                      {p.productCode ?? p.id}
-                    </td>
-                    <td className="px-4 py-3 text-body text-foreground">{p.name}</td>
-                    <td className="px-4 py-3 text-body text-muted-foreground tabular-nums">
-                      {p.packetIds.length}
+                      {p.productCode}
                     </td>
                     <td className="px-4 py-3">
-                      <span
-                        className={cn(
-                          "inline-flex px-2 py-0.5 rounded-full",
-                          badgeTextClasses,
-                          statusStyles[p.status]
-                        )}
-                      >
-                        {statusLabel[p.status]}
-                      </span>
+                      <div className="text-body text-foreground">{p.name}</div>
+                    </td>
+                    <td className="px-4 py-3 text-body text-muted-foreground tabular-nums">
+                      v{p.version}
+                    </td>
+                    <td className="px-4 py-3">
+                      <ProductStatusBadge status={p.status} />
                     </td>
                     <td className="px-4 py-3 text-caption text-muted-foreground tabular-nums">
                       {formatUpdated(p.lastUpdated)}
@@ -304,15 +245,17 @@ export default function ProductListPage() {
                         <Eye className="w-3.5 h-3.5" />
                         View
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1 h-8"
-                        onClick={() => navigate(`/data-products/products/${p.id}/edit`)}
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                        Edit
-                      </Button>
+                      {p.status === "draft" && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-1 h-8"
+                          onClick={() => navigate(`/data-products/products/${p.id}/edit`)}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          Edit
+                        </Button>
+                      )}
                     </td>
                   </tr>
                 ))

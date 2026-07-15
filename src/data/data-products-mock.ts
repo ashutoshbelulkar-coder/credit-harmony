@@ -1,6 +1,5 @@
 import data from "./data-products.json";
 import type { SourceType } from "@/types/schema-mapper";
-import { getRawIngestedFieldKeysForSourceType } from "@/data/schema-mapper-mock";
 
 export type DataPacketCategory = "Bureau" | "Banking" | "GST" | "Telecom" | "Consortium";
 export type DataPacketStatus = "active" | "deprecated" | "draft";
@@ -85,11 +84,9 @@ export const SOURCE_TYPE_LABELS: Record<SourceType, string> = {
   custom: "Custom",
 };
 
-/** Union of catalog packet fields and Schema Mapper raw keys for the packet's source type. */
+/** Catalogue raw field keys defined on this packet option. */
 export function getAllRawFieldKeysForPacketOption(opt: ProductCatalogPacketOption): string[] {
-  const fromMapper = getRawIngestedFieldKeysForSourceType(opt.sourceType);
-  const set = new Set<string>([...fromMapper, ...opt.fields]);
-  return [...set].sort((a, b) => a.localeCompare(b));
+  return [...opt.fields].sort((a, b) => a.localeCompare(b));
 }
 
 export const DEFAULT_ENQUIRY_CONFIG: EnquiryConfig = {
@@ -212,7 +209,8 @@ export function getMockPayloadForPacket(packetName: string): Record<string, unkn
   const opt = productCatalogPacketOptions.find((o) => o.label === packetName);
   if (opt && packetMockData[opt.id]) return packetMockData[opt.id];
   switch (packetName) {
-    case "Bureau Score": return { score: 742, scoreBand: "A", modelVersion: "v3.2", asOf: "2026-03-25" };
+    case "Digital Identity Stability": return { score: 742, scoreBand: "A", modelVersion: "v3.2", asOf: "2026-03-25" };
+    case "Marketplace Seller Exposure":
     case "Consortium Exposure":
     case "PKT_CON": return packetMockData.PKT_CON;
     case "Account Aggregation":

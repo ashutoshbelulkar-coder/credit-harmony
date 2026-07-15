@@ -32,6 +32,7 @@ const navigationItems = [
   { label: "Agents", path: "/agents", icon: Brain, group: "Navigation" },
   { label: "Agent Configuration", path: "/agents/configuration", icon: Brain, group: "Navigation" },
   { label: "Products", path: "/data-products/products", icon: Package, group: "Data Products" },
+  { label: "Product approvals", path: "/data-products/approvals", icon: Package, group: "Data Products" },
   { label: "Enquiry simulation", path: "/data-products/enquiry-simulation", icon: Package, group: "Data Products" },
   { label: "Create product", path: "/data-products/products/create", icon: Package, group: "Data Products" },
   { label: "Data Governance Dashboard", path: "/data-governance/dashboard", icon: ShieldCheck, group: "Data Governance" },

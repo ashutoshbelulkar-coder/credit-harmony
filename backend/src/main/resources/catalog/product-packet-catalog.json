@@ -40,7 +40,10 @@
         "input_output_ratio",
         "gst_compliance_score"
       ],
-      "derivedFields": ["turnover_momentum_index", "compliance_risk_tier"]
+      "derivedFields": [
+        "turnover_momentum_index",
+        "compliance_risk_tier"
+      ]
     },
     {
       "id": "PKT_BLK",
@@ -56,7 +59,10 @@
         "group_exposure",
         "network_risk_score"
       ],
-      "derivedFields": ["network_risk_rollup", "related_party_exposure_score"]
+      "derivedFields": [
+        "network_risk_rollup",
+        "related_party_exposure_score"
+      ]
     },
     {
       "id": "PKT_TBS",
@@ -73,14 +79,17 @@
         "sim_age_months",
         "geo_stability_score"
       ],
-      "derivedFields": ["telco_credit_proxy", "mobility_stability_index"]
+      "derivedFields": [
+        "telco_credit_proxy",
+        "mobility_stability_index"
+      ]
     },
     {
       "id": "PKT_EMP",
       "label": "Employment Insights",
       "description": "Employment type, employer identity, tenure and income variability signals.",
       "category": "Behavioral Data",
-      "sourceType": "utility",
+      "sourceType": "custom",
       "previewKey": "employment_insights",
       "fields": [
         "employment_type",
@@ -90,14 +99,17 @@
         "income_variability",
         "employment_stability_score"
       ],
-      "derivedFields": ["employment_verification_confidence", "income_band_estimate"]
+      "derivedFields": [
+        "employment_verification_confidence",
+        "income_band_estimate"
+      ]
     },
     {
       "id": "PKT_DSP",
       "label": "Digital Spend Profile",
       "description": "UPI/card spend patterns across e-commerce, food, subscriptions and discretionary categories.",
       "category": "Behavioral Data",
-      "sourceType": "utility",
+      "sourceType": "custom",
       "previewKey": "digital_spend_profile",
       "fields": [
         "ecommerce_spend",
@@ -107,24 +119,30 @@
         "spend_volatility",
         "discretionary_income_score"
       ],
-      "derivedFields": ["discretionary_spend_ratio", "digital_credit_appetite_score"]
+      "derivedFields": [
+        "discretionary_spend_ratio",
+        "digital_credit_appetite_score"
+      ]
     },
     {
       "id": "PKT_CON",
-      "label": "Consortium Exposure",
-      "description": "Cross-lender liability: active facilities, DPD history, overleveraging and enquiry velocity.",
+      "label": "Marketplace Seller Exposure",
+      "description": "Seller liability and enquiry velocity across marketplace partners (alternate merchant signal).",
       "category": "Consortium Data",
       "sourceType": "custom",
-      "previewKey": "consortium_exposure",
+      "previewKey": "marketplace_seller_exposure",
       "fields": [
-        "total_exposure",
-        "active_lenders",
-        "dpd_instances",
+        "total_open_facility_value",
+        "active_partner_count",
+        "delayed_settlement_instances",
         "overleveraged_flag",
-        "recent_enquiries",
+        "recent_partner_enquiries",
         "exposure_growth_trend"
       ],
-      "derivedFields": ["cross_lender_stress_flag", "exposure_velocity_90d"]
+      "derivedFields": [
+        "partner_stress_flag",
+        "exposure_velocity_90d"
+      ]
     },
     {
       "id": "PKT_FRD",
@@ -140,7 +158,10 @@
         "blacklist_match",
         "fraud_risk_score"
       ],
-      "derivedFields": ["fraud_probability_model", "identity_consistency_score"]
+      "derivedFields": [
+        "fraud_probability_model",
+        "identity_consistency_score"
+      ]
     },
     {
       "id": "PKT_SYN",
@@ -149,8 +170,128 @@
       "category": "Synthetic / Test",
       "sourceType": "custom",
       "previewKey": "synthetic_profile",
-      "fields": ["risk_score", "income_band", "profile_type", "scenario_tag"],
-      "derivedFields": ["synthetic_profile_version", "scenario_calibration_id"]
+      "fields": [
+        "risk_score",
+        "income_band",
+        "profile_type",
+        "scenario_tag"
+      ],
+      "derivedFields": [
+        "synthetic_profile_version",
+        "scenario_calibration_id"
+      ]
+    },
+    {
+      "id": "PKT_BNPL",
+      "label": "BNPL Repayment Behaviour",
+      "description": "Buy-now-pay-later plan history: on-time ratio, ticket size, missed installments and utilisation.",
+      "category": "Behavioral Data",
+      "sourceType": "custom",
+      "previewKey": "bnpl_repayment",
+      "fields": [
+        "bnpl_active_plans",
+        "bnpl_ontime_ratio",
+        "avg_ticket_size",
+        "missed_installments_6m",
+        "bnpl_utilisation",
+        "oldest_plan_months"
+      ],
+      "derivedFields": [
+        "bnpl_reliability_index",
+        "installment_stress_flag"
+      ]
+    },
+    {
+      "id": "PKT_UTL",
+      "label": "Utility & Rent Payments",
+      "description": "UTR-style payment behaviour for electricity, gas, water, broadband and rent: on-time ratios, arrears, disconnects and tenure.",
+      "category": "Behavioral Data",
+      "sourceType": "utility",
+      "previewKey": "utility_rent_payments",
+      "fields": [
+        "service_type",
+        "account_status",
+        "electricity_ontime_ratio",
+        "gas_ontime_ratio",
+        "water_ontime_ratio",
+        "broadband_ontime_ratio",
+        "rent_ontime_ratio",
+        "avg_monthly_utility_spend",
+        "monthly_bill_amount",
+        "outstanding_amount",
+        "max_days_past_due_12m",
+        "missed_payments_12m",
+        "late_payment_instances_12m",
+        "disconnection_count_12m",
+        "unpaid_closed_account_flag",
+        "billing_tenure_months",
+        "payment_status"
+      ],
+      "derivedFields": [
+        "utility_payment_reliability",
+        "rent_consistency_index",
+        "arrears_stress_flag",
+        "seasonal_bill_volatility_index"
+      ]
+    },
+    {
+      "id": "PKT_PAY",
+      "label": "Payslip Income Verification",
+      "description": "Employer payroll evidence: verified net income, pay frequency, tenure and deductions.",
+      "category": "Financial Data",
+      "sourceType": "custom",
+      "previewKey": "payslip_income",
+      "fields": [
+        "net_monthly_income",
+        "employer_name",
+        "pay_frequency",
+        "income_consistency_score",
+        "tenure_months",
+        "statutory_deductions_ratio"
+      ],
+      "derivedFields": [
+        "verified_income_band",
+        "payroll_stability_index"
+      ]
+    },
+    {
+      "id": "PKT_DEV",
+      "label": "Device & Digital Footprint",
+      "description": "Device price band, OS currency, financial-app presence and account tenure signals.",
+      "category": "Behavioral Data",
+      "sourceType": "custom",
+      "previewKey": "device_footprint",
+      "fields": [
+        "device_price_band",
+        "os_current",
+        "financial_apps_installed",
+        "storage_utilisation",
+        "account_tenure_days",
+        "sim_count"
+      ],
+      "derivedFields": [
+        "device_affluence_proxy",
+        "digital_footprint_depth"
+      ]
+    },
+    {
+      "id": "PKT_LEG",
+      "label": "Legal & Litigation Signals",
+      "description": "Public litigation footprint: active/resolved cases, defaulter listings and regulatory actions.",
+      "category": "Business Data",
+      "sourceType": "custom",
+      "previewKey": "legal_litigation",
+      "fields": [
+        "active_cases_count",
+        "resolved_cases_count",
+        "defaulter_listing_flag",
+        "regulatory_actions",
+        "litigation_recency_months"
+      ],
+      "derivedFields": [
+        "legal_risk_tier",
+        "litigation_exposure_score"
+      ]
     }
   ]
 }

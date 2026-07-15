@@ -30,6 +30,7 @@ export const permissionSections: PermissionSection[] = [
     title: "Data Products",
     items: [
       { label: "Product Configurator", path: "/data-products/products" },
+      { label: "Approval Queue", path: "/data-products/approvals" },
       { label: "Enquiry simulation", path: "/data-products/enquiry-simulation" },
     ],
   },

@@ -24,13 +24,6 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  useProduct,
-  useProductPacketCatalog,
-  useCreateProduct,
-  useUpdateProduct,
-} from "@/hooks/api/useProducts";
-import type { ProductResponse } from "@/services/products.service";
-import {
   buildProductPreviewJson,
   productCatalogPacketOptions,
   DEFAULT_ENQUIRY_CONFIG,
@@ -41,13 +34,33 @@ import {
 import {
   buildProductFormPacketRows,
   filterCatalogOptionsForProductForm,
-  groupPacketRowsByCategory,
+  groupPacketRowsByDataDomain,
   sortPacketIdsByCatalogOrder,
   type ProductFormPacketRow,
 } from "@/lib/product-packet-catalog";
 import { PacketConfigModal } from "@/components/data-products/PacketConfigModal";
+import {
+  productMgmtStore,
+  useProductMgmtVersion,
+} from "@/lib/product-management-demo-store";
+import { type ProductMetadata } from "@/data/product-management-types";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+const EMPTY_META: ProductMetadata = {
+  owner: "Demo User",
+  ownerRole: "Product Manager",
+  businessUnit: "Product Management",
+  targetGeography: "India",
+  targetSegment: "General",
+  intendedUse: "",
+  regulatoryNotes: "",
+  sensitivity: "Medium",
+  tags: [],
+  categories: ["Credit Decisioning"],
+  effectiveStart: null,
+  effectiveEnd: null,
+};
 
 
 const SCOPE_TOOLTIPS: Record<EnquiryConfig["scope"], string> = {
@@ -61,25 +74,26 @@ export default function ProductFormPage() {
   const { id } = useParams<{ id?: string }>();
   const navigate = useNavigate();
   const isEdit = Boolean(id);
-  const { data: existing } = useProduct(isEdit ? id : undefined);
-  const { data: packetCatalogRes } = useProductPacketCatalog();
-  const { mutate: createProduct, isPending: creating } = useCreateProduct();
-  const { mutate: updateProduct, isPending: updating } = useUpdateProduct();
+  const existing = useProductMgmtVersion(isEdit ? id : undefined);
+  const [saving, setSaving] = useState(false);
 
-  const catalogOptions = packetCatalogRes?.options ?? productCatalogPacketOptions;
+  // Local catalogue is source of truth for the form (avoids stale API packet-catalog responses).
+  const catalogOptions = productCatalogPacketOptions;
   const catalogOrderIds = useMemo(
     () => filterCatalogOptionsForProductForm(catalogOptions).map((o) => o.id),
     [catalogOptions]
   );
   const visibleCatalogIdSet = useMemo(() => new Set(catalogOrderIds), [catalogOrderIds]);
-  const packetRowsByCategory = useMemo(
-    () => groupPacketRowsByCategory(buildProductFormPacketRows(catalogOptions)),
+  const packetRowsByDomain = useMemo(
+    () => groupPacketRowsByDataDomain(buildProductFormPacketRows(catalogOptions)),
     [catalogOptions]
   );
 
   // ── Basic Info ─────────────────────────────────────────────
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [metadata, setMetadata] = useState<ProductMetadata>(EMPTY_META);
+  const [tagsInput, setTagsInput] = useState("");
 
   // ── Packets ────────────────────────────────────────────────
   const [orderedPacketIds, setOrderedPacketIds] = useState<string[]>([]);
@@ -94,29 +108,23 @@ export default function ProductFormPage() {
     if (existing) {
       setName(existing.name);
       setDescription(existing.description ?? "");
-      const ext = existing as ProductResponse;
-      const ids = Array.isArray(ext.packetIds) ? ext.packetIds : [];
-      setOrderedPacketIds(sortPacketIdsByCatalogOrder(ids, catalogOrderIds));
-      setPacketConfigs(
-        Array.isArray(ext.packetConfigs)
-          ? (ext.packetConfigs as PacketConfig[])
-          : []
-      );
-      setEnquiryConfig(
-        ext.enquiryConfig && typeof ext.enquiryConfig === "object"
-          ? normalizeEnquiryConfig(ext.enquiryConfig as Partial<EnquiryConfig>)
-          : DEFAULT_ENQUIRY_CONFIG
-      );
+      setOrderedPacketIds(sortPacketIdsByCatalogOrder(existing.packetIds, catalogOrderIds));
+      setPacketConfigs(existing.packetConfigs ?? []);
+      setEnquiryConfig(normalizeEnquiryConfig(existing.enquiryConfig));
+      setMetadata({ ...EMPTY_META, ...existing.metadata });
+      setTagsInput(existing.metadata.tags.join(", "));
     } else if (!isEdit) {
       setName("");
       setDescription("");
       setOrderedPacketIds([]);
       setPacketConfigs([]);
       setEnquiryConfig(DEFAULT_ENQUIRY_CONFIG);
+      setMetadata(EMPTY_META);
+      setTagsInput("");
     }
   }, [existing, isEdit, catalogOrderIds]);
 
-  // ── Packet selection (row = unique category + Schema Mapper source type) ──
+  // ── Packet selection (row = source type group, or one custom packet) ──
   const togglePacketRow = useCallback(
     (row: ProductFormPacketRow) => {
       setOrderedPacketIds((prev) => {
@@ -194,41 +202,103 @@ export default function ProductFormPage() {
     [name, orderedPacketIds, packetConfigs, enquiryConfig]
   );
 
+  const parsedMeta = (): ProductMetadata => ({
+    ...metadata,
+    tags: tagsInput
+      .split(",")
+      .map((t) => t.trim())
+      .filter(Boolean),
+  });
+
   // ── Save ───────────────────────────────────────────────────
   const handleSave = () => {
     if (!name.trim()) {
       toast.error("Product name is required");
       return;
     }
-    if (isEdit && id) {
-      updateProduct(
-        {
-          id,
-          data: {
-            name: name.trim(),
-            description: description.trim(),
-            status: existing?.status ?? "approval_pending",
-            packetIds: orderedPacketIds,
-            packetConfigs,
-            enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
-          },
+    const conflict = productMgmtStore.findNameConflict(name.trim(), id);
+    if (conflict) {
+      toast.error(`Name conflicts with ${conflict.name} (${conflict.productCode})`, {
+        action: {
+          label: "Open",
+          onClick: () => navigate(`/data-products/products/${conflict.id}`),
         },
-        { onSuccess: () => navigate(`/data-products/products/${id}`) }
-      );
-    } else {
-      createProduct(
-        {
+      });
+      return;
+    }
+    setSaving(true);
+    try {
+      if (isEdit && id) {
+        if (existing && existing.status !== "draft") {
+          toast.error("Only draft versions can be edited. Create a new version instead.");
+          return;
+        }
+        const res = productMgmtStore.updateDraft(id, {
           name: name.trim(),
           description: description.trim(),
-          status: "approval_pending",
           packetIds: orderedPacketIds,
           packetConfigs,
           enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
-        },
-        { onSuccess: (row) => navigate(`/data-products/products/${row.id}`) }
-      );
+          metadata: parsedMeta(),
+        });
+        if (!res.ok) {
+          if (res.error === "name_conflict" && res.conflict) {
+            toast.error(`Name conflicts with ${res.conflict.name}`);
+          } else toast.error("Could not save draft");
+          return;
+        }
+        toast.success("Draft saved");
+        navigate(`/data-products/products/${id}`);
+      } else {
+        const res = productMgmtStore.createDraft({
+          name: name.trim(),
+          description: description.trim(),
+          packetIds: orderedPacketIds,
+          packetConfigs,
+          enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
+          metadata: parsedMeta(),
+        });
+        if (!res.ok) {
+          toast.error(`Name conflicts with ${res.conflict.name}`, {
+            action: {
+              label: "Open",
+              onClick: () => navigate(`/data-products/products/${res.conflict.id}`),
+            },
+          });
+          return;
+        }
+        toast.success("Draft created");
+        navigate(`/data-products/products/${res.version.id}`);
+      }
+    } finally {
+      setSaving(false);
     }
   };
+
+  if (isEdit && existing && existing.status !== "draft") {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 space-y-4 max-w-md mx-auto text-center">
+        <p className="text-muted-foreground">
+          Published versions are immutable. Create a new version to change the definition.
+        </p>
+        <div className="flex gap-2">
+          <Button type="button" variant="outline" onClick={() => navigate(`/data-products/products/${id}`)}>
+            Back to product
+          </Button>
+          <Button
+            type="button"
+            onClick={() => {
+              const res = productMgmtStore.createNewVersion(id!);
+              if (res.ok) navigate(`/data-products/products/${res.version.id}/edit`);
+              else toast.error("Could not create version");
+            }}
+          >
+            Create new version
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   if (isEdit && !existing) {
     return (
@@ -270,9 +340,42 @@ export default function ProductFormPage() {
           >
             Cancel
           </Button>
-          <Button type="button" size="sm" onClick={handleSave} disabled={creating || updating}>
-            {creating || updating ? "Saving…" : "Save product"}
+          <Button type="button" size="sm" onClick={handleSave} disabled={saving}>
+            {saving ? "Saving…" : "Save draft"}
           </Button>
+          {isEdit && existing?.status === "draft" && (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                if (!name.trim()) {
+                  toast.error("Product name is required");
+                  return;
+                }
+                const conflict = productMgmtStore.findNameConflict(name.trim(), id);
+                if (conflict) {
+                  toast.error(`Name conflicts with ${conflict.name}`);
+                  return;
+                }
+                const res = productMgmtStore.updateDraft(id!, {
+                  name: name.trim(),
+                  description: description.trim(),
+                  packetIds: orderedPacketIds,
+                  packetConfigs,
+                  enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
+                  metadata: parsedMeta(),
+                });
+                if (!res.ok) {
+                  toast.error("Could not save draft");
+                  return;
+                }
+                navigate(`/data-products/products/${id}/submit`);
+              }}
+            >
+              Save & submit
+            </Button>
+          )}
         </div>
       </div>
 
@@ -292,6 +395,10 @@ export default function ProductFormPage() {
                   id="pf-name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
+                  onBlur={() => {
+                    const c = productMgmtStore.findNameConflict(name.trim(), id);
+                    if (c) toast.warning(`Name already used by ${c.productCode}`);
+                  }}
                   className="max-w-md"
                   placeholder="e.g. SME Credit Decision Pack"
                 />
@@ -307,6 +414,19 @@ export default function ProductFormPage() {
                   placeholder="Describe the purpose of this product..."
                 />
               </div>
+              <div className="space-y-1.5 max-w-md">
+                <Label htmlFor="pf-effective-start" className="text-caption">
+                  Effective start
+                </Label>
+                <Input
+                  id="pf-effective-start"
+                  type="date"
+                  value={metadata.effectiveStart ?? ""}
+                  onChange={(e) =>
+                    setMetadata((m) => ({ ...m, effectiveStart: e.target.value || null }))
+                  }
+                />
+              </div>
             </CardContent>
           </Card>
 
@@ -319,11 +439,11 @@ export default function ProductFormPage() {
               </p>
             </CardHeader>
             <CardContent className="space-y-4">
-              {packetRowsByCategory.map(([group, rows], gi) => (
-                <div key={group}>
-                  {gi > 0 && <Separator className="mb-4" />}
+              {packetRowsByDomain.map(([domain, rows], di) => (
+                <div key={domain}>
+                  {di > 0 && <Separator className="mb-4" />}
                   <p className="text-caption font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                    {group}
+                    {domain}
                   </p>
                   <ul className="space-y-1.5">
                     {rows.map((row) => {

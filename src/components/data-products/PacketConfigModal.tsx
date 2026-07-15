@@ -21,7 +21,7 @@ import {
   SOURCE_TYPE_LABELS,
   type ProductCatalogPacketOption,
 } from "@/data/data-products-mock";
-import { useSchemaRegistryList, useSourceTypeFields } from "@/hooks/api/useSchemaMapper";
+import { useSchemaRegistryList } from "@/hooks/api/useSchemaMapper";
 
 export interface PacketConfigSavePayload {
   selectedFields: string[];
@@ -77,8 +77,8 @@ export function PacketConfigModal({
   onSave,
 }: PacketConfigModalProps) {
   const catalog = catalogOptions ?? productCatalogPacketOptions;
-  const [activePacketId, setActivePacketId] = useState(packetIds[0]);
-  const [packetDrafts, setPacketDrafts] = useState(() =>
+  const activePacketId = packetIds[0];
+  const [packetDrafts] = useState(() =>
     buildInitialDrafts(packetIds, catalog, getPacketConfig)
   );
 
@@ -87,7 +87,6 @@ export function PacketConfigModal({
     [activePacketId, catalog]
   );
 
-  const sourceTypeKey = packet?.sourceType ?? "";
   const registryListParams = packet
     ? { sourceType: packet.sourceType, page: 0, size: 500 }
     : undefined;
@@ -102,25 +101,12 @@ export function PacketConfigModal({
     const rows = registryPage?.content ?? [];
     return [...rows].sort((a, b) => a.sourceName.localeCompare(b.sourceName));
   }, [registryPage?.content]);
-  const {
-    data: sourceTypeFieldsRes,
-    isLoading: rawFieldsLoading,
-    isError: rawFieldsError,
-    refetch: refetchRawFields,
-  } = useSourceTypeFields(sourceTypeKey || undefined, {
-    enabled: sourceTypeKey.length > 0,
-  });
 
-  /** Union of API field paths for this source type and catalogue packet-only fields. */
+  /** Catalogue attributes for this packet only (keeps employment vs utility fields separate). */
   const allRawKeys = useMemo(() => {
     if (!packet) return [];
-    const fromApi =
-      sourceTypeFieldsRes?.fields
-        ?.map((f) => String(f.path ?? "").trim())
-        .filter(Boolean) ?? [];
-    const set = new Set<string>([...fromApi, ...packet.fields]);
-    return [...set].sort((a, b) => a.localeCompare(b));
-  }, [packet, sourceTypeFieldsRes?.fields]);
+    return [...packet.fields].sort((a, b) => a.localeCompare(b));
+  }, [packet]);
   const derivedOptions = useMemo(
     () => (packet?.derivedFields?.length ? packet.derivedFields : []),
     [packet?.derivedFields]
@@ -132,21 +118,6 @@ export function PacketConfigModal({
   const [checkedRaw, setCheckedRaw] = useState<string[]>(initialActiveDraft.raw);
   const [disabledRaw, setDisabledRaw] = useState<string[]>(initialActiveDraft.rawDisabled ?? []);
   const [checkedDerived, setCheckedDerived] = useState<string[]>(initialActiveDraft.derived);
-
-  const switchActivePacket = (nextId: string) => {
-    if (nextId === activePacketId) return;
-    const merged = {
-      ...packetDrafts,
-      [activePacketId]: { raw: checkedRaw, rawDisabled: disabledRaw, derived: checkedDerived },
-    };
-    setPacketDrafts(merged);
-    setActivePacketId(nextId);
-    setCheckedRaw(merged[nextId].raw);
-    setDisabledRaw(merged[nextId].rawDisabled ?? []);
-    setCheckedDerived(merged[nextId].derived);
-    setTab("raw");
-    setSearch("");
-  };
 
   const filteredRaw = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -234,33 +205,12 @@ export function PacketConfigModal({
           <DialogTitle className="sr-only">Configure packet fields</DialogTitle>
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="secondary" className="font-normal">
-              Source type: {SOURCE_TYPE_LABELS[packet.sourceType]}
+              {packet.label}
+            </Badge>
+            <Badge variant="outline" className="font-normal">
+              {SOURCE_TYPE_LABELS[packet.sourceType]}
             </Badge>
           </div>
-          {packetIds.length > 1 && (
-            <div className="mt-2 space-y-1">
-              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide">
-                Packet
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {packetIds.map((id) => {
-                  const meta = catalog.find((o) => o.id === id);
-                  return (
-                    <Button
-                      key={id}
-                      type="button"
-                      size="sm"
-                      variant={id === activePacketId ? "default" : "outline"}
-                      className="h-7 text-caption"
-                      onClick={() => switchActivePacket(id)}
-                    >
-                      {meta?.label ?? id}
-                    </Button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
           <div className="text-caption text-muted-foreground mt-1 space-y-1">
             <p className="font-medium text-foreground">Sources</p>
             {sourcesLoading && (
@@ -310,27 +260,6 @@ export function PacketConfigModal({
           </TabsList>
 
           <TabsContent value="raw" className="space-y-3 py-2 mt-2 flex flex-col min-h-0 data-[state=inactive]:hidden">
-            <p className="text-caption text-muted-foreground">
-              Raw field paths for this source type are loaded from the Schema Mapper API and merged with any
-              packet-only fields from the catalogue.
-            </p>
-            {rawFieldsLoading && (
-              <p className="text-caption text-muted-foreground">Loading field catalogue…</p>
-            )}
-            {rawFieldsError && (
-              <div className="flex flex-wrap items-center gap-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-caption text-destructive">
-                <span>Could not load fields from the API.</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-caption"
-                  onClick={() => refetchRawFields()}
-                >
-                  Retry
-                </Button>
-              </div>
-            )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
               <Input
