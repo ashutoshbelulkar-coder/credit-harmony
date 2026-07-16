@@ -1,7 +1,15 @@
-import { useNavigate, useParams, Link } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   ArrowLeft,
   Pencil,
@@ -11,14 +19,71 @@ import {
   History,
 } from "lucide-react";
 import { catalogLabelForPacketId } from "@/data/data-products-mock";
-import { BRD_STATUS_LABEL, type BrdLifecycleStatus } from "@/data/product-management-types";
+import {
+  BRD_STATUS_LABEL,
+  type BrdLifecycleStatus,
+  type DemoProductVersion,
+} from "@/data/product-management-types";
 import { ProductStatusBadge } from "@/components/data-products/ProductStatusBadge";
+import { VersionLifecycleActions } from "@/components/data-products/VersionLifecycleActions";
 import {
   productMgmtStore,
   useProductMgmtVersion,
   useProductMgmtStore,
 } from "@/lib/product-management-demo-store";
 import { toast } from "sonner";
+
+const LIVE_STATUSES = new Set<BrdLifecycleStatus>([
+  "active",
+  "deprecated",
+  "inactive",
+  "archived",
+]);
+
+function formatUpdated(iso: string) {
+  try {
+    return new Date(iso).toLocaleString(undefined, {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  } catch {
+    return iso;
+  }
+}
+
+function formatDate(iso: string) {
+  try {
+    return new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
+  } catch {
+    return iso;
+  }
+}
+
+function getApprovedBy(version: DemoProductVersion): string {
+  const approvedCycle = [...version.approvalCycles]
+    .reverse()
+    .find((c) => c.status === "approved");
+  const decision = [...(approvedCycle?.decisions ?? [])]
+    .reverse()
+    .find((d) => d.decision === "approve");
+  if (decision?.actor) return decision.actor;
+
+  const audit = productMgmtStore
+    .getAuditEvents({ versionId: version.id })
+    .find((e) => e.action === "approved");
+  return audit?.actor ?? "—";
+}
+
+function getActivatedAt(version: DemoProductVersion): string | null {
+  const audit = productMgmtStore
+    .getAuditEvents({ versionId: version.id })
+    .find((e) => e.action === "activated" || e.action === "reactivated");
+  if (audit?.at) return audit.at;
+  if (LIVE_STATUSES.has(version.status) && version.metadata.effectiveStart) {
+    return version.metadata.effectiveStart;
+  }
+  return null;
+}
 
 export default function ProductDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -43,29 +108,9 @@ export default function ProductDetailPage() {
 
   const siblings = productMgmtStore.getVersionsByCode(product.productCode);
   const activeSiblings = siblings.filter((v) => v.status === "active");
-  const notifications = productMgmtStore.getNotifications(product.id);
   const pendingCycle = product.approvalCycles.find((c) => c.status === "pending");
   const canEdit = product.status === "draft";
   const canSubmit = product.status === "draft";
-
-  const formatUpdated = (iso: string) => {
-    try {
-      return new Date(iso).toLocaleString(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      });
-    } catch {
-      return iso;
-    }
-  };
-
-  const formatDate = (iso: string) => {
-    try {
-      return new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
-    } catch {
-      return iso;
-    }
-  };
 
   const handleClone = () => {
     const res = productMgmtStore.createNewVersion(product.id);
@@ -228,78 +273,95 @@ export default function ProductDetailPage() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 lg:grid-cols-2">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="flex items-center justify-between">
-              <span>Versions</span>
-              <div className="flex gap-1">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center justify-between gap-2">
+            <span>Version history</span>
+            <div className="flex gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 gap-1"
+                onClick={() => navigate(`/data-products/products/${product.id}/versions`)}
+              >
+                <History className="w-3.5 h-3.5" />
+                Timeline
+              </Button>
+              {siblings.length >= 2 && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-7 gap-1"
-                  onClick={() => navigate(`/data-products/products/${product.id}/versions`)}
+                  onClick={() =>
+                    navigate(
+                      `/data-products/products/${product.id}/versions/compare?a=${siblings[1]?.id}&b=${siblings[0]?.id}`
+                    )
+                  }
                 >
-                  <History className="w-3.5 h-3.5" />
-                  History
+                  <GitCompare className="w-3.5 h-3.5" />
+                  Compare
                 </Button>
-                {siblings.length >= 2 && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 gap-1"
-                    onClick={() =>
-                      navigate(
-                        `/data-products/products/${product.id}/versions/compare?a=${siblings[1]?.id}&b=${siblings[0]?.id}`
-                      )
-                    }
-                  >
-                    <GitCompare className="w-3.5 h-3.5" />
-                    Compare
-                  </Button>
-                )}
-              </div>
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            {siblings.slice(0, 5).map((v) => (
-              <Link
-                key={v.id}
-                to={`/data-products/products/${v.id}`}
-                className="flex items-center justify-between rounded-md px-2 py-1.5 hover:bg-muted/50 text-caption"
-              >
-                <span className="text-foreground">
-                  v{v.version}
-                  {v.id === product.id ? " (this)" : ""}
-                  {v.parentVersionId ? (
-                    <span className="text-muted-foreground"> ← lineage</span>
-                  ) : null}
-                </span>
-                <ProductStatusBadge status={v.status} />
-              </Link>
-            ))}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle>Notifications</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-caption">
-            {notifications.length === 0 ? (
-              <p className="text-muted-foreground">No notifications yet.</p>
-            ) : (
-              notifications.slice(0, 5).map((n) => (
-                <div key={n.id} className="rounded-md border border-border px-3 py-2">
-                  <p className="text-foreground font-medium capitalize">{n.event}</p>
-                  <p className="text-muted-foreground">{n.message}</p>
-                  <p className="text-muted-foreground mt-1">{formatUpdated(n.sentAt)}</p>
-                </div>
-              ))
-            )}
-          </CardContent>
-        </Card>
-      </div>
+              )}
+            </div>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="overflow-x-auto">
+          {siblings.length === 0 ? (
+            <p className="text-caption text-muted-foreground">No versions found.</p>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Version</TableHead>
+                  <TableHead>Activated</TableHead>
+                  <TableHead>Approved by</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right w-[72px]">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {siblings.map((v) => {
+                  const activatedAt = getActivatedAt(v);
+                  const isCurrent = v.id === product.id;
+                  return (
+                    <TableRow
+                      key={v.id}
+                      className={isCurrent ? "bg-muted/40" : undefined}
+                    >
+                      <TableCell className="font-medium text-foreground">
+                        <button
+                          type="button"
+                          className="hover:underline text-left"
+                          onClick={() => navigate(`/data-products/products/${v.id}`)}
+                        >
+                          v{v.version}
+                          {isCurrent ? (
+                            <span className="ml-1.5 text-caption font-normal text-muted-foreground">
+                              (this)
+                            </span>
+                          ) : null}
+                        </button>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground tabular-nums">
+                        {activatedAt ? formatDate(activatedAt) : "—"}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {getApprovedBy(v)}
+                      </TableCell>
+                      <TableCell>
+                        <ProductStatusBadge status={v.status} />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <VersionLifecycleActions product={v} viewingId={product.id} />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          )}
+        </CardContent>
+      </Card>
 
       {product.approvalCycles.length > 0 && (
         <Card>
