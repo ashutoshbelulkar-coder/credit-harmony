@@ -1,11 +1,13 @@
 import { useNavigate } from "react-router-dom";
+import { ClipboardCheck } from "lucide-react";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import { EmptyState } from "@/components/EmptyState";
 import { cn } from "@/lib/utils";
 import { tableHeaderClasses } from "@/lib/typography";
 import { productMgmtStore, useProductMgmtStore } from "@/lib/product-management-demo-store";
-import { ProductStatusBadge } from "@/components/data-products/ProductStatusBadge";
+import { isAccessRequestCycle } from "@/data/product-management-types";
+import { ApprovalTypeBadge, PolicyChip } from "@/components/data-products/ApprovalBadges";
 
 export default function ApprovalQueuePage() {
   const navigate = useNavigate();
@@ -19,64 +21,67 @@ export default function ApprovalQueuePage() {
         segments={[
           { label: "Dashboard", href: "/" },
           { label: "Data Products", href: "/data-products/products" },
-          { label: "Approval Queue" },
+          { label: "My approvals" },
         ]}
       />
 
       <div>
-        <h1 className="text-h2 font-semibold text-foreground">Approval Queue</h1>
+        <h1 className="text-h2 font-semibold text-foreground">My approvals</h1>
         <p className="mt-0.5 text-caption text-muted-foreground">
-          Pending product and version approvals (demo). Separation of duties: submitter cannot
-          self-approve.
+          Pending version approvals and access requests routed to you. Separation of duties: the
+          submitter cannot self-approve.
         </p>
       </div>
 
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <table className="w-full min-w-max">
-          <thead className="bg-muted/80">
-            <tr className="border-b border-border">
-              {["Product", "Version", "Policy", "Submitted", "Status", ""].map((h) => (
-                <th
-                  key={h || "a"}
-                  className={cn(tableHeaderClasses, "px-4 py-3 text-left", h === "" && "text-right")}
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {items.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-caption text-muted-foreground">
-                  No pending approvals. Submit a draft from Product Configurator to populate this
-                  queue.
-                </td>
+      {items.length === 0 ? (
+        <div className="bg-card rounded-xl border border-border">
+          <EmptyState
+            icon={ClipboardCheck}
+            title="No pending approvals"
+            description="Submit a draft for approval from the Product Configurator, or request access to a product, to populate this queue."
+          />
+        </div>
+      ) : (
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <table className="w-full min-w-max">
+            <thead className="bg-muted/80">
+              <tr className="border-b border-border">
+                {["Product", "Version", "Submitter", "Submitted", "Type", "Policy", ""].map((h) => (
+                  <th
+                    key={h || "action"}
+                    className={cn(tableHeaderClasses, "px-4 py-3 text-left", h === "" && "text-right")}
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ) : (
-              items.map(({ version, cycle }) => {
+            </thead>
+            <tbody>
+              {items.map(({ version, cycle, subscription }) => {
                 const policy = policies.find((p) => p.id === cycle.policyId);
+                const accessRequest = isAccessRequestCycle(cycle, subscription);
                 return (
                   <tr key={cycle.id} className="border-b border-border last:border-0">
                     <td className="px-4 py-3">
                       <div className="text-body text-foreground">{version.name}</div>
-                      <div className="text-caption text-muted-foreground">{version.productCode}</div>
+                      <div className="text-caption text-muted-foreground">
+                        {version.productCode}
+                        {subscription ? ` · ${subscription.institutionName}` : ""}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-caption">v{version.version}</td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline" className="text-[10px]">
-                        {policy?.pattern ?? cycle.policyId}
-                      </Badge>
-                    </td>
+                    <td className="px-4 py-3 text-caption text-foreground">{cycle.submittedBy}</td>
                     <td className="px-4 py-3 text-caption text-muted-foreground">
                       {new Date(cycle.submittedAt).toLocaleString(undefined, {
                         dateStyle: "medium",
                         timeStyle: "short",
                       })}
-                      <div>by {cycle.submittedBy}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <ProductStatusBadge status={version.status} />
+                      <ApprovalTypeBadge isAccessRequest={accessRequest} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <PolicyChip policy={policy} policyId={cycle.policyId} />
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Button
@@ -88,11 +93,11 @@ export default function ApprovalQueuePage() {
                     </td>
                   </tr>
                 );
-              })
-            )}
-          </tbody>
-        </table>
-      </div>
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }

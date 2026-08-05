@@ -41,7 +41,6 @@ export default function ProductCataloguePage() {
         !q ||
         p.name.toLowerCase().includes(q) ||
         p.productCode.toLowerCase().includes(q) ||
-        p.metadata.owner.toLowerCase().includes(q) ||
         p.metadata.tags.some((t) => t.toLowerCase().includes(q)) ||
         p.packetIds.some((id) => id.toLowerCase().includes(q));
       const matchStatus = status === "all" || p.status === status;
@@ -77,7 +76,7 @@ export default function ProductCataloguePage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
             className="pl-10"
-            placeholder="Search name, code, owner, tag…"
+            placeholder="Search name, code, tag…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -126,7 +125,7 @@ export default function ProductCataloguePage() {
       {packetFilter !== "all" && (
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="text-base">
+            <CardTitle>
               Packet impact —{" "}
               {productCatalogPacketOptions.find((o) => o.id === packetFilter)?.label}
             </CardTitle>
@@ -161,7 +160,7 @@ export default function ProductCataloguePage() {
                 <td className="px-4 py-3 text-caption text-muted-foreground">
                   {p.metadata.categories.join(", ")}
                 </td>
-                <td className="px-4 py-3 text-caption">{p.metadata.owner}</td>
+                <td className="px-4 py-3 text-caption">Local CPO</td>
                 <td className="px-4 py-3">
                   <ProductStatusBadge status={p.status} />
                 </td>

@@ -125,7 +125,7 @@ export default function ProductSubmitPage() {
             {product.definitionFingerprint}
           </p>
           <p>
-            <span className="text-muted-foreground">Owner:</span> {product.metadata.owner}
+            <span className="text-muted-foreground">Owner:</span> Local CPO
           </p>
           <Link
             className="text-primary hover:underline"
@@ -164,7 +164,7 @@ export default function ProductSubmitPage() {
       <Card>
         <CardContent className="pt-6 space-y-4">
           <div className="space-y-1.5">
-            <Label>Approval policy</Label>
+            <Label className="text-caption">Approval policy</Label>
             <Select value={policyId} onValueChange={setPolicyId}>
               <SelectTrigger>
                 <SelectValue />
@@ -179,7 +179,7 @@ export default function ProductSubmitPage() {
             </Select>
           </div>
           <div className="space-y-1.5">
-            <Label>Business justification</Label>
+            <Label className="text-caption">Business justification</Label>
             <Textarea
               rows={4}
               value={justification}

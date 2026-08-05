@@ -3,7 +3,7 @@ import type { SourceType } from "@/types/schema-mapper";
 
 export type DataPacketCategory = "Bureau" | "Banking" | "GST" | "Telecom" | "Consortium";
 export type DataPacketStatus = "active" | "deprecated" | "draft";
-export type ProductLifecycleStatus = "draft" | "active" | "approval_pending";
+export type ProductLifecycleStatus = "draft" | "active" | "approval_pending" | "unknown";
 
 /** Map API / server product status strings onto catalogue lifecycle values. */
 export function productStatusFromApi(apiStatus: string): ProductLifecycleStatus {
@@ -11,9 +11,8 @@ export function productStatusFromApi(apiStatus: string): ProductLifecycleStatus 
   if (apiStatus === "draft") return "draft";
   // Server treats `pending` like approval_pending for queue eligibility
   if (apiStatus === "pending" || apiStatus === "approval_pending") return "approval_pending";
-  return "approval_pending";
+  return "unknown";
 }
-export type ProductPricingModel = "per_hit" | "subscription";
 export type ProductCatalogPacketGroup =
   | "Financial Data"
   | "Business Data"
@@ -29,6 +28,8 @@ export interface DataPacket {
   source: string;
   visibility: "Internal" | "Consortium" | "Platform";
   status: DataPacketStatus;
+  /** Institution IDs (from institutions.json) that submit data into this packet. */
+  dataSubmitterInstitutionIds?: string[];
 }
 
 export interface PacketConfig {
@@ -40,14 +41,12 @@ export interface PacketConfig {
   selectedDerivedFields?: string[];
 }
 
-export type EnquiryDataType = "LATEST" | "TRENDED";
+/** Request-time retrieval mode — not a product-level either/or. */
+export type EnquiryDataScope = "LATEST" | "TRENDED";
 
 export interface EnquiryConfig {
-  impactType: "LOW" | "HIGH";
+  impactType: "SOFT" | "HARD";
   scope: "SELF" | "NETWORK" | "CONSORTIUM" | "VERTICAL";
-  mode: "LIVE" | "SYNTHETIC";
-  /** Latest snapshot vs trended time series for enquiry responses. */
-  dataType: EnquiryDataType;
 }
 
 export interface ConfiguredProduct {
@@ -56,8 +55,6 @@ export interface ConfiguredProduct {
   packetIds: string[];
   description: string;
   status: ProductLifecycleStatus;
-  pricingModel: ProductPricingModel;
-  price: number;
   lastUpdated: string;
   packetConfigs?: PacketConfig[];
   enquiryConfig?: EnquiryConfig;
@@ -90,14 +87,30 @@ export function getAllRawFieldKeysForPacketOption(opt: ProductCatalogPacketOptio
 }
 
 export const DEFAULT_ENQUIRY_CONFIG: EnquiryConfig = {
-  impactType: "LOW",
+  impactType: "SOFT",
   scope: "SELF",
-  mode: "LIVE",
-  dataType: "LATEST",
 };
 
-export function normalizeEnquiryConfig(partial?: Partial<EnquiryConfig> | null): EnquiryConfig {
-  return { ...DEFAULT_ENQUIRY_CONFIG, ...partial };
+/** Migrate legacy LOW/HIGH → SOFT/HARD; strip removed mode/dataType fields. */
+export function normalizeEnquiryConfig(
+  partial?: Partial<EnquiryConfig> & {
+    impactType?: string;
+    mode?: string;
+    dataType?: string;
+  } | null
+): EnquiryConfig {
+  const rawImpact = partial?.impactType;
+  let impactType: EnquiryConfig["impactType"] = DEFAULT_ENQUIRY_CONFIG.impactType;
+  if (rawImpact === "HARD" || rawImpact === "HIGH") impactType = "HARD";
+  else if (rawImpact === "SOFT" || rawImpact === "LOW") impactType = "SOFT";
+  const scope =
+    partial?.scope === "NETWORK" ||
+    partial?.scope === "CONSORTIUM" ||
+    partial?.scope === "VERTICAL" ||
+    partial?.scope === "SELF"
+      ? partial.scope
+      : DEFAULT_ENQUIRY_CONFIG.scope;
+  return { impactType, scope };
 }
 
 export const productCatalogPacketOptions = data.productCatalogPacketOptions as ProductCatalogPacketOption[];
@@ -117,11 +130,6 @@ export const dataPacketStatusStyles: Record<DataPacketStatus, string> = {
   active: "bg-success/15 text-success",
   deprecated: "bg-muted text-muted-foreground",
   draft: "bg-warning/15 text-warning",
-};
-
-export const productPricingLabel: Record<ProductPricingModel, string> = {
-  per_hit: "Per hit",
-  subscription: "Subscription",
 };
 
 export function getDataPacketById(id: string): DataPacket | undefined {
@@ -198,8 +206,6 @@ export function buildProductPreviewJson(
     enquiry: {
       impact: ec.impactType,
       scope: ec.scope,
-      mode: ec.mode,
-      dataType: ec.dataType,
     },
     data: resultData,
   };

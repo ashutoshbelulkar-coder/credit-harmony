@@ -3,59 +3,168 @@ import { useNavigate } from "react-router-dom";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Search, Eye, Pencil, Plus, FlaskConical, RotateCcw } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
+  Search,
+  Plus,
+  RotateCcw,
+  FlaskConical,
+  Eye,
+  Flag,
+  Package,
+  PackageSearch,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { tableHeaderClasses } from "@/lib/typography";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { productPricingLabel } from "@/data/data-products-mock";
-import { BRD_STATUS_LABEL, type BrdLifecycleStatus } from "@/data/product-management-types";
+import type { DemoProductVersion } from "@/data/product-management-types";
 import { ProductStatusBadge } from "@/components/data-products/ProductStatusBadge";
-import {
-  productMgmtStore,
-  useProductMgmtStore,
-} from "@/lib/product-management-demo-store";
+import { resolvePreferredVersion } from "@/components/data-products/lifecycle-menu";
+import { productMgmtStore, useProductMgmtStore } from "@/lib/product-management-demo-store";
 import { toast } from "sonner";
 
-const ALL_STATUSES = Object.keys(BRD_STATUS_LABEL) as BrdLifecycleStatus[];
+type SavedViewKey = "all" | "active" | "pending" | "deprecated_consumers" | "drafts";
+
+interface ProductGroup {
+  productCode: string;
+  versions: DemoProductVersion[];
+  head: DemoProductVersion;
+  totalConsumers: number;
+  updatedAt: string;
+  warnings: { versionId: string; version: number; message: string }[];
+}
+
+const SAVED_VIEW_DEFS: { key: SavedViewKey; label: string }[] = [
+  { key: "all", label: "All" },
+  { key: "active", label: "Active" },
+  { key: "pending", label: "Pending my approval" },
+  { key: "deprecated_consumers", label: "Deprecated with consumers" },
+  { key: "drafts", label: "Drafts" },
+];
+
+function formatUpdated(iso: string) {
+  try {
+    return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+  } catch {
+    return iso;
+  }
+}
+
+function matchesSavedView(g: ProductGroup, view: SavedViewKey): boolean {
+  switch (view) {
+    case "active":
+      return g.versions.some((v) => v.status === "active");
+    case "pending":
+      return g.versions.some((v) => v.status === "pending_approval");
+    case "deprecated_consumers":
+      return g.versions.some((v) => v.status === "deprecated" && v.consumerCount > 0);
+    case "drafts":
+      return g.versions.some((v) => v.status === "draft");
+    default:
+      return true;
+  }
+}
+
+/** Compact "v{n} Status(count)" chip — status colour always via ProductStatusBadge. */
+function VersionChip({ version }: { version: DemoProductVersion }) {
+  return (
+    <span className="inline-flex items-center gap-1 whitespace-nowrap">
+      <span className="text-caption tabular-nums text-muted-foreground">v{version.version}</span>
+      <ProductStatusBadge status={version.status} />
+      {version.status === "deprecated" && version.consumerCount > 0 && (
+        <span className="text-caption tabular-nums text-muted-foreground">({version.consumerCount})</span>
+      )}
+    </span>
+  );
+}
+
+function EmptyState({ message }: { message: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 py-14 text-center">
+      <PackageSearch className="h-8 w-8 text-muted-foreground/50" />
+      <p className="text-caption text-muted-foreground max-w-sm">{message}</p>
+    </div>
+  );
+}
 
 export default function ProductListPage() {
   const navigate = useNavigate();
   useProductMgmtStore();
-  const heads = productMgmtStore.listCatalogueHeads();
+
+  const allVersions = productMgmtStore.listVersions();
+
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [savedView, setSavedView] = useState<SavedViewKey>("all");
+
+  const groups = useMemo<ProductGroup[]>(() => {
+    const byCode = new Map<string, DemoProductVersion[]>();
+    for (const v of allVersions) {
+      const arr = byCode.get(v.productCode) ?? [];
+      arr.push(v);
+      byCode.set(v.productCode, arr);
+    }
+    const list: ProductGroup[] = [];
+    for (const [productCode, versionsRaw] of byCode) {
+      const versions = [...versionsRaw].sort((a, b) => b.version - a.version);
+      const head = resolvePreferredVersion(versions) ?? versions[0];
+      const totalConsumers = versions.reduce((sum, v) => sum + v.consumerCount, 0);
+      const updatedAt = versions.reduce(
+        (latest, v) => (new Date(v.lastUpdated) > new Date(latest) ? v.lastUpdated : latest),
+        head.lastUpdated
+      );
+      const warnings = versions.flatMap((v) =>
+        v.policyWarnings.map((w) => ({ versionId: v.id, version: v.version, message: w.message }))
+      );
+      list.push({
+        productCode,
+        versions,
+        head,
+        totalConsumers,
+        updatedAt,
+        warnings,
+      });
+    }
+    return list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+  }, [allVersions]);
+
+  const matchesSearch = (g: ProductGroup, q: string) => {
+    if (!q) return true;
+    return (
+      g.productCode.toLowerCase().includes(q) ||
+      g.head.name.toLowerCase().includes(q) ||
+      g.head.description.toLowerCase().includes(q)
+    );
+  };
 
   const filtered = useMemo(() => {
-    return heads.filter((p) => {
-      const q = search.toLowerCase();
-      const matchSearch =
-        p.name.toLowerCase().includes(q) ||
-        p.description.toLowerCase().includes(q) ||
-        p.productCode.toLowerCase().includes(q) ||
-        p.id.toLowerCase().includes(q) ||
-        p.metadata.owner.toLowerCase().includes(q) ||
-        p.metadata.tags.some((t) => t.toLowerCase().includes(q));
-      const matchStatus = statusFilter === "all" || p.status === statusFilter;
-      return matchSearch && matchStatus;
-    });
-  }, [heads, search, statusFilter]);
+    const q = search.trim().toLowerCase();
+    return groups.filter((g) => matchesSavedView(g, savedView) && matchesSearch(g, q));
+  }, [groups, savedView, search]);
 
-  const formatUpdated = (iso: string) => {
-    try {
-      return new Date(iso).toLocaleString(undefined, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      });
-    } catch {
-      return iso;
+  const savedViewCounts = useMemo(() => {
+    const counts: Record<SavedViewKey, number> = {
+      all: groups.length,
+      active: 0,
+      pending: 0,
+      deprecated_consumers: 0,
+      drafts: 0,
+    };
+    for (const g of groups) {
+      if (matchesSavedView(g, "active")) counts.active++;
+      if (matchesSavedView(g, "deprecated_consumers")) counts.deprecated_consumers++;
+      if (matchesSavedView(g, "drafts")) counts.drafts++;
     }
-  };
+    counts.pending = allVersions.filter((v) => v.status === "pending_approval").length;
+    return counts;
+  }, [groups, allVersions]);
+
+  const emptyMessage =
+    savedView !== "all" || search
+      ? "No products match the current view or search. Try clearing the search or switching saved views."
+      : "No products yet. Create your first data product to get started.";
 
   return (
     <div className="space-y-6 animate-fade-in pb-4 sm:pb-6">
@@ -109,161 +218,126 @@ export default function ProductListPage() {
         </div>
       </div>
 
-      <div className="flex flex-col sm:flex-row gap-3">
-        <div className="flex-1 max-w-sm relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search name, ID, owner, tags…"
-            className="pl-10"
-          />
-        </div>
-        <Select value={statusFilter} onValueChange={setStatusFilter}>
-          <SelectTrigger className="w-full sm:w-[200px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All statuses</SelectItem>
-            {ALL_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {BRD_STATUS_LABEL[s]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="flex-1 max-w-sm relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Input
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search name, code, tags…"
+          className="pl-10"
+        />
       </div>
 
-      <div className="md:hidden space-y-3">
-        {filtered.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-8 text-center">
-            No products match your filters.
-          </p>
-        ) : (
-          filtered.map((p) => {
-            const versionCount = productMgmtStore.getVersionsByCode(p.productCode).length;
-            return (
-              <div
-                key={p.id}
-                className="rounded-xl border border-border bg-card p-4 space-y-2 shadow-sm"
-              >
-                <div className="flex items-start justify-between gap-2">
-                  <span className="text-body font-medium text-foreground">{p.name}</span>
-                  <ProductStatusBadge status={p.status} />
+      <div className="flex flex-wrap gap-2">
+        {SAVED_VIEW_DEFS.map((v) => (
+          <button
+            key={v.key}
+            type="button"
+            onClick={() => setSavedView(v.key)}
+            className={cn(
+              "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] leading-[14px] font-medium transition-colors",
+              savedView === v.key
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border bg-card text-muted-foreground hover:bg-muted/50"
+            )}
+          >
+            {v.label}
+            <span
+              className={cn(
+                "rounded-full px-1.5 text-[10px] leading-[14px] tabular-nums",
+                savedView === v.key ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+              )}
+            >
+              {savedViewCounts[v.key]}
+            </span>
+          </button>
+        ))}
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="rounded-xl border border-border bg-card">
+          <EmptyState message={emptyMessage} />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3 2xl:grid-cols-3 gap-4">
+          {filtered.map((g) => (
+            <Card
+              key={g.productCode}
+              className={cn(
+                "group relative cursor-pointer bg-card border border-border text-card-foreground h-full",
+                "transition-all duration-200",
+                "hover:border-primary/30 hover:shadow-[0_4px_12px_hsl(var(--foreground)/0.06)]",
+                "dark:hover:shadow-[0_4px_12px_hsl(var(--foreground)/0.12)]"
+              )}
+              onClick={() => navigate(`/data-products/products/${g.head.id}`)}
+            >
+              <CardContent className="p-5 flex flex-col gap-3 h-full">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 shrink-0 rounded-lg border border-primary/20 bg-primary/10 dark:bg-primary/20 flex items-center justify-center">
+                    <Package className="w-5 h-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start gap-1.5">
+                      <h3 className="text-body font-semibold text-foreground leading-tight line-clamp-2">
+                        {g.head.name}
+                      </h3>
+                      {g.warnings.length > 0 && (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Flag
+                              className="h-3.5 w-3.5 shrink-0 text-orange-500 mt-0.5"
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            <ul className="space-y-1 text-caption">
+                              {g.warnings.map((w, idx) => (
+                                <li key={`${w.versionId}-${idx}`}>
+                                  v{w.version}: {w.message}
+                                </li>
+                              ))}
+                            </ul>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </div>
+                    <p className="mt-0.5 text-caption text-muted-foreground font-mono truncate">
+                      {g.productCode}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-caption text-muted-foreground">
-                  {p.productCode} · v{p.version} · {versionCount} version{versionCount !== 1 ? "s" : ""}
+
+                <VersionChip version={g.head} />
+
+                <p className="text-caption text-muted-foreground line-clamp-2">
+                  {g.head.description || "No description provided."}
                 </p>
-                <p className="text-caption text-muted-foreground">
-                  {productPricingLabel[p.pricingModel]}
-                </p>
-                <div className="flex gap-2 pt-1">
+
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[10px] leading-[14px] text-muted-foreground tabular-nums">
+                    {g.totalConsumers} subscriber{g.totalConsumers !== 1 ? "s" : ""}
+                  </span>
+                  <span className="rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[10px] leading-[14px] text-muted-foreground tabular-nums">
+                    Updated {formatUpdated(g.updatedAt)}
+                  </span>
+                </div>
+
+                <div className="flex items-stretch gap-2 pt-2 mt-auto" onClick={(e) => e.stopPropagation()}>
                   <Button
                     variant="outline"
                     size="sm"
-                    className="gap-1"
-                    onClick={() => navigate(`/data-products/products/${p.id}`)}
+                    className="flex-1 min-w-0 gap-1.5 text-caption border-border bg-transparent text-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                    onClick={() => navigate(`/data-products/products/${g.head.id}`)}
                   >
-                    <Eye className="w-3.5 h-3.5" />
-                    View
+                    <Eye className="w-3.5 h-3.5 shrink-0" />
+                    <span className="truncate">View</span>
                   </Button>
-                  {p.status === "draft" && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="gap-1"
-                      onClick={() => navigate(`/data-products/products/${p.id}/edit`)}
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                      Edit
-                    </Button>
-                  )}
                 </div>
-              </div>
-            );
-          })
-        )}
-      </div>
-
-      <div className="hidden md:block bg-card rounded-xl border border-border overflow-hidden">
-        <div className="min-w-0 overflow-x-auto">
-          <table className="w-full min-w-max">
-            <thead className="sticky top-0 z-10 bg-muted/95 backdrop-blur supports-[backdrop-filter]:bg-muted/80">
-              <tr className="border-b border-border">
-                {["ID", "Product", "Ver.", "Status", "Updated", ""].map((label) => (
-                    <th
-                      key={label || "act"}
-                      className={cn(
-                        tableHeaderClasses,
-                        "px-4 py-3 text-left font-medium",
-                        label === "" && "w-40 text-right"
-                      )}
-                    >
-                      {label}
-                    </th>
-                  ))}
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.length === 0 ? (
-                <tr>
-                  <td
-                    colSpan={6}
-                    className="px-4 py-8 text-center text-caption text-muted-foreground"
-                  >
-                    No products match your filters.
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((p) => (
-                  <tr
-                    key={p.id}
-                    className="border-b border-border last:border-0 hover:bg-muted/40 transition-colors"
-                  >
-                    <td className="px-4 py-3 text-caption text-muted-foreground tabular-nums">
-                      {p.productCode}
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-body text-foreground">{p.name}</div>
-                    </td>
-                    <td className="px-4 py-3 text-body text-muted-foreground tabular-nums">
-                      v{p.version}
-                    </td>
-                    <td className="px-4 py-3">
-                      <ProductStatusBadge status={p.status} />
-                    </td>
-                    <td className="px-4 py-3 text-caption text-muted-foreground tabular-nums">
-                      {formatUpdated(p.lastUpdated)}
-                    </td>
-                    <td className="px-4 py-3 text-right space-x-1 whitespace-nowrap">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="gap-1 h-8"
-                        onClick={() => navigate(`/data-products/products/${p.id}`)}
-                      >
-                        <Eye className="w-3.5 h-3.5" />
-                        View
-                      </Button>
-                      {p.status === "draft" && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1 h-8"
-                          onClick={() => navigate(`/data-products/products/${p.id}/edit`)}
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                          Edit
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+              </CardContent>
+            </Card>
+          ))}
         </div>
-      </div>
+      )}
     </div>
   );
 }

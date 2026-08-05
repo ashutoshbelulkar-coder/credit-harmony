@@ -28,7 +28,7 @@
       "id": "POL_SEQ",
       "name": "Sequential Product Head then Governance",
       "pattern": "sequential",
-      "trigger": "Cross-geography catalogue products",
+      "trigger": "Consortium / network-scope catalogue products",
       "roles": [
         "Product Head",
         "Governance Committee"
@@ -46,8 +46,6 @@
       "version": 1,
       "parentVersionId": null,
       "status": "inactive",
-      "pricingModel": "per_hit",
-      "price": 45,
       "lastUpdated": "2025-11-01T10:00:00.000Z",
       "createdAt": "2025-06-01T09:00:00.000Z",
       "packetIds": [
@@ -71,16 +69,76 @@
         }
       ],
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE",
-        "dataType": "LATEST"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 24
+      },
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth",
+          "gender",
+          "currentAddress",
+          "primaryIdentifier",
+          "contactNumber"
+        ]
+      },
+      "outputPorts": [
+        {
+          "id": "port_enq_PRD_0001_v1",
+          "name": "Enquiry API (sync)",
+          "channel": "ENQUIRY_API",
+          "status": "active",
+          "contractRef": "PRD_0001/v1/enquiry"
+        },
+        {
+          "id": "port_batch_PRD_0001_v1",
+          "name": "Batch extract",
+          "channel": "BATCH_EXTRACT",
+          "status": "planned",
+          "contractRef": "PRD_0001/v1/batch"
+        }
+      ],
+      "fieldContract": [
+        {
+          "name": "avg_monthly_balance",
+          "type": "number",
+          "description": "avg monthly balance from packet PKT_BCF",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_BCF"
+        },
+        {
+          "name": "income_stability_score",
+          "type": "number",
+          "description": "income stability score from packet PKT_BCF",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_BCF"
+        },
+        {
+          "name": "annual_turnover",
+          "type": "number",
+          "description": "annual turnover from packet PKT_GST",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "gst_compliance_score",
+          "type": "number",
+          "description": "gst compliance score from packet PKT_GST",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_GST"
+        }
+      ],
+      "policyWarnings": [],
       "metadata": {
-        "owner": "Priya Sharma",
-        "ownerRole": "Product Owner",
         "businessUnit": "Commercial Lending",
-        "targetGeography": "India",
         "targetSegment": "SME",
         "intendedUse": "Origination affordability",
         "regulatoryNotes": "Consent-based cashflow + GST; DPDP data-minimisation applied.",
@@ -94,11 +152,38 @@
           "Affordability"
         ],
         "effectiveStart": "2025-06-15",
-        "effectiveEnd": "2025-12-31"
+        "effectiveEnd": "2025-12-31",
+        "legalConditions": "Enquiries require documented borrower consent captured at origination. Cashflow and GST attributes may be used only for affordability assessment and must not be retained beyond the loan decisioning cycle.",
+        "dataAcquisitionType": "Member-contributed",
+        "dataAvailabilityType": "Managed by bureau, available for direct enquiry",
+        "accessRestrictions": "Active subscription required; purpose-bound to origination underwriting",
+        "sapItemCode": "SAP-0001"
       },
       "consumerCount": 0,
-      "definitionFingerprint": "fp_sme_v1_stub",
-      "approvalCycles": [],
+      "definitionFingerprint": "fp_recomputed",
+      "approvalCycles": [
+        {
+          "id": "sub_sme_v1_c1",
+          "cycleNumber": 1,
+          "status": "approved",
+          "submittedAt": "2025-06-08T09:00:00.000Z",
+          "submittedBy": "Priya Sharma",
+          "justification": "Launch SME cashflow + GST affordability pack for commercial lending pilot.",
+          "policyId": "POL_SINGLE",
+          "fingerprint": "fp_recomputed",
+          "exceptionRequested": false,
+          "decisions": [
+            {
+              "id": "dec_sme_v1_1",
+              "actor": "Ananya Iyer",
+              "role": "Product Head",
+              "decision": "approve",
+              "comment": "Meets affordability underwriting needs; approved for pilot rollout.",
+              "at": "2025-06-10T11:00:00.000Z"
+            }
+          ]
+        }
+      ],
       "deprecationWindowDays": null,
       "deprecationNoticeAt": null
     },
@@ -110,8 +195,6 @@
       "version": 2,
       "parentVersionId": "ver_sme_v1",
       "status": "deprecated",
-      "pricingModel": "per_hit",
-      "price": 48,
       "lastUpdated": "2026-03-01T10:00:00.000Z",
       "createdAt": "2025-12-01T09:00:00.000Z",
       "packetIds": [
@@ -146,16 +229,122 @@
         }
       ],
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE",
-        "dataType": "LATEST"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 24
+      },
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth",
+          "gender",
+          "currentAddress",
+          "primaryIdentifier",
+          "contactNumber"
+        ]
+      },
+      "outputPorts": [
+        {
+          "id": "port_enq_PRD_0001_v2",
+          "name": "Enquiry API (sync)",
+          "channel": "ENQUIRY_API",
+          "status": "active",
+          "contractRef": "PRD_0001/v2/enquiry"
+        },
+        {
+          "id": "port_batch_PRD_0001_v2",
+          "name": "Batch extract",
+          "channel": "BATCH_EXTRACT",
+          "status": "planned",
+          "contractRef": "PRD_0001/v2/batch"
+        }
+      ],
+      "fieldContract": [
+        {
+          "name": "avg_monthly_balance",
+          "type": "number",
+          "description": "avg monthly balance from packet PKT_BCF",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_BCF"
+        },
+        {
+          "name": "income_stability_score",
+          "type": "number",
+          "description": "income stability score from packet PKT_BCF",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_BCF"
+        },
+        {
+          "name": "salary_detected",
+          "type": "boolean",
+          "description": "salary detected from packet PKT_BCF",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BCF"
+        },
+        {
+          "name": "emi_outflow",
+          "type": "string",
+          "description": "emi outflow from packet PKT_BCF",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_BCF"
+        },
+        {
+          "name": "annual_turnover",
+          "type": "number",
+          "description": "annual turnover from packet PKT_GST",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "gst_filing_regular",
+          "type": "boolean",
+          "description": "gst filing regular from packet PKT_GST",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "gst_compliance_score",
+          "type": "number",
+          "description": "gst compliance score from packet PKT_GST",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "related_entities_count",
+          "type": "number",
+          "description": "related entities count from packet PKT_BLK",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BLK"
+        },
+        {
+          "name": "network_risk_score",
+          "type": "number",
+          "description": "network risk score from packet PKT_BLK",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BLK"
+        }
+      ],
+      "policyWarnings": [
+        {
+          "code": "DEPRECATED_WITH_CONSUMERS",
+          "severity": "warning",
+          "message": "1 subscribed institution remains on this deprecated version; ensure migration to v3 completes before the wind-down window lapses."
+        }
+      ],
       "metadata": {
-        "owner": "Priya Sharma",
-        "ownerRole": "Product Owner",
         "businessUnit": "Commercial Lending",
-        "targetGeography": "India",
         "targetSegment": "SME",
         "intendedUse": "Origination affordability",
         "regulatoryNotes": "Added business linkages packet; wind-down notice issued.",
@@ -170,13 +359,40 @@
           "Affordability"
         ],
         "effectiveStart": "2025-12-15",
-        "effectiveEnd": null
+        "effectiveEnd": "2026-05-30",
+        "legalConditions": "Continued use is limited to the 90-day wind-down period specified in the deprecation notice. New integrations must adopt v3; existing consumers must complete migration before the window lapses.",
+        "dataAcquisitionType": "Member-contributed",
+        "dataAvailabilityType": "Managed by bureau, available for direct enquiry (wind-down)",
+        "accessRestrictions": "Restricted to existing subscribed institutions during wind-down; no new subscriptions accepted",
+        "sapItemCode": "SAP-0001"
       },
-      "consumerCount": 18,
-      "definitionFingerprint": "fp_sme_v2_stub",
+      "consumerCount": 1,
+      "definitionFingerprint": "fp_recomputed",
+      "approvalCycles": [
+        {
+          "id": "sub_sme_v2_c1",
+          "cycleNumber": 1,
+          "status": "approved",
+          "submittedAt": "2025-12-08T09:00:00.000Z",
+          "submittedBy": "Priya Sharma",
+          "justification": "Add business-linkage packet to strengthen SME affordability screening.",
+          "policyId": "POL_SINGLE",
+          "fingerprint": "fp_recomputed",
+          "exceptionRequested": false,
+          "decisions": [
+            {
+              "id": "dec_sme_v2_1",
+              "actor": "Rahul Deshmukh",
+              "role": "Governance Committee",
+              "decision": "approve",
+              "comment": "Business-linkage enrichment approved; monitor for network risk overlap.",
+              "at": "2025-12-10T11:00:00.000Z"
+            }
+          ]
+        }
+      ],
       "deprecationWindowDays": 90,
-      "deprecationNoticeAt": "2026-03-01T10:00:00.000Z",
-      "approvalCycles": []
+      "deprecationNoticeAt": "2026-03-01T10:00:00.000Z"
     },
     {
       "id": "ver_sme_v3",
@@ -186,8 +402,6 @@
       "version": 3,
       "parentVersionId": "ver_sme_v2",
       "status": "active",
-      "pricingModel": "per_hit",
-      "price": 50,
       "lastUpdated": "2026-03-20T10:00:00.000Z",
       "createdAt": "2026-02-10T09:00:00.000Z",
       "packetIds": [
@@ -223,16 +437,124 @@
         }
       ],
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE",
-        "dataType": "LATEST"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 24
+      },
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth",
+          "gender",
+          "currentAddress",
+          "primaryIdentifier",
+          "contactNumber"
+        ]
+      },
+      "outputPorts": [
+        {
+          "id": "port_enq_PRD_0001_v3",
+          "name": "Enquiry API (sync)",
+          "channel": "ENQUIRY_API",
+          "status": "active",
+          "contractRef": "PRD_0001/v3/enquiry"
+        },
+        {
+          "id": "port_batch_PRD_0001_v3",
+          "name": "Batch extract",
+          "channel": "BATCH_EXTRACT",
+          "status": "planned",
+          "contractRef": "PRD_0001/v3/batch"
+        }
+      ],
+      "fieldContract": [
+        {
+          "name": "avg_monthly_balance",
+          "type": "number",
+          "description": "avg monthly balance from packet PKT_BCF",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_BCF"
+        },
+        {
+          "name": "income_stability_score",
+          "type": "number",
+          "description": "income stability score from packet PKT_BCF",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_BCF"
+        },
+        {
+          "name": "salary_detected",
+          "type": "boolean",
+          "description": "salary detected from packet PKT_BCF",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BCF"
+        },
+        {
+          "name": "emi_outflow",
+          "type": "string",
+          "description": "emi outflow from packet PKT_BCF",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_BCF"
+        },
+        {
+          "name": "annual_turnover",
+          "type": "number",
+          "description": "annual turnover from packet PKT_GST",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "gst_filing_regular",
+          "type": "boolean",
+          "description": "gst filing regular from packet PKT_GST",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "gst_compliance_score",
+          "type": "number",
+          "description": "gst compliance score from packet PKT_GST",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "active_cases_count",
+          "type": "number",
+          "description": "active cases count from packet PKT_LEG",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_LEG"
+        },
+        {
+          "name": "defaulter_listing_flag",
+          "type": "boolean",
+          "description": "defaulter listing flag from packet PKT_LEG",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_LEG"
+        },
+        {
+          "name": "litigation_recency_months",
+          "type": "number",
+          "description": "litigation recency months from packet PKT_LEG",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_LEG"
+        }
+      ],
+      "policyWarnings": [],
       "metadata": {
-        "owner": "Priya Sharma",
-        "ownerRole": "Product Owner",
         "businessUnit": "Commercial Lending",
-        "targetGeography": "India",
         "targetSegment": "SME",
         "intendedUse": "Origination affordability",
         "regulatoryNotes": "Latest active version; default for new adoptions.",
@@ -247,11 +569,38 @@
           "Affordability"
         ],
         "effectiveStart": "2026-03-01",
-        "effectiveEnd": null
+        "effectiveEnd": null,
+        "legalConditions": "Litigation-screening attributes are sourced from public records only and must be used solely for credit-risk assessment, never for adverse public disclosure. Consent captured at origination covers all included packets.",
+        "dataAcquisitionType": "Member-contributed",
+        "dataAvailabilityType": "Managed by bureau, available for direct enquiry",
+        "accessRestrictions": "Active subscription required; purpose-bound to origination and portfolio review",
+        "sapItemCode": "SAP-0001"
       },
-      "consumerCount": 42,
-      "definitionFingerprint": "fp_sme_v3_stub",
-      "approvalCycles": [],
+      "consumerCount": 2,
+      "definitionFingerprint": "fp_recomputed",
+      "approvalCycles": [
+        {
+          "id": "sub_sme_v3_c1",
+          "cycleNumber": 1,
+          "status": "approved",
+          "submittedAt": "2026-02-20T09:00:00.000Z",
+          "submittedBy": "Priya Sharma",
+          "justification": "Add legal/litigation screening; promote to default SME affordability pack.",
+          "policyId": "POL_SINGLE",
+          "fingerprint": "fp_recomputed",
+          "exceptionRequested": false,
+          "decisions": [
+            {
+              "id": "dec_sme_v3_1",
+              "actor": "Ananya Iyer",
+              "role": "Product Head",
+              "decision": "approve",
+              "comment": "Adds legal screening; approved as default SME pack going forward.",
+              "at": "2026-02-25T10:00:00.000Z"
+            }
+          ]
+        }
+      ],
       "deprecationWindowDays": null,
       "deprecationNoticeAt": null
     },
@@ -263,8 +612,6 @@
       "version": 1,
       "parentVersionId": null,
       "status": "draft",
-      "pricingModel": "subscription",
-      "price": 12000,
       "lastUpdated": "2026-03-18T14:30:00.000Z",
       "createdAt": "2026-03-10T11:00:00.000Z",
       "packetIds": [
@@ -300,16 +647,124 @@
         }
       ],
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE",
-        "dataType": "LATEST"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 24
+      },
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth",
+          "gender",
+          "currentAddress",
+          "primaryIdentifier",
+          "contactNumber"
+        ]
+      },
+      "outputPorts": [
+        {
+          "id": "port_enq_PRD_0002_v1",
+          "name": "Enquiry API (sync)",
+          "channel": "ENQUIRY_API",
+          "status": "active",
+          "contractRef": "PRD_0002/v1/enquiry"
+        },
+        {
+          "id": "port_batch_PRD_0002_v1",
+          "name": "Batch extract",
+          "channel": "BATCH_EXTRACT",
+          "status": "planned",
+          "contractRef": "PRD_0002/v1/batch"
+        }
+      ],
+      "fieldContract": [
+        {
+          "name": "mobile_recharge_consistency",
+          "type": "string",
+          "description": "mobile recharge consistency from packet PKT_TBS",
+          "pii": true,
+          "mode": "TRENDED",
+          "packetId": "PKT_TBS"
+        },
+        {
+          "name": "sim_age_months",
+          "type": "number",
+          "description": "sim age months from packet PKT_TBS",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_TBS"
+        },
+        {
+          "name": "geo_stability_score",
+          "type": "number",
+          "description": "geo stability score from packet PKT_TBS",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_TBS"
+        },
+        {
+          "name": "device_price_band",
+          "type": "string",
+          "description": "device price band from packet PKT_DEV",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DEV"
+        },
+        {
+          "name": "os_current",
+          "type": "string",
+          "description": "os current from packet PKT_DEV",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DEV"
+        },
+        {
+          "name": "financial_apps_installed",
+          "type": "string",
+          "description": "financial apps installed from packet PKT_DEV",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DEV"
+        },
+        {
+          "name": "account_tenure_days",
+          "type": "number",
+          "description": "account tenure days from packet PKT_DEV",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DEV"
+        },
+        {
+          "name": "ecommerce_spend",
+          "type": "string",
+          "description": "ecommerce spend from packet PKT_DSP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DSP"
+        },
+        {
+          "name": "discretionary_income_score",
+          "type": "number",
+          "description": "discretionary income score from packet PKT_DSP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DSP"
+        },
+        {
+          "name": "spend_volatility",
+          "type": "string",
+          "description": "spend volatility from packet PKT_DSP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DSP"
+        }
+      ],
+      "policyWarnings": [],
       "metadata": {
-        "owner": "Arjun Mehta",
-        "ownerRole": "Product Manager",
         "businessUnit": "Retail Lending",
-        "targetGeography": "India",
         "targetSegment": "Thin-file retail",
         "intendedUse": "New-to-lending onboarding",
         "regulatoryNotes": "Device signals for onboarding only; disparate-impact review pending.",
@@ -324,10 +779,15 @@
           "Alternative Data"
         ],
         "effectiveStart": null,
-        "effectiveEnd": null
+        "effectiveEnd": null,
+        "legalConditions": "Device and behavioural signals may be used for onboarding decisioning only, pending disparate-impact review; not yet cleared for production consent capture.",
+        "dataAcquisitionType": "Bureau-derived",
+        "dataAvailabilityType": "Managed by bureau, restricted to internal pilot until review completes",
+        "accessRestrictions": "Draft — no external access; internal risk review only",
+        "sapItemCode": "SAP-0002"
       },
       "consumerCount": 0,
-      "definitionFingerprint": "fp_retail_v1_stub",
+      "definitionFingerprint": "fp_recomputed",
       "approvalCycles": [],
       "deprecationWindowDays": null,
       "deprecationNoticeAt": null
@@ -340,8 +800,6 @@
       "version": 1,
       "parentVersionId": null,
       "status": "active",
-      "pricingModel": "subscription",
-      "price": 28000,
       "lastUpdated": "2025-09-01T08:00:00.000Z",
       "createdAt": "2025-08-01T08:00:00.000Z",
       "packetIds": [
@@ -373,16 +831,92 @@
         }
       ],
       "enquiryConfig": {
-        "impactType": "HIGH",
-        "scope": "NETWORK",
-        "mode": "LIVE",
-        "dataType": "TRENDED"
+        "impactType": "HARD",
+        "scope": "NETWORK"
       },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 24
+      },
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth",
+          "gender",
+          "currentAddress",
+          "primaryIdentifier",
+          "contactNumber"
+        ]
+      },
+      "outputPorts": [
+        {
+          "id": "port_enq_PRD_0003_v1",
+          "name": "Enquiry API (sync)",
+          "channel": "ENQUIRY_API",
+          "status": "active",
+          "contractRef": "PRD_0003/v1/enquiry"
+        },
+        {
+          "id": "port_batch_PRD_0003_v1",
+          "name": "Batch extract",
+          "channel": "BATCH_EXTRACT",
+          "status": "planned",
+          "contractRef": "PRD_0003/v1/batch"
+        }
+      ],
+      "fieldContract": [
+        {
+          "name": "annual_turnover",
+          "type": "number",
+          "description": "annual turnover from packet PKT_GST",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "gst_compliance_score",
+          "type": "number",
+          "description": "gst compliance score from packet PKT_GST",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "related_entities_count",
+          "type": "number",
+          "description": "related entities count from packet PKT_BLK",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BLK"
+        },
+        {
+          "name": "network_risk_score",
+          "type": "number",
+          "description": "network risk score from packet PKT_BLK",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BLK"
+        },
+        {
+          "name": "active_cases_count",
+          "type": "number",
+          "description": "active cases count from packet PKT_LEG",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_LEG"
+        },
+        {
+          "name": "defaulter_listing_flag",
+          "type": "boolean",
+          "description": "defaulter listing flag from packet PKT_LEG",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_LEG"
+        }
+      ],
+      "policyWarnings": [],
       "metadata": {
-        "owner": "Neha Kapoor",
-        "ownerRole": "Product Owner",
         "businessUnit": "Merchant Onboarding",
-        "targetGeography": "India",
         "targetSegment": "Merchants / Sellers",
         "intendedUse": "Merchant onboarding & monitoring",
         "regulatoryNotes": "Public-record litigation data only.",
@@ -396,11 +930,60 @@
           "Merchant Risk"
         ],
         "effectiveStart": "2025-08-15",
-        "effectiveEnd": null
+        "effectiveEnd": null,
+        "legalConditions": "Litigation and network-linkage attributes are public-record or bureau-derived only; use is restricted to merchant onboarding and ongoing monitoring, not consumer-facing disclosure.",
+        "dataAcquisitionType": "Bureau-derived",
+        "dataAvailabilityType": "Consortium-shared, available to network members for merchant risk review",
+        "accessRestrictions": "Requires signed data-use agreement; network-scope enquiries only",
+        "sapItemCode": "SAP-0003"
       },
-      "consumerCount": 11,
-      "definitionFingerprint": "fp_corp_v1_stub",
-      "approvalCycles": [],
+      "consumerCount": 1,
+      "definitionFingerprint": "fp_recomputed",
+      "approvalCycles": [
+        {
+          "id": "sub_corp_v1_c1",
+          "cycleNumber": 1,
+          "status": "approved",
+          "submittedAt": "2025-08-08T09:00:00.000Z",
+          "submittedBy": "Neha Kapoor",
+          "justification": "Launch merchant trust screen combining GST, linkages and litigation signals.",
+          "policyId": "POL_QUORUM",
+          "fingerprint": "fp_recomputed",
+          "exceptionRequested": false,
+          "decisions": [
+            {
+              "id": "dec_corp_v1_1",
+              "actor": "Ananya Iyer",
+              "role": "Product Head",
+              "decision": "approve",
+              "comment": "Meets merchant-risk requirement (1/2 quorum).",
+              "at": "2025-08-11T09:00:00.000Z"
+            },
+            {
+              "id": "dec_corp_v1_2",
+              "actor": "Kavita Menon",
+              "role": "Data Protection Officer",
+              "decision": "approve",
+              "comment": "PII handling reviewed; approved (2/2) quorum met.",
+              "at": "2025-08-12T10:00:00.000Z"
+            }
+          ]
+        },
+        {
+          "id": "sub_corp_v1_access_federal",
+          "cycleNumber": 2,
+          "status": "pending",
+          "submittedAt": "2026-03-27T10:00:00.000Z",
+          "submittedBy": "Federal Bank — Rohan Kulkarni",
+          "justification": "Merchant onboarding trust screening for marketplace sellers.",
+          "policyId": "POL_SINGLE",
+          "fingerprint": "fp_recomputed",
+          "exceptionRequested": false,
+          "decisions": [],
+          "subscriptionId": "access_federal_corp",
+          "kind": "access_request"
+        }
+      ],
       "deprecationWindowDays": null,
       "deprecationNoticeAt": null
     },
@@ -412,8 +995,6 @@
       "version": 2,
       "parentVersionId": "ver_corp_v1",
       "status": "pending_approval",
-      "pricingModel": "subscription",
-      "price": 32000,
       "lastUpdated": "2026-03-22T09:15:00.000Z",
       "createdAt": "2026-03-15T09:00:00.000Z",
       "packetIds": [
@@ -457,16 +1038,140 @@
         }
       ],
       "enquiryConfig": {
-        "impactType": "HIGH",
-        "scope": "NETWORK",
-        "mode": "LIVE",
-        "dataType": "TRENDED"
+        "impactType": "HARD",
+        "scope": "NETWORK"
       },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 24
+      },
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth",
+          "gender",
+          "currentAddress",
+          "primaryIdentifier",
+          "contactNumber"
+        ]
+      },
+      "outputPorts": [
+        {
+          "id": "port_enq_PRD_0003_v2",
+          "name": "Enquiry API (sync)",
+          "channel": "ENQUIRY_API",
+          "status": "active",
+          "contractRef": "PRD_0003/v2/enquiry"
+        },
+        {
+          "id": "port_batch_PRD_0003_v2",
+          "name": "Batch extract",
+          "channel": "BATCH_EXTRACT",
+          "status": "planned",
+          "contractRef": "PRD_0003/v2/batch"
+        }
+      ],
+      "fieldContract": [
+        {
+          "name": "annual_turnover",
+          "type": "number",
+          "description": "annual turnover from packet PKT_GST",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "gst_compliance_score",
+          "type": "number",
+          "description": "gst compliance score from packet PKT_GST",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "sales_trend",
+          "type": "string",
+          "description": "sales trend from packet PKT_GST",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "related_entities_count",
+          "type": "number",
+          "description": "related entities count from packet PKT_BLK",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BLK"
+        },
+        {
+          "name": "shared_directors",
+          "type": "string",
+          "description": "shared directors from packet PKT_BLK",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BLK"
+        },
+        {
+          "name": "network_risk_score",
+          "type": "number",
+          "description": "network risk score from packet PKT_BLK",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BLK"
+        },
+        {
+          "name": "active_cases_count",
+          "type": "number",
+          "description": "active cases count from packet PKT_LEG",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_LEG"
+        },
+        {
+          "name": "defaulter_listing_flag",
+          "type": "boolean",
+          "description": "defaulter listing flag from packet PKT_LEG",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_LEG"
+        },
+        {
+          "name": "litigation_recency_months",
+          "type": "number",
+          "description": "litigation recency months from packet PKT_LEG",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_LEG"
+        },
+        {
+          "name": "avg_monthly_balance",
+          "type": "number",
+          "description": "avg monthly balance from packet PKT_BCF",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_BCF"
+        },
+        {
+          "name": "income_stability_score",
+          "type": "number",
+          "description": "income stability score from packet PKT_BCF",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_BCF"
+        },
+        {
+          "name": "emi_outflow",
+          "type": "string",
+          "description": "emi outflow from packet PKT_BCF",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_BCF"
+        }
+      ],
+      "policyWarnings": [],
       "metadata": {
-        "owner": "Neha Kapoor",
-        "ownerRole": "Product Owner",
         "businessUnit": "Merchant Onboarding",
-        "targetGeography": "India",
         "targetSegment": "Merchants / Sellers",
         "intendedUse": "Marketplace seller trust",
         "regulatoryNotes": "Adds banking cashflow for merchant affordability screening.",
@@ -481,10 +1186,15 @@
           "Merchant Risk"
         ],
         "effectiveStart": "2026-04-01",
-        "effectiveEnd": null
+        "effectiveEnd": null,
+        "legalConditions": "Adds banking-cashflow attributes; enquiries are limited to marketplace seller affordability and onboarding trust assessment pending governance sign-off.",
+        "dataAcquisitionType": "Bureau-derived",
+        "dataAvailabilityType": "Consortium-shared, available to network members for merchant risk review",
+        "accessRestrictions": "Pending approval — no production access until quorum sign-off completes",
+        "sapItemCode": "SAP-0003"
       },
       "consumerCount": 0,
-      "definitionFingerprint": "fp_corp_v2_stub",
+      "definitionFingerprint": "fp_recomputed",
       "approvalCycles": [
         {
           "id": "sub_corp_v2_c1",
@@ -494,7 +1204,7 @@
           "submittedBy": "Neha Kapoor",
           "justification": "Expand Merchant Trust pack with banking cashflow for seller affordability.",
           "policyId": "POL_QUORUM",
-          "fingerprint": "fp_corp_v2_stub",
+          "fingerprint": "fp_recomputed",
           "exceptionRequested": false,
           "decisions": []
         }
@@ -510,8 +1220,6 @@
       "version": 1,
       "parentVersionId": null,
       "status": "approved",
-      "pricingModel": "per_hit",
-      "price": 18,
       "lastUpdated": "2026-03-25T07:45:00.000Z",
       "createdAt": "2026-03-01T07:00:00.000Z",
       "packetIds": [
@@ -548,16 +1256,132 @@
         }
       ],
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE",
-        "dataType": "LATEST"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 24
+      },
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth",
+          "gender",
+          "currentAddress",
+          "primaryIdentifier",
+          "contactNumber"
+        ]
+      },
+      "outputPorts": [
+        {
+          "id": "port_enq_PRD_0004_v1",
+          "name": "Enquiry API (sync)",
+          "channel": "ENQUIRY_API",
+          "status": "active",
+          "contractRef": "PRD_0004/v1/enquiry"
+        },
+        {
+          "id": "port_batch_PRD_0004_v1",
+          "name": "Batch extract",
+          "channel": "BATCH_EXTRACT",
+          "status": "planned",
+          "contractRef": "PRD_0004/v1/batch"
+        }
+      ],
+      "fieldContract": [
+        {
+          "name": "net_monthly_income",
+          "type": "string",
+          "description": "net monthly income from packet PKT_PAY",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_PAY"
+        },
+        {
+          "name": "income_consistency_score",
+          "type": "number",
+          "description": "income consistency score from packet PKT_PAY",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_PAY"
+        },
+        {
+          "name": "tenure_months",
+          "type": "number",
+          "description": "tenure months from packet PKT_PAY",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_PAY"
+        },
+        {
+          "name": "electricity_ontime_ratio",
+          "type": "string",
+          "description": "electricity ontime ratio from packet PKT_UTL",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_UTL"
+        },
+        {
+          "name": "rent_ontime_ratio",
+          "type": "string",
+          "description": "rent ontime ratio from packet PKT_UTL",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_UTL"
+        },
+        {
+          "name": "missed_payments_12m",
+          "type": "string",
+          "description": "missed payments 12m from packet PKT_UTL",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_UTL"
+        },
+        {
+          "name": "billing_tenure_months",
+          "type": "number",
+          "description": "billing tenure months from packet PKT_UTL",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_UTL"
+        },
+        {
+          "name": "employment_type",
+          "type": "string",
+          "description": "employment type from packet PKT_EMP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_EMP"
+        },
+        {
+          "name": "employer_name",
+          "type": "string",
+          "description": "employer name from packet PKT_EMP",
+          "pii": true,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_EMP"
+        },
+        {
+          "name": "tenure_months",
+          "type": "number",
+          "description": "tenure months from packet PKT_EMP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_EMP"
+        },
+        {
+          "name": "employment_stability_score",
+          "type": "number",
+          "description": "employment stability score from packet PKT_EMP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_EMP"
+        }
+      ],
+      "policyWarnings": [],
       "metadata": {
-        "owner": "Vikram Rao",
-        "ownerRole": "Product Manager",
         "businessUnit": "Inclusive Finance",
-        "targetGeography": "India — Tier 2/3",
         "targetSegment": "Salaried / SHG",
         "intendedUse": "Affordability underwriting",
         "regulatoryNotes": "Approved; awaiting activation / effective start.",
@@ -572,10 +1396,15 @@
           "Affordability"
         ],
         "effectiveStart": "2027-01-15",
-        "effectiveEnd": null
+        "effectiveEnd": null,
+        "legalConditions": "Payslip and employment attributes require employer-verified consent; utility/rent history is sourced under permissible purpose for affordability underwriting of salaried and SHG borrowers.",
+        "dataAcquisitionType": "Member-contributed",
+        "dataAvailabilityType": "Managed by bureau, available for direct enquiry",
+        "accessRestrictions": "Approved — awaiting activation; no production access until effective start",
+        "sapItemCode": "SAP-0004"
       },
       "consumerCount": 0,
-      "definitionFingerprint": "fp_mfi_v1_stub",
+      "definitionFingerprint": "fp_recomputed",
       "approvalCycles": [
         {
           "id": "sub_mfi_v1_c1",
@@ -585,7 +1414,7 @@
           "submittedBy": "Vikram Rao",
           "justification": "Launch payslip + employment + utility affordability for SHG and salaried pilots.",
           "policyId": "POL_SINGLE",
-          "fingerprint": "fp_mfi_v1_stub",
+          "fingerprint": "fp_recomputed",
           "decisions": [
             {
               "id": "dec_mfi_1",
@@ -609,8 +1438,6 @@
       "version": 4,
       "parentVersionId": "ver_trade_v3",
       "status": "inactive",
-      "pricingModel": "subscription",
-      "price": 18000,
       "lastUpdated": "2025-01-10T09:00:00.000Z",
       "createdAt": "2024-06-01T09:00:00.000Z",
       "packetIds": [
@@ -640,16 +1467,76 @@
         }
       ],
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "VERTICAL",
-        "mode": "LIVE",
-        "dataType": "LATEST"
+        "impactType": "SOFT",
+        "scope": "VERTICAL"
       },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 24
+      },
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth",
+          "gender",
+          "currentAddress",
+          "primaryIdentifier",
+          "contactNumber"
+        ]
+      },
+      "outputPorts": [
+        {
+          "id": "port_enq_PRD_0005_v4",
+          "name": "Enquiry API (sync)",
+          "channel": "ENQUIRY_API",
+          "status": "active",
+          "contractRef": "PRD_0005/v4/enquiry"
+        },
+        {
+          "id": "port_batch_PRD_0005_v4",
+          "name": "Batch extract",
+          "channel": "BATCH_EXTRACT",
+          "status": "planned",
+          "contractRef": "PRD_0005/v4/batch"
+        }
+      ],
+      "fieldContract": [
+        {
+          "name": "annual_turnover",
+          "type": "number",
+          "description": "annual turnover from packet PKT_GST",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "gst_filing_regular",
+          "type": "boolean",
+          "description": "gst filing regular from packet PKT_GST",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "related_entities_count",
+          "type": "number",
+          "description": "related entities count from packet PKT_BLK",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BLK"
+        },
+        {
+          "name": "active_cases_count",
+          "type": "number",
+          "description": "active cases count from packet PKT_LEG",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_LEG"
+        }
+      ],
+      "policyWarnings": [],
       "metadata": {
-        "owner": "Ops Governance",
-        "ownerRole": "Bureau Admin",
         "businessUnit": "Merchant Onboarding",
-        "targetGeography": "India",
         "targetSegment": "Trade / KYB",
         "intendedUse": "Historical KYB",
         "regulatoryNotes": "Retention elapsed — eligible for archive.",
@@ -663,11 +1550,38 @@
           "KYB"
         ],
         "effectiveStart": "2024-06-15",
-        "effectiveEnd": "2024-12-31"
+        "effectiveEnd": "2024-12-31",
+        "legalConditions": "Retained for audit trail beyond the active retention window; no new enquiries permitted. Historical KYB data may be used only to respond to regulatory audit requests.",
+        "dataAcquisitionType": "Bureau-derived",
+        "dataAvailabilityType": "Managed by bureau, restricted to audit/regulatory retrieval",
+        "accessRestrictions": "Inactive — audit/compliance access only, no live enquiries",
+        "sapItemCode": "SAP-0005"
       },
       "consumerCount": 0,
-      "definitionFingerprint": "fp_trade_v4_stub",
-      "approvalCycles": [],
+      "definitionFingerprint": "fp_recomputed",
+      "approvalCycles": [
+        {
+          "id": "sub_trade_v4_c1",
+          "cycleNumber": 1,
+          "status": "approved",
+          "submittedAt": "2024-06-08T09:00:00.000Z",
+          "submittedBy": "Farhan Sheikh",
+          "justification": "Refresh legacy KYB pack ahead of retention review.",
+          "policyId": "POL_SINGLE",
+          "fingerprint": "fp_recomputed",
+          "exceptionRequested": false,
+          "decisions": [
+            {
+              "id": "dec_trade_v4_1",
+              "actor": "Rahul Deshmukh",
+              "role": "Governance Committee",
+              "decision": "approve",
+              "comment": "Approved for continued audit-trail retention.",
+              "at": "2024-06-12T10:00:00.000Z"
+            }
+          ]
+        }
+      ],
       "deprecationWindowDays": null,
       "deprecationNoticeAt": null
     },
@@ -679,26 +1593,90 @@
       "version": 3,
       "parentVersionId": null,
       "status": "archived",
-      "pricingModel": "subscription",
-      "price": 16000,
       "lastUpdated": "2024-05-01T09:00:00.000Z",
       "createdAt": "2023-01-01T09:00:00.000Z",
       "packetIds": [
         "PKT_GST",
         "PKT_BLK"
       ],
-      "packetConfigs": [],
+      "packetConfigs": [
+        {
+          "packetId": "PKT_GST",
+          "selectedFields": [
+            "annual_turnover",
+            "gst_filing_regular"
+          ]
+        },
+        {
+          "packetId": "PKT_BLK",
+          "selectedFields": [
+            "related_entities_count"
+          ]
+        }
+      ],
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "VERTICAL",
-        "mode": "LIVE",
-        "dataType": "LATEST"
+        "impactType": "SOFT",
+        "scope": "VERTICAL"
       },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 24
+      },
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth",
+          "gender",
+          "currentAddress",
+          "primaryIdentifier",
+          "contactNumber"
+        ]
+      },
+      "outputPorts": [
+        {
+          "id": "port_enq_PRD_0005_v3",
+          "name": "Enquiry API (sync)",
+          "channel": "ENQUIRY_API",
+          "status": "active",
+          "contractRef": "PRD_0005/v3/enquiry"
+        },
+        {
+          "id": "port_batch_PRD_0005_v3",
+          "name": "Batch extract",
+          "channel": "BATCH_EXTRACT",
+          "status": "planned",
+          "contractRef": "PRD_0005/v3/batch"
+        }
+      ],
+      "fieldContract": [
+        {
+          "name": "annual_turnover",
+          "type": "number",
+          "description": "annual turnover from packet PKT_GST",
+          "pii": false,
+          "mode": "TRENDED",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "gst_filing_regular",
+          "type": "boolean",
+          "description": "gst filing regular from packet PKT_GST",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_GST"
+        },
+        {
+          "name": "related_entities_count",
+          "type": "number",
+          "description": "related entities count from packet PKT_BLK",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BLK"
+        }
+      ],
+      "policyWarnings": [],
       "metadata": {
-        "owner": "Ops Governance",
-        "ownerRole": "Bureau Admin",
         "businessUnit": "Merchant Onboarding",
-        "targetGeography": "India",
         "targetSegment": "Trade / KYB",
         "intendedUse": "Historical KYB",
         "regulatoryNotes": "Archived.",
@@ -712,11 +1690,38 @@
           "KYB"
         ],
         "effectiveStart": "2023-01-15",
-        "effectiveEnd": "2024-05-31"
+        "effectiveEnd": "2024-05-31",
+        "legalConditions": "Archived; retained only for regulatory audit trail and version lineage reference. No enquiry or extract access permitted.",
+        "dataAcquisitionType": "Bureau-derived",
+        "dataAvailabilityType": "Archived, retrieval by compliance request only",
+        "accessRestrictions": "Archived — no access; compliance retrieval only",
+        "sapItemCode": "SAP-0005"
       },
       "consumerCount": 0,
-      "definitionFingerprint": "fp_trade_v3_stub",
-      "approvalCycles": [],
+      "definitionFingerprint": "fp_recomputed",
+      "approvalCycles": [
+        {
+          "id": "sub_trade_v3_c1",
+          "cycleNumber": 1,
+          "status": "approved",
+          "submittedAt": "2023-01-12T09:00:00.000Z",
+          "submittedBy": "Farhan Sheikh",
+          "justification": "Launch GST + linkages KYB pack for trade onboarding.",
+          "policyId": "POL_SINGLE",
+          "fingerprint": "fp_recomputed",
+          "exceptionRequested": false,
+          "decisions": [
+            {
+              "id": "dec_trade_v3_1",
+              "actor": "Rahul Deshmukh",
+              "role": "Governance Committee",
+              "decision": "approve",
+              "comment": "Approved for trade KYB pilot.",
+              "at": "2023-01-14T10:00:00.000Z"
+            }
+          ]
+        }
+      ],
       "deprecationWindowDays": null,
       "deprecationNoticeAt": null
     },
@@ -728,8 +1733,6 @@
       "version": 1,
       "parentVersionId": null,
       "status": "active",
-      "pricingModel": "per_hit",
-      "price": 28,
       "lastUpdated": "2026-03-28T12:00:00.000Z",
       "createdAt": "2026-03-20T12:00:00.000Z",
       "packetIds": [
@@ -765,16 +1768,124 @@
         }
       ],
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE",
-        "dataType": "LATEST"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 12
+      },
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth",
+          "gender",
+          "currentAddress",
+          "primaryIdentifier",
+          "contactNumber"
+        ]
+      },
+      "outputPorts": [
+        {
+          "id": "port_enq_PRD_0006_v1",
+          "name": "Enquiry API (sync)",
+          "channel": "ENQUIRY_API",
+          "status": "active",
+          "contractRef": "PRD_0006/v1/enquiry"
+        },
+        {
+          "id": "port_batch_PRD_0006_v1",
+          "name": "Batch extract",
+          "channel": "BATCH_EXTRACT",
+          "status": "planned",
+          "contractRef": "PRD_0006/v1/batch"
+        }
+      ],
+      "fieldContract": [
+        {
+          "name": "bnpl_ontime_ratio",
+          "type": "string",
+          "description": "bnpl ontime ratio from packet PKT_BNPL",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BNPL"
+        },
+        {
+          "name": "avg_ticket_size",
+          "type": "string",
+          "description": "avg ticket size from packet PKT_BNPL",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BNPL"
+        },
+        {
+          "name": "missed_installments_6m",
+          "type": "string",
+          "description": "missed installments 6m from packet PKT_BNPL",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BNPL"
+        },
+        {
+          "name": "bnpl_utilisation",
+          "type": "string",
+          "description": "bnpl utilisation from packet PKT_BNPL",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_BNPL"
+        },
+        {
+          "name": "device_price_band",
+          "type": "string",
+          "description": "device price band from packet PKT_DEV",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DEV"
+        },
+        {
+          "name": "os_current",
+          "type": "string",
+          "description": "os current from packet PKT_DEV",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DEV"
+        },
+        {
+          "name": "account_tenure_days",
+          "type": "number",
+          "description": "account tenure days from packet PKT_DEV",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DEV"
+        },
+        {
+          "name": "ecommerce_spend",
+          "type": "string",
+          "description": "ecommerce spend from packet PKT_DSP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DSP"
+        },
+        {
+          "name": "spend_volatility",
+          "type": "string",
+          "description": "spend volatility from packet PKT_DSP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DSP"
+        },
+        {
+          "name": "discretionary_income_score",
+          "type": "number",
+          "description": "discretionary income score from packet PKT_DSP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DSP"
+        }
+      ],
+      "policyWarnings": [],
       "metadata": {
-        "owner": "Sana Qureshi",
-        "ownerRole": "Product Manager",
         "businessUnit": "Consumer Digital",
-        "targetGeography": "India",
         "targetSegment": "BNPL retail",
         "intendedUse": "First-purchase BNPL decisioning",
         "regulatoryNotes": "Consent-based BNPL + device signals; no traditional bureau inputs.",
@@ -788,11 +1899,38 @@
           "Alternative Data"
         ],
         "effectiveStart": "2026-03-25",
-        "effectiveEnd": null
+        "effectiveEnd": null,
+        "legalConditions": "BNPL repayment and device signals are consent-based and limited to first-purchase eligibility decisioning; no traditional bureau attributes are combined in this pack.",
+        "dataAcquisitionType": "Member-contributed",
+        "dataAvailabilityType": "Managed by bureau, available for direct enquiry",
+        "accessRestrictions": "Active subscription required; purpose-bound to checkout/BNPL decisioning",
+        "sapItemCode": "SAP-0006"
       },
-      "consumerCount": 9,
-      "definitionFingerprint": "fp_bnpl_v1_stub",
-      "approvalCycles": [],
+      "consumerCount": 1,
+      "definitionFingerprint": "fp_recomputed",
+      "approvalCycles": [
+        {
+          "id": "sub_bnpl_v1_c1",
+          "cycleNumber": 1,
+          "status": "approved",
+          "submittedAt": "2026-03-21T09:00:00.000Z",
+          "submittedBy": "Sana Qureshi",
+          "justification": "Launch first-purchase BNPL eligibility pack for consumer digital checkout.",
+          "policyId": "POL_SINGLE",
+          "fingerprint": "fp_recomputed",
+          "exceptionRequested": false,
+          "decisions": [
+            {
+              "id": "dec_bnpl_v1_1",
+              "actor": "Ananya Iyer",
+              "role": "Product Head",
+              "decision": "approve",
+              "comment": "Approved for checkout decisioning pilot.",
+              "at": "2026-03-23T10:00:00.000Z"
+            }
+          ]
+        }
+      ],
       "deprecationWindowDays": null,
       "deprecationNoticeAt": null
     },
@@ -804,9 +1942,7 @@
       "version": 1,
       "parentVersionId": null,
       "status": "deprecated",
-      "pricingModel": "per_hit",
-      "price": 12,
-      "lastUpdated": "2026-02-15T11:00:00.000Z",
+      "lastUpdated": "2026-03-20T11:00:00.000Z",
       "createdAt": "2025-09-01T09:00:00.000Z",
       "packetIds": [
         "PKT_DEV",
@@ -831,16 +1967,103 @@
         }
       ],
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE",
-        "dataType": "LATEST"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
+      "trendedConfig": {
+        "enabled": false,
+        "maxHistoryMonths": 0
+      },
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth",
+          "gender",
+          "currentAddress",
+          "primaryIdentifier",
+          "contactNumber"
+        ]
+      },
+      "outputPorts": [
+        {
+          "id": "port_enq_PRD_0007_v1",
+          "name": "Enquiry API (sync)",
+          "channel": "ENQUIRY_API",
+          "status": "active",
+          "contractRef": "PRD_0007/v1/enquiry"
+        },
+        {
+          "id": "port_batch_PRD_0007_v1",
+          "name": "Batch extract",
+          "channel": "BATCH_EXTRACT",
+          "status": "planned",
+          "contractRef": "PRD_0007/v1/batch"
+        }
+      ],
+      "fieldContract": [
+        {
+          "name": "device_price_band",
+          "type": "string",
+          "description": "device price band from packet PKT_DEV",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DEV"
+        },
+        {
+          "name": "os_current",
+          "type": "string",
+          "description": "os current from packet PKT_DEV",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DEV"
+        },
+        {
+          "name": "account_tenure_days",
+          "type": "number",
+          "description": "account tenure days from packet PKT_DEV",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DEV"
+        },
+        {
+          "name": "ecommerce_spend",
+          "type": "string",
+          "description": "ecommerce spend from packet PKT_DSP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DSP"
+        },
+        {
+          "name": "spend_volatility",
+          "type": "string",
+          "description": "spend volatility from packet PKT_DSP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DSP"
+        },
+        {
+          "name": "discretionary_income_score",
+          "type": "number",
+          "description": "discretionary income score from packet PKT_DSP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DSP"
+        }
+      ],
+      "policyWarnings": [
+        {
+          "code": "DEPRECATED_WITH_CONSUMERS",
+          "severity": "warning",
+          "message": "1 subscribed institution remains on this deprecated version; migrate to Instant Alt-Data or BNPL packs."
+        },
+        {
+          "code": "WINDDOWN_EXPIRING",
+          "severity": "critical",
+          "message": "Wind-down window closes 2026-04-19 (30-day notice issued 2026-03-20); expedite consumer migration."
+        }
+      ],
       "metadata": {
-        "owner": "Arjun Mehta",
-        "ownerRole": "Product Manager",
         "businessUnit": "Consumer Risk",
-        "targetGeography": "India",
         "targetSegment": "Retail / Checkout",
         "intendedUse": "Device and digital-spend screening",
         "regulatoryNotes": "Deprecated; migrate consumers to Instant Alt-Data or BNPL packs.",
@@ -854,10 +2077,15 @@
           "Alternative Data"
         ],
         "effectiveStart": "2025-09-15",
-        "effectiveEnd": "2026-05-15"
+        "effectiveEnd": "2026-04-19",
+        "legalConditions": "Continued use is limited to the 30-day wind-down period; successor packs (Instant Alt-Data / BNPL) must be adopted before the window closes.",
+        "dataAcquisitionType": "Member-contributed",
+        "dataAvailabilityType": "Managed by bureau, available for direct enquiry (wind-down)",
+        "accessRestrictions": "Restricted to existing subscribed institutions during wind-down; no new subscriptions accepted",
+        "sapItemCode": "SAP-0007"
       },
-      "consumerCount": 7,
-      "definitionFingerprint": "fp_devlite_v1_stub",
+      "consumerCount": 1,
+      "definitionFingerprint": "fp_recomputed",
       "approvalCycles": [
         {
           "id": "sub_devlite_v1_c1",
@@ -867,7 +2095,7 @@
           "submittedBy": "Arjun Mehta",
           "justification": "Launch lightweight device + fraud screen for thin-file checkout.",
           "policyId": "POL_SINGLE",
-          "fingerprint": "fp_devlite_v1_stub",
+          "fingerprint": "fp_recomputed",
           "exceptionRequested": false,
           "decisions": [
             {
@@ -881,8 +2109,8 @@
           ]
         }
       ],
-      "deprecationWindowDays": 90,
-      "deprecationNoticeAt": "2026-02-15T11:00:00.000Z"
+      "deprecationWindowDays": 30,
+      "deprecationNoticeAt": "2026-03-20T11:00:00.000Z"
     },
     {
       "id": "ver_gigleg_v1",
@@ -892,8 +2120,6 @@
       "version": 1,
       "parentVersionId": null,
       "status": "archived",
-      "pricingModel": "per_hit",
-      "price": 15,
       "lastUpdated": "2025-06-30T09:00:00.000Z",
       "createdAt": "2024-03-01T09:00:00.000Z",
       "packetIds": [
@@ -919,16 +2145,92 @@
         }
       ],
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE",
-        "dataType": "LATEST"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 24
+      },
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth",
+          "gender",
+          "currentAddress",
+          "primaryIdentifier",
+          "contactNumber"
+        ]
+      },
+      "outputPorts": [
+        {
+          "id": "port_enq_PRD_0008_v1",
+          "name": "Enquiry API (sync)",
+          "channel": "ENQUIRY_API",
+          "status": "active",
+          "contractRef": "PRD_0008/v1/enquiry"
+        },
+        {
+          "id": "port_batch_PRD_0008_v1",
+          "name": "Batch extract",
+          "channel": "BATCH_EXTRACT",
+          "status": "planned",
+          "contractRef": "PRD_0008/v1/batch"
+        }
+      ],
+      "fieldContract": [
+        {
+          "name": "mobile_recharge_consistency",
+          "type": "string",
+          "description": "mobile recharge consistency from packet PKT_TBS",
+          "pii": true,
+          "mode": "TRENDED",
+          "packetId": "PKT_TBS"
+        },
+        {
+          "name": "sim_age_months",
+          "type": "number",
+          "description": "sim age months from packet PKT_TBS",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_TBS"
+        },
+        {
+          "name": "geo_stability_score",
+          "type": "number",
+          "description": "geo stability score from packet PKT_TBS",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_TBS"
+        },
+        {
+          "name": "ecommerce_spend",
+          "type": "string",
+          "description": "ecommerce spend from packet PKT_DSP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DSP"
+        },
+        {
+          "name": "spend_volatility",
+          "type": "string",
+          "description": "spend volatility from packet PKT_DSP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DSP"
+        },
+        {
+          "name": "discretionary_income_score",
+          "type": "number",
+          "description": "discretionary income score from packet PKT_DSP",
+          "pii": false,
+          "mode": "SNAPSHOT",
+          "packetId": "PKT_DSP"
+        }
+      ],
+      "policyWarnings": [],
       "metadata": {
-        "owner": "Vikram Rao",
-        "ownerRole": "Product Manager",
         "businessUnit": "Inclusive Finance",
-        "targetGeography": "India — Metro",
         "targetSegment": "Gig workers",
         "intendedUse": "Historical gig underwriting pilot",
         "regulatoryNotes": "Archived after retention window; superseded by Gig Worker Alt-Data Profile.",
@@ -942,10 +2244,15 @@
           "Affordability"
         ],
         "effectiveStart": "2024-03-15",
-        "effectiveEnd": "2025-03-31"
+        "effectiveEnd": "2025-03-31",
+        "legalConditions": "Archived pilot; retained for version lineage reference only. Superseded by Gig Worker Alt-Data Profile; no enquiry access permitted.",
+        "dataAcquisitionType": "Member-contributed",
+        "dataAvailabilityType": "Archived, retrieval by compliance request only",
+        "accessRestrictions": "Archived — no access; internal reference only",
+        "sapItemCode": "SAP-0008"
       },
       "consumerCount": 0,
-      "definitionFingerprint": "fp_gigleg_v1_stub",
+      "definitionFingerprint": "fp_recomputed",
       "approvalCycles": [
         {
           "id": "sub_gigleg_v1_c1",
@@ -955,7 +2262,7 @@
           "submittedBy": "Vikram Rao",
           "justification": "Pilot telco + spend signals for gig onboarding.",
           "policyId": "POL_SINGLE",
-          "fingerprint": "fp_gigleg_v1_stub",
+          "fingerprint": "fp_recomputed",
           "exceptionRequested": false,
           "decisions": [
             {
@@ -976,6 +2283,18 @@
   "notifications": [
     {
       "id": "ntf_1",
+      "productId": "ver_sme_v1",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v1",
+      "event": "deactivated",
+      "message": "SME Cashflow & GST Health Pack v1 deactivated; superseded by v3.",
+      "sentAt": "2025-11-01T10:05:00.000Z",
+      "recipients": [
+        "Internal capabilities"
+      ]
+    },
+    {
+      "id": "ntf_2",
       "productId": "ver_sme_v2",
       "productCode": "PRD_0001",
       "versionId": "ver_sme_v2",
@@ -983,11 +2302,11 @@
       "message": "SME Cashflow & GST Health Pack v2 deprecated with 90-day wind-down. Migrate to v3.",
       "sentAt": "2026-03-01T10:05:00.000Z",
       "recipients": [
-        "18 subscribed institutions"
+        "1 subscribed institution"
       ]
     },
     {
-      "id": "ntf_2",
+      "id": "ntf_3",
       "productId": "ver_sme_v3",
       "productCode": "PRD_0001",
       "versionId": "ver_sme_v3",
@@ -1000,19 +2319,57 @@
       ]
     },
     {
-      "id": "ntf_3",
+      "id": "ntf_4",
+      "productId": "ver_corp_v1",
+      "productCode": "PRD_0003",
+      "versionId": "ver_corp_v1",
+      "event": "activated",
+      "message": "Merchant Trust & Legal Screen v1 is Active for network-scope merchant onboarding.",
+      "sentAt": "2025-08-15T08:05:00.000Z",
+      "recipients": [
+        "Catalogue consumers",
+        "Internal capabilities"
+      ]
+    },
+    {
+      "id": "ntf_5",
+      "productId": "ver_trade_v4",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v4",
+      "event": "deactivated",
+      "message": "Legacy GST KYB Pack v4 deactivated; retention window elapsed.",
+      "sentAt": "2025-01-10T09:05:00.000Z",
+      "recipients": [
+        "Internal archive"
+      ]
+    },
+    {
+      "id": "ntf_6",
+      "productId": "ver_bnpl_v1",
+      "productCode": "PRD_0006",
+      "versionId": "ver_bnpl_v1",
+      "event": "activated",
+      "message": "BNPL First-Purchase Pack v1 is Active for consumer digital checkout decisioning.",
+      "sentAt": "2026-03-25T09:05:00.000Z",
+      "recipients": [
+        "Catalogue consumers",
+        "Internal capabilities"
+      ]
+    },
+    {
+      "id": "ntf_7",
       "productId": "ver_devlite_v1",
       "productCode": "PRD_0007",
       "versionId": "ver_devlite_v1",
       "event": "deprecated",
-      "message": "Device Risk Score Lite v1 deprecated with 90-day wind-down. Migrate to Instant Alt-Data or BNPL packs.",
-      "sentAt": "2026-02-15T11:05:00.000Z",
+      "message": "Device Risk Score Lite v1 deprecated with 30-day wind-down. Migrate to Instant Alt-Data or BNPL packs.",
+      "sentAt": "2026-03-20T11:05:00.000Z",
       "recipients": [
-        "7 subscribed institutions"
+        "1 subscribed institution"
       ]
     },
     {
-      "id": "ntf_4",
+      "id": "ntf_8",
       "productId": "ver_gigleg_v1",
       "productCode": "PRD_0008",
       "versionId": "ver_gigleg_v1",
@@ -1026,31 +2383,571 @@
   ],
   "auditEvents": [
     {
-      "id": "aud_1",
-      "at": "2026-03-22T09:15:00.000Z",
-      "actor": "Neha Kapoor",
+      "id": "aud_41",
+      "at": "2023-01-01T09:00:00.000Z",
+      "actor": "Farhan Sheikh",
+      "action": "created",
+      "productId": "ver_trade_v3",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v3",
+      "version": 3,
+      "summary": "Created draft Legacy GST KYB Pack v3",
+      "justification": null
+    },
+    {
+      "id": "aud_42",
+      "at": "2023-01-08T09:00:00.000Z",
+      "actor": "Farhan Sheikh",
+      "action": "updated",
+      "productId": "ver_trade_v3",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v3",
+      "version": 3,
+      "summary": "Updated packet configuration on Legacy GST KYB Pack v3 draft",
+      "justification": null
+    },
+    {
+      "id": "aud_43",
+      "at": "2023-01-12T09:00:00.000Z",
+      "actor": "Farhan Sheikh",
       "action": "submitted",
-      "productId": "ver_corp_v2",
-      "productCode": "PRD_0003",
-      "versionId": "ver_corp_v2",
-      "version": 2,
-      "summary": "Submitted Merchant Trust & Legal Screen v2 for approval",
-      "justification": "Expand with banking cashflow for seller affordability"
+      "productId": "ver_trade_v3",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v3",
+      "version": 3,
+      "summary": "Submitted Legacy GST KYB Pack v3 for approval",
+      "justification": "Launch GST + linkages KYB pack for trade onboarding."
+    },
+    {
+      "id": "aud_44",
+      "at": "2023-01-14T10:00:00.000Z",
+      "actor": "Rahul Deshmukh",
+      "action": "approved",
+      "productId": "ver_trade_v3",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v3",
+      "version": 3,
+      "summary": "Approved Legacy GST KYB Pack v3",
+      "justification": "Approved for trade KYB pilot."
+    },
+    {
+      "id": "aud_45",
+      "at": "2023-01-15T09:00:00.000Z",
+      "actor": "Farhan Sheikh",
+      "action": "activated",
+      "productId": "ver_trade_v3",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v3",
+      "version": 3,
+      "summary": "Activated Legacy GST KYB Pack v3",
+      "justification": null
+    },
+    {
+      "id": "aud_60",
+      "at": "2024-03-01T09:00:00.000Z",
+      "actor": "Vikram Rao",
+      "action": "created",
+      "productId": "ver_gigleg_v1",
+      "productCode": "PRD_0008",
+      "versionId": "ver_gigleg_v1",
+      "version": 1,
+      "summary": "Created draft Early Gig Telco Profile v1",
+      "justification": null
+    },
+    {
+      "id": "aud_61",
+      "at": "2024-03-03T09:00:00.000Z",
+      "actor": "Vikram Rao",
+      "action": "updated",
+      "productId": "ver_gigleg_v1",
+      "productCode": "PRD_0008",
+      "versionId": "ver_gigleg_v1",
+      "version": 1,
+      "summary": "Updated packet configuration on Early Gig Telco Profile v1 draft",
+      "justification": null
+    },
+    {
+      "id": "aud_62",
+      "at": "2024-03-05T09:00:00.000Z",
+      "actor": "Vikram Rao",
+      "action": "submitted",
+      "productId": "ver_gigleg_v1",
+      "productCode": "PRD_0008",
+      "versionId": "ver_gigleg_v1",
+      "version": 1,
+      "summary": "Submitted Early Gig Telco Profile v1 for approval",
+      "justification": "Pilot telco + spend signals for gig onboarding."
+    },
+    {
+      "id": "aud_63",
+      "at": "2024-03-12T11:30:00.000Z",
+      "actor": "Ananya Iyer",
+      "action": "approved",
+      "productId": "ver_gigleg_v1",
+      "productCode": "PRD_0008",
+      "versionId": "ver_gigleg_v1",
+      "version": 1,
+      "summary": "Approved Early Gig Telco Profile v1",
+      "justification": "Approve pilot with 12-month review."
+    },
+    {
+      "id": "aud_64",
+      "at": "2024-03-15T09:00:00.000Z",
+      "actor": "Vikram Rao",
+      "action": "activated",
+      "productId": "ver_gigleg_v1",
+      "productCode": "PRD_0008",
+      "versionId": "ver_gigleg_v1",
+      "version": 1,
+      "summary": "Activated Early Gig Telco Profile v1",
+      "justification": null
+    },
+    {
+      "id": "aud_46",
+      "at": "2024-04-01T09:00:00.000Z",
+      "actor": "Farhan Sheikh",
+      "action": "deactivated",
+      "productId": "ver_trade_v3",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v3",
+      "version": 3,
+      "summary": "Deactivated Legacy GST KYB Pack v3 ahead of archive",
+      "justification": "Superseded by v4"
+    },
+    {
+      "id": "aud_47",
+      "at": "2024-05-01T09:00:00.000Z",
+      "actor": "Farhan Sheikh",
+      "action": "archived",
+      "productId": "ver_trade_v3",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v3",
+      "version": 3,
+      "summary": "Archived Legacy GST KYB Pack v3",
+      "justification": "Lineage superseded; archived for audit"
+    },
+    {
+      "id": "aud_35",
+      "at": "2024-06-01T09:00:00.000Z",
+      "actor": "Farhan Sheikh",
+      "action": "created",
+      "productId": "ver_trade_v4",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v4",
+      "version": 4,
+      "summary": "Created draft Legacy GST KYB Pack v4",
+      "justification": null
+    },
+    {
+      "id": "aud_36",
+      "at": "2024-06-05T09:30:00.000Z",
+      "actor": "Farhan Sheikh",
+      "action": "updated",
+      "productId": "ver_trade_v4",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v4",
+      "version": 4,
+      "summary": "Updated packet configuration on Legacy GST KYB Pack v4 draft",
+      "justification": null
+    },
+    {
+      "id": "aud_37",
+      "at": "2024-06-08T09:00:00.000Z",
+      "actor": "Farhan Sheikh",
+      "action": "submitted",
+      "productId": "ver_trade_v4",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v4",
+      "version": 4,
+      "summary": "Submitted Legacy GST KYB Pack v4 for approval",
+      "justification": "Refresh legacy KYB pack ahead of retention review."
+    },
+    {
+      "id": "aud_38",
+      "at": "2024-06-12T10:00:00.000Z",
+      "actor": "Rahul Deshmukh",
+      "action": "approved",
+      "productId": "ver_trade_v4",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v4",
+      "version": 4,
+      "summary": "Approved Legacy GST KYB Pack v4",
+      "justification": "Approved for continued audit-trail retention."
+    },
+    {
+      "id": "aud_39",
+      "at": "2024-06-15T09:00:00.000Z",
+      "actor": "Farhan Sheikh",
+      "action": "activated",
+      "productId": "ver_trade_v4",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v4",
+      "version": 4,
+      "summary": "Activated Legacy GST KYB Pack v4",
+      "justification": null
+    },
+    {
+      "id": "aud_40",
+      "at": "2025-01-10T09:00:00.000Z",
+      "actor": "Farhan Sheikh",
+      "action": "deactivated",
+      "productId": "ver_trade_v4",
+      "productCode": "PRD_0005",
+      "versionId": "ver_trade_v4",
+      "version": 4,
+      "summary": "Deactivated Legacy GST KYB Pack v4 (retention elapsed)",
+      "justification": "Retention window elapsed after effective end date"
+    },
+    {
+      "id": "aud_65",
+      "at": "2025-03-31T09:00:00.000Z",
+      "actor": "Vikram Rao",
+      "action": "deactivated",
+      "productId": "ver_gigleg_v1",
+      "productCode": "PRD_0008",
+      "versionId": "ver_gigleg_v1",
+      "version": 1,
+      "summary": "Deactivated Early Gig Telco Profile v1 ahead of archive",
+      "justification": "Superseded by Gig Worker Alt-Data Profile"
+    },
+    {
+      "id": "aud_1",
+      "at": "2025-06-01T09:00:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "created",
+      "productId": "ver_sme_v1",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v1",
+      "version": 1,
+      "summary": "Created draft SME Cashflow & GST Health Pack v1",
+      "justification": null
     },
     {
       "id": "aud_2",
-      "at": "2026-03-25T07:45:00.000Z",
+      "at": "2025-06-05T10:00:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "updated",
+      "productId": "ver_sme_v1",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v1",
+      "version": 1,
+      "summary": "Updated packet configuration on SME Cashflow & GST Health Pack v1 draft",
+      "justification": null
+    },
+    {
+      "id": "aud_3",
+      "at": "2025-06-08T09:00:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "submitted",
+      "productId": "ver_sme_v1",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v1",
+      "version": 1,
+      "summary": "Submitted SME Cashflow & GST Health Pack v1 for approval",
+      "justification": "Launch SME cashflow + GST affordability pack for commercial lending pilot."
+    },
+    {
+      "id": "aud_4",
+      "at": "2025-06-10T11:00:00.000Z",
       "actor": "Ananya Iyer",
       "action": "approved",
+      "productId": "ver_sme_v1",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v1",
+      "version": 1,
+      "summary": "Approved SME Cashflow & GST Health Pack v1",
+      "justification": "Meets affordability underwriting needs; approved for pilot rollout."
+    },
+    {
+      "id": "aud_5",
+      "at": "2025-06-15T09:00:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "activated",
+      "productId": "ver_sme_v1",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v1",
+      "version": 1,
+      "summary": "Activated SME Cashflow & GST Health Pack v1",
+      "justification": null
+    },
+    {
+      "id": "aud_66",
+      "at": "2025-06-30T09:00:00.000Z",
+      "actor": "Vikram Rao",
+      "action": "archived",
+      "productId": "ver_gigleg_v1",
+      "productCode": "PRD_0008",
+      "versionId": "ver_gigleg_v1",
+      "version": 1,
+      "summary": "Archived Early Gig Telco Profile v1",
+      "justification": "Retention elapsed; superseded by Gig Worker Alt-Data Profile"
+    },
+    {
+      "id": "aud_21",
+      "at": "2025-08-01T08:00:00.000Z",
+      "actor": "Neha Kapoor",
+      "action": "created",
+      "productId": "ver_corp_v1",
+      "productCode": "PRD_0003",
+      "versionId": "ver_corp_v1",
+      "version": 1,
+      "summary": "Created draft Merchant Trust & Legal Screen v1",
+      "justification": null
+    },
+    {
+      "id": "aud_22",
+      "at": "2025-08-05T09:00:00.000Z",
+      "actor": "Neha Kapoor",
+      "action": "updated",
+      "productId": "ver_corp_v1",
+      "productCode": "PRD_0003",
+      "versionId": "ver_corp_v1",
+      "version": 1,
+      "summary": "Updated packet configuration on Merchant Trust & Legal Screen v1 draft",
+      "justification": null
+    },
+    {
+      "id": "aud_23",
+      "at": "2025-08-08T09:00:00.000Z",
+      "actor": "Neha Kapoor",
+      "action": "submitted",
+      "productId": "ver_corp_v1",
+      "productCode": "PRD_0003",
+      "versionId": "ver_corp_v1",
+      "version": 1,
+      "summary": "Submitted Merchant Trust & Legal Screen v1 for approval",
+      "justification": "Launch merchant trust screen combining GST, linkages and litigation signals."
+    },
+    {
+      "id": "aud_24",
+      "at": "2025-08-12T10:00:00.000Z",
+      "actor": "Kavita Menon",
+      "action": "approved",
+      "productId": "ver_corp_v1",
+      "productCode": "PRD_0003",
+      "versionId": "ver_corp_v1",
+      "version": 1,
+      "summary": "Approved Merchant Trust & Legal Screen v1 (quorum met)",
+      "justification": "PII handling reviewed; approved (2/2) quorum met."
+    },
+    {
+      "id": "aud_25",
+      "at": "2025-08-15T08:00:00.000Z",
+      "actor": "Neha Kapoor",
+      "action": "activated",
+      "productId": "ver_corp_v1",
+      "productCode": "PRD_0003",
+      "versionId": "ver_corp_v1",
+      "version": 1,
+      "summary": "Activated Merchant Trust & Legal Screen v1",
+      "justification": null
+    },
+    {
+      "id": "aud_26",
+      "at": "2025-09-01T08:00:00.000Z",
+      "actor": "Neha Kapoor",
+      "action": "updated",
+      "productId": "ver_corp_v1",
+      "productCode": "PRD_0003",
+      "versionId": "ver_corp_v1",
+      "version": 1,
+      "summary": "Refreshed Merchant Trust & Legal Screen v1 consumer rollout notes",
+      "justification": null
+    },
+    {
+      "id": "aud_54",
+      "at": "2025-09-01T09:00:00.000Z",
+      "actor": "Arjun Mehta",
+      "action": "created",
+      "productId": "ver_devlite_v1",
+      "productCode": "PRD_0007",
+      "versionId": "ver_devlite_v1",
+      "version": 1,
+      "summary": "Created draft Device Risk Score Lite v1",
+      "justification": null
+    },
+    {
+      "id": "aud_55",
+      "at": "2025-09-03T09:00:00.000Z",
+      "actor": "Arjun Mehta",
+      "action": "updated",
+      "productId": "ver_devlite_v1",
+      "productCode": "PRD_0007",
+      "versionId": "ver_devlite_v1",
+      "version": 1,
+      "summary": "Updated packet configuration on Device Risk Score Lite v1 draft",
+      "justification": null
+    },
+    {
+      "id": "aud_56",
+      "at": "2025-09-05T10:00:00.000Z",
+      "actor": "Arjun Mehta",
+      "action": "submitted",
+      "productId": "ver_devlite_v1",
+      "productCode": "PRD_0007",
+      "versionId": "ver_devlite_v1",
+      "version": 1,
+      "summary": "Submitted Device Risk Score Lite v1 for approval",
+      "justification": "Launch lightweight device + fraud screen for thin-file checkout."
+    },
+    {
+      "id": "aud_57",
+      "at": "2025-09-10T12:00:00.000Z",
+      "actor": "Ananya Iyer",
+      "action": "approved",
+      "productId": "ver_devlite_v1",
+      "productCode": "PRD_0007",
+      "versionId": "ver_devlite_v1",
+      "version": 1,
+      "summary": "Approved Device Risk Score Lite v1",
+      "justification": "Approved for limited pilot; plan successor pack."
+    },
+    {
+      "id": "aud_58",
+      "at": "2025-09-15T09:00:00.000Z",
+      "actor": "Arjun Mehta",
+      "action": "activated",
+      "productId": "ver_devlite_v1",
+      "productCode": "PRD_0007",
+      "versionId": "ver_devlite_v1",
+      "version": 1,
+      "summary": "Activated Device Risk Score Lite v1",
+      "justification": null
+    },
+    {
+      "id": "aud_6",
+      "at": "2025-11-01T10:00:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "deactivated",
+      "productId": "ver_sme_v1",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v1",
+      "version": 1,
+      "summary": "Deactivated SME Cashflow & GST Health Pack v1 (superseded by v3)",
+      "justification": "Superseded by v3; retained for audit trail"
+    },
+    {
+      "id": "aud_7",
+      "at": "2025-12-01T09:00:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "created",
+      "productId": "ver_sme_v2",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v2",
+      "version": 2,
+      "summary": "Created draft SME Cashflow & GST Health Pack v2",
+      "justification": null
+    },
+    {
+      "id": "aud_8",
+      "at": "2025-12-05T10:00:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "updated",
+      "productId": "ver_sme_v2",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v2",
+      "version": 2,
+      "summary": "Updated packet configuration on SME Cashflow & GST Health Pack v2 draft",
+      "justification": null
+    },
+    {
+      "id": "aud_9",
+      "at": "2025-12-08T09:00:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "submitted",
+      "productId": "ver_sme_v2",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v2",
+      "version": 2,
+      "summary": "Submitted SME Cashflow & GST Health Pack v2 for approval",
+      "justification": "Add business-linkage packet to strengthen SME affordability screening."
+    },
+    {
+      "id": "aud_10",
+      "at": "2025-12-10T11:00:00.000Z",
+      "actor": "Rahul Deshmukh",
+      "action": "approved",
+      "productId": "ver_sme_v2",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v2",
+      "version": 2,
+      "summary": "Approved SME Cashflow & GST Health Pack v2",
+      "justification": "Business-linkage enrichment approved; monitor for network risk overlap."
+    },
+    {
+      "id": "aud_11",
+      "at": "2025-12-15T09:00:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "activated",
+      "productId": "ver_sme_v2",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v2",
+      "version": 2,
+      "summary": "Activated SME Cashflow & GST Health Pack v2",
+      "justification": null
+    },
+    {
+      "id": "aud_13",
+      "at": "2026-02-10T09:00:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "created",
+      "productId": "ver_sme_v3",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v3",
+      "version": 3,
+      "summary": "Created draft SME Cashflow & GST Health Pack v3",
+      "justification": null
+    },
+    {
+      "id": "aud_14",
+      "at": "2026-02-15T09:30:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "updated",
+      "productId": "ver_sme_v3",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v3",
+      "version": 3,
+      "summary": "Updated packet configuration on SME Cashflow & GST Health Pack v3 draft",
+      "justification": null
+    },
+    {
+      "id": "aud_15",
+      "at": "2026-02-20T09:00:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "submitted",
+      "productId": "ver_sme_v3",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v3",
+      "version": 3,
+      "summary": "Submitted SME Cashflow & GST Health Pack v3 for approval",
+      "justification": "Add legal/litigation screening; promote to default SME affordability pack."
+    },
+    {
+      "id": "aud_16",
+      "at": "2026-02-25T10:00:00.000Z",
+      "actor": "Ananya Iyer",
+      "action": "approved",
+      "productId": "ver_sme_v3",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v3",
+      "version": 3,
+      "summary": "Approved SME Cashflow & GST Health Pack v3",
+      "justification": "Adds legal screening; approved as default SME pack going forward."
+    },
+    {
+      "id": "aud_31",
+      "at": "2026-03-01T07:00:00.000Z",
+      "actor": "Vikram Rao",
+      "action": "created",
       "productId": "ver_mfi_v1",
       "productCode": "PRD_0004",
       "versionId": "ver_mfi_v1",
       "version": 1,
-      "summary": "Approved Payslip & Utility Affordability Pack v1",
-      "justification": "Aligned with inclusive finance roadmap"
+      "summary": "Created draft Payslip & Utility Affordability Pack v1",
+      "justification": null
     },
     {
-      "id": "aud_3",
+      "id": "aud_12",
       "at": "2026-03-01T10:00:00.000Z",
       "actor": "Priya Sharma",
       "action": "deprecated",
@@ -1062,7 +2959,7 @@
       "justification": "Superseded by v3; migrate consumers"
     },
     {
-      "id": "aud_4",
+      "id": "aud_17",
       "at": "2026-03-01T10:08:00.000Z",
       "actor": "Priya Sharma",
       "action": "activated",
@@ -1074,7 +2971,43 @@
       "justification": "Go-live after approval"
     },
     {
-      "id": "aud_5",
+      "id": "aud_32",
+      "at": "2026-03-10T08:00:00.000Z",
+      "actor": "Vikram Rao",
+      "action": "updated",
+      "productId": "ver_mfi_v1",
+      "productCode": "PRD_0004",
+      "versionId": "ver_mfi_v1",
+      "version": 1,
+      "summary": "Updated packet configuration on Payslip & Utility Affordability Pack v1 draft",
+      "justification": null
+    },
+    {
+      "id": "aud_19",
+      "at": "2026-03-10T11:00:00.000Z",
+      "actor": "Arjun Mehta",
+      "action": "created",
+      "productId": "ver_retail_v1",
+      "productCode": "PRD_0002",
+      "versionId": "ver_retail_v1",
+      "version": 1,
+      "summary": "Created draft Thin-File Onboarding Score v1",
+      "justification": null
+    },
+    {
+      "id": "aud_28",
+      "at": "2026-03-15T09:00:00.000Z",
+      "actor": "Neha Kapoor",
+      "action": "created",
+      "productId": "ver_corp_v2",
+      "productCode": "PRD_0003",
+      "versionId": "ver_corp_v2",
+      "version": 2,
+      "summary": "Created draft Merchant Trust & Legal Screen v2",
+      "justification": null
+    },
+    {
+      "id": "aud_20",
       "at": "2026-03-18T14:30:00.000Z",
       "actor": "Arjun Mehta",
       "action": "updated",
@@ -1082,31 +3015,164 @@
       "productCode": "PRD_0002",
       "versionId": "ver_retail_v1",
       "version": 1,
-      "summary": "Updated packet configuration on Thin-File Onboarding Score draft"
+      "summary": "Updated packet configuration on Thin-File Onboarding Score draft",
+      "justification": null
     },
     {
-      "id": "aud_6",
-      "at": "2026-02-15T11:00:00.000Z",
+      "id": "aud_29",
+      "at": "2026-03-20T09:00:00.000Z",
+      "actor": "Neha Kapoor",
+      "action": "updated",
+      "productId": "ver_corp_v2",
+      "productCode": "PRD_0003",
+      "versionId": "ver_corp_v2",
+      "version": 2,
+      "summary": "Updated packet configuration on Merchant Trust & Legal Screen v2 draft",
+      "justification": null
+    },
+    {
+      "id": "aud_18",
+      "at": "2026-03-20T10:00:00.000Z",
+      "actor": "Priya Sharma",
+      "action": "updated",
+      "productId": "ver_sme_v3",
+      "productCode": "PRD_0001",
+      "versionId": "ver_sme_v3",
+      "version": 3,
+      "summary": "Refreshed SME Cashflow & GST Health Pack v3 consumer rollout notes",
+      "justification": null
+    },
+    {
+      "id": "aud_33",
+      "at": "2026-03-20T10:00:00.000Z",
+      "actor": "Vikram Rao",
+      "action": "submitted",
+      "productId": "ver_mfi_v1",
+      "productCode": "PRD_0004",
+      "versionId": "ver_mfi_v1",
+      "version": 1,
+      "summary": "Submitted Payslip & Utility Affordability Pack v1 for approval",
+      "justification": "Launch payslip + employment + utility affordability for SHG and salaried pilots."
+    },
+    {
+      "id": "aud_59",
+      "at": "2026-03-20T11:00:00.000Z",
       "actor": "Arjun Mehta",
       "action": "deprecated",
       "productId": "ver_devlite_v1",
       "productCode": "PRD_0007",
       "versionId": "ver_devlite_v1",
       "version": 1,
-      "summary": "Deprecated Device Risk Score Lite v1 (90-day window)",
+      "summary": "Deprecated Device Risk Score Lite v1 (30-day window)",
       "justification": "Superseded by richer alt-data packs; migrate consumers"
     },
     {
-      "id": "aud_7",
-      "at": "2025-06-30T09:00:00.000Z",
-      "actor": "Vikram Rao",
-      "action": "archived",
-      "productId": "ver_gigleg_v1",
-      "productCode": "PRD_0008",
-      "versionId": "ver_gigleg_v1",
+      "id": "aud_48",
+      "at": "2026-03-20T12:00:00.000Z",
+      "actor": "Sana Qureshi",
+      "action": "created",
+      "productId": "ver_bnpl_v1",
+      "productCode": "PRD_0006",
+      "versionId": "ver_bnpl_v1",
       "version": 1,
-      "summary": "Archived Early Gig Telco Profile v1",
-      "justification": "Retention elapsed; superseded by Gig Worker Alt-Data Profile"
+      "summary": "Created draft BNPL First-Purchase Pack v1",
+      "justification": null
+    },
+    {
+      "id": "aud_49",
+      "at": "2026-03-21T08:00:00.000Z",
+      "actor": "Sana Qureshi",
+      "action": "updated",
+      "productId": "ver_bnpl_v1",
+      "productCode": "PRD_0006",
+      "versionId": "ver_bnpl_v1",
+      "version": 1,
+      "summary": "Updated packet configuration on BNPL First-Purchase Pack v1 draft",
+      "justification": null
+    },
+    {
+      "id": "aud_50",
+      "at": "2026-03-21T09:00:00.000Z",
+      "actor": "Sana Qureshi",
+      "action": "submitted",
+      "productId": "ver_bnpl_v1",
+      "productCode": "PRD_0006",
+      "versionId": "ver_bnpl_v1",
+      "version": 1,
+      "summary": "Submitted BNPL First-Purchase Pack v1 for approval",
+      "justification": "Launch first-purchase BNPL eligibility pack for consumer digital checkout."
+    },
+    {
+      "id": "aud_30",
+      "at": "2026-03-22T09:15:00.000Z",
+      "actor": "Neha Kapoor",
+      "action": "submitted",
+      "productId": "ver_corp_v2",
+      "productCode": "PRD_0003",
+      "versionId": "ver_corp_v2",
+      "version": 2,
+      "summary": "Submitted Merchant Trust & Legal Screen v2 for approval",
+      "justification": "Expand with banking cashflow for seller affordability"
+    },
+    {
+      "id": "aud_51",
+      "at": "2026-03-23T10:00:00.000Z",
+      "actor": "Ananya Iyer",
+      "action": "approved",
+      "productId": "ver_bnpl_v1",
+      "productCode": "PRD_0006",
+      "versionId": "ver_bnpl_v1",
+      "version": 1,
+      "summary": "Approved BNPL First-Purchase Pack v1",
+      "justification": "Approved for checkout decisioning pilot."
+    },
+    {
+      "id": "aud_34",
+      "at": "2026-03-25T07:45:00.000Z",
+      "actor": "Ananya Iyer",
+      "action": "approved",
+      "productId": "ver_mfi_v1",
+      "productCode": "PRD_0004",
+      "versionId": "ver_mfi_v1",
+      "version": 1,
+      "summary": "Approved Payslip & Utility Affordability Pack v1",
+      "justification": "Aligned with inclusive finance roadmap"
+    },
+    {
+      "id": "aud_52",
+      "at": "2026-03-25T09:00:00.000Z",
+      "actor": "Sana Qureshi",
+      "action": "activated",
+      "productId": "ver_bnpl_v1",
+      "productCode": "PRD_0006",
+      "versionId": "ver_bnpl_v1",
+      "version": 1,
+      "summary": "Activated BNPL First-Purchase Pack v1",
+      "justification": null
+    },
+    {
+      "id": "aud_27",
+      "at": "2026-03-27T10:00:00.000Z",
+      "actor": "Federal Bank — Rohan Kulkarni",
+      "action": "access_requested",
+      "productId": "ver_corp_v1",
+      "productCode": "PRD_0003",
+      "versionId": "ver_corp_v1",
+      "version": 1,
+      "summary": "Access requested by Federal Bank for PRD_0003",
+      "justification": "Merchant onboarding trust screening for marketplace sellers."
+    },
+    {
+      "id": "aud_53",
+      "at": "2026-03-28T12:00:00.000Z",
+      "actor": "Sana Qureshi",
+      "action": "updated",
+      "productId": "ver_bnpl_v1",
+      "productCode": "PRD_0006",
+      "versionId": "ver_bnpl_v1",
+      "version": 1,
+      "summary": "Refreshed BNPL First-Purchase Pack v1 consumer rollout notes",
+      "justification": null
     }
   ],
   "dependencies": [
@@ -1190,6 +3256,125 @@
       "toType": "packet",
       "toId": "PKT_BNPL",
       "toLabel": "BNPL Repayment Behaviour"
+    }
+  ],
+  "subscriptions": [
+    {
+      "id": "access_hdfc_sme",
+      "institutionId": "INST_HDFC",
+      "institutionName": "HDFC Bank",
+      "productCode": "PRD_0001",
+      "pinnedVersionId": "ver_sme_v3",
+      "businessDomain": "Commercial Lending",
+      "application": "SME Loan Origination",
+      "billingRef": "BILL-HDFC-2026-01",
+      "usagePeriodMonths": 12,
+      "purpose": "SME affordability underwriting at origination",
+      "status": "active",
+      "requestedAt": "2026-03-02T09:00:00.000Z"
+    },
+    {
+      "id": "access_icici_sme",
+      "institutionId": "INST_ICICI",
+      "institutionName": "ICICI Bank",
+      "productCode": "PRD_0001",
+      "pinnedVersionId": "ver_sme_v3",
+      "businessDomain": "Commercial Lending",
+      "application": "SME Working Capital Desk",
+      "billingRef": "BILL-ICICI-2026-03",
+      "usagePeriodMonths": 12,
+      "purpose": "SME affordability underwriting for working-capital renewals",
+      "status": "active",
+      "requestedAt": "2026-03-10T09:00:00.000Z"
+    },
+    {
+      "id": "access_sbi_sme",
+      "institutionId": "INST_SBI",
+      "institutionName": "State Bank of India",
+      "productCode": "PRD_0001",
+      "pinnedVersionId": "ver_sme_v2",
+      "businessDomain": "Commercial Lending",
+      "application": "SME Loan Origination (legacy integration)",
+      "billingRef": "BILL-SBI-2025-12",
+      "usagePeriodMonths": 12,
+      "purpose": "SME affordability underwriting; migration to v3 in progress",
+      "status": "active",
+      "requestedAt": "2025-12-20T09:00:00.000Z",
+      "notes": "Pending migration to v3 before wind-down window lapses."
+    },
+    {
+      "id": "access_axis_corp",
+      "institutionId": "INST_AXIS",
+      "institutionName": "Axis Bank",
+      "productCode": "PRD_0003",
+      "pinnedVersionId": "ver_corp_v1",
+      "businessDomain": "Merchant Onboarding",
+      "application": "Marketplace Seller Trust Check",
+      "billingRef": "BILL-AXIS-2025-08",
+      "usagePeriodMonths": 12,
+      "purpose": "Merchant onboarding trust screening",
+      "status": "active",
+      "requestedAt": "2025-08-25T09:00:00.000Z"
+    },
+    {
+      "id": "access_federal_corp",
+      "institutionId": "INST_FEDERAL",
+      "institutionName": "Federal Bank",
+      "productCode": "PRD_0003",
+      "pinnedVersionId": "ver_corp_v1",
+      "businessDomain": "Merchant Onboarding",
+      "application": "Marketplace Seller Trust Check",
+      "billingRef": "BILL-FEDERAL-2026-03",
+      "usagePeriodMonths": 12,
+      "purpose": "Merchant onboarding trust screening for marketplace sellers",
+      "status": "pending",
+      "requestedAt": "2026-03-27T10:00:00.000Z",
+      "approvalCycleId": "sub_corp_v1_access_federal",
+      "notes": "Awaiting Product Head sign-off for network-scope access."
+    },
+    {
+      "id": "access_paytm_bnpl",
+      "institutionId": "INST_PAYTM",
+      "institutionName": "Paytm Payments Bank",
+      "productCode": "PRD_0006",
+      "pinnedVersionId": "ver_bnpl_v1",
+      "businessDomain": "Consumer Digital",
+      "application": "Checkout BNPL Decisioning",
+      "billingRef": "BILL-PAYTM-2026-03",
+      "usagePeriodMonths": 6,
+      "purpose": "First-purchase BNPL eligibility decisioning",
+      "status": "active",
+      "requestedAt": "2026-03-26T09:00:00.000Z"
+    },
+    {
+      "id": "access_kotak_devlite",
+      "institutionId": "INST_KOTAK",
+      "institutionName": "Kotak Mahindra Bank",
+      "productCode": "PRD_0007",
+      "pinnedVersionId": "ver_devlite_v1",
+      "businessDomain": "Consumer Risk",
+      "application": "Checkout Device Screen",
+      "billingRef": "BILL-KOTAK-2025-09",
+      "usagePeriodMonths": 12,
+      "purpose": "Device and digital-spend screening at checkout",
+      "status": "active",
+      "requestedAt": "2025-09-25T09:00:00.000Z",
+      "notes": "Migration to Instant Alt-Data pack recommended before wind-down closes."
+    },
+    {
+      "id": "access_yesbank_devlite",
+      "institutionId": "INST_YES",
+      "institutionName": "Yes Bank",
+      "productCode": "PRD_0007",
+      "pinnedVersionId": "ver_devlite_v1",
+      "businessDomain": "Consumer Risk",
+      "application": "Checkout Device Screen",
+      "billingRef": "BILL-YES-2025-09",
+      "usagePeriodMonths": 6,
+      "purpose": "Device + digital-spend screening at checkout",
+      "status": "expired",
+      "requestedAt": "2025-09-20T09:00:00.000Z",
+      "notes": "6-month term lapsed; migrate to successor pack to resume access."
     }
   ]
 }

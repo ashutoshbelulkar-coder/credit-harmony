@@ -425,7 +425,8 @@
       "category": "Bureau",
       "source": "Internal",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["12", "1"]
     },
     {
       "id": "PKT_002",
@@ -433,7 +434,8 @@
       "category": "Consortium",
       "source": "Partner API",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["9", "1"]
     },
     {
       "id": "PKT_003",
@@ -441,7 +443,8 @@
       "category": "Banking",
       "source": "Partner API",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["12", "4"]
     },
     {
       "id": "PKT_004",
@@ -449,7 +452,8 @@
       "category": "GST",
       "source": "GSTN",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["12", "1"]
     },
     {
       "id": "PKT_005",
@@ -457,7 +461,8 @@
       "category": "Telecom",
       "source": "Telecom",
       "visibility": "Internal",
-      "status": "draft"
+      "status": "draft",
+      "dataSubmitterInstitutionIds": ["10", "7"]
     },
     {
       "id": "PKT_BCF",
@@ -465,7 +470,8 @@
       "category": "Banking",
       "source": "Partner API",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["12", "4"]
     },
     {
       "id": "PKT_GST",
@@ -473,7 +479,8 @@
       "category": "GST",
       "source": "GSTN",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["12", "1"]
     },
     {
       "id": "PKT_BLK",
@@ -481,7 +488,8 @@
       "category": "Bureau",
       "source": "Internal",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["12", "1"]
     },
     {
       "id": "PKT_TBS",
@@ -489,7 +497,8 @@
       "category": "Telecom",
       "source": "Telecom",
       "visibility": "Internal",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["10", "7"]
     },
     {
       "id": "PKT_EMP",
@@ -497,7 +506,8 @@
       "category": "Banking",
       "source": "Partner API",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["12", "1"]
     },
     {
       "id": "PKT_DSP",
@@ -505,7 +515,8 @@
       "category": "Banking",
       "source": "Partner API",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["9", "1"]
     },
     {
       "id": "PKT_CON",
@@ -513,7 +524,8 @@
       "category": "Consortium",
       "source": "Partner API",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["9", "8"]
     },
     {
       "id": "PKT_FRD",
@@ -521,7 +533,8 @@
       "category": "Bureau",
       "source": "Internal",
       "visibility": "Internal",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["12", "1"]
     },
     {
       "id": "PKT_SYN",
@@ -529,7 +542,8 @@
       "category": "Bureau",
       "source": "Internal",
       "visibility": "Internal",
-      "status": "draft"
+      "status": "draft",
+      "dataSubmitterInstitutionIds": ["1"]
     },
     {
       "id": "PKT_BNPL",
@@ -537,7 +551,8 @@
       "category": "Banking",
       "source": "Partner API",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["9", "1"]
     },
     {
       "id": "PKT_UTL",
@@ -545,7 +560,8 @@
       "category": "Telecom",
       "source": "Utility",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["11"]
     },
     {
       "id": "PKT_PAY",
@@ -553,7 +569,8 @@
       "category": "Banking",
       "source": "Partner API",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["12", "2"]
     },
     {
       "id": "PKT_DEV",
@@ -561,7 +578,8 @@
       "category": "Telecom",
       "source": "Internal",
       "visibility": "Internal",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["10", "7"]
     },
     {
       "id": "PKT_LEG",
@@ -569,7 +587,8 @@
       "category": "Bureau",
       "source": "Internal",
       "visibility": "Platform",
-      "status": "active"
+      "status": "active",
+      "dataSubmitterInstitutionIds": ["12", "1"]
     }
   ],
   "configuredProducts": [
@@ -583,13 +602,10 @@
       ],
       "description": "SME affordability from cashflow analysis, GST filing behaviour and legal screening.",
       "status": "active",
-      "pricingModel": "per_hit",
-      "price": 50,
       "lastUpdated": "2026-03-20T10:00:00.000Z",
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
       "packetConfigs": [
         {
@@ -629,13 +645,10 @@
       ],
       "description": "Thin-file onboarding using telco behaviour, device footprint and digital spend.",
       "status": "draft",
-      "pricingModel": "subscription",
-      "price": 12000,
       "lastUpdated": "2026-03-18T14:30:00.000Z",
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
       "packetConfigs": [
         {
@@ -674,13 +687,10 @@
       ],
       "description": "Device footprint, digital spend and telco behaviour for retail and MSME onboarding risk.",
       "status": "active",
-      "pricingModel": "per_hit",
-      "price": 35,
       "lastUpdated": "2026-03-15T08:20:00.000Z",
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "NETWORK",
-        "mode": "LIVE"
+        "impactType": "SOFT",
+        "scope": "NETWORK"
       },
       "packetConfigs": [
         {
@@ -717,13 +727,10 @@
       ],
       "description": "Payslip income verification with employment insights and utility/rent history.",
       "status": "active",
-      "pricingModel": "per_hit",
-      "price": 40,
       "lastUpdated": "2026-03-12T11:45:00.000Z",
       "enquiryConfig": {
-        "impactType": "HIGH",
-        "scope": "SELF",
-        "mode": "LIVE"
+        "impactType": "HARD",
+        "scope": "SELF"
       },
       "packetConfigs": [
         {
@@ -760,13 +767,10 @@
       ],
       "description": "Know Your Business from GST profile, entity linkages and public litigation signals.",
       "status": "active",
-      "pricingModel": "subscription",
-      "price": 18000,
       "lastUpdated": "2026-03-10T09:00:00.000Z",
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "VERTICAL",
-        "mode": "LIVE"
+        "impactType": "SOFT",
+        "scope": "VERTICAL"
       },
       "packetConfigs": []
     },
@@ -780,13 +784,10 @@
       ],
       "description": "Gig-economy assessment from telco, digital spend and BNPL repayment behaviour.",
       "status": "active",
-      "pricingModel": "per_hit",
-      "price": 45,
       "lastUpdated": "2026-03-08T16:00:00.000Z",
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
       "packetConfigs": []
     },
@@ -799,13 +800,10 @@
       ],
       "description": "Ongoing monitoring of BNPL installment behaviour with device footprint signals.",
       "status": "active",
-      "pricingModel": "subscription",
-      "price": 8500,
       "lastUpdated": "2026-03-05T13:30:00.000Z",
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
       "packetConfigs": [
         {
@@ -835,13 +833,10 @@
       ],
       "description": "Employment, telco and utility alternate-data assessment for applicants without traditional lending history.",
       "status": "draft",
-      "pricingModel": "per_hit",
-      "price": 30,
       "lastUpdated": "2026-03-02T10:10:00.000Z",
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
       "packetConfigs": [
         {
@@ -879,13 +874,10 @@
       ],
       "description": "Merchant trust bundle: cashflow, GST, linkages and litigation signals.",
       "status": "active",
-      "pricingModel": "subscription",
-      "price": 45000,
       "lastUpdated": "2026-02-28T09:00:00.000Z",
       "enquiryConfig": {
-        "impactType": "HIGH",
-        "scope": "NETWORK",
-        "mode": "LIVE"
+        "impactType": "HARD",
+        "scope": "NETWORK"
       },
       "packetConfigs": []
     },
@@ -899,13 +891,10 @@
       ],
       "description": "Lightweight affordability for SHG lending using telco, utility and payslip signals.",
       "status": "active",
-      "pricingModel": "per_hit",
-      "price": 18,
       "lastUpdated": "2026-02-25T07:45:00.000Z",
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
       "packetConfigs": []
     },
@@ -919,13 +908,10 @@
       ],
       "description": "Real-time alternate-data decisioning from spend, telco and device footprint.",
       "status": "active",
-      "pricingModel": "per_hit",
-      "price": 22,
       "lastUpdated": "2026-02-20T12:00:00.000Z",
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "SELF",
-        "mode": "LIVE"
+        "impactType": "SOFT",
+        "scope": "SELF"
       },
       "packetConfigs": []
     },
@@ -939,13 +925,10 @@
       ],
       "description": "Seasonal cashflow, GST compliance and business-linkage assessment for agricultural traders.",
       "status": "draft",
-      "pricingModel": "per_hit",
-      "price": 38,
       "lastUpdated": "2026-02-15T15:20:00.000Z",
       "enquiryConfig": {
-        "impactType": "LOW",
-        "scope": "VERTICAL",
-        "mode": "LIVE"
+        "impactType": "SOFT",
+        "scope": "VERTICAL"
       },
       "packetConfigs": []
     }

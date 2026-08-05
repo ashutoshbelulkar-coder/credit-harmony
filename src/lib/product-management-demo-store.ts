@@ -2,7 +2,12 @@ import { useSyncExternalStore } from "react";
 import seed from "@/data/product-management-demo.json";
 import {
   ALLOWED_TRANSITIONS,
+  buildFieldContractFromPackets,
   computeDefinitionFingerprint,
+  DEFAULT_PROFILE_CONFIG,
+  DEFAULT_TRENDED_CONFIG,
+  defaultOutputPorts,
+  LOCAL_CPO_LABEL,
   normalizeProductName,
   type ApprovalCycle,
   type ApprovalDecision,
@@ -11,27 +16,126 @@ import {
   type DemoAuditEvent,
   type DemoNotification,
   type DemoProductVersion,
+  type OutputPort,
+  type PolicyWarning,
   type ProductManagementDemoState,
   type ProductMetadata,
+  type ProfileBlockConfig,
+  type Subscription,
+  type TrendedConfig,
 } from "@/data/product-management-types";
 import type { EnquiryConfig, PacketConfig } from "@/data/data-products-mock";
 import { DEFAULT_ENQUIRY_CONFIG, normalizeEnquiryConfig } from "@/data/data-products-mock";
 
-const STORAGE_KEY = "hcb-product-mgmt-demo-v6";
+const STORAGE_KEY = "hcb-product-mgmt-demo-v8";
+
+const DEFAULT_METADATA: ProductMetadata = {
+  businessUnit: "Product Management",
+  targetSegment: "General",
+  sapItemCode: "",
+  intendedUse: "",
+  regulatoryNotes: "",
+  sensitivity: "Medium",
+  tags: [],
+  categories: ["Uncategorised"],
+  effectiveStart: null,
+  effectiveEnd: null,
+  legalConditions:
+    "Access is governed by the applicable member participation agreement and data protection law. Enquiries must be purpose-limited and consent-backed where required.",
+  dataAcquisitionType: "Member-contributed",
+  dataAvailabilityType: "Managed by bureau, available for direct enquiry",
+  accessRestrictions: "Active subscription required; purpose-bound use only",
+};
+
+function normalizeMetadata(raw: Partial<ProductMetadata> & Record<string, unknown>): ProductMetadata {
+  return {
+    businessUnit: String(raw.businessUnit ?? DEFAULT_METADATA.businessUnit),
+    targetSegment: String(raw.targetSegment ?? DEFAULT_METADATA.targetSegment),
+    sapItemCode: String(raw.sapItemCode ?? DEFAULT_METADATA.sapItemCode).trim(),
+    intendedUse: String(raw.intendedUse ?? ""),
+    regulatoryNotes: String(raw.regulatoryNotes ?? ""),
+    sensitivity:
+      raw.sensitivity === "Low" || raw.sensitivity === "High" || raw.sensitivity === "Medium"
+        ? raw.sensitivity
+        : "Medium",
+    tags: Array.isArray(raw.tags) ? (raw.tags as string[]) : [],
+    categories: Array.isArray(raw.categories) ? (raw.categories as string[]) : ["Uncategorised"],
+    effectiveStart: (raw.effectiveStart as string | null | undefined) ?? null,
+    effectiveEnd: (raw.effectiveEnd as string | null | undefined) ?? null,
+    legalConditions: String(raw.legalConditions ?? DEFAULT_METADATA.legalConditions),
+    dataAcquisitionType: String(raw.dataAcquisitionType ?? DEFAULT_METADATA.dataAcquisitionType),
+    dataAvailabilityType: String(
+      raw.dataAvailabilityType ?? DEFAULT_METADATA.dataAvailabilityType
+    ),
+    accessRestrictions: String(raw.accessRestrictions ?? DEFAULT_METADATA.accessRestrictions),
+  };
+}
+
+function normalizeVersion(v: DemoProductVersion & Record<string, unknown>): DemoProductVersion {
+  const packetIds = v.packetIds ?? [];
+  const packetConfigs = v.packetConfigs ?? [];
+  const enquiryConfig = normalizeEnquiryConfig(v.enquiryConfig);
+  const trendedConfig: TrendedConfig = v.trendedConfig
+    ? {
+        enabled: !!v.trendedConfig.enabled,
+        maxHistoryMonths: Number(v.trendedConfig.maxHistoryMonths) || 0,
+      }
+    : { ...DEFAULT_TRENDED_CONFIG };
+  const profileConfig: ProfileBlockConfig = v.profileConfig?.includedFields?.length
+    ? { includedFields: [...v.profileConfig.includedFields] }
+    : { ...DEFAULT_PROFILE_CONFIG, includedFields: [...DEFAULT_PROFILE_CONFIG.includedFields] };
+  const outputPorts: OutputPort[] =
+    Array.isArray(v.outputPorts) && v.outputPorts.length > 0
+      ? v.outputPorts
+      : defaultOutputPorts(v.productCode, v.version);
+  const fieldContract =
+    Array.isArray(v.fieldContract) && v.fieldContract.length > 0
+      ? v.fieldContract
+      : buildFieldContractFromPackets(packetIds, packetConfigs);
+  const policyWarnings: PolicyWarning[] = Array.isArray(v.policyWarnings) ? v.policyWarnings : [];
+  const fingerprint = computeDefinitionFingerprint(
+    packetIds,
+    packetConfigs,
+    enquiryConfig,
+    trendedConfig
+  );
+  return {
+    ...v,
+    packetIds,
+    packetConfigs,
+    enquiryConfig,
+    metadata: normalizeMetadata((v.metadata ?? {}) as ProductMetadata & Record<string, unknown>),
+    approvalCycles: (v.approvalCycles ?? []).map((c) => ({
+      ...c,
+      decisions: (c.decisions ?? []).map((d) => ({
+        ...d,
+        decision: d.decision === "reject" ? "reject" : "approve",
+      })),
+    })),
+    trendedConfig,
+    profileConfig,
+    outputPorts,
+    fieldContract,
+    policyWarnings,
+    definitionFingerprint: fingerprint,
+    consumerCount: v.consumerCount ?? 0,
+  };
+}
 
 function cloneSeed(): ProductManagementDemoState {
-  const raw = structuredClone(seed) as ProductManagementDemoState;
-  raw.versions = raw.versions.map((v) => ({
-    ...v,
-    enquiryConfig: normalizeEnquiryConfig(v.enquiryConfig),
-    definitionFingerprint:
-      v.definitionFingerprint?.startsWith("fp_") && v.definitionFingerprint.includes("stub")
-        ? computeDefinitionFingerprint(v.packetIds, v.packetConfigs ?? [])
-        : v.definitionFingerprint || computeDefinitionFingerprint(v.packetIds, v.packetConfigs ?? []),
-    packetConfigs: v.packetConfigs ?? [],
-    approvalCycles: v.approvalCycles ?? [],
-  }));
-  return raw;
+  const raw = structuredClone(seed) as ProductManagementDemoState & {
+    subscriptions?: Subscription[];
+  };
+  return {
+    policies: raw.policies ?? [],
+    versions: (raw.versions ?? []).map((v) =>
+      normalizeVersion(v as DemoProductVersion & Record<string, unknown>)
+    ),
+    notifications: raw.notifications ?? [],
+    auditEvents: raw.auditEvents ?? [],
+    dependencies: raw.dependencies ?? [],
+    subscriptions: raw.subscriptions ?? [],
+  };
 }
 
 function loadState(): ProductManagementDemoState {
@@ -39,7 +143,15 @@ function loadState(): ProductManagementDemoState {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as ProductManagementDemoState;
-      if (parsed?.versions?.length) return parsed;
+      if (parsed?.versions?.length) {
+        return {
+          ...parsed,
+          versions: parsed.versions.map((v) =>
+            normalizeVersion(v as DemoProductVersion & Record<string, unknown>)
+          ),
+          subscriptions: parsed.subscriptions ?? [],
+        };
+      }
     }
   } catch {
     /* ignore */
@@ -69,7 +181,7 @@ function uid(prefix: string) {
 }
 
 function pushAudit(
-  versions: DemoProductVersion[],
+  _versions: DemoProductVersion[],
   auditEvents: DemoAuditEvent[],
   partial: Omit<DemoAuditEvent, "id" | "at"> & { at?: string }
 ): DemoAuditEvent[] {
@@ -120,6 +232,15 @@ function updateVersion(
   return next;
 }
 
+function fingerprintFor(v: Pick<DemoProductVersion, "packetIds" | "packetConfigs" | "enquiryConfig" | "trendedConfig">) {
+  return computeDefinitionFingerprint(
+    v.packetIds,
+    v.packetConfigs,
+    v.enquiryConfig,
+    v.trendedConfig
+  );
+}
+
 export const productMgmtStore = {
   getState: () => state,
   subscribe(listener: () => void) {
@@ -140,14 +261,31 @@ export const productMgmtStore = {
       .filter((v) => v.productCode === productCode)
       .sort((a, b) => b.version - a.version);
   },
-  /** Latest non-archived version per product code (for catalogue / list). */
+  /**
+   * Preferred version for a product code: latest Active → Deprecated →
+   * Pending Approval → Draft (Addendum F2 default selection).
+   */
+  resolvePreferredVersion(productCode: string) {
+    const siblings = productMgmtStore.getVersionsByCode(productCode);
+    const byStatus = (status: DemoProductVersion["status"]) =>
+      siblings.find((v) => v.status === status);
+    return (
+      byStatus("active") ??
+      byStatus("deprecated") ??
+      byStatus("pending_approval") ??
+      byStatus("draft") ??
+      siblings[0]
+    );
+  },
+  /** Preferred head per product code (for catalogue / list). */
   listCatalogueHeads() {
-    const byCode = new Map<string, DemoProductVersion>();
-    for (const v of state.versions) {
-      const cur = byCode.get(v.productCode);
-      if (!cur || v.version > cur.version) byCode.set(v.productCode, v);
+    const codes = new Set(state.versions.map((v) => v.productCode));
+    const heads: DemoProductVersion[] = [];
+    for (const code of codes) {
+      const head = productMgmtStore.resolvePreferredVersion(code);
+      if (head) heads.push(head);
     }
-    return [...byCode.values()].sort(
+    return heads.sort(
       (a, b) => new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
     );
   },
@@ -155,7 +293,6 @@ export const productMgmtStore = {
     const norm = normalizeProductName(name);
     const excluded = excludeId ? productMgmtStore.getVersion(excludeId) : undefined;
     const skipCode = excludeProductCode ?? excluded?.productCode;
-    // Same product family may share the name across versions; block other product codes only.
     const codesWithName = new Set(
       state.versions
         .filter((v) => normalizeProductName(v.name) === norm)
@@ -179,10 +316,20 @@ export const productMgmtStore = {
     );
   },
   getPendingSubmissions() {
-    const items: { version: DemoProductVersion; cycle: ApprovalCycle }[] = [];
+    const items: { version: DemoProductVersion; cycle: ApprovalCycle; subscription?: Subscription }[] =
+      [];
     for (const v of state.versions) {
       for (const c of v.approvalCycles) {
-        if (c.status === "pending") items.push({ version: v, cycle: c });
+        if (c.status === "pending" && !c.subscriptionId) {
+          items.push({ version: v, cycle: c });
+        }
+      }
+    }
+    for (const sub of state.subscriptions) {
+      if (sub.status !== "pending" || !sub.approvalCycleId) continue;
+      const found = productMgmtStore.getSubmission(sub.approvalCycleId);
+      if (found && found.cycle.status === "pending") {
+        items.push({ version: found.version, cycle: found.cycle, subscription: sub });
       }
     }
     return items.sort(
@@ -206,9 +353,14 @@ export const productMgmtStore = {
     if (filter?.productCode) events = events.filter((e) => e.productCode === filter.productCode);
     return [...events].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
   },
-  getNotifications(versionId?: string) {
-    const list = versionId
-      ? state.notifications.filter((n) => n.versionId === versionId || n.productId === versionId)
+  getNotifications(productCodeOrVersionId?: string) {
+    const list = productCodeOrVersionId
+      ? state.notifications.filter(
+          (n) =>
+            n.versionId === productCodeOrVersionId ||
+            n.productId === productCodeOrVersionId ||
+            n.productCode === productCodeOrVersionId
+        )
       : state.notifications;
     return [...list].sort((a, b) => new Date(b.sentAt).getTime() - new Date(a.sentAt).getTime());
   },
@@ -218,22 +370,42 @@ export const productMgmtStore = {
   getProductsUsingPacket(packetId: string) {
     return state.versions.filter((v) => v.packetIds.includes(packetId) && v.status !== "archived");
   },
+  getSubscriptions(productCode?: string) {
+    const list = productCode
+      ? state.subscriptions.filter((s) => s.productCode === productCode)
+      : state.subscriptions;
+    return [...list].sort(
+      (a, b) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()
+    );
+  },
+  getSubscriptionForCycle(cycleId: string) {
+    return state.subscriptions.find(
+      (s) => s.approvalCycleId === cycleId || s.id === cycleId
+    );
+  },
   createDraft(input: {
     name: string;
     description: string;
     packetIds: string[];
     packetConfigs: PacketConfig[];
     enquiryConfig?: EnquiryConfig;
+    trendedConfig?: TrendedConfig;
+    profileConfig?: ProfileBlockConfig;
     metadata?: Partial<ProductMetadata>;
-    pricingModel?: DemoProductVersion["pricingModel"];
-    price?: number;
     actor?: string;
   }) {
     const conflict = productMgmtStore.findNameConflict(input.name);
     if (conflict) {
       return { ok: false as const, conflict };
     }
-    const fingerprint = computeDefinitionFingerprint(input.packetIds, input.packetConfigs);
+    const enquiryConfig = normalizeEnquiryConfig(input.enquiryConfig ?? DEFAULT_ENQUIRY_CONFIG);
+    const trendedConfig = input.trendedConfig ?? { ...DEFAULT_TRENDED_CONFIG };
+    const fingerprint = computeDefinitionFingerprint(
+      input.packetIds,
+      input.packetConfigs,
+      enquiryConfig,
+      trendedConfig
+    );
     const id = uid("ver");
     const maxNum = state.versions.reduce((max, v) => {
       const m = /^PRD_(\d+)$/.exec(v.productCode);
@@ -241,19 +413,9 @@ export const productMgmtStore = {
       return Math.max(max, parseInt(m[1], 10));
     }, 0);
     const code = `PRD_${String(maxNum + 1).padStart(4, "0")}`;
-    const meta: ProductMetadata = {
-      owner: input.metadata?.owner ?? "Demo User",
-      ownerRole: input.metadata?.ownerRole ?? "Product Manager",
-      businessUnit: input.metadata?.businessUnit ?? "Product Management",
-      targetGeography: input.metadata?.targetGeography ?? "India",
-      targetSegment: input.metadata?.targetSegment ?? "General",
-      intendedUse: input.metadata?.intendedUse ?? "",
-      regulatoryNotes: input.metadata?.regulatoryNotes ?? "",
-      sensitivity: input.metadata?.sensitivity ?? "Medium",
-      tags: input.metadata?.tags ?? [],
-      categories: input.metadata?.categories ?? ["Uncategorised"],
-      effectiveStart: input.metadata?.effectiveStart ?? null,
-      effectiveEnd: input.metadata?.effectiveEnd ?? null,
+    const meta = normalizeMetadata({ ...DEFAULT_METADATA, ...input.metadata });
+    const profileConfig = input.profileConfig ?? {
+      includedFields: [...DEFAULT_PROFILE_CONFIG.includedFields],
     };
     const version: DemoProductVersion = {
       id,
@@ -263,20 +425,23 @@ export const productMgmtStore = {
       version: 1,
       parentVersionId: null,
       status: "draft",
-      pricingModel: input.pricingModel ?? "per_hit",
-      price: input.price ?? 0,
       lastUpdated: new Date().toISOString(),
       createdAt: new Date().toISOString(),
       packetIds: input.packetIds,
       packetConfigs: input.packetConfigs,
-      enquiryConfig: normalizeEnquiryConfig(input.enquiryConfig ?? DEFAULT_ENQUIRY_CONFIG),
+      enquiryConfig,
       metadata: meta,
       consumerCount: 0,
       definitionFingerprint: fingerprint,
       approvalCycles: [],
+      trendedConfig,
+      profileConfig,
+      outputPorts: defaultOutputPorts(code, 1),
+      fieldContract: buildFieldContractFromPackets(input.packetIds, input.packetConfigs),
+      policyWarnings: [],
     };
     const auditEvents = pushAudit(state.versions, state.auditEvents, {
-      actor: input.actor ?? meta.owner,
+      actor: input.actor ?? LOCAL_CPO_LABEL,
       action: "created",
       productId: id,
       productCode: code,
@@ -299,9 +464,9 @@ export const productMgmtStore = {
       packetIds?: string[];
       packetConfigs?: PacketConfig[];
       enquiryConfig?: EnquiryConfig;
+      trendedConfig?: TrendedConfig;
+      profileConfig?: ProfileBlockConfig;
       metadata?: Partial<ProductMetadata>;
-      pricingModel?: DemoProductVersion["pricingModel"];
-      price?: number;
       actor?: string;
     }
   ) {
@@ -317,23 +482,31 @@ export const productMgmtStore = {
       (v) => {
         const packetIds = patch.packetIds ?? v.packetIds;
         const packetConfigs = patch.packetConfigs ?? v.packetConfigs;
+        const enquiryConfig = patch.enquiryConfig
+          ? normalizeEnquiryConfig(patch.enquiryConfig)
+          : v.enquiryConfig;
+        const trendedConfig = patch.trendedConfig ?? v.trendedConfig;
         return {
           ...v,
           name: patch.name?.trim() ?? v.name,
           description: patch.description ?? v.description,
           packetIds,
           packetConfigs,
-          enquiryConfig: patch.enquiryConfig
-            ? normalizeEnquiryConfig(patch.enquiryConfig)
-            : v.enquiryConfig,
-          metadata: { ...v.metadata, ...patch.metadata },
-          pricingModel: patch.pricingModel ?? v.pricingModel,
-          price: patch.price ?? v.price,
-          definitionFingerprint: computeDefinitionFingerprint(packetIds, packetConfigs),
+          enquiryConfig,
+          trendedConfig,
+          profileConfig: patch.profileConfig ?? v.profileConfig,
+          metadata: patch.metadata ? normalizeMetadata({ ...v.metadata, ...patch.metadata }) : v.metadata,
+          fieldContract: buildFieldContractFromPackets(packetIds, packetConfigs),
+          definitionFingerprint: computeDefinitionFingerprint(
+            packetIds,
+            packetConfigs,
+            enquiryConfig,
+            trendedConfig
+          ),
         };
       },
       {
-        actor: patch.actor ?? current.metadata.owner,
+        actor: patch.actor ?? LOCAL_CPO_LABEL,
         action: "updated",
         summary: `Updated draft ${current.name} v${current.version}`,
       }
@@ -356,7 +529,7 @@ export const productMgmtStore = {
     const nameConflict = productMgmtStore.findNameConflict(current.name, id);
     if (nameConflict) return { ok: false as const, error: "name_conflict", conflict: nameConflict };
 
-    const fingerprint = computeDefinitionFingerprint(current.packetIds, current.packetConfigs);
+    const fingerprint = fingerprintFor(current);
     const fpConflict = productMgmtStore.findFingerprintConflict(
       fingerprint,
       id,
@@ -371,13 +544,14 @@ export const productMgmtStore = {
       cycleNumber: current.approvalCycles.length + 1,
       status: "pending",
       submittedAt: new Date().toISOString(),
-      submittedBy: input.actor ?? current.metadata.owner,
+      submittedBy: input.actor ?? LOCAL_CPO_LABEL,
       justification: input.justification,
       policyId: input.policyId ?? "POL_SINGLE",
       fingerprint,
       exceptionRequested: input.exceptionRequested,
       exceptionJustification: input.exceptionJustification,
       decisions: [],
+      kind: "version",
     };
 
     const next = updateVersion(
@@ -389,7 +563,7 @@ export const productMgmtStore = {
         approvalCycles: [...v.approvalCycles, cycle],
       }),
       {
-        actor: input.actor ?? current.metadata.owner,
+        actor: input.actor ?? LOCAL_CPO_LABEL,
         action: "submitted",
         summary: `Submitted ${current.name} v${current.version} for approval`,
         justification: input.justification,
@@ -400,11 +574,10 @@ export const productMgmtStore = {
   decideSubmission(
     submissionId: string,
     input: {
-      decision: "approve" | "reject" | "delegate";
+      decision: "approve" | "reject";
       comment: string;
       actor?: string;
       role?: string;
-      delegatedTo?: string;
     }
   ) {
     const found = productMgmtStore.getSubmission(submissionId);
@@ -415,22 +588,73 @@ export const productMgmtStore = {
       return { ok: false as const, error: "comment_required" };
     }
 
+    const actor = input.actor ?? "Demo Approver";
+    if (cycle.submittedBy === actor) {
+      return { ok: false as const, error: "sod_violation" };
+    }
+
     const decision: ApprovalDecision = {
       id: uid("dec"),
-      actor: input.actor ?? "Demo Approver",
+      actor,
       role: input.role ?? "Product Head",
       decision: input.decision,
       comment: input.comment.trim() || (input.decision === "approve" ? "Approved" : ""),
       at: new Date().toISOString(),
-      delegatedTo: input.delegatedTo,
     };
+
+    // Access-request cycle
+    if (cycle.subscriptionId || cycle.kind === "access_request") {
+      const sub = state.subscriptions.find(
+        (s) => s.id === cycle.subscriptionId || s.approvalCycleId === submissionId
+      );
+      if (!sub) return { ok: false as const, error: "not_found" };
+
+      const cycleStatus = input.decision === "approve" ? "approved" : "rejected";
+      const versions = state.versions.map((v) => {
+        if (v.id !== version.id) return v;
+        const nextConsumer =
+          input.decision === "approve" ? v.consumerCount + 1 : v.consumerCount;
+        return {
+          ...v,
+          consumerCount: nextConsumer,
+          lastUpdated: new Date().toISOString(),
+          approvalCycles: v.approvalCycles.map((c) =>
+            c.id === submissionId
+              ? { ...c, status: cycleStatus as ApprovalCycle["status"], decisions: [...c.decisions, decision] }
+              : c
+          ),
+        };
+      });
+      const subscriptions = state.subscriptions.map((s) =>
+        s.id === sub.id
+          ? {
+              ...s,
+              status: (input.decision === "approve" ? "active" : "rejected") as Subscription["status"],
+            }
+          : s
+      );
+      const action: AuditAction =
+        input.decision === "approve" ? "access_approved" : "access_rejected";
+      const auditEvents = pushAudit(versions, state.auditEvents, {
+        actor: decision.actor,
+        action,
+        productId: version.id,
+        productCode: version.productCode,
+        versionId: version.id,
+        version: version.version,
+        summary: `Access request ${input.decision} — ${sub.institutionName} → ${version.productCode}`,
+        justification: input.comment,
+      });
+      setState({ ...state, versions, subscriptions, auditEvents });
+      return { ok: true as const, version: versions.find((v) => v.id === version.id)! };
+    }
 
     let newStatus: BrdLifecycleStatus = version.status;
     let cycleStatus = cycle.status;
     if (input.decision === "approve") {
       newStatus = "approved";
       cycleStatus = "approved";
-    } else if (input.decision === "reject") {
+    } else {
       newStatus = "draft";
       cycleStatus = "rejected";
     }
@@ -439,18 +663,17 @@ export const productMgmtStore = {
       if (v.id !== version.id) return v;
       return {
         ...v,
-        status: input.decision === "delegate" ? v.status : newStatus,
+        status: newStatus,
         lastUpdated: new Date().toISOString(),
         approvalCycles: v.approvalCycles.map((c) =>
           c.id === submissionId
-            ? { ...c, status: input.decision === "delegate" ? c.status : cycleStatus, decisions: [...c.decisions, decision] }
+            ? { ...c, status: cycleStatus, decisions: [...c.decisions, decision] }
             : c
         ),
       };
     });
 
-    const action: AuditAction =
-      input.decision === "approve" ? "approved" : input.decision === "reject" ? "rejected" : "delegated";
+    const action: AuditAction = input.decision === "approve" ? "approved" : "rejected";
     const auditEvents = pushAudit(versions, state.auditEvents, {
       actor: decision.actor,
       action,
@@ -483,6 +706,17 @@ export const productMgmtStore = {
     }
     if (!input.justification.trim()) return { ok: false as const, error: "justification_required" };
 
+    if (to === "inactive" && current.status === "active" && !input.emergency) {
+      return { ok: false as const, error: "emergency_required" };
+    }
+
+    if (to === "deprecated") {
+      const days = input.deprecationWindowDays;
+      if (days == null || !Number.isInteger(days) || days < 1) {
+        return { ok: false as const, error: "invalid_window" };
+      }
+    }
+
     if (to === "active") {
       const activeCount = state.versions.filter(
         (v) => v.productCode === current.productCode && v.status === "active" && v.id !== id
@@ -490,10 +724,6 @@ export const productMgmtStore = {
       if (activeCount >= 3) {
         return { ok: false as const, error: "concurrent_ceiling" };
       }
-    }
-
-    if (to === "inactive" && current.status === "active" && input.emergency) {
-      // emergency path allowed with dual-confirm handled in UI
     }
 
     const actionMap: Partial<Record<BrdLifecycleStatus, AuditAction>> = {
@@ -510,12 +740,12 @@ export const productMgmtStore = {
         ...v,
         status: to,
         deprecationWindowDays:
-          to === "deprecated" ? input.deprecationWindowDays ?? 90 : v.deprecationWindowDays,
+          to === "deprecated" ? input.deprecationWindowDays! : v.deprecationWindowDays,
         deprecationNoticeAt: to === "deprecated" ? new Date().toISOString() : v.deprecationNoticeAt,
         consumerCount: to === "inactive" || to === "archived" ? 0 : v.consumerCount,
       }),
       {
-        actor: input.actor ?? current.metadata.owner,
+        actor: input.actor ?? LOCAL_CPO_LABEL,
         action: actionMap[to] ?? "updated",
         summary: `${current.name} v${current.version} → ${to}`,
         justification: input.justification,
@@ -530,7 +760,7 @@ export const productMgmtStore = {
         versionId: id,
         event: to,
         message: `${current.name} v${current.version} is now ${to}.${
-          to === "deprecated" ? ` Wind-down: ${input.deprecationWindowDays ?? 90} days.` : ""
+          to === "deprecated" ? ` Wind-down: ${input.deprecationWindowDays} days.` : ""
         }`,
         sentAt: new Date().toISOString(),
         recipients: ["Subscribed institutions", "Internal capabilities"],
@@ -574,10 +804,12 @@ export const productMgmtStore = {
       approvalCycles: [],
       deprecationWindowDays: null,
       deprecationNoticeAt: null,
-      definitionFingerprint: computeDefinitionFingerprint(source.packetIds, source.packetConfigs),
+      policyWarnings: [],
+      outputPorts: defaultOutputPorts(source.productCode, nextNum),
+      definitionFingerprint: fingerprintFor(source),
     };
     const auditEvents = pushAudit(state.versions, state.auditEvents, {
-      actor: actor ?? source.metadata.owner,
+      actor: actor ?? LOCAL_CPO_LABEL,
       action: "version_cloned",
       productId: id,
       productCode: source.productCode,
@@ -592,23 +824,80 @@ export const productMgmtStore = {
     });
     return { ok: true as const, version: draft };
   },
-  transferOwnership(id: string, newOwner: string, reason: string, actor?: string) {
-    const current = productMgmtStore.getVersion(id);
-    if (!current) return { ok: false as const, error: "not_found" };
-    const next = updateVersion(
-      id,
-      (v) => ({
-        ...v,
-        metadata: { ...v.metadata, owner: newOwner },
-      }),
-      {
-        actor: actor ?? current.metadata.owner,
-        action: "ownership_transferred",
-        summary: `Ownership transferred to ${newOwner}`,
-        justification: reason,
-      }
+  requestAccess(input: {
+    institutionId: string;
+    institutionName: string;
+    productCode: string;
+    pinnedVersionId: string | null;
+    businessDomain: string;
+    application: string;
+    billingRef: string;
+    usagePeriodMonths: number;
+    purpose: string;
+    notes?: string;
+    actor?: string;
+  }) {
+    const versions = productMgmtStore.getVersionsByCode(input.productCode);
+    const pin =
+      (input.pinnedVersionId && versions.find((v) => v.id === input.pinnedVersionId)) ||
+      versions.find((v) => v.status === "active") ||
+      versions[0];
+    if (!pin) return { ok: false as const, error: "not_found" };
+
+    const cycleId = uid("sub");
+    const subId = uid("access");
+    const cycle: ApprovalCycle = {
+      id: cycleId,
+      cycleNumber: pin.approvalCycles.length + 1,
+      status: "pending",
+      submittedAt: new Date().toISOString(),
+      submittedBy: input.actor ?? LOCAL_CPO_LABEL,
+      justification: input.purpose,
+      policyId: "POL_SINGLE",
+      fingerprint: pin.definitionFingerprint,
+      decisions: [],
+      subscriptionId: subId,
+      kind: "access_request",
+    };
+    const subscription: Subscription = {
+      id: subId,
+      institutionId: input.institutionId,
+      institutionName: input.institutionName,
+      productCode: input.productCode,
+      pinnedVersionId: pin.id,
+      businessDomain: input.businessDomain,
+      application: input.application,
+      billingRef: input.billingRef,
+      usagePeriodMonths: input.usagePeriodMonths,
+      purpose: input.purpose,
+      status: "pending",
+      requestedAt: new Date().toISOString(),
+      approvalCycleId: cycleId,
+      notes: input.notes,
+    };
+
+    const nextVersions = state.versions.map((v) =>
+      v.id === pin.id
+        ? { ...v, approvalCycles: [...v.approvalCycles, cycle], lastUpdated: new Date().toISOString() }
+        : v
     );
-    return { ok: true as const, version: next! };
+    const auditEvents = pushAudit(nextVersions, state.auditEvents, {
+      actor: input.actor ?? LOCAL_CPO_LABEL,
+      action: "access_requested",
+      productId: pin.id,
+      productCode: input.productCode,
+      versionId: pin.id,
+      version: pin.version,
+      summary: `Access requested by ${input.institutionName} for ${input.productCode}`,
+      justification: input.purpose,
+    });
+    setState({
+      ...state,
+      versions: nextVersions,
+      subscriptions: [subscription, ...state.subscriptions],
+      auditEvents,
+    });
+    return { ok: true as const, subscription, cycle };
   },
 };
 

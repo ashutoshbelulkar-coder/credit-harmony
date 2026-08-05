@@ -13,11 +13,24 @@ export function ProductStatusBadge({
   status: BrdLifecycleStatus | string;
   className?: string;
 }) {
+  if (status === "unknown") {
+    return (
+      <span
+        className={cn(
+          "px-2 py-0.5 rounded-full bg-muted text-muted-foreground",
+          badgeTextClasses,
+          className
+        )}
+      >
+        Unknown
+      </span>
+    );
+  }
   const key = status as BrdLifecycleStatus;
   const label = BRD_STATUS_LABEL[key] ?? status;
   const style = BRD_STATUS_STYLES[key] ?? "bg-muted text-muted-foreground";
   return (
-    <span className={cn("px-2 py-0.5 rounded-full text-xs font-medium", badgeTextClasses, style, className)}>
+    <span className={cn("px-2 py-0.5 rounded-full", badgeTextClasses, style, className)}>
       {label}
     </span>
   );

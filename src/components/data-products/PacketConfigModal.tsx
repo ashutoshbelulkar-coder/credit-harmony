@@ -14,14 +14,26 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   productCatalogPacketOptions,
   SOURCE_TYPE_LABELS,
   type ProductCatalogPacketOption,
 } from "@/data/data-products-mock";
+import {
+  inferAttributeMode,
+  inferFieldPii,
+  inferFieldType,
+} from "@/data/product-management-types";
 import { useSchemaRegistryList } from "@/hooks/api/useSchemaMapper";
+import { cn } from "@/lib/utils";
+import { badgeTextClasses } from "@/lib/typography";
+import { ATTRIBUTE_MODE_LABEL } from "@/components/data-products/AttributeBadges";
 
 export interface PacketConfigSavePayload {
   selectedFields: string[];
@@ -29,30 +41,29 @@ export interface PacketConfigSavePayload {
   selectedDerivedFields: string[];
 }
 
-function buildInitialDrafts(
-  ids: string[],
+function buildInitialDraft(
+  id: string,
   catalog: ProductCatalogPacketOption[],
   getPacketConfig: (packetId: string) => {
     selectedFields: string[];
     disabledFields?: string[];
     selectedDerivedFields: string[];
   }
-): Record<string, { raw: string[]; rawDisabled: string[]; derived: string[] }> {
-  const drafts: Record<string, { raw: string[]; rawDisabled: string[]; derived: string[] }> = {};
-  for (const id of ids) {
-    const p = catalog.find((o) => o.id === id);
-    const c = getPacketConfig(id);
-    const raw = c.selectedFields.length > 0 ? [...c.selectedFields] : [...(p?.fields ?? [])];
-    const rawSet = new Set(raw);
-    const rawDisabled = (c.disabledFields ?? []).map(String).map((x) => x.trim()).filter(Boolean).filter((f) => rawSet.has(f));
-    drafts[id] = {
-      raw,
-      rawDisabled,
-      derived:
-        (c.selectedDerivedFields?.length ?? 0) > 0 ? [...c.selectedDerivedFields] : [],
-    };
-  }
-  return drafts;
+): { raw: string[]; rawDisabled: string[]; derived: string[] } {
+  const p = catalog.find((o) => o.id === id);
+  const c = getPacketConfig(id);
+  const raw = c.selectedFields.length > 0 ? [...c.selectedFields] : [...(p?.fields ?? [])];
+  const rawSet = new Set(raw);
+  const rawDisabled = (c.disabledFields ?? [])
+    .map(String)
+    .map((x) => x.trim())
+    .filter(Boolean)
+    .filter((f) => rawSet.has(f));
+  return {
+    raw,
+    rawDisabled,
+    derived: (c.selectedDerivedFields?.length ?? 0) > 0 ? [...c.selectedDerivedFields] : [],
+  };
 }
 
 interface PacketConfigModalProps {
@@ -78,9 +89,7 @@ export function PacketConfigModal({
 }: PacketConfigModalProps) {
   const catalog = catalogOptions ?? productCatalogPacketOptions;
   const activePacketId = packetIds[0];
-  const [packetDrafts] = useState(() =>
-    buildInitialDrafts(packetIds, catalog, getPacketConfig)
-  );
+  const [draft] = useState(() => buildInitialDraft(activePacketId, catalog, getPacketConfig));
 
   const packet = useMemo(
     () => catalog.find((o) => o.id === activePacketId),
@@ -102,7 +111,6 @@ export function PacketConfigModal({
     return [...rows].sort((a, b) => a.sourceName.localeCompare(b.sourceName));
   }, [registryPage?.content]);
 
-  /** Catalogue attributes for this packet only (keeps employment vs utility fields separate). */
   const allRawKeys = useMemo(() => {
     if (!packet) return [];
     return [...packet.fields].sort((a, b) => a.localeCompare(b));
@@ -114,10 +122,10 @@ export function PacketConfigModal({
 
   const [tab, setTab] = useState<"raw" | "derived">("raw");
   const [search, setSearch] = useState("");
-  const initialActiveDraft = packetDrafts[packetIds[0]];
-  const [checkedRaw, setCheckedRaw] = useState<string[]>(initialActiveDraft.raw);
-  const [disabledRaw, setDisabledRaw] = useState<string[]>(initialActiveDraft.rawDisabled ?? []);
-  const [checkedDerived, setCheckedDerived] = useState<string[]>(initialActiveDraft.derived);
+  const [checkedRaw, setCheckedRaw] = useState<string[]>(draft.raw);
+  const [disabledRaw, setDisabledRaw] = useState<string[]>(draft.rawDisabled ?? []);
+  const [checkedDerived, setCheckedDerived] = useState<string[]>(draft.derived);
+  const [hoveredField, setHoveredField] = useState<string | null>(null);
 
   const filteredRaw = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -151,17 +159,9 @@ export function PacketConfigModal({
     }
   };
 
-  const handleRawEnabledChange = (field: string, enabled: boolean) => {
+  const handleSuppress = (field: string) => {
     if (!checkedRaw.includes(field)) return;
-    setDisabledRaw((prev) => {
-      const set = new Set(prev);
-      if (enabled) {
-        set.delete(field);
-      } else {
-        set.add(field);
-      }
-      return [...set];
-    });
+    setDisabledRaw((prev) => (prev.includes(field) ? prev.filter((f) => f !== field) : [...prev, field]));
   };
 
   const handleDerivedChange = (field: string, value: boolean | "indeterminate") => {
@@ -171,30 +171,19 @@ export function PacketConfigModal({
   };
 
   const handleSave = () => {
-    const merged = {
-      ...packetDrafts,
-      [activePacketId]: { raw: checkedRaw, rawDisabled: disabledRaw, derived: checkedDerived },
-    };
-    const hasAny = packetIds.some(
-      (id) => merged[id].raw.length > 0 || merged[id].derived.length > 0
-    );
-    if (!hasAny) return;
-    for (const id of packetIds) {
-      const d = merged[id];
-      const rawSet = new Set(d.raw);
-      const disabled = (d.rawDisabled ?? []).filter((f) => rawSet.has(f));
-      onSave(id, { selectedFields: d.raw, disabledFields: disabled, selectedDerivedFields: d.derived });
-    }
+    if (checkedRaw.length === 0 && checkedDerived.length === 0) return;
+    const rawSet = new Set(checkedRaw);
+    const disabled = disabledRaw.filter((f) => rawSet.has(f));
+    // Save ONLY the active packet — siblings keep existing config untouched.
+    onSave(activePacketId, {
+      selectedFields: checkedRaw,
+      disabledFields: disabled,
+      selectedDerivedFields: checkedDerived,
+    });
     onClose();
   };
 
-  const mergedPreview = {
-    ...packetDrafts,
-    [activePacketId]: { raw: checkedRaw, rawDisabled: disabledRaw, derived: checkedDerived },
-  };
-  const canSave = packetIds.some(
-    (id) => mergedPreview[id].raw.length > 0 || mergedPreview[id].derived.length > 0
-  );
+  const canSave = checkedRaw.length > 0 || checkedDerived.length > 0;
 
   if (!packet) return null;
 
@@ -290,35 +279,84 @@ export function PacketConfigModal({
                 <p className="text-caption text-muted-foreground py-6 text-center">No fields match your search.</p>
               ) : (
                 <ul className="space-y-1">
-                  {filteredRaw.map((field) => (
-                    <li
-                      key={field}
-                      className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted/50 transition-colors"
-                    >
-                      <Checkbox
-                        id={`pkt-raw-${field}`}
-                        checked={checkedRaw.includes(field)}
-                        onCheckedChange={(v) => handleRawChange(field, v)}
-                      />
-                      <Label
-                        htmlFor={`pkt-raw-${field}`}
-                        className="text-body font-mono font-normal cursor-pointer select-none flex-1 break-all"
+                  {filteredRaw.map((field) => {
+                    const selected = checkedRaw.includes(field);
+                    const suppressed = disabledRaw.includes(field);
+                    const mode = inferAttributeMode(field);
+                    const pii = inferFieldPii(field);
+                    const type = inferFieldType(field);
+                    return (
+                      <li
+                        key={field}
+                        className="group flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted/50 transition-colors"
+                        onMouseEnter={() => setHoveredField(field)}
+                        onMouseLeave={() => setHoveredField(null)}
                       >
-                        {field}
-                      </Label>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span className="text-[10px] text-muted-foreground select-none">
-                          {checkedRaw.includes(field) ? (disabledRaw.includes(field) ? "Disabled" : "Enabled") : "—"}
-                        </span>
-                        <Switch
-                          checked={checkedRaw.includes(field) ? !disabledRaw.includes(field) : false}
-                          disabled={!checkedRaw.includes(field)}
-                          onCheckedChange={(v) => handleRawEnabledChange(field, v)}
-                          aria-label={`Enable mapping for ${field}`}
+                        <Checkbox
+                          id={`pkt-raw-${field}`}
+                          checked={selected}
+                          onCheckedChange={(v) => handleRawChange(field, v)}
                         />
-                      </div>
-                    </li>
-                  ))}
+                        <Label
+                          htmlFor={`pkt-raw-${field}`}
+                          className={cn(
+                            "text-body font-mono font-normal cursor-pointer select-none flex-1 break-all",
+                            suppressed && "text-muted-foreground line-through"
+                          )}
+                        >
+                          {field}
+                        </Label>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span
+                            className={cn(
+                              "px-1.5 py-0 rounded-full",
+                              badgeTextClasses,
+                              "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {type}
+                          </span>
+                          {pii && (
+                            <span
+                              className={cn(
+                                "px-1.5 py-0 rounded-full ring-1 ring-destructive/50 text-destructive",
+                                badgeTextClasses
+                              )}
+                            >
+                              PII
+                            </span>
+                          )}
+                          <span
+                            className={cn(
+                              "px-1.5 py-0 rounded-full text-[10px] leading-[14px] font-medium normal-case",
+                              mode === "TRENDED"
+                                ? "bg-primary/15 text-primary"
+                                : "bg-muted text-muted-foreground"
+                            )}
+                          >
+                            {ATTRIBUTE_MODE_LABEL[mode]}
+                          </span>
+                          {selected && (hoveredField === field || suppressed) && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  type="button"
+                                  className="text-caption text-muted-foreground underline-offset-2 hover:underline"
+                                  onClick={() => handleSuppress(field)}
+                                >
+                                  {suppressed ? "Unsuppress" : "Suppress"}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                Field stays in the contract but is temporarily suppressed from
+                                responses.
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </ScrollArea>
@@ -346,7 +384,7 @@ export function PacketConfigModal({
                       >
                         {field}
                       </Label>
-                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                      <Badge variant="outline" className="shrink-0">
                         future
                       </Badge>
                     </li>
@@ -364,7 +402,7 @@ export function PacketConfigModal({
           <Button type="button" size="sm" onClick={handleSave} disabled={!canSave}>
             Save configuration
             {canSave && (
-              <span className="ml-1.5 text-xs opacity-75">
+              <span className="ml-1.5 text-caption opacity-75">
                 ({checkedRaw.length} raw{checkedDerived.length ? `, ${checkedDerived.length} derived` : ""})
               </span>
             )}

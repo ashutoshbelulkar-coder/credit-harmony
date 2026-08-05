@@ -250,7 +250,8 @@
     }
 
     body {
-        @apply bg-background text-foreground font-sans antialiased;
+        /* text-body (11px) — unclassed copy must not inherit the browser 16px default */
+        @apply bg-background text-foreground font-sans text-body antialiased;
         height: 100%;
         margin: 0;
         overflow: hidden;

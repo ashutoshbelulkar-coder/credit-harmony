@@ -50,7 +50,6 @@ export default function EnquirySimulationPage() {
         description: o.description ?? p.description,
         status: productStatusFromApi(o.status),
         lastUpdated: o.lastUpdated ?? p.lastUpdated,
-        price: o.price ?? p.price,
       };
     });
   }, [productsPage]);

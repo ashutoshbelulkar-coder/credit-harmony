@@ -29,13 +29,13 @@ export default function ApprovalPoliciesPage() {
         {policies.map((p) => (
           <Card key={p.id}>
             <CardHeader className="pb-2">
-              <CardTitle className="flex flex-wrap items-center gap-2 text-base">
+              <CardTitle className="flex flex-wrap items-center gap-2">
                 {p.name}
-                <Badge variant="outline" className="text-[10px] capitalize">
+                <Badge variant="outline" className="capitalize">
                   {p.pattern}
                 </Badge>
                 {p.separationOfDuties && (
-                  <Badge variant="secondary" className="text-[10px]">
+                  <Badge variant="secondary">
                     SoD
                   </Badge>
                 )}
