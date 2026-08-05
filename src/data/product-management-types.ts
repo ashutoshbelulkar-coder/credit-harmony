@@ -49,7 +49,7 @@ export interface ProductMetadata {
   categories: string[];
   effectiveStart?: string | null;
   effectiveEnd?: string | null;
-  legalConditions: string;
+  releaseNote: string;
   dataAcquisitionType: string;
   dataAvailabilityType: string;
   accessRestrictions: string;

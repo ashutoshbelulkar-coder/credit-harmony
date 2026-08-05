@@ -195,8 +195,8 @@ export default function ApprovalReviewPage() {
               <SensitivityBadge value={version.metadata.sensitivity} />
             </p>
             <p>
-              <span className="text-muted-foreground">Legal conditions:</span>{" "}
-              {version.metadata.legalConditions}
+              <span className="text-muted-foreground">Release note:</span>{" "}
+              {version.metadata.releaseNote || "—"}
             </p>
             <p>
               <span className="text-muted-foreground">Owner:</span> {LOCAL_CPO_LABEL}

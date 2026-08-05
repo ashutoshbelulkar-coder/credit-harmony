@@ -85,8 +85,7 @@ const EMPTY_META: ProductMetadata = {
   categories: ["Credit Decisioning"],
   effectiveStart: null,
   effectiveEnd: null,
-  legalConditions:
-    "Access is governed by the applicable member participation agreement and data protection law. Enquiries must be purpose-limited and consent-backed where required.",
+  releaseNote: "",
   dataAcquisitionType: "Member-contributed",
   dataAvailabilityType: "Managed by bureau, available for direct enquiry",
   accessRestrictions: "Active subscription required; purpose-bound use only",
@@ -894,17 +893,18 @@ export default function ProductFormPage() {
                   </div>
 
                   <div className="space-y-1.5 max-w-xl">
-                    <Label htmlFor="pf-legal" className="text-caption">
-                      Legal conditions
+                    <Label htmlFor="pf-release-note" className="text-caption">
+                      Release note
                     </Label>
                     <Textarea
-                      id="pf-legal"
-                      value={metadata.legalConditions}
+                      id="pf-release-note"
+                      value={metadata.releaseNote}
                       onChange={(e) =>
-                        setMetadata((m) => ({ ...m, legalConditions: e.target.value }))
+                        setMetadata((m) => ({ ...m, releaseNote: e.target.value }))
                       }
                       rows={3}
                       className="w-full resize-y min-h-[72px]"
+                      placeholder="Summarise what changed in this version..."
                     />
                   </div>
 
@@ -1308,8 +1308,8 @@ export default function ProductFormPage() {
                         <dd className="text-foreground">{description || "—"}</dd>
                       </div>
                       <div className="col-span-2">
-                        <dt className="text-muted-foreground">Legal conditions</dt>
-                        <dd className="text-foreground">{metadata.legalConditions || "—"}</dd>
+                        <dt className="text-muted-foreground">Release note</dt>
+                        <dd className="text-foreground">{metadata.releaseNote || "—"}</dd>
                       </div>
                     </dl>
                   </div>

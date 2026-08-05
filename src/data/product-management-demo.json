@@ -153,11 +153,11 @@
         ],
         "effectiveStart": "2025-06-15",
         "effectiveEnd": "2025-12-31",
-        "legalConditions": "Enquiries require documented borrower consent captured at origination. Cashflow and GST attributes may be used only for affordability assessment and must not be retained beyond the loan decisioning cycle.",
         "dataAcquisitionType": "Member-contributed",
         "dataAvailabilityType": "Managed by bureau, available for direct enquiry",
         "accessRestrictions": "Active subscription required; purpose-bound to origination underwriting",
-        "sapItemCode": "SAP-0001"
+        "sapItemCode": "SAP-0001",
+        "releaseNote": "v1 deactivated. Retained for audit lineage; no new enquiries."
       },
       "consumerCount": 0,
       "definitionFingerprint": "fp_recomputed",
@@ -360,11 +360,11 @@
         ],
         "effectiveStart": "2025-12-15",
         "effectiveEnd": "2026-05-30",
-        "legalConditions": "Continued use is limited to the 90-day wind-down period specified in the deprecation notice. New integrations must adopt v3; existing consumers must complete migration before the window lapses.",
         "dataAcquisitionType": "Member-contributed",
         "dataAvailabilityType": "Managed by bureau, available for direct enquiry (wind-down)",
         "accessRestrictions": "Restricted to existing subscribed institutions during wind-down; no new subscriptions accepted",
-        "sapItemCode": "SAP-0001"
+        "sapItemCode": "SAP-0001",
+        "releaseNote": "v2 deprecated. Consumers should migrate to the successor version within the stated wind-down window."
       },
       "consumerCount": 1,
       "definitionFingerprint": "fp_recomputed",
@@ -570,11 +570,11 @@
         ],
         "effectiveStart": "2026-03-01",
         "effectiveEnd": null,
-        "legalConditions": "Litigation-screening attributes are sourced from public records only and must be used solely for credit-risk assessment, never for adverse public disclosure. Consent captured at origination covers all included packets.",
         "dataAcquisitionType": "Member-contributed",
         "dataAvailabilityType": "Managed by bureau, available for direct enquiry",
         "accessRestrictions": "Active subscription required; purpose-bound to origination and portfolio review",
-        "sapItemCode": "SAP-0001"
+        "sapItemCode": "SAP-0001",
+        "releaseNote": "v3 release of SME Cashflow & GST Health Pack. Updates field contract and enquiry configuration relative to the prior version."
       },
       "consumerCount": 2,
       "definitionFingerprint": "fp_recomputed",
@@ -780,11 +780,11 @@
         ],
         "effectiveStart": null,
         "effectiveEnd": null,
-        "legalConditions": "Device and behavioural signals may be used for onboarding decisioning only, pending disparate-impact review; not yet cleared for production consent capture.",
         "dataAcquisitionType": "Bureau-derived",
         "dataAvailabilityType": "Managed by bureau, restricted to internal pilot until review completes",
         "accessRestrictions": "Draft — no external access; internal risk review only",
-        "sapItemCode": "SAP-0002"
+        "sapItemCode": "SAP-0002",
+        "releaseNote": "Draft v1 — initial packet selection and enquiry scope under review before governance submission."
       },
       "consumerCount": 0,
       "definitionFingerprint": "fp_recomputed",
@@ -931,11 +931,11 @@
         ],
         "effectiveStart": "2025-08-15",
         "effectiveEnd": null,
-        "legalConditions": "Litigation and network-linkage attributes are public-record or bureau-derived only; use is restricted to merchant onboarding and ongoing monitoring, not consumer-facing disclosure.",
         "dataAcquisitionType": "Bureau-derived",
         "dataAvailabilityType": "Consortium-shared, available to network members for merchant risk review",
         "accessRestrictions": "Requires signed data-use agreement; network-scope enquiries only",
-        "sapItemCode": "SAP-0003"
+        "sapItemCode": "SAP-0003",
+        "releaseNote": "Initial release of Merchant Trust & Legal Screen. Establishes the baseline packet composition and Soft/Hard enquiry behaviour for production subscribers."
       },
       "consumerCount": 1,
       "definitionFingerprint": "fp_recomputed",
@@ -1187,11 +1187,11 @@
         ],
         "effectiveStart": "2026-04-01",
         "effectiveEnd": null,
-        "legalConditions": "Adds banking-cashflow attributes; enquiries are limited to marketplace seller affordability and onboarding trust assessment pending governance sign-off.",
         "dataAcquisitionType": "Bureau-derived",
         "dataAvailabilityType": "Consortium-shared, available to network members for merchant risk review",
         "accessRestrictions": "Pending approval — no production access until quorum sign-off completes",
-        "sapItemCode": "SAP-0003"
+        "sapItemCode": "SAP-0003",
+        "releaseNote": "v2 submitted for approval. Adds or adjusts field contract pending Product Head sign-off."
       },
       "consumerCount": 0,
       "definitionFingerprint": "fp_recomputed",
@@ -1397,11 +1397,11 @@
         ],
         "effectiveStart": "2027-01-15",
         "effectiveEnd": null,
-        "legalConditions": "Payslip and employment attributes require employer-verified consent; utility/rent history is sourced under permissible purpose for affordability underwriting of salaried and SHG borrowers.",
         "dataAcquisitionType": "Member-contributed",
         "dataAvailabilityType": "Managed by bureau, available for direct enquiry",
         "accessRestrictions": "Approved — awaiting activation; no production access until effective start",
-        "sapItemCode": "SAP-0004"
+        "sapItemCode": "SAP-0004",
+        "releaseNote": "v1 approved. Ready for activation once go-live checklist is complete."
       },
       "consumerCount": 0,
       "definitionFingerprint": "fp_recomputed",
@@ -1551,11 +1551,11 @@
         ],
         "effectiveStart": "2024-06-15",
         "effectiveEnd": "2024-12-31",
-        "legalConditions": "Retained for audit trail beyond the active retention window; no new enquiries permitted. Historical KYB data may be used only to respond to regulatory audit requests.",
         "dataAcquisitionType": "Bureau-derived",
         "dataAvailabilityType": "Managed by bureau, restricted to audit/regulatory retrieval",
         "accessRestrictions": "Inactive — audit/compliance access only, no live enquiries",
-        "sapItemCode": "SAP-0005"
+        "sapItemCode": "SAP-0005",
+        "releaseNote": "v4 deactivated. Retained for audit lineage; no new enquiries."
       },
       "consumerCount": 0,
       "definitionFingerprint": "fp_recomputed",
@@ -1691,11 +1691,11 @@
         ],
         "effectiveStart": "2023-01-15",
         "effectiveEnd": "2024-05-31",
-        "legalConditions": "Archived; retained only for regulatory audit trail and version lineage reference. No enquiry or extract access permitted.",
         "dataAcquisitionType": "Bureau-derived",
         "dataAvailabilityType": "Archived, retrieval by compliance request only",
         "accessRestrictions": "Archived — no access; compliance retrieval only",
-        "sapItemCode": "SAP-0005"
+        "sapItemCode": "SAP-0005",
+        "releaseNote": "v3 archived. Historical reference only; superseded by later catalogue versions."
       },
       "consumerCount": 0,
       "definitionFingerprint": "fp_recomputed",
@@ -1900,11 +1900,11 @@
         ],
         "effectiveStart": "2026-03-25",
         "effectiveEnd": null,
-        "legalConditions": "BNPL repayment and device signals are consent-based and limited to first-purchase eligibility decisioning; no traditional bureau attributes are combined in this pack.",
         "dataAcquisitionType": "Member-contributed",
         "dataAvailabilityType": "Managed by bureau, available for direct enquiry",
         "accessRestrictions": "Active subscription required; purpose-bound to checkout/BNPL decisioning",
-        "sapItemCode": "SAP-0006"
+        "sapItemCode": "SAP-0006",
+        "releaseNote": "Initial release of BNPL First-Purchase Pack. Establishes the baseline packet composition and Soft/Hard enquiry behaviour for production subscribers."
       },
       "consumerCount": 1,
       "definitionFingerprint": "fp_recomputed",
@@ -2078,11 +2078,11 @@
         ],
         "effectiveStart": "2025-09-15",
         "effectiveEnd": "2026-04-19",
-        "legalConditions": "Continued use is limited to the 30-day wind-down period; successor packs (Instant Alt-Data / BNPL) must be adopted before the window closes.",
         "dataAcquisitionType": "Member-contributed",
         "dataAvailabilityType": "Managed by bureau, available for direct enquiry (wind-down)",
         "accessRestrictions": "Restricted to existing subscribed institutions during wind-down; no new subscriptions accepted",
-        "sapItemCode": "SAP-0007"
+        "sapItemCode": "SAP-0007",
+        "releaseNote": "v1 deprecated. Consumers should migrate to the successor version within the stated wind-down window."
       },
       "consumerCount": 1,
       "definitionFingerprint": "fp_recomputed",
@@ -2245,11 +2245,11 @@
         ],
         "effectiveStart": "2024-03-15",
         "effectiveEnd": "2025-03-31",
-        "legalConditions": "Archived pilot; retained for version lineage reference only. Superseded by Gig Worker Alt-Data Profile; no enquiry access permitted.",
         "dataAcquisitionType": "Member-contributed",
         "dataAvailabilityType": "Archived, retrieval by compliance request only",
         "accessRestrictions": "Archived — no access; internal reference only",
-        "sapItemCode": "SAP-0008"
+        "sapItemCode": "SAP-0008",
+        "releaseNote": "v1 archived. Historical reference only; superseded by later catalogue versions."
       },
       "consumerCount": 0,
       "definitionFingerprint": "fp_recomputed",

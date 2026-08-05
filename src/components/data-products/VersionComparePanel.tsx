@@ -32,11 +32,8 @@ const META_LABELS: Partial<Record<keyof ProductMetadata, string>> = {
   targetSegment: "Target segment",
   sapItemCode: "SAP item code",
   sensitivity: "Sensitivity",
-  legalConditions: "Legal conditions",
+  releaseNote: "Release note",
   intendedUse: "Intended use",
-  dataAcquisitionType: "Data acquisition type",
-  dataAvailabilityType: "Data availability type",
-  accessRestrictions: "Access restrictions",
   regulatoryNotes: "Regulatory notes",
 };
 

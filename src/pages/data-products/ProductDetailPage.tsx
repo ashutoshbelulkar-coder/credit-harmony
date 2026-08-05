@@ -105,6 +105,12 @@ const SUBSCRIPTION_STATUS_STYLES: Record<Subscription["status"], string> = {
 
 const LEGAL_TRUNCATE_LENGTH = 220;
 
+const productDetailTabTriggerClasses = cn(
+  detailPageTabTriggerBaseClasses,
+  "text-muted-foreground hover:bg-muted hover:text-foreground",
+  "data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-sm"
+);
+
 function formatDate(iso: string) {
   try {
     return new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
@@ -234,12 +240,14 @@ function OverviewTab({
   product: DemoProductVersion;
   onOpenPacketContract: (packetId: string) => void;
 }) {
-  const [legalExpanded, setLegalExpanded] = useState(false);
+  const [releaseExpanded, setReleaseExpanded] = useState(false);
 
-  const legal = product.metadata.legalConditions || "—";
-  const legalIsLong = legal.length > LEGAL_TRUNCATE_LENGTH;
-  const legalDisplay =
-    legalIsLong && !legalExpanded ? `${legal.slice(0, LEGAL_TRUNCATE_LENGTH).trimEnd()}…` : legal;
+  const releaseNote = product.metadata.releaseNote || "—";
+  const releaseIsLong = releaseNote.length > LEGAL_TRUNCATE_LENGTH;
+  const releaseDisplay =
+    releaseIsLong && !releaseExpanded
+      ? `${releaseNote.slice(0, LEGAL_TRUNCATE_LENGTH).trimEnd()}…`
+      : releaseNote;
 
   const publishedAt = getActivatedAt(product) ?? product.metadata.effectiveStart ?? null;
 
@@ -263,18 +271,6 @@ function OverviewTab({
               value={<SensitivityBadge value={product.metadata.sensitivity} />}
             />
             <InfoField
-              label="Data acquisition type"
-              value={product.metadata.dataAcquisitionType || "—"}
-            />
-            <InfoField
-              label="Data availability type"
-              value={product.metadata.dataAvailabilityType || "—"}
-            />
-            <InfoField
-              label="Access restrictions"
-              value={product.metadata.accessRestrictions || "—"}
-            />
-            <InfoField
               label="Effective start"
               value={product.metadata.effectiveStart ?? "—"}
             />
@@ -286,15 +282,15 @@ function OverviewTab({
           </div>
 
           <div className="space-y-1.5 border-t border-border pt-3">
-            <p className="text-caption font-medium text-foreground">Legal conditions</p>
-            <p className="text-caption text-muted-foreground whitespace-pre-wrap">{legalDisplay}</p>
-            {legalIsLong && (
+            <p className="text-caption font-medium text-foreground">Release note</p>
+            <p className="text-caption text-muted-foreground whitespace-pre-wrap">{releaseDisplay}</p>
+            {releaseIsLong && (
               <button
                 type="button"
                 className="text-caption text-primary hover:underline"
-                onClick={() => setLegalExpanded((v) => !v)}
+                onClick={() => setReleaseExpanded((v) => !v)}
               >
-                {legalExpanded ? "Show less" : "More"}
+                {releaseExpanded ? "Show less" : "More"}
               </button>
             )}
           </div>
@@ -858,7 +854,7 @@ function LineageTab({
     <>
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle>Lineage</CardTitle>
+          <CardTitle>Traceability</CardTitle>
           <CardDescription className="text-[10px] leading-[14px]">
             Data submitters flow through configured packets into this product version, out to
             subscribed consumers. Click a packet to inspect its contract fields.
@@ -1211,23 +1207,27 @@ export default function ProductDetailPage() {
       )}
 
       <Tabs value={tab} onValueChange={setTab}>
-        <TabsList className="h-auto w-full flex-wrap justify-start gap-1 bg-transparent p-0 sm:w-auto">
-          <TabsTrigger value="overview" className={detailPageTabTriggerBaseClasses}>
-            Overview
-          </TabsTrigger>
-          <TabsTrigger value="contract" className={detailPageTabTriggerBaseClasses}>
-            Data Contract
-          </TabsTrigger>
-          <TabsTrigger value="lineage" className={detailPageTabTriggerBaseClasses}>
-            Lineage
-          </TabsTrigger>
-          <TabsTrigger value="subscribers" className={detailPageTabTriggerBaseClasses}>
-            Subscribers
-          </TabsTrigger>
-          <TabsTrigger value="versions" className={detailPageTabTriggerBaseClasses}>
-            Versions
-          </TabsTrigger>
-        </TabsList>
+        <div className="rounded-xl border border-border bg-card px-1.5 py-1.5 shadow-sm">
+          <div className="overflow-x-auto overflow-y-hidden -mx-0.5 md:overflow-visible md:mx-0">
+            <TabsList className="h-auto w-max min-w-0 items-center justify-start gap-0.5 rounded-none bg-transparent p-0 md:w-full md:flex-wrap md:min-w-0">
+              <TabsTrigger value="overview" className={productDetailTabTriggerClasses}>
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="contract" className={productDetailTabTriggerClasses}>
+                Data Contract
+              </TabsTrigger>
+              <TabsTrigger value="lineage" className={productDetailTabTriggerClasses}>
+                Traceability
+              </TabsTrigger>
+              <TabsTrigger value="subscribers" className={productDetailTabTriggerClasses}>
+                Subscribers
+              </TabsTrigger>
+              <TabsTrigger value="versions" className={productDetailTabTriggerClasses}>
+                Versions
+              </TabsTrigger>
+            </TabsList>
+          </div>
+        </div>
 
         <TabsContent value="overview" className="mt-4">
           <OverviewTab product={product} onOpenPacketContract={openPacketContract} />

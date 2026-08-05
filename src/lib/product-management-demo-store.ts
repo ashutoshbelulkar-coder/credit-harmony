@@ -40,14 +40,14 @@ const DEFAULT_METADATA: ProductMetadata = {
   categories: ["Uncategorised"],
   effectiveStart: null,
   effectiveEnd: null,
-  legalConditions:
-    "Access is governed by the applicable member participation agreement and data protection law. Enquiries must be purpose-limited and consent-backed where required.",
+  releaseNote: "",
   dataAcquisitionType: "Member-contributed",
   dataAvailabilityType: "Managed by bureau, available for direct enquiry",
   accessRestrictions: "Active subscription required; purpose-bound use only",
 };
 
 function normalizeMetadata(raw: Partial<ProductMetadata> & Record<string, unknown>): ProductMetadata {
+  const legacyLegal = raw.legalConditions;
   return {
     businessUnit: String(raw.businessUnit ?? DEFAULT_METADATA.businessUnit),
     targetSegment: String(raw.targetSegment ?? DEFAULT_METADATA.targetSegment),
@@ -62,7 +62,9 @@ function normalizeMetadata(raw: Partial<ProductMetadata> & Record<string, unknow
     categories: Array.isArray(raw.categories) ? (raw.categories as string[]) : ["Uncategorised"],
     effectiveStart: (raw.effectiveStart as string | null | undefined) ?? null,
     effectiveEnd: (raw.effectiveEnd as string | null | undefined) ?? null,
-    legalConditions: String(raw.legalConditions ?? DEFAULT_METADATA.legalConditions),
+    releaseNote: String(
+      raw.releaseNote ?? legacyLegal ?? DEFAULT_METADATA.releaseNote
+    ),
     dataAcquisitionType: String(raw.dataAcquisitionType ?? DEFAULT_METADATA.dataAcquisitionType),
     dataAvailabilityType: String(
       raw.dataAvailabilityType ?? DEFAULT_METADATA.dataAvailabilityType

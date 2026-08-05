@@ -18,10 +18,12 @@ import {
   Flag,
   Package,
   PackageSearch,
+  Play,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { DemoProductVersion } from "@/data/product-management-types";
 import { ProductStatusBadge } from "@/components/data-products/ProductStatusBadge";
+import { ProductRunTestModal } from "@/components/data-products/ProductRunTestModal";
 import { resolvePreferredVersion } from "@/components/data-products/lifecycle-menu";
 import { productMgmtStore, useProductMgmtStore } from "@/lib/product-management-demo-store";
 import { toast } from "sonner";
@@ -98,6 +100,7 @@ export default function ProductListPage() {
 
   const [search, setSearch] = useState("");
   const [savedView, setSavedView] = useState<SavedViewKey>("all");
+  const [testProduct, setTestProduct] = useState<DemoProductVersion | null>(null);
 
   const groups = useMemo<ProductGroup[]>(() => {
     const byCode = new Map<string, DemoProductVersion[]>();
@@ -332,12 +335,31 @@ export default function ProductListPage() {
                     <Eye className="w-3.5 h-3.5 shrink-0" />
                     <span className="truncate">View</span>
                   </Button>
+                  {(g.head.status === "active" || g.head.status === "deprecated") && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex-1 min-w-0 gap-1.5 text-caption border-border bg-transparent text-foreground hover:bg-primary/10 hover:text-primary hover:border-primary/30"
+                      onClick={() => setTestProduct(g.head)}
+                    >
+                      <Play className="w-3.5 h-3.5 shrink-0" />
+                      <span className="truncate">Run test</span>
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
       )}
+
+      <ProductRunTestModal
+        open={testProduct != null}
+        product={testProduct}
+        onOpenChange={(open) => {
+          if (!open) setTestProduct(null);
+        }}
+      />
     </div>
   );
 }
