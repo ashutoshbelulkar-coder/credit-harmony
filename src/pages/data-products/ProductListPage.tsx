@@ -35,6 +35,7 @@ interface ProductGroup {
   versions: DemoProductVersion[];
   head: DemoProductVersion;
   totalConsumers: number;
+  totalEnquiries: number;
   updatedAt: string;
   warnings: { versionId: string; version: number; message: string }[];
 }
@@ -49,10 +50,15 @@ const SAVED_VIEW_DEFS: { key: SavedViewKey; label: string }[] = [
 
 function formatUpdated(iso: string) {
   try {
-    return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    return new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
   } catch {
     return iso;
   }
+}
+
+/** Locale-separated integer, e.g. 1000000 → "1,000,000". */
+function formatCount(n: number) {
+  return Math.max(0, Math.floor(n)).toLocaleString();
 }
 
 function matchesSavedView(g: ProductGroup, view: SavedViewKey): boolean {
@@ -114,6 +120,7 @@ export default function ProductListPage() {
       const versions = [...versionsRaw].sort((a, b) => b.version - a.version);
       const head = resolvePreferredVersion(versions) ?? versions[0];
       const totalConsumers = versions.reduce((sum, v) => sum + v.consumerCount, 0);
+      const totalEnquiries = versions.reduce((sum, v) => sum + (v.enquiryCount ?? 0), 0);
       const updatedAt = versions.reduce(
         (latest, v) => (new Date(v.lastUpdated) > new Date(latest) ? v.lastUpdated : latest),
         head.lastUpdated
@@ -126,6 +133,7 @@ export default function ProductListPage() {
         versions,
         head,
         totalConsumers,
+        totalEnquiries,
         updatedAt,
         warnings,
       });
@@ -307,6 +315,19 @@ export default function ProductListPage() {
                     <p className="mt-0.5 text-caption text-muted-foreground font-mono truncate">
                       {g.productCode}
                     </p>
+                    {g.head.metadata.tags.length > 0 && (
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {g.head.metadata.tags.slice(0, 3).map((tag) => (
+                          <span
+                            key={tag}
+                            className="max-w-full truncate rounded-full border border-primary/15 bg-primary/5 px-1.5 py-0 text-[10px] leading-[15px] text-primary/80"
+                            title={tag}
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -317,6 +338,12 @@ export default function ProductListPage() {
                 </p>
 
                 <div className="flex flex-wrap items-center gap-1.5">
+                  <span
+                    className="rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[10px] leading-[14px] text-muted-foreground tabular-nums"
+                    title={`${formatCount(g.totalEnquiries)} enquiries to date`}
+                  >
+                    {formatCount(g.totalEnquiries)} enquir{g.totalEnquiries === 1 ? "y" : "ies"}
+                  </span>
                   <span className="rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[10px] leading-[14px] text-muted-foreground tabular-nums">
                     {g.totalConsumers} subscriber{g.totalConsumers !== 1 ? "s" : ""}
                   </span>

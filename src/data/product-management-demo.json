@@ -40,6 +40,7 @@
   "versions": [
     {
       "id": "ver_sme_v1",
+      "enquiryCount": 1,
       "productCode": "PRD_0001",
       "name": "SME Cashflow & GST Health Pack",
       "description": "SME affordability from bank cashflow analysis and GST filing behaviour.",
@@ -189,6 +190,7 @@
     },
     {
       "id": "ver_sme_v2",
+      "enquiryCount": 2480,
       "productCode": "PRD_0001",
       "name": "SME Cashflow & GST Health Pack",
       "description": "SME affordability from bank cashflow, GST filing behaviour and business linkage signals.",
@@ -396,6 +398,7 @@
     },
     {
       "id": "ver_sme_v3",
+      "enquiryCount": 45120,
       "productCode": "PRD_0001",
       "name": "SME Cashflow & GST Health Pack",
       "description": "SME affordability from bank cashflow analysis, GST filing behaviour and legal/litigation screening.",
@@ -576,7 +579,7 @@
         "sapItemCode": "SAP-0001",
         "releaseNote": "v3 release of SME Cashflow & GST Health Pack. Updates field contract and enquiry configuration relative to the prior version."
       },
-      "consumerCount": 2,
+      "consumerCount": 28,
       "definitionFingerprint": "fp_recomputed",
       "approvalCycles": [
         {
@@ -606,6 +609,7 @@
     },
     {
       "id": "ver_retail_v1",
+      "enquiryCount": 128940,
       "productCode": "PRD_0002",
       "name": "Thin-File Onboarding Score",
       "description": "Thin-file onboarding from telecom behaviour, device footprint and digital spend signals.",
@@ -794,6 +798,7 @@
     },
     {
       "id": "ver_corp_v1",
+      "enquiryCount": 312556,
       "productCode": "PRD_0003",
       "name": "Merchant Trust & Legal Screen",
       "description": "Merchant trust from GST profile, business linkages and public litigation footprint.",
@@ -937,7 +942,7 @@
         "sapItemCode": "SAP-0003",
         "releaseNote": "Initial release of Merchant Trust & Legal Screen. Establishes the baseline packet composition and Soft/Hard enquiry behaviour for production subscribers."
       },
-      "consumerCount": 1,
+      "consumerCount": 18,
       "definitionFingerprint": "fp_recomputed",
       "approvalCycles": [
         {
@@ -989,6 +994,7 @@
     },
     {
       "id": "ver_corp_v2",
+      "enquiryCount": 540890,
       "productCode": "PRD_0003",
       "name": "Merchant Trust & Legal Screen",
       "description": "Merchant trust with GST, linkages, litigation and banking cashflow for seller affordability.",
@@ -1214,6 +1220,7 @@
     },
     {
       "id": "ver_mfi_v1",
+      "enquiryCount": 8742,
       "productCode": "PRD_0004",
       "name": "Payslip & Utility Affordability Pack",
       "description": "Affordability from verified payslip income, employment insights and utility/rent payment history.",
@@ -1432,6 +1439,7 @@
     },
     {
       "id": "ver_trade_v4",
+      "enquiryCount": 1000000,
       "productCode": "PRD_0005",
       "name": "Legacy GST KYB Pack",
       "description": "Legacy GST KYB pack retained for audit; past retention window.",
@@ -1587,6 +1595,7 @@
     },
     {
       "id": "ver_trade_v3",
+      "enquiryCount": 76301,
       "productCode": "PRD_0005",
       "name": "Legacy GST KYB Pack",
       "description": "Prior GST KYB version (archived lineage parent).",
@@ -1727,6 +1736,7 @@
     },
     {
       "id": "ver_bnpl_v1",
+      "enquiryCount": 64205,
       "productCode": "PRD_0006",
       "name": "BNPL First-Purchase Pack",
       "description": "First-purchase BNPL eligibility from repayment behaviour, device footprint and digital spend.",
@@ -1906,7 +1916,7 @@
         "sapItemCode": "SAP-0006",
         "releaseNote": "Initial release of BNPL First-Purchase Pack. Establishes the baseline packet composition and Soft/Hard enquiry behaviour for production subscribers."
       },
-      "consumerCount": 1,
+      "consumerCount": 47,
       "definitionFingerprint": "fp_recomputed",
       "approvalCycles": [
         {
@@ -1936,6 +1946,7 @@
     },
     {
       "id": "ver_devlite_v1",
+      "enquiryCount": 512,
       "productCode": "PRD_0007",
       "name": "Device Risk Score Lite",
       "description": "Device footprint with digital spend signals for thin-file device risk scoring.",
@@ -2114,6 +2125,7 @@
     },
     {
       "id": "ver_gigleg_v1",
+      "enquiryCount": 19834,
       "productCode": "PRD_0008",
       "name": "Early Gig Telco Profile",
       "description": "Retired gig-worker pilot combining telecom behavioural score and digital spend patterns.",

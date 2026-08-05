@@ -27,7 +27,7 @@ import {
 import type { EnquiryConfig, PacketConfig } from "@/data/data-products-mock";
 import { DEFAULT_ENQUIRY_CONFIG, normalizeEnquiryConfig } from "@/data/data-products-mock";
 
-const STORAGE_KEY = "hcb-product-mgmt-demo-v8";
+const STORAGE_KEY = "hcb-product-mgmt-demo-v9";
 
 const DEFAULT_METADATA: ProductMetadata = {
   businessUnit: "Product Management",
@@ -121,6 +121,7 @@ function normalizeVersion(v: DemoProductVersion & Record<string, unknown>): Demo
     policyWarnings,
     definitionFingerprint: fingerprint,
     consumerCount: v.consumerCount ?? 0,
+    enquiryCount: Math.max(0, Math.floor(Number(v.enquiryCount) || 0)),
   };
 }
 
@@ -434,6 +435,7 @@ export const productMgmtStore = {
       enquiryConfig,
       metadata: meta,
       consumerCount: 0,
+      enquiryCount: 0,
       definitionFingerprint: fingerprint,
       approvalCycles: [],
       trendedConfig,
@@ -801,6 +803,7 @@ export const productMgmtStore = {
       parentVersionId: source.id,
       status: "draft",
       consumerCount: 0,
+      enquiryCount: 0,
       createdAt: new Date().toISOString(),
       lastUpdated: new Date().toISOString(),
       approvalCycles: [],

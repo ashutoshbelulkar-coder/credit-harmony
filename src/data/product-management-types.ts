@@ -151,6 +151,8 @@ export interface DemoProductVersion {
   enquiryConfig: EnquiryConfig;
   metadata: ProductMetadata;
   consumerCount: number;
+  /** Cumulative enquiries executed against this version to date (demo metric). */
+  enquiryCount: number;
   definitionFingerprint: string;
   deprecationWindowDays?: number | null;
   deprecationNoticeAt?: string | null;
