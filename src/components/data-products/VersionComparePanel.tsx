@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/select";
 import { productMgmtStore } from "@/lib/product-management-demo-store";
 import { ProductStatusBadge } from "@/components/data-products/ProductStatusBadge";
-import { catalogLabelForPacketId } from "@/data/data-products-mock";
+import { catalogLabelForPacketId, formatImpactOption } from "@/data/data-products-mock";
 import type { DemoProductVersion, ProductMetadata } from "@/data/product-management-types";
 
 const SCOPE_LABEL: Record<string, string> = {
@@ -20,11 +20,6 @@ const SCOPE_LABEL: Record<string, string> = {
   NETWORK: "Network Data",
   CONSORTIUM: "Consortium Data",
   VERTICAL: "Vertical Data",
-};
-
-const IMPACT_LABEL: Record<string, string> = {
-  SOFT: "Soft enquiry",
-  HARD: "Hard enquiry",
 };
 
 const META_LABELS: Partial<Record<keyof ProductMetadata, string>> = {
@@ -55,11 +50,24 @@ function computeVersionDiff(a: DemoProductVersion, b: DemoProductVersion) {
   });
 
   const scopeChanged = a.enquiryConfig.scope !== b.enquiryConfig.scope;
-  const impactChanged = a.enquiryConfig.impactType !== b.enquiryConfig.impactType;
+  const softChanged =
+    formatImpactOption(a.enquiryConfig.soft, "Soft") !==
+    formatImpactOption(b.enquiryConfig.soft, "Soft");
+  const hardChanged =
+    formatImpactOption(a.enquiryConfig.hard, "Hard") !==
+    formatImpactOption(b.enquiryConfig.hard, "Hard");
+  const impactChanged = softChanged || hardChanged;
+  const footprintStoreChanged = false;
+  const footprintVisChanged = false;
   const trendedEnabledChanged = a.trendedConfig.enabled !== b.trendedConfig.enabled;
   const trendedMonthsChanged =
     (a.trendedConfig.enabled || b.trendedConfig.enabled) &&
     a.trendedConfig.maxHistoryMonths !== b.trendedConfig.maxHistoryMonths;
+  const retroEnabledChanged =
+    (a.retroConfig?.enabled ?? false) !== (b.retroConfig?.enabled ?? false);
+  const retroMonthsChanged =
+    ((a.retroConfig?.enabled ?? false) || (b.retroConfig?.enabled ?? false)) &&
+    (a.retroConfig?.maxHistoryMonths ?? 0) !== (b.retroConfig?.maxHistoryMonths ?? 0);
 
   const profA = new Set(a.profileConfig.includedFields);
   const profB = new Set(b.profileConfig.includedFields);
@@ -82,8 +90,12 @@ function computeVersionDiff(a: DemoProductVersion, b: DemoProductVersion) {
     fieldChanges,
     scopeChanged,
     impactChanged,
+    footprintStoreChanged,
+    footprintVisChanged,
     trendedEnabledChanged,
     trendedMonthsChanged,
+    retroEnabledChanged,
+    retroMonthsChanged,
     profileAdded,
     profileRemoved,
     metaChanges,
@@ -218,11 +230,15 @@ export function VersionComparePanel({ a, b, hidePickers }: VersionComparePanelPr
             )}
           </div>
           <div>
-            <p className="font-medium text-foreground">Enquiry &amp; trended changes</p>
+            <p className="font-medium text-foreground">Retrieval &amp; enquiry changes</p>
             {!diff.scopeChanged &&
             !diff.impactChanged &&
+            !diff.footprintStoreChanged &&
+            !diff.footprintVisChanged &&
             !diff.trendedEnabledChanged &&
-            !diff.trendedMonthsChanged ? (
+            !diff.trendedMonthsChanged &&
+            !diff.retroEnabledChanged &&
+            !diff.retroMonthsChanged ? (
               <p className="text-muted-foreground">None</p>
             ) : (
               <ul className="space-y-1">
@@ -233,10 +249,16 @@ export function VersionComparePanel({ a, b, hidePickers }: VersionComparePanelPr
                   </li>
                 )}
                 {diff.impactChanged && (
-                  <li>
-                    Impact: {IMPACT_LABEL[a.enquiryConfig.impactType] ?? a.enquiryConfig.impactType}{" "}
-                    → {IMPACT_LABEL[b.enquiryConfig.impactType] ?? b.enquiryConfig.impactType}
-                  </li>
+                  <>
+                    <li>
+                      Soft: {formatImpactOption(a.enquiryConfig.soft, "Soft").replace(/^Soft:\s*/, "")}{" "}
+                      → {formatImpactOption(b.enquiryConfig.soft, "Soft").replace(/^Soft:\s*/, "")}
+                    </li>
+                    <li>
+                      Hard: {formatImpactOption(a.enquiryConfig.hard, "Hard").replace(/^Hard:\s*/, "")}{" "}
+                      → {formatImpactOption(b.enquiryConfig.hard, "Hard").replace(/^Hard:\s*/, "")}
+                    </li>
+                  </>
                 )}
                 {diff.trendedEnabledChanged && (
                   <li>
@@ -246,8 +268,20 @@ export function VersionComparePanel({ a, b, hidePickers }: VersionComparePanelPr
                 )}
                 {diff.trendedMonthsChanged && (
                   <li>
-                    Max history: {a.trendedConfig.maxHistoryMonths} mo → {b.trendedConfig.maxHistoryMonths}{" "}
-                    mo
+                    Trended max history: {a.trendedConfig.maxHistoryMonths} mo →{" "}
+                    {b.trendedConfig.maxHistoryMonths} mo
+                  </li>
+                )}
+                {diff.retroEnabledChanged && (
+                  <li>
+                    Retro: {a.retroConfig?.enabled ? "Enabled" : "Disabled"} →{" "}
+                    {b.retroConfig?.enabled ? "Enabled" : "Disabled"}
+                  </li>
+                )}
+                {diff.retroMonthsChanged && (
+                  <li>
+                    Retro max history: {a.retroConfig?.maxHistoryMonths ?? 0} mo →{" "}
+                    {b.retroConfig?.maxHistoryMonths ?? 0} mo
                   </li>
                 )}
               </ul>

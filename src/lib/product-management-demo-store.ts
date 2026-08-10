@@ -5,7 +5,10 @@ import {
   buildFieldContractFromPackets,
   computeDefinitionFingerprint,
   DEFAULT_PROFILE_CONFIG,
+  DEFAULT_RETRO_CONFIG,
   DEFAULT_TRENDED_CONFIG,
+  normalizeRetroConfig,
+  normalizeTrendedConfig,
   defaultOutputPorts,
   LOCAL_CPO_LABEL,
   normalizeProductName,
@@ -21,13 +24,14 @@ import {
   type ProductManagementDemoState,
   type ProductMetadata,
   type ProfileBlockConfig,
+  type RetroConfig,
   type Subscription,
   type TrendedConfig,
 } from "@/data/product-management-types";
 import type { EnquiryConfig, PacketConfig } from "@/data/data-products-mock";
 import { DEFAULT_ENQUIRY_CONFIG, normalizeEnquiryConfig } from "@/data/data-products-mock";
 
-const STORAGE_KEY = "hcb-product-mgmt-demo-v9";
+const STORAGE_KEY = "hcb-product-mgmt-demo-v11";
 
 const DEFAULT_METADATA: ProductMetadata = {
   businessUnit: "Product Management",
@@ -77,12 +81,10 @@ function normalizeVersion(v: DemoProductVersion & Record<string, unknown>): Demo
   const packetIds = v.packetIds ?? [];
   const packetConfigs = v.packetConfigs ?? [];
   const enquiryConfig = normalizeEnquiryConfig(v.enquiryConfig);
-  const trendedConfig: TrendedConfig = v.trendedConfig
-    ? {
-        enabled: !!v.trendedConfig.enabled,
-        maxHistoryMonths: Number(v.trendedConfig.maxHistoryMonths) || 0,
-      }
-    : { ...DEFAULT_TRENDED_CONFIG };
+  const trendedConfig = normalizeTrendedConfig(v.trendedConfig);
+  const retroConfig = normalizeRetroConfig(
+    (v as DemoProductVersion & { retroConfig?: RetroConfig }).retroConfig
+  );
   const profileConfig: ProfileBlockConfig = v.profileConfig?.includedFields?.length
     ? { includedFields: [...v.profileConfig.includedFields] }
     : { ...DEFAULT_PROFILE_CONFIG, includedFields: [...DEFAULT_PROFILE_CONFIG.includedFields] };
@@ -99,7 +101,8 @@ function normalizeVersion(v: DemoProductVersion & Record<string, unknown>): Demo
     packetIds,
     packetConfigs,
     enquiryConfig,
-    trendedConfig
+    trendedConfig,
+    retroConfig
   );
   return {
     ...v,
@@ -115,6 +118,7 @@ function normalizeVersion(v: DemoProductVersion & Record<string, unknown>): Demo
       })),
     })),
     trendedConfig,
+    retroConfig,
     profileConfig,
     outputPorts,
     fieldContract,
@@ -235,12 +239,18 @@ function updateVersion(
   return next;
 }
 
-function fingerprintFor(v: Pick<DemoProductVersion, "packetIds" | "packetConfigs" | "enquiryConfig" | "trendedConfig">) {
+function fingerprintFor(
+  v: Pick<
+    DemoProductVersion,
+    "packetIds" | "packetConfigs" | "enquiryConfig" | "trendedConfig" | "retroConfig"
+  >
+) {
   return computeDefinitionFingerprint(
     v.packetIds,
     v.packetConfigs,
     v.enquiryConfig,
-    v.trendedConfig
+    v.trendedConfig,
+    v.retroConfig
   );
 }
 
@@ -393,6 +403,7 @@ export const productMgmtStore = {
     packetConfigs: PacketConfig[];
     enquiryConfig?: EnquiryConfig;
     trendedConfig?: TrendedConfig;
+    retroConfig?: RetroConfig;
     profileConfig?: ProfileBlockConfig;
     metadata?: Partial<ProductMetadata>;
     actor?: string;
@@ -402,12 +413,14 @@ export const productMgmtStore = {
       return { ok: false as const, conflict };
     }
     const enquiryConfig = normalizeEnquiryConfig(input.enquiryConfig ?? DEFAULT_ENQUIRY_CONFIG);
-    const trendedConfig = input.trendedConfig ?? { ...DEFAULT_TRENDED_CONFIG };
+    const trendedConfig = normalizeTrendedConfig(input.trendedConfig ?? DEFAULT_TRENDED_CONFIG);
+    const retroConfig = normalizeRetroConfig(input.retroConfig ?? DEFAULT_RETRO_CONFIG);
     const fingerprint = computeDefinitionFingerprint(
       input.packetIds,
       input.packetConfigs,
       enquiryConfig,
-      trendedConfig
+      trendedConfig,
+      retroConfig
     );
     const id = uid("ver");
     const maxNum = state.versions.reduce((max, v) => {
@@ -439,6 +452,7 @@ export const productMgmtStore = {
       definitionFingerprint: fingerprint,
       approvalCycles: [],
       trendedConfig,
+      retroConfig,
       profileConfig,
       outputPorts: defaultOutputPorts(code, 1),
       fieldContract: buildFieldContractFromPackets(input.packetIds, input.packetConfigs),
@@ -469,6 +483,7 @@ export const productMgmtStore = {
       packetConfigs?: PacketConfig[];
       enquiryConfig?: EnquiryConfig;
       trendedConfig?: TrendedConfig;
+      retroConfig?: RetroConfig;
       profileConfig?: ProfileBlockConfig;
       metadata?: Partial<ProductMetadata>;
       actor?: string;
@@ -489,7 +504,12 @@ export const productMgmtStore = {
         const enquiryConfig = patch.enquiryConfig
           ? normalizeEnquiryConfig(patch.enquiryConfig)
           : v.enquiryConfig;
-        const trendedConfig = patch.trendedConfig ?? v.trendedConfig;
+        const trendedConfig = patch.trendedConfig
+          ? normalizeTrendedConfig(patch.trendedConfig)
+          : v.trendedConfig;
+        const retroConfig = patch.retroConfig
+          ? normalizeRetroConfig(patch.retroConfig)
+          : v.retroConfig;
         return {
           ...v,
           name: patch.name?.trim() ?? v.name,
@@ -498,6 +518,7 @@ export const productMgmtStore = {
           packetConfigs,
           enquiryConfig,
           trendedConfig,
+          retroConfig,
           profileConfig: patch.profileConfig ?? v.profileConfig,
           metadata: patch.metadata ? normalizeMetadata({ ...v.metadata, ...patch.metadata }) : v.metadata,
           fieldContract: buildFieldContractFromPackets(packetIds, packetConfigs),
@@ -505,7 +526,8 @@ export const productMgmtStore = {
             packetIds,
             packetConfigs,
             enquiryConfig,
-            trendedConfig
+            trendedConfig,
+            retroConfig
           ),
         };
       },

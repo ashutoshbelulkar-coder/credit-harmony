@@ -99,6 +99,12 @@ export interface TrendedConfig {
   maxHistoryMonths: number;
 }
 
+/** Point-in-time as-of retrieval ceiling; request supplies enquiryDate within it. */
+export interface RetroConfig {
+  enabled: boolean;
+  maxHistoryMonths: number;
+}
+
 export interface OutputPort {
   id: string;
   name: string;
@@ -158,6 +164,7 @@ export interface DemoProductVersion {
   deprecationNoticeAt?: string | null;
   approvalCycles: ApprovalCycle[];
   trendedConfig: TrendedConfig;
+  retroConfig: RetroConfig;
   profileConfig: ProfileBlockConfig;
   outputPorts: OutputPort[];
   fieldContract: FieldContractRow[];
@@ -318,15 +325,16 @@ export function inferFieldType(fieldName: string): string {
 
 /**
  * Canonical definition fingerprint.
- * Incorporates packet contract fields (selected − disabled), enquiry scope + impact,
- * and trendedConfig (enabled + maxHistoryMonths). Disabled fields are excluded from
+ * Incorporates packet contract fields (selected − disabled), enquiry scope + impact +
+ * footprint policy, trendedConfig, and retroConfig. Disabled fields are excluded from
  * the fields set rather than hashed separately.
  */
 export function computeDefinitionFingerprint(
   packetIds: string[],
   packetConfigs: PacketConfig[],
-  enquiryConfig: Pick<EnquiryConfig, "scope" | "impactType">,
-  trendedConfig: TrendedConfig
+  enquiryConfig: Pick<EnquiryConfig, "scope" | "soft" | "hard">,
+  trendedConfig: TrendedConfig,
+  retroConfig: RetroConfig = { enabled: false, maxHistoryMonths: 0 }
 ): string {
   const sortedIds = [...packetIds].sort();
   const cfgMap = new Map(packetConfigs.map((c) => [c.packetId, c]));
@@ -337,9 +345,16 @@ export function computeDefinitionFingerprint(
     const derived = [...(c?.selectedDerivedFields ?? [])].sort().join(",");
     return `${pid}:{${fields}}/{${derived}}`;
   });
-  parts.push(`enq:${enquiryConfig.scope}:${enquiryConfig.impactType}`);
+  const packImpact = (opt: { enabled: boolean; storeFootprint: boolean; footprintVisibility: string | null }) =>
+    `${opt.enabled ? 1 : 0}:${opt.storeFootprint ? 1 : 0}:${opt.footprintVisibility ?? "none"}`;
+  parts.push(
+    `enq:${enquiryConfig.scope}:soft=${packImpact(enquiryConfig.soft)}:hard=${packImpact(enquiryConfig.hard)}`
+  );
   parts.push(
     `trended:${trendedConfig.enabled ? 1 : 0}:${trendedConfig.enabled ? trendedConfig.maxHistoryMonths : 0}`
+  );
+  parts.push(
+    `retro:${retroConfig.enabled ? 1 : 0}:${retroConfig.enabled ? retroConfig.maxHistoryMonths : 0}`
   );
   const raw = parts.join("|");
   let hash = 0;
@@ -385,6 +400,20 @@ export function buildFieldContractFromPackets(
 }
 
 export const DEFAULT_TRENDED_CONFIG: TrendedConfig = { enabled: false, maxHistoryMonths: 0 };
+
+export const DEFAULT_RETRO_CONFIG: RetroConfig = { enabled: false, maxHistoryMonths: 0 };
+
+export function normalizeRetroConfig(partial?: Partial<RetroConfig> | null): RetroConfig {
+  if (!partial?.enabled) return { ...DEFAULT_RETRO_CONFIG };
+  const months = Math.max(1, Math.min(60, Math.floor(Number(partial.maxHistoryMonths) || 6)));
+  return { enabled: true, maxHistoryMonths: months };
+}
+
+export function normalizeTrendedConfig(partial?: Partial<TrendedConfig> | null): TrendedConfig {
+  if (!partial?.enabled) return { ...DEFAULT_TRENDED_CONFIG };
+  const months = Math.max(1, Math.min(60, Math.floor(Number(partial.maxHistoryMonths) || 6)));
+  return { enabled: true, maxHistoryMonths: months };
+}
 
 export const DEFAULT_PROFILE_CONFIG: ProfileBlockConfig = {
   includedFields: [...DEFAULT_PROFILE_FIELDS],

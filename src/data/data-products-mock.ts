@@ -42,11 +42,75 @@ export interface PacketConfig {
 }
 
 /** Request-time retrieval mode — not a product-level either/or. */
-export type EnquiryDataScope = "LATEST" | "TRENDED";
+export type EnquiryDataScope = "LATEST" | "TRENDED" | "RETRO";
+
+export type FootprintVisibility = "NETWORK" | "VERTICAL";
+
+/** Soft or Hard impact policy — independently enabled on a product. */
+export interface EnquiryImpactOption {
+  enabled: boolean;
+  storeFootprint: boolean;
+  footprintVisibility: FootprintVisibility | null;
+}
 
 export interface EnquiryConfig {
-  impactType: "SOFT" | "HARD";
   scope: "SELF" | "NETWORK" | "CONSORTIUM" | "VERTICAL";
+  soft: EnquiryImpactOption;
+  hard: EnquiryImpactOption;
+}
+
+/** @deprecated Visibility is NETWORK vs VERTICAL only; no per-vertical sub-select. */
+export const FOOTPRINT_VERTICALS = [
+  "Retail",
+  "Insurance",
+  "BNPL",
+  "Commercial Lending",
+  "Consumer Digital",
+] as const;
+
+const IMPACT_OFF: EnquiryImpactOption = {
+  enabled: false,
+  storeFootprint: false,
+  footprintVisibility: null,
+};
+
+export function normalizeImpactOption(
+  partial?: Partial<EnquiryImpactOption> | null
+): EnquiryImpactOption {
+  if (!partial?.enabled) return { ...IMPACT_OFF };
+  if (!partial.storeFootprint) {
+    return { enabled: true, storeFootprint: false, footprintVisibility: null };
+  }
+  const footprintVisibility: FootprintVisibility =
+    partial.footprintVisibility === "VERTICAL" || partial.footprintVisibility === "NETWORK"
+      ? partial.footprintVisibility
+      : "NETWORK";
+  return { enabled: true, storeFootprint: true, footprintVisibility };
+}
+
+export function formatImpactOption(opt: EnquiryImpactOption, label: string): string {
+  if (!opt.enabled) return `${label}: Off`;
+  if (!opt.storeFootprint) return `${label}: On · no footprint`;
+  const vis =
+    opt.footprintVisibility === "VERTICAL"
+      ? "Vertical participants"
+      : "All network participants";
+  return `${label}: On · footprint · ${vis}`;
+}
+
+/** Preferred enquiry type for preview when both Soft and Hard are allowed. */
+export function preferredEnquiryType(config: EnquiryConfig): "SOFT" | "HARD" {
+  if (config.hard.enabled) return "HARD";
+  if (config.soft.enabled) return "SOFT";
+  return "SOFT";
+}
+
+export function footprintCreatedForType(
+  config: EnquiryConfig,
+  enquiryType: "SOFT" | "HARD"
+): boolean {
+  const opt = enquiryType === "HARD" ? config.hard : config.soft;
+  return opt.enabled && opt.storeFootprint;
 }
 
 export interface ConfiguredProduct {
@@ -87,22 +151,24 @@ export function getAllRawFieldKeysForPacketOption(opt: ProductCatalogPacketOptio
 }
 
 export const DEFAULT_ENQUIRY_CONFIG: EnquiryConfig = {
-  impactType: "SOFT",
   scope: "SELF",
+  soft: { enabled: true, storeFootprint: false, footprintVisibility: null },
+  hard: { ...IMPACT_OFF },
 };
 
-/** Migrate legacy LOW/HIGH → SOFT/HARD; strip removed mode/dataType fields. */
-export function normalizeEnquiryConfig(
-  partial?: Partial<EnquiryConfig> & {
-    impactType?: string;
-    mode?: string;
-    dataType?: string;
-  } | null
-): EnquiryConfig {
-  const rawImpact = partial?.impactType;
-  let impactType: EnquiryConfig["impactType"] = DEFAULT_ENQUIRY_CONFIG.impactType;
-  if (rawImpact === "HARD" || rawImpact === "HIGH") impactType = "HARD";
-  else if (rawImpact === "SOFT" || rawImpact === "LOW") impactType = "SOFT";
+type LegacyEnquiryPartial = Partial<EnquiryConfig> & {
+  impactType?: string;
+  mode?: string;
+  dataType?: string;
+  storeFootprint?: boolean;
+  footprintVisibility?: FootprintVisibility | null;
+  footprintVertical?: string | null;
+  soft?: Partial<EnquiryImpactOption>;
+  hard?: Partial<EnquiryImpactOption>;
+};
+
+/** Migrate legacy SOFT/HARD + flat footprint fields into soft/hard impact options. */
+export function normalizeEnquiryConfig(partial?: LegacyEnquiryPartial | null): EnquiryConfig {
   const scope =
     partial?.scope === "NETWORK" ||
     partial?.scope === "CONSORTIUM" ||
@@ -110,7 +176,41 @@ export function normalizeEnquiryConfig(
     partial?.scope === "SELF"
       ? partial.scope
       : DEFAULT_ENQUIRY_CONFIG.scope;
-  return { impactType, scope };
+
+  const hasNewShape = partial?.soft != null || partial?.hard != null;
+
+  if (hasNewShape) {
+    let soft = normalizeImpactOption(partial?.soft);
+    let hard = normalizeImpactOption(partial?.hard);
+    if (!soft.enabled && !hard.enabled) {
+      soft = { ...DEFAULT_ENQUIRY_CONFIG.soft };
+    }
+    return { scope, soft, hard };
+  }
+
+  // Legacy flat impactType + storeFootprint
+  const rawImpact = partial?.impactType;
+  let legacyImpact: "SOFT" | "HARD" = "SOFT";
+  if (rawImpact === "HARD" || rawImpact === "HIGH") legacyImpact = "HARD";
+  else if (rawImpact === "SOFT" || rawImpact === "LOW") legacyImpact = "SOFT";
+
+  const storeFootprint = !!partial?.storeFootprint;
+  const footprintVisibility: FootprintVisibility | null = storeFootprint
+    ? partial?.footprintVisibility === "VERTICAL" || partial?.footprintVisibility === "NETWORK"
+      ? partial.footprintVisibility
+      : "NETWORK"
+    : null;
+
+  const activeOpt: EnquiryImpactOption = {
+    enabled: true,
+    storeFootprint,
+    footprintVisibility,
+  };
+
+  if (legacyImpact === "HARD") {
+    return { scope, soft: { ...IMPACT_OFF }, hard: activeOpt };
+  }
+  return { scope, soft: activeOpt, hard: { ...IMPACT_OFF } };
 }
 
 export const productCatalogPacketOptions = data.productCatalogPacketOptions as ProductCatalogPacketOption[];
@@ -204,7 +304,9 @@ export function buildProductPreviewJson(
   return {
     product: productName || "—",
     enquiry: {
-      impact: ec.impactType,
+      impact: preferredEnquiryType(ec),
+      soft: ec.soft,
+      hard: ec.hard,
       scope: ec.scope,
     },
     data: resultData,

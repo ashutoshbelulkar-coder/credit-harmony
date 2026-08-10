@@ -1,11 +1,13 @@
 # Hybrid Credit Bureau (HCB) Admin Portal
 ## Complete Product Requirement Document (PRD) & Business Requirement Document (BRD)
 
-**Document Version:** 2.16
-**Date:** 2026-04-02
-**Status:** Updated — **v2.16:** **Auto registration number** — Register wizard **Registration Number** is **read-only**; **`POST /api/v1/institutions`** may omit **`registrationNumber`**; **Spring** assigns **`{TypePrefix}-{NameSlug3}-{UTC-year}-{id}`** when blank (non-blank override allowed). **`InstitutionRegistrationNumberGenerator`**; integration tests. Docs: **EPIC-02**, **Register-Member-Form-Metadata-Source**, **API-UI-Parity-Matrix**, **Testing-Plan**, **AGENTS.md**. **v2.15:** **Register member navigation** — **Register member** (`/institutions/register`) is reached from **Member Management** sidebar sub-nav (with Member Institutions and Consortiums); removed duplicate primary CTA from the Member Institutions list header. **`nav-config`** / RBAC catalogue include the path; **Roles & Permissions** matrix stays **section-scoped** (`members`). **v2.14:** **Spring list API contract** — JDBC-backed **GET** routes for **consortiums**, **products**, **reports**, **SLA configs**, **alert rules**, **users**, and **audit logs** aligned to **`create_tables.sql`**; **`AuthUserPrincipal`** on controllers; flat audit/user JSON for the SPA. **TDL-018**; **API-UI-Parity-Matrix** v1.7; **SPA-Service-Contract-Drift**; **Canonical-Backend**; **Testing-Plan** v3.0.6; **`RouteParitySqliteIntegrationTest`** extended. **v2.13:** **Institution display labels** (legal before trading); **API-UI-Parity-Matrix** v1.6, **TDL-017**. **v2.12:** **Spring–SPA route parity** — overview charts, drift alerts, member sub-resources, **API keys POST**, **user deactivate**; **TDL-016**. **v2.11:** **Developer Handbook** / **README** Spring-first; dashboard SQLite JDBC. **v2.10:** Schema Mapper **PII** on mappings. Earlier: v2.9–v2.5 as below.
+**Document Version:** 2.17
+**Date:** 2026-08-10
+**Status:** Updated — **v2.17:** **Data Products / Product Configurator authoring expansion** — five-step wizard; independent Soft/Hard enquiry impact with per-impact footprint; Trended + Retro retrieval; Sensitivity calculated (not form-editable); BU/Segment catalogues; live preview LATEST/TRENDED/RETRO. Canonical detail: [BRD-Product-Configurator.md](./BRD-Product-Configurator.md) **v1.4**. **v2.16:** Auto registration number. Earlier: v2.15–v2.0 as below.
 **Classification:** Internal – Confidential
 
+> **Change Summary v2.17 (2026-08-10) — Data Products Product Configurator (authoring / enquiry model):** Module 11, §6.11 FR-DP*, and §5.8 create workflow updated to match the governed Product Configurator. **Five-step wizard:** (1) Basics & metadata — name, description, SAP item code, **Business unit** and **Segment** catalogues, release note, tags, effective start; **Sensitivity is calculated/display-only** (not on the form). (2) Data packets — source-type rows + PacketConfigModal (unchanged packet UX from v2.8). (3) **Retrieval** — Coverage Scope (Self/Network/Consortium/Vertical); **Allow trended retrieval** + max months; **Allow retro retrieval** + max months (independent; default 6 when first on; ≤60). (4) **Enquiry impact** — independent **Allow soft** / **Allow hard**; for each enabled impact: Store footprint → Footprint visibility **All network participants** | **Vertical participants**. (5) Review. **Live preview:** Request/Response; Preview as LATEST | TRENDED | RETRO; Retro uses top-level `enquiryDate` and `retrievalAnchor = AS_OF <enquiryDate>`. Catalogue cards: date-only Updated, ≤3 tags. Full FR/BR/VAL/AC and Appendix A in [BRD-Product-Configurator.md](./BRD-Product-Configurator.md).
+>
 > **Change Summary v2.16 (2026-04-02) — Registration number system-assigned:** **Member registration** wizard Step 1 shows **Registration Number** as **non-editable** (`readOnly` in **`institution-register-form.json`** SPA + Spring classpath; **`InstitutionRegisterFormService`** passes **`readOnly`** / **`description`**). **SPA** omits empty **`registrationNumber`** from create body. **Spring** **`InstitutionController.create`**: placeholder **`AUTO-{uuid}`** first insert, then final **`PREFIX-Slug3-YYYY-id`** from **`InstitutionRegistrationNumberGenerator`** before approval enqueue. **`InstitutionRegistrationNumberSqliteIntegrationTest`**, **`InstitutionRegistrationNumberGeneratorTest`**. See [Register-Member-Form-Metadata-Source.md](./technical/Register-Member-Form-Metadata-Source.md), [API-UI-Parity-Matrix.md](./technical/API-UI-Parity-Matrix.md).
 >
 > **Change Summary v2.15 (2026-04-02) — Register member in sidebar:** **Register member** opens from **AppSidebar** under **Member Management** (sub-item **`/institutions/register`**). The **Member Institutions** page (`/institutions`) retains search, filters, **Export CSV**, and row actions only—no **Register member** button in the header. **`src/lib/nav-config.ts`** lists **Register member** under the **Member Management** section items for sidebar and documentation parity; **`RolesPermissionsPage`** still grants **View / Create / Edit / Delete / Export** per **navigation section** (`members`), not per sub-route. **Command Palette** still offers **Register Institution** → **`/institutions/register`**.
@@ -426,15 +428,15 @@ flowchart LR
 | **User Benefit** | Single view of all consortium memberships, data contributions, and sharing policies; guided wizard prevents incomplete setup. |
 | **Route** | `/consortiums` (list), `/consortiums/:id` (detail), `/consortiums/create` (wizard), `/consortiums/:id/edit` (edit wizard) |
 
-#### Module 11: Data Products (NEW — v2.0; enhanced v2.2–v2.3)
+#### Module 11: Data Products (NEW — v2.0; enhanced v2.2–v2.8; **authoring v2.17 / Product Configurator BRD v1.4**)
 
 | Attribute | Detail |
 |-----------|--------|
 | **Feature Name** | Data Product Configurator |
-| **Description** | Catalogue of configurable data products. **v2.2–v2.3:** Packets tie to Schema Mapper **`sourceType`**; form **groups by category** and **dedupes by source type**. **v2.8:** Rows show **source-type label** only (**no** catalogue descriptions or secondary packet lines on the card); **one Configure per row** opens **`PacketConfigModal`** for the **packet group** (in-modal **Packet** switcher when needed); **Save** updates **`packetConfigs`** for all packets in the group. **Derived** field names come from **`derivedFields`** on each **`GET /api/v1/products/packet-catalog`** option (Spring: classpath JSON in sync). **Enquiry settings:** scope and **Latest vs Trended**; **packetIds** order follows catalogue (reorder UI removed). Live preview JSON. Product list/detail; mock pricing in catalogue context. |
-| **Business Value** | Sellable products align to governance taxonomy; operators can demo field-level and enquiry behaviour before APIs exist. |
-| **User Benefit** | Less repetitive UI; clearer mapping from catalogue to subscriber enquiry. |
-| **Route** | `/data-products/products` (list), `/data-products/products/:id` (detail), `/data-products/products/create` (create), `/data-products/products/:id/edit` (edit) |
+| **Description** | Governed catalogue of monetisable data products with versioning, approval handoff, and rich authoring. **Packets (v2.2–v2.8):** tie to Schema Mapper **`sourceType`**; form groups by category and dedupes by source type; row label = source-type name only; one **Configure** opens **`PacketConfigModal`** (group switcher; **Save** writes **`packetConfigs`**); **Derived** from packet-catalog **`derivedFields`**. **Authoring wizard (v2.17):** five steps — Basics & metadata (BU/Segment catalogues; **no editable Sensitivity**); Data packets (+ Customer Profile system block); **Retrieval** (Coverage Scope; independent **Trended** and **Retro** ceilings ≤60 months); **Enquiry impact** (independent Soft/Hard; per-impact store footprint + NETWORK\|VERTICAL visibility); Review. **Live preview:** Request/Response; Preview as **LATEST / TRENDED / RETRO**; Retro `enquiryDate` → `retrievalAnchor = AS_OF <date>`. **Catalogue:** representative version, subscriber total, date-only Updated, ≤3 tags. **Detail:** Overview (incl. calculated Sensitivity, Soft/Hard/trended/retro summaries), Data Contract, Traceability, Subscribers (read-only), Versions, Audit. Canonical requirements: [BRD-Product-Configurator.md](./BRD-Product-Configurator.md). |
+| **Business Value** | Sellable products align to governance taxonomy; operators can configure and demo field-level, retrieval, and footprint behaviour before production Enquiry API wire-up. |
+| **User Benefit** | Guided wizard separates “whose data” (coverage) from “who sees the footprint”; Soft/Hard and Trended/Retro are independently configurable; live preview mirrors request/response shapes. |
+| **Route** | `/data-products/products` (list), `/data-products/products/:id` (detail), `/data-products/products/create` (create), `/data-products/products/:id/edit` (edit); versions / compare / submit / approval review as in Product Configurator BRD |
 
 #### Module 12: Enquiry Simulation (NEW — v2.0)
 
@@ -505,11 +507,21 @@ flowchart LR
 
 ### 6.11 Data Products (FR)
 
+> **Canonical detail:** [BRD-Product-Configurator.md](./BRD-Product-Configurator.md) (v1.4+) owns Product Configurator FR/BR/VAL/AC. The rows below are the portal-level FR slice for Data Products navigation and authoring parity.
+
 | ID      | Requirement | Priority | Testable Acceptance Criteria |
 |---------|-------------|----------|------------------------------|
 | FR-DP1  | The system shall provide a "Data Products" section in the sidebar with sub-items: Product Configurator and Enquiry Simulation. | Must | Both sub-items link to their respective routes. |
-| FR-DP4  | A "Create product" button shall navigate to the product creation form. | Must | Navigates to `/data-products/products/create`. |
+| FR-DP2  | The Product Configurator catalogue shall show one card per product with representative lifecycle status, product-total subscriber count, **date-only** last Updated, and up to **three tags**. | Must | Cards match PC-FR-102; no time component on Updated; tags truncated at 3. |
+| FR-DP3  | Create/edit shall use a **five-step wizard**: Basics & metadata → Data packets → Retrieval → Enquiry impact → Review, with a persistent live request/response preview. | Must | All five steps navigable; preview visible during authoring (PC-FR-212). |
+| FR-DP4  | A "Create product" button shall navigate to the product creation wizard. | Must | Navigates to `/data-products/products/create`. |
+| FR-DP5  | Basics step shall capture name, description, optional SAP item code, **Business unit** (catalogue), **Segment** (catalogue), release note, tags, effective start. **Sensitivity shall not be editable** on the form (calculated / display-only on detail). | Must | No Sensitivity control on create/edit; BU/Segment are dropdowns (PC-FR-203, 203a, 203b). |
+| FR-DP6  | Retrieval step shall configure Coverage Scope (Self/Network/Consortium/Vertical) and independently enable **Trended** and/or **Retro** retrieval, each with max history months (default 6 when first enabled; ≤60). | Must | Both toggles independent; ceilings validated only when enabled (PC-FR-207, 208, 208a). |
+| FR-DP7  | Enquiry impact step shall independently toggle **Allow soft enquiry** and **Allow hard enquiry** (not mutually exclusive; ≥1 required). For each enabled impact: optional **Store enquiry footprint**; if on, Footprint visibility = All network participants \| Vertical participants. | Must | Soft/Hard both onable; footprint per impact; coverage ≠ footprint visibility (PC-FR-207a/b). |
+| FR-DP8  | Live preview shall support Preview as **LATEST**, **TRENDED** (if trended on), **RETRO** (if retro on). Retro request includes `enquiryDate`; response product item `retrievalAnchor` = `AS_OF <enquiryDate>`. | Must | Mode buttons gated by config; Retro anchor string format verified (PC-FR-210–210b). |
+| FR-DP9  | Product detail Overview shall show calculated Sensitivity, Soft/Hard summary lines, and Trended/Retro ceilings alongside metadata. | Must | Matches PC-FR-801 display. |
 | FR-DP10 | The product create/edit form shall group **data packets by category**; for each category, display **distinct source types** (from Schema Mapper) as a single line, not repeated per packet row. | Should | Source-type lines are deduplicated and sorted; the visible row label is the **source-type name** only. |
+| FR-DP11 | Definition fingerprint for duplicate detection shall include field contract, coverage scope, soft option, hard option, trended, and retro (not business metadata). | Must | Aligns with PC-BR-402. |
 
 ### 6.13 Global Navigation and UX (FR)
 
@@ -780,30 +792,58 @@ Edit Flow:
   → User modifies and saves
 ```
 
-### 5.8 Data Product Creation Workflow (NEW — v2.0)
+### 5.8 Data Product Creation Workflow (NEW — v2.0; updated v2.17)
+
+> Full business rules: [BRD-Product-Configurator.md](./BRD-Product-Configurator.md) §7.2 / §7.2.1 / Appendix A. Pricing/monetisation remains out of Product Configurator scope (OOS-1).
 
 ```
-Step 1: User navigates to Data Products → Product Configurator → "Create product"
+Step 0: User navigates to Data Products → Product Configurator → "Create product"
   → Navigate to /data-products/products/create
-  → System renders product form
+  → System renders five-step wizard + live Request/Response preview
 
-Step 2: User fills form
-  → Product Name (required)
+Wizard Step 1 — Basics & metadata
+  → Product Name (required; uniqueness / length / reserved-suffix rules)
   → Description (optional)
-  → Data Packets: multi-select from available packets (Bureau Score, Banking Summary,
-    Consortium Exposure, etc.) — at least one required
-  → Pricing Model: Per Hit | Subscription
-  → Price: numeric value (e.g. 12 per hit, or 4500/month)
+  → SAP item code (optional)
+  → Business unit (catalogue dropdown)
+  → Segment (catalogue dropdown)
+  → Release note, Tags, Effective start (optional)
+  → Sensitivity is NOT on this form (calculated; shown later on detail)
 
-Step 3: User clicks "Save"
-  → Validation runs: name and at least one packet required; price > 0
-  → Product saved with status "active"
-  → Toast: "Product created successfully"
-  → Navigate to product list
+Wizard Step 2 — Data packets
+  → Select ≥1 packet group (source-type rows; Configure → PacketConfigModal)
+  → Configure selected / disabled / derived fields; Customer Profile included fields
+  → Live preview reflects contract composition
+
+Wizard Step 3 — Retrieval
+  → Coverage Scope: Self | Network | Consortium | Vertical
+  → Allow trended retrieval → max history months (1–60; default 6 when first on)
+  → Allow retro retrieval → max history months (1–60; default 6 when first on)
+  → Soft/Hard are NOT on this step
+
+Wizard Step 4 — Enquiry impact
+  → Allow soft enquiry (switch)
+      → if on: Store enquiry footprint → if on: All network participants | Vertical participants
+  → Allow hard enquiry (switch) — same nested footprint flow; independent of Soft
+  → At least one of Soft or Hard must be enabled to save/submit
+
+Wizard Step 5 — Review
+  → Read-only summary of all prior steps
+  → Save draft / Create product (Draft lifecycle status)
+  → Later: Submit for approval (Pending) via governance flow — not instant Active
+
+Live preview (persistent)
+  → Tabs: Request | Response
+  → If trended and/or retro enabled: Preview as LATEST | TRENDED | RETRO
+  → TRENDED: window months control; retrievalAnchor = PERIOD_WINDOW
+  → RETRO: enquiry date control; request.enquiryDate; retrievalAnchor = AS_OF <date>
+  → enquiryType prefers Hard if Hard allowed else Soft; footprintCreated from that impact’s store flag
 
 Edit Flow:
-  → "Edit" button on product detail navigates to /data-products/products/:id/edit
-  → Form pre-populated with existing values
+  → Edit only when version is Draft
+  → Navigate to /data-products/products/:id/edit
+  → Wizard pre-populated; Soft/Hard footprint settings preserved independently
+  → Legacy single impactType + flat footprint migrates to soft/hard options on load
 ```
 
 ### 5.9 Enquiry Simulation Workflow (NEW — v2.0)

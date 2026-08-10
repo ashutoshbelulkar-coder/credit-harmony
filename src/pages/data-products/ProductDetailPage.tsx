@@ -45,7 +45,7 @@ import {
 import { cn } from "@/lib/utils";
 import { badgeTextClasses, detailPageTabTriggerBaseClasses, tableHeaderClasses } from "@/lib/typography";
 
-import { catalogLabelForPacketId, getDataPacketById } from "@/data/data-products-mock";
+import { catalogLabelForPacketId, formatImpactOption, getDataPacketById } from "@/data/data-products-mock";
 import { getInstitutionById } from "@/data/institutions-mock";
 import {
   BRD_STATUS_LABEL,
@@ -84,11 +84,6 @@ const SCOPE_LABEL: Record<string, string> = {
   NETWORK: "Network Data",
   CONSORTIUM: "Consortium Data",
   VERTICAL: "Vertical Data",
-};
-
-const IMPACT_LABEL: Record<string, string> = {
-  SOFT: "Soft enquiry",
-  HARD: "Hard enquiry",
 };
 
 const CHANNEL_LABEL: Record<string, string> = {
@@ -327,14 +322,26 @@ function OverviewTab({
               value={SCOPE_LABEL[product.enquiryConfig.scope] ?? product.enquiryConfig.scope}
             />
             <InfoRow
-              label="Enquiry type"
-              value={IMPACT_LABEL[product.enquiryConfig.impactType] ?? product.enquiryConfig.impactType}
+              label="Soft enquiry"
+              value={formatImpactOption(product.enquiryConfig.soft, "Soft").replace(/^Soft:\s*/, "")}
+            />
+            <InfoRow
+              label="Hard enquiry"
+              value={formatImpactOption(product.enquiryConfig.hard, "Hard").replace(/^Hard:\s*/, "")}
             />
             <InfoRow
               label="Trended data"
               value={
                 product.trendedConfig.enabled
                   ? `Enabled · up to ${product.trendedConfig.maxHistoryMonths} months`
+                  : "Disabled"
+              }
+            />
+            <InfoRow
+              label="Retro retrieval"
+              value={
+                product.retroConfig?.enabled
+                  ? `Enabled · up to ${product.retroConfig.maxHistoryMonths} months`
                   : "Disabled"
               }
             />

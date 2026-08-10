@@ -15,7 +15,7 @@ import { ProductStatusBadge } from "@/components/data-products/ProductStatusBadg
 import { SensitivityBadge } from "@/components/data-products/AttributeBadges";
 import { ApprovalTypeBadge, PolicyChip } from "@/components/data-products/ApprovalBadges";
 import { VersionComparePanel } from "@/components/data-products/VersionComparePanel";
-import { catalogLabelForPacketId } from "@/data/data-products-mock";
+import { catalogLabelForPacketId, formatImpactOption } from "@/data/data-products-mock";
 import { LOCAL_CPO_LABEL, isAccessRequestCycle } from "@/data/product-management-types";
 import { toast } from "sonner";
 
@@ -24,11 +24,6 @@ const SCOPE_LABEL: Record<string, string> = {
   NETWORK: "Network Data",
   CONSORTIUM: "Consortium Data",
   VERTICAL: "Vertical Data",
-};
-
-const IMPACT_LABEL: Record<string, string> = {
-  SOFT: "Soft enquiry",
-  HARD: "Hard enquiry",
 };
 
 const DEMO_APPROVERS = ["Ananya Iyer", "Rahul Verma", "Meera Nair", "Karan Bose"];
@@ -212,7 +207,7 @@ export default function ApprovalReviewPage() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardTitle>Enquiry &amp; trended settings</CardTitle>
+            <CardTitle>Retrieval &amp; enquiry settings</CardTitle>
           </CardHeader>
           <CardContent className="text-caption space-y-1.5">
             <p>
@@ -220,13 +215,23 @@ export default function ApprovalReviewPage() {
               {SCOPE_LABEL[version.enquiryConfig.scope] ?? version.enquiryConfig.scope}
             </p>
             <p>
-              <span className="text-muted-foreground">Impact:</span>{" "}
-              {IMPACT_LABEL[version.enquiryConfig.impactType] ?? version.enquiryConfig.impactType}
+              <span className="text-muted-foreground">Soft:</span>{" "}
+              {formatImpactOption(version.enquiryConfig.soft, "Soft").replace(/^Soft:\s*/, "")}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Hard:</span>{" "}
+              {formatImpactOption(version.enquiryConfig.hard, "Hard").replace(/^Hard:\s*/, "")}
             </p>
             <p>
               <span className="text-muted-foreground">Trended data:</span>{" "}
               {version.trendedConfig.enabled
                 ? `Enabled · up to ${version.trendedConfig.maxHistoryMonths} months`
+                : "Disabled"}
+            </p>
+            <p>
+              <span className="text-muted-foreground">Retro retrieval:</span>{" "}
+              {version.retroConfig?.enabled
+                ? `Enabled · up to ${version.retroConfig.maxHistoryMonths} months`
                 : "Disabled"}
             </p>
             <div className="pt-2 flex flex-wrap items-center gap-2">

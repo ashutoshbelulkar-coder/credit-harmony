@@ -71,7 +71,10 @@
       ],
       "enquiryConfig": {
         "impactType": "SOFT",
-        "scope": "SELF"
+        "scope": "SELF",
+        "storeFootprint": false,
+        "footprintVisibility": null,
+        "footprintVertical": null
       },
       "trendedConfig": {
         "enabled": true,
@@ -186,7 +189,11 @@
         }
       ],
       "deprecationWindowDays": null,
-      "deprecationNoticeAt": null
+      "deprecationNoticeAt": null,
+      "retroConfig": {
+        "enabled": false,
+        "maxHistoryMonths": 0
+      }
     },
     {
       "id": "ver_sme_v2",
@@ -232,7 +239,10 @@
       ],
       "enquiryConfig": {
         "impactType": "SOFT",
-        "scope": "SELF"
+        "scope": "SELF",
+        "storeFootprint": false,
+        "footprintVisibility": null,
+        "footprintVertical": null
       },
       "trendedConfig": {
         "enabled": true,
@@ -394,7 +404,11 @@
         }
       ],
       "deprecationWindowDays": 90,
-      "deprecationNoticeAt": "2026-03-01T10:00:00.000Z"
+      "deprecationNoticeAt": "2026-03-01T10:00:00.000Z",
+      "retroConfig": {
+        "enabled": false,
+        "maxHistoryMonths": 0
+      }
     },
     {
       "id": "ver_sme_v3",
@@ -441,7 +455,10 @@
       ],
       "enquiryConfig": {
         "impactType": "SOFT",
-        "scope": "SELF"
+        "scope": "SELF",
+        "storeFootprint": false,
+        "footprintVisibility": null,
+        "footprintVertical": null
       },
       "trendedConfig": {
         "enabled": true,
@@ -605,7 +622,11 @@
         }
       ],
       "deprecationWindowDays": null,
-      "deprecationNoticeAt": null
+      "deprecationNoticeAt": null,
+      "retroConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 24
+      }
     },
     {
       "id": "ver_retail_v1",
@@ -652,7 +673,10 @@
       ],
       "enquiryConfig": {
         "impactType": "SOFT",
-        "scope": "SELF"
+        "scope": "SELF",
+        "storeFootprint": false,
+        "footprintVisibility": null,
+        "footprintVertical": null
       },
       "trendedConfig": {
         "enabled": true,
@@ -794,7 +818,11 @@
       "definitionFingerprint": "fp_recomputed",
       "approvalCycles": [],
       "deprecationWindowDays": null,
-      "deprecationNoticeAt": null
+      "deprecationNoticeAt": null,
+      "retroConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 6
+      }
     },
     {
       "id": "ver_corp_v1",
@@ -837,7 +865,10 @@
       ],
       "enquiryConfig": {
         "impactType": "HARD",
-        "scope": "NETWORK"
+        "scope": "NETWORK",
+        "storeFootprint": true,
+        "footprintVisibility": "NETWORK",
+        "footprintVertical": null
       },
       "trendedConfig": {
         "enabled": true,
@@ -990,7 +1021,11 @@
         }
       ],
       "deprecationWindowDays": null,
-      "deprecationNoticeAt": null
+      "deprecationNoticeAt": null,
+      "retroConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 12
+      }
     },
     {
       "id": "ver_corp_v2",
@@ -1045,7 +1080,10 @@
       ],
       "enquiryConfig": {
         "impactType": "HARD",
-        "scope": "NETWORK"
+        "scope": "NETWORK",
+        "storeFootprint": true,
+        "footprintVisibility": "NETWORK",
+        "footprintVertical": null
       },
       "trendedConfig": {
         "enabled": true,
@@ -1216,7 +1254,11 @@
         }
       ],
       "deprecationWindowDays": null,
-      "deprecationNoticeAt": null
+      "deprecationNoticeAt": null,
+      "retroConfig": {
+        "enabled": false,
+        "maxHistoryMonths": 0
+      }
     },
     {
       "id": "ver_mfi_v1",
@@ -1264,7 +1306,10 @@
       ],
       "enquiryConfig": {
         "impactType": "SOFT",
-        "scope": "SELF"
+        "scope": "SELF",
+        "storeFootprint": false,
+        "footprintVisibility": null,
+        "footprintVertical": null
       },
       "trendedConfig": {
         "enabled": true,
@@ -1435,7 +1480,11 @@
         }
       ],
       "deprecationWindowDays": null,
-      "deprecationNoticeAt": null
+      "deprecationNoticeAt": null,
+      "retroConfig": {
+        "enabled": false,
+        "maxHistoryMonths": 0
+      }
     },
     {
       "id": "ver_trade_v4",
@@ -1476,7 +1525,10 @@
       ],
       "enquiryConfig": {
         "impactType": "SOFT",
-        "scope": "VERTICAL"
+        "scope": "VERTICAL",
+        "storeFootprint": false,
+        "footprintVisibility": null,
+        "footprintVertical": null
       },
       "trendedConfig": {
         "enabled": true,
@@ -1591,7 +1643,11 @@
         }
       ],
       "deprecationWindowDays": null,
-      "deprecationNoticeAt": null
+      "deprecationNoticeAt": null,
+      "retroConfig": {
+        "enabled": false,
+        "maxHistoryMonths": 0
+      }
     },
     {
       "id": "ver_trade_v3",
@@ -1625,7 +1681,10 @@
       ],
       "enquiryConfig": {
         "impactType": "SOFT",
-        "scope": "VERTICAL"
+        "scope": "VERTICAL",
+        "storeFootprint": false,
+        "footprintVisibility": null,
+        "footprintVertical": null
       },
       "trendedConfig": {
         "enabled": true,
@@ -1732,7 +1791,11 @@
         }
       ],
       "deprecationWindowDays": null,
-      "deprecationNoticeAt": null
+      "deprecationNoticeAt": null,
+      "retroConfig": {
+        "enabled": false,
+        "maxHistoryMonths": 0
+      }
     },
     {
       "id": "ver_bnpl_v1",
@@ -1779,7 +1842,10 @@
       ],
       "enquiryConfig": {
         "impactType": "SOFT",
-        "scope": "SELF"
+        "scope": "SELF",
+        "storeFootprint": false,
+        "footprintVisibility": null,
+        "footprintVertical": null
       },
       "trendedConfig": {
         "enabled": true,
@@ -1942,7 +2008,11 @@
         }
       ],
       "deprecationWindowDays": null,
-      "deprecationNoticeAt": null
+      "deprecationNoticeAt": null,
+      "retroConfig": {
+        "enabled": false,
+        "maxHistoryMonths": 0
+      }
     },
     {
       "id": "ver_devlite_v1",
@@ -1979,7 +2049,10 @@
       ],
       "enquiryConfig": {
         "impactType": "SOFT",
-        "scope": "SELF"
+        "scope": "SELF",
+        "storeFootprint": false,
+        "footprintVisibility": null,
+        "footprintVertical": null
       },
       "trendedConfig": {
         "enabled": false,
@@ -2121,7 +2194,11 @@
         }
       ],
       "deprecationWindowDays": 30,
-      "deprecationNoticeAt": "2026-03-20T11:00:00.000Z"
+      "deprecationNoticeAt": "2026-03-20T11:00:00.000Z",
+      "retroConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 18
+      }
     },
     {
       "id": "ver_gigleg_v1",
@@ -2158,7 +2235,10 @@
       ],
       "enquiryConfig": {
         "impactType": "SOFT",
-        "scope": "SELF"
+        "scope": "SELF",
+        "storeFootprint": false,
+        "footprintVisibility": null,
+        "footprintVertical": null
       },
       "trendedConfig": {
         "enabled": true,
@@ -2289,7 +2369,11 @@
         }
       ],
       "deprecationWindowDays": null,
-      "deprecationNoticeAt": null
+      "deprecationNoticeAt": null,
+      "retroConfig": {
+        "enabled": false,
+        "maxHistoryMonths": 0
+      }
     }
   ],
   "notifications": [

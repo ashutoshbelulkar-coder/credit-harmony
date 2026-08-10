@@ -7,7 +7,6 @@ import {
   ChevronRight,
   Info,
   Settings2,
-  ShieldAlert,
 } from "lucide-react";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Button } from "@/components/ui/button";
@@ -44,10 +43,20 @@ import {
   productCatalogPacketOptions,
   packetMockData,
   DEFAULT_ENQUIRY_CONFIG,
+  formatImpactOption,
+  footprintCreatedForType,
   normalizeEnquiryConfig,
+  normalizeImpactOption,
+  preferredEnquiryType,
   type EnquiryConfig,
+  type EnquiryDataScope,
   type PacketConfig,
 } from "@/data/data-products-mock";
+import {
+  PREVIEW_SAMPLE_APPLICATION,
+  PREVIEW_SAMPLE_META,
+  PREVIEW_SAMPLE_SUBJECT,
+} from "@/data/product-enquiry-preview-samples";
 import {
   buildProductFormPacketRows,
   filterCatalogOptionsForProductForm,
@@ -64,11 +73,13 @@ import {
   BRD_STATUS_LABEL,
   DEFAULT_PROFILE_CONFIG,
   DEFAULT_PROFILE_FIELDS,
+  DEFAULT_RETRO_CONFIG,
   DEFAULT_TRENDED_CONFIG,
   computeDefinitionFingerprint,
   inferAttributeMode,
   type ProductMetadata,
   type ProfileBlockConfig,
+  type RetroConfig,
   type TrendedConfig,
 } from "@/data/product-management-types";
 import { toast } from "sonner";
@@ -91,6 +102,30 @@ const EMPTY_META: ProductMetadata = {
   accessRestrictions: "Active subscription required; purpose-bound use only",
 };
 
+/** Demo catalogue options for business metadata dropdowns. */
+const BUSINESS_UNIT_OPTIONS = [
+  "Commercial Lending",
+  "Retail Lending",
+  "Consumer Digital",
+  "Consumer Risk",
+  "Merchant Onboarding",
+  "Inclusive Finance",
+  "Product Management",
+] as const;
+
+const SEGMENT_OPTIONS = [
+  "SME",
+  "Thin-file retail",
+  "BNPL retail",
+  "Retail / Checkout",
+  "Merchants / Sellers",
+  "Trade / KYB",
+  "Salaried / SHG",
+  "Gig workers",
+  "Corporate",
+  "General",
+] as const;
+
 const SCOPE_TOOLTIPS: Record<EnquiryConfig["scope"], string> = {
   SELF: "Returns data sourced directly from the subject entity's own records.",
   NETWORK: "Includes linked entities and immediate network connections.",
@@ -100,16 +135,22 @@ const SCOPE_TOOLTIPS: Record<EnquiryConfig["scope"], string> = {
 
 const BLOCKED_NAME_SUFFIXES = new Set(["new", "final", "copy"]);
 
-type WizardStep = 1 | 2 | 3 | 4;
+type WizardStep = 1 | 2 | 3 | 4 | 5;
 
 const WIZARD_STEPS: { id: WizardStep; label: string; shortTitle: string }[] = [
   { id: 1, label: "Basics & metadata", shortTitle: "Basics" },
   { id: 2, label: "Data packets", shortTitle: "Packets" },
-  { id: 3, label: "Enquiry & trended", shortTitle: "Enquiry" },
-  { id: 4, label: "Review", shortTitle: "Review" },
+  { id: 3, label: "Retrieval", shortTitle: "Retrieval" },
+  { id: 4, label: "Enquiry impact", shortTitle: "Impact" },
+  { id: 5, label: "Review", shortTitle: "Review" },
 ];
 
 const REFERENCE_MONTH = "2026-06";
+/** Demo reference date for retro enquiryDate ceiling checks. */
+const REFERENCE_DATE = "2026-06-30";
+const DEFAULT_RETRO_ENQUIRY_DATE = "2025-06-15";
+
+type PreviewScope = EnquiryDataScope;
 
 const PROFILE_MOCK_VALUES: Record<string, unknown> = {
   fullName: "Aarav Sharma",
@@ -157,56 +198,101 @@ function lastWordOf(trimmedName: string): string {
 function buildRequestPreview(params: {
   productId: string;
   productVersion: number;
+  productName: string;
+  enquiryType: "SOFT" | "HARD";
   trendedEnabled: boolean;
-  previewScope: "LATEST" | "TRENDED";
+  retroEnabled: boolean;
+  previewScope: PreviewScope;
   previewWindow: number;
-  maxHistoryMonths: number;
+  maxTrendedMonths: number;
+  enquiryDate: string;
 }): object {
+  const effectiveScope: PreviewScope =
+    params.previewScope === "TRENDED" && !params.trendedEnabled
+      ? "LATEST"
+      : params.previewScope === "RETRO" && !params.retroEnabled
+        ? "LATEST"
+        : params.previewScope;
+
   const productEntry: Record<string, unknown> = {
     productId: params.productId,
     productVersion: params.productVersion,
   };
-  if (params.trendedEnabled) {
-    productEntry.dataScope = params.previewScope;
-    if (params.previewScope === "TRENDED") {
-      productEntry.window = clamp(params.previewWindow, 1, Math.max(params.maxHistoryMonths, 1));
-    }
+  if (effectiveScope !== "LATEST") {
+    productEntry.dataScope = effectiveScope;
   }
-  return {
+  if (effectiveScope === "TRENDED") {
+    productEntry.window = {
+      months: clamp(params.previewWindow, 1, Math.max(params.maxTrendedMonths, 1)),
+    };
+  }
+
+  const request: Record<string, unknown> = {
     products: [productEntry],
-    subject: { "…": "…" },
+    enquiryType: params.enquiryType,
+    ...PREVIEW_SAMPLE_META,
+    application: structuredClone(PREVIEW_SAMPLE_APPLICATION),
+    subject: structuredClone(PREVIEW_SAMPLE_SUBJECT),
   };
+  if (effectiveScope === "RETRO") {
+    request.enquiryDate = params.enquiryDate;
+  }
+  return request;
+}
+
+function retrievalAnchorFor(scope: PreviewScope, enquiryDate: string): string {
+  if (scope === "TRENDED") return "PERIOD_WINDOW";
+  if (scope === "RETRO") return `AS_OF ${enquiryDate}`;
+  return "CURRENT";
 }
 
 function buildResponsePreview(params: {
   productId: string;
   productVersion: number;
+  productName: string;
   orderedPacketIds: string[];
   packetConfigs: PacketConfig[];
   profileConfig: ProfileBlockConfig;
+  enquiryConfig: EnquiryConfig;
+  enquiryType: "SOFT" | "HARD";
   trendedEnabled: boolean;
-  previewScope: "LATEST" | "TRENDED";
+  retroEnabled: boolean;
+  previewScope: PreviewScope;
   previewWindow: number;
-  maxHistoryMonths: number;
+  maxTrendedMonths: number;
+  enquiryDate: string;
 }): object {
-  const effectiveScope: "LATEST" | "TRENDED" = params.trendedEnabled ? params.previewScope : "LATEST";
-  const window = clamp(params.previewWindow, 1, Math.max(params.maxHistoryMonths, 1));
+  const effectiveScope: PreviewScope =
+    params.previewScope === "TRENDED" && !params.trendedEnabled
+      ? "LATEST"
+      : params.previewScope === "RETRO" && !params.retroEnabled
+        ? "LATEST"
+        : params.previewScope;
+
+  const window = clamp(params.previewWindow, 1, Math.max(params.maxTrendedMonths, 1));
   const periods = effectiveScope === "TRENDED" ? generatePeriods(window) : [];
+  const footprintCreated = footprintCreatedForType(params.enquiryConfig, params.enquiryType);
 
-  const header = {
-    productId: params.productId,
-    productVersion: params.productVersion,
-    requestId: "REQ_DEMO_00001",
-    generatedAt: "2026-08-05T00:00:00.000Z",
-  };
-
-  const profile: Record<string, unknown> = {};
+  const customerProfile: Record<string, unknown> = {};
   for (const field of params.profileConfig.includedFields) {
-    profile[field] = profileMockValue(field);
+    customerProfile[field] = profileMockValue(field);
+  }
+  // Align demo profile with sample subject where fields overlap
+  if ("fullName" in customerProfile) {
+    customerProfile.fullName = PREVIEW_SAMPLE_SUBJECT.individual.name.fullName;
+  }
+  if ("dateOfBirth" in customerProfile) {
+    customerProfile.dateOfBirth = PREVIEW_SAMPLE_SUBJECT.individual.birth.dateOfBirth;
+  }
+  if ("currentAddress" in customerProfile) {
+    customerProfile.currentAddress = "12 Riverside Drive, Westlands, Nairobi";
+  }
+  if ("primaryIdentifier" in customerProfile) {
+    customerProfile.primaryIdentifier = "XXXX-5678";
   }
 
   const configMap = new Map(params.packetConfigs.map((c) => [c.packetId, c]));
-  const sections: Record<string, unknown> = {};
+  const dataSections: Record<string, unknown> = {};
   const noDataIndex = params.orderedPacketIds.length >= 2 ? params.orderedPacketIds.length - 1 : -1;
 
   params.orderedPacketIds.forEach((pid, idx) => {
@@ -215,7 +301,7 @@ function buildResponsePreview(params: {
     const key = opt.previewKey;
 
     if (idx === noDataIndex) {
-      sections[key] = { status: "NO_DATA", data: null };
+      dataSections[key] = { status: "NO_DATA", data: null };
       return;
     }
 
@@ -230,28 +316,79 @@ function buildResponsePreview(params: {
           )
         : Object.entries(fullPayload);
 
-    const data: Record<string, unknown> = {};
+    const sectionData: Record<string, unknown> = {};
     for (const [k, v] of fieldEntries) {
       if (effectiveScope === "TRENDED" && typeof v === "number" && inferAttributeMode(k) === "TRENDED") {
-        data[k] = buildTrendedSeries(v, periods);
+        sectionData[k] = buildTrendedSeries(v, periods);
       } else {
-        data[k] = v;
+        sectionData[k] = v;
       }
     }
     const derivedSel = cfg?.selectedDerivedFields?.filter(Boolean) ?? [];
     if (derivedSel.length > 0) {
-      data.__derived = Object.fromEntries(derivedSel.map((d) => [d, `[computed:${d}]`]));
+      sectionData.__derived = Object.fromEntries(derivedSel.map((d) => [d, `[computed:${d}]`]));
     }
 
-    sections[key] = {
-      status: "SERVED",
-      versionServed: params.productVersion,
-      dataScope: effectiveScope,
-      data,
-    };
+    dataSections[key] = sectionData;
   });
 
-  return { header, profile, sections };
+  const data: Record<string, unknown> = {
+    accountsSummary: {
+      totalAccounts: 4,
+      activeAccounts: 3,
+      closedAccounts: 1,
+      delinquentAccounts: 0,
+    },
+    totalExposure: 850000.0,
+    worstDpdDays: 0,
+    accounts: [
+      {
+        facilityType: "PERSONAL_LOAN",
+        outstandingBalance: 250000.0,
+        dpdDays: 0,
+        status: "ACTIVE",
+      },
+    ],
+    ...dataSections,
+  };
+  if (footprintCreated) {
+    data.enquiryFootprint = {
+      totalEnquiries12Months: 4,
+      hardEnquiries6Months: 2,
+    };
+  }
+
+  return {
+    enquiryId: "ENQ-2026-031-001",
+    status: "SUCCESS",
+    enquiryType: params.enquiryType,
+    subjectFound: true,
+    matchConfidence: "HIGH",
+    subject: { entityType: "INDIVIDUAL" },
+    application: { applicationRef: PREVIEW_SAMPLE_APPLICATION.applicationRef },
+    products: [
+      {
+        enquiryItemId: "ENQ-2026-031-001-RCP",
+        outcome: "SERVED",
+        productVersionServed: params.productVersion,
+        dataScope: effectiveScope,
+        retrievalAnchor: retrievalAnchorFor(effectiveScope, params.enquiryDate),
+        customerProfile,
+        productId: params.productId,
+        productName: params.productName || "Untitled product",
+        data,
+        analytics: {
+          summary: "Low delinquency; stable utilisation",
+          indicators: {
+            utilisationRatio: 0.34,
+            trendDirection: "STABLE",
+          },
+        },
+      },
+    ],
+    completedAt: "2026-03-31T14:00:00Z",
+    footprintCreated,
+  };
 }
 
 function WizardStepper({
@@ -357,13 +494,15 @@ export default function ProductFormPage() {
   const [profileDialogOpen, setProfileDialogOpen] = useState(false);
   const [profileDraftFields, setProfileDraftFields] = useState<string[]>([]);
 
-  // ── Step 3: Enquiry & trended ────────────────────────────────
+  // ── Step 3–4: Retrieval + Enquiry impact ────────────────────
   const [enquiryConfig, setEnquiryConfig] = useState<EnquiryConfig>(DEFAULT_ENQUIRY_CONFIG);
   const [trendedConfig, setTrendedConfig] = useState<TrendedConfig>({ ...DEFAULT_TRENDED_CONFIG });
+  const [retroConfig, setRetroConfig] = useState<RetroConfig>({ ...DEFAULT_RETRO_CONFIG });
 
   // ── Preview-only controls (not persisted) ───────────────────
-  const [previewScope, setPreviewScope] = useState<"LATEST" | "TRENDED">("LATEST");
+  const [previewScope, setPreviewScope] = useState<PreviewScope>("LATEST");
   const [previewWindow, setPreviewWindow] = useState<number>(6);
+  const [previewEnquiryDate, setPreviewEnquiryDate] = useState(DEFAULT_RETRO_ENQUIRY_DATE);
   const [previewTab, setPreviewTab] = useState<"request" | "response">("request");
 
   // ── Hydrate from existing product ──────────────────────────
@@ -375,6 +514,7 @@ export default function ProductFormPage() {
       setPacketConfigs(existing.packetConfigs ?? []);
       setEnquiryConfig(normalizeEnquiryConfig(existing.enquiryConfig));
       setTrendedConfig(existing.trendedConfig ?? { ...DEFAULT_TRENDED_CONFIG });
+      setRetroConfig(existing.retroConfig ?? { ...DEFAULT_RETRO_CONFIG });
       setProfileConfig(
         existing.profileConfig?.includedFields?.length
           ? { includedFields: [...existing.profileConfig.includedFields] }
@@ -389,20 +529,24 @@ export default function ProductFormPage() {
       setPacketConfigs([]);
       setEnquiryConfig(DEFAULT_ENQUIRY_CONFIG);
       setTrendedConfig({ ...DEFAULT_TRENDED_CONFIG });
+      setRetroConfig({ ...DEFAULT_RETRO_CONFIG });
       setProfileConfig({ includedFields: [...DEFAULT_PROFILE_CONFIG.includedFields] });
       setMetadata(EMPTY_META);
       setTagsInput("");
     }
   }, [existing, isEdit, catalogOrderIds]);
 
-  // Keep preview controls consistent with the trended ceiling.
+  // Keep preview controls consistent with enabled retrieval modes.
   useEffect(() => {
-    if (!trendedConfig.enabled) {
+    if (previewScope === "TRENDED" && !trendedConfig.enabled) {
       setPreviewScope("LATEST");
-    } else {
+    } else if (previewScope === "RETRO" && !retroConfig.enabled) {
+      setPreviewScope("LATEST");
+    }
+    if (trendedConfig.enabled) {
       setPreviewWindow((w) => clamp(w, 1, Math.max(trendedConfig.maxHistoryMonths, 1)));
     }
-  }, [trendedConfig.enabled, trendedConfig.maxHistoryMonths]);
+  }, [trendedConfig.enabled, trendedConfig.maxHistoryMonths, retroConfig.enabled, previewScope]);
 
   // ── Packet selection (row = source type group, or one custom packet) ──
   const togglePacketRow = useCallback(
@@ -517,8 +661,15 @@ export default function ProductFormPage() {
 
   // ── Fingerprint conflict (non-blocking) ─────────────────────
   const liveFingerprint = useMemo(
-    () => computeDefinitionFingerprint(orderedPacketIds, packetConfigs, enquiryConfig, trendedConfig),
-    [orderedPacketIds, packetConfigs, enquiryConfig, trendedConfig]
+    () =>
+      computeDefinitionFingerprint(
+        orderedPacketIds,
+        packetConfigs,
+        enquiryConfig,
+        trendedConfig,
+        retroConfig
+      ),
+    [orderedPacketIds, packetConfigs, enquiryConfig, trendedConfig, retroConfig]
   );
   const fingerprintConflict = useMemo(
     () => productMgmtStore.findFingerprintConflict(liveFingerprint, id, existing?.productCode),
@@ -541,12 +692,26 @@ export default function ProductFormPage() {
       buildRequestPreview({
         productId: previewProductId,
         productVersion: previewProductVersion,
+        productName: name,
+        enquiryType: preferredEnquiryType(enquiryConfig),
         trendedEnabled: trendedConfig.enabled,
+        retroEnabled: retroConfig.enabled,
         previewScope,
         previewWindow,
-        maxHistoryMonths: trendedConfig.maxHistoryMonths,
+        maxTrendedMonths: trendedConfig.maxHistoryMonths,
+        enquiryDate: previewEnquiryDate,
       }),
-    [previewProductId, previewProductVersion, trendedConfig, previewScope, previewWindow]
+    [
+      previewProductId,
+      previewProductVersion,
+      name,
+      enquiryConfig,
+      trendedConfig,
+      retroConfig.enabled,
+      previewScope,
+      previewWindow,
+      previewEnquiryDate,
+    ]
   );
 
   const responsePreview = useMemo(
@@ -554,23 +719,32 @@ export default function ProductFormPage() {
       buildResponsePreview({
         productId: previewProductId,
         productVersion: previewProductVersion,
+        productName: name,
         orderedPacketIds,
         packetConfigs,
         profileConfig,
+        enquiryConfig,
+        enquiryType: preferredEnquiryType(enquiryConfig),
         trendedEnabled: trendedConfig.enabled,
+        retroEnabled: retroConfig.enabled,
         previewScope,
         previewWindow,
-        maxHistoryMonths: trendedConfig.maxHistoryMonths,
+        maxTrendedMonths: trendedConfig.maxHistoryMonths,
+        enquiryDate: previewEnquiryDate,
       }),
     [
       previewProductId,
       previewProductVersion,
+      name,
       orderedPacketIds,
       packetConfigs,
       profileConfig,
+      enquiryConfig,
       trendedConfig,
+      retroConfig.enabled,
       previewScope,
       previewWindow,
+      previewEnquiryDate,
     ]
   );
 
@@ -592,9 +766,9 @@ export default function ProductFormPage() {
         return;
       }
     }
-    setStep((s) => (clamp(s + 1, 1, 4) as WizardStep));
+    setStep((s) => clamp(s + 1, 1, 5) as WizardStep);
   };
-  const handleBack = () => setStep((s) => (clamp(s - 1, 1, 4) as WizardStep));
+  const handleBack = () => setStep((s) => clamp(s - 1, 1, 5) as WizardStep);
   const handleStepClick = (target: WizardStep) => {
     if (target < step) setStep(target);
   };
@@ -621,6 +795,7 @@ export default function ProductFormPage() {
           packetConfigs,
           enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
           trendedConfig,
+          retroConfig,
           profileConfig,
           metadata: parsedMeta(),
         });
@@ -640,6 +815,7 @@ export default function ProductFormPage() {
           packetConfigs,
           enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
           trendedConfig,
+          retroConfig,
           profileConfig,
           metadata: parsedMeta(),
         });
@@ -675,6 +851,7 @@ export default function ProductFormPage() {
       packetConfigs,
       enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
       trendedConfig,
+      retroConfig,
       profileConfig,
       metadata: parsedMeta(),
     });
@@ -721,8 +898,6 @@ export default function ProductFormPage() {
     );
   }
 
-  const quorumPolicy = productMgmtStore.getPolicies().find((p) => p.id === "POL_QUORUM");
-
   return (
     <div className="space-y-6 animate-fade-in max-w-6xl">
       <PageBreadcrumb
@@ -740,7 +915,7 @@ export default function ProductFormPage() {
             {isEdit ? "Edit product" : "Create product"}
           </h1>
           <p className="text-caption text-muted-foreground mt-1">
-            Compose from internal packets, configure fields, and set enquiry &amp; trended-data behaviour.
+            Compose from internal packets, configure fields, and set retrieval &amp; enquiry behaviour.
           </p>
         </div>
         <div className="flex gap-2 self-start">
@@ -838,58 +1013,62 @@ export default function ProductFormPage() {
                       <Label htmlFor="pf-bu" className="text-caption">
                         Business unit
                       </Label>
-                      <Input
-                        id="pf-bu"
-                        value={metadata.businessUnit}
-                        onChange={(e) =>
-                          setMetadata((m) => ({ ...m, businessUnit: e.target.value }))
+                      <Select
+                        value={metadata.businessUnit || BUSINESS_UNIT_OPTIONS[0]}
+                        onValueChange={(v) =>
+                          setMetadata((m) => ({ ...m, businessUnit: v }))
                         }
-                        className="w-full"
-                      />
+                      >
+                        <SelectTrigger id="pf-bu" className="w-full">
+                          <SelectValue placeholder="Select business unit" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {!BUSINESS_UNIT_OPTIONS.includes(
+                            metadata.businessUnit as (typeof BUSINESS_UNIT_OPTIONS)[number]
+                          ) &&
+                            metadata.businessUnit && (
+                              <SelectItem value={metadata.businessUnit}>
+                                {metadata.businessUnit}
+                              </SelectItem>
+                            )}
+                          {BUSINESS_UNIT_OPTIONS.map((opt) => (
+                            <SelectItem key={opt} value={opt}>
+                              {opt}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div className="space-y-1.5">
                       <Label htmlFor="pf-segment" className="text-caption">
                         Segment
                       </Label>
-                      <Input
-                        id="pf-segment"
-                        value={metadata.targetSegment}
-                        onChange={(e) =>
-                          setMetadata((m) => ({ ...m, targetSegment: e.target.value }))
+                      <Select
+                        value={metadata.targetSegment || SEGMENT_OPTIONS[0]}
+                        onValueChange={(v) =>
+                          setMetadata((m) => ({ ...m, targetSegment: v }))
                         }
-                        className="w-full"
-                      />
+                      >
+                        <SelectTrigger id="pf-segment" className="w-full">
+                          <SelectValue placeholder="Select segment" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {!SEGMENT_OPTIONS.includes(
+                            metadata.targetSegment as (typeof SEGMENT_OPTIONS)[number]
+                          ) &&
+                            metadata.targetSegment && (
+                              <SelectItem value={metadata.targetSegment}>
+                                {metadata.targetSegment}
+                              </SelectItem>
+                            )}
+                          {SEGMENT_OPTIONS.map((opt) => (
+                            <SelectItem key={opt} value={opt}>
+                              {opt}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
-                  </div>
-
-                  <div className="space-y-1.5 max-w-xs">
-                    <Label htmlFor="pf-sensitivity" className="text-caption">
-                      Sensitivity
-                    </Label>
-                    <Select
-                      value={metadata.sensitivity}
-                      onValueChange={(v) =>
-                        setMetadata((m) => ({
-                          ...m,
-                          sensitivity: v as ProductMetadata["sensitivity"],
-                        }))
-                      }
-                    >
-                      <SelectTrigger id="pf-sensitivity">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Low">Low</SelectItem>
-                        <SelectItem value="Medium">Medium</SelectItem>
-                        <SelectItem value="High">High</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {metadata.sensitivity === "High" && (
-                      <div className="flex items-center gap-1.5 rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-caption text-primary w-fit">
-                        <ShieldAlert className="w-3.5 h-3.5 shrink-0" />
-                        {quorumPolicy?.name ?? "Governance quorum"} — POL_QUORUM
-                      </div>
-                    )}
                   </div>
 
                   <div className="space-y-1.5 max-w-xl">
@@ -1148,7 +1327,7 @@ export default function ProductFormPage() {
                 </div>
               )}
 
-              {/* ── STEP 3: Enquiry & trended ──────────────────── */}
+              {/* ── STEP 3: Retrieval ──────────────────────────── */}
               {step === 3 && (
                 <div className="space-y-5">
                   <div className="space-y-2">
@@ -1166,6 +1345,9 @@ export default function ProductFormPage() {
                         </TooltipTrigger>
                         <TooltipContent side="top" className="max-w-xs text-caption">
                           <p className="font-medium mb-1">Coverage Scope</p>
+                          <p className="mb-1 text-muted-foreground">
+                            Whose data is queried — not who can see an enquiry footprint.
+                          </p>
                           <ul className="space-y-0.5">
                             {(
                               Object.entries(SCOPE_TOOLTIPS) as [EnquiryConfig["scope"], string][]
@@ -1194,31 +1376,6 @@ export default function ProductFormPage() {
                         <SelectItem value="VERTICAL">Vertical Data</SelectItem>
                       </SelectContent>
                     </Select>
-                  </div>
-
-                  <Separator />
-
-                  <div className="space-y-2">
-                    <Label className="text-caption font-medium">Enquiry impact</Label>
-                    <p className="text-caption text-muted-foreground">
-                      Soft enquiry does not affect the subject's credit footprint; hard enquiry
-                      is recorded as a formal enquiry.
-                    </p>
-                    <div className="flex gap-2 mt-1">
-                      {(["SOFT", "HARD"] as const).map((impact) => (
-                        <Button
-                          key={impact}
-                          type="button"
-                          variant={enquiryConfig.impactType === impact ? "default" : "outline"}
-                          size="sm"
-                          onClick={() =>
-                            setEnquiryConfig((prev) => ({ ...prev, impactType: impact }))
-                          }
-                        >
-                          {impact === "SOFT" ? "Soft enquiry" : "Hard enquiry"}
-                        </Button>
-                      ))}
-                    </div>
                   </div>
 
                   <Separator />
@@ -1257,7 +1414,52 @@ export default function ProductFormPage() {
                           onChange={(e) =>
                             setTrendedConfig((t) => ({
                               ...t,
-                              maxHistoryMonths: Math.max(1, Number(e.target.value) || 1),
+                              maxHistoryMonths: Math.max(1, Math.min(60, Number(e.target.value) || 1)),
+                            }))
+                          }
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="space-y-0.5">
+                        <Label className="text-caption font-medium">
+                          Allow retro retrieval
+                        </Label>
+                        <p className="text-caption text-muted-foreground max-w-sm">
+                          Consumers may request a point-in-time snapshot as of an enquiry date,
+                          within this ceiling.
+                        </p>
+                      </div>
+                      <Switch
+                        checked={retroConfig.enabled}
+                        onCheckedChange={(v) =>
+                          setRetroConfig((t) => ({
+                            enabled: v,
+                            maxHistoryMonths: v ? t.maxHistoryMonths || 6 : t.maxHistoryMonths,
+                          }))
+                        }
+                      />
+                    </div>
+                    {retroConfig.enabled && (
+                      <div className="space-y-1.5 max-w-xs">
+                        <Label htmlFor="pf-retro-max-history" className="text-caption">
+                          Maximum history depth (months)
+                        </Label>
+                        <Input
+                          id="pf-retro-max-history"
+                          type="number"
+                          min={1}
+                          max={60}
+                          value={retroConfig.maxHistoryMonths}
+                          onChange={(e) =>
+                            setRetroConfig((t) => ({
+                              ...t,
+                              maxHistoryMonths: Math.max(1, Math.min(60, Number(e.target.value) || 1)),
                             }))
                           }
                         />
@@ -1267,8 +1469,161 @@ export default function ProductFormPage() {
                 </div>
               )}
 
-              {/* ── STEP 4: Review ──────────────────────────────── */}
+              {/* ── STEP 4: Enquiry impact ─────────────────────── */}
               {step === 4 && (
+                <div className="space-y-5">
+                  <div className="space-y-1">
+                    <Label className="text-caption font-medium">Enquiry impact</Label>
+                    <p className="text-caption text-muted-foreground">
+                      Allow Soft and/or Hard enquiry independently. When an option is on, configure
+                      whether to store a footprint and who can see it.
+                    </p>
+                  </div>
+
+                  {(
+                    [
+                      {
+                        key: "soft" as const,
+                        title: "Allow soft enquiry",
+                        blurb:
+                          "Soft pulls do not typically affect credit decisioning severity.",
+                      },
+                      {
+                        key: "hard" as const,
+                        title: "Allow hard enquiry",
+                        blurb:
+                          "Hard pulls are recorded as formal enquiries when footprint storage is on.",
+                      },
+                    ] as const
+                  ).map((block, idx) => {
+                    const opt = enquiryConfig[block.key];
+                    return (
+                      <div key={block.key} className="space-y-3">
+                        {idx > 0 && <Separator />}
+                        <div className="flex items-center justify-between gap-3">
+                          <div className="space-y-0.5">
+                            <Label className="text-caption font-medium">{block.title}</Label>
+                            <p className="text-caption text-muted-foreground max-w-sm">
+                              {block.blurb}
+                            </p>
+                          </div>
+                          <Switch
+                            checked={opt.enabled}
+                            onCheckedChange={(v) =>
+                              setEnquiryConfig((prev) =>
+                                normalizeEnquiryConfig({
+                                  ...prev,
+                                  [block.key]: normalizeImpactOption({
+                                    ...prev[block.key],
+                                    enabled: v,
+                                    storeFootprint: v ? prev[block.key].storeFootprint : false,
+                                    footprintVisibility: v
+                                      ? prev[block.key].footprintVisibility
+                                      : null,
+                                  }),
+                                })
+                              )
+                            }
+                          />
+                        </div>
+
+                        {opt.enabled && (
+                          <div className="space-y-3 rounded-lg border border-border/80 p-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="space-y-0.5">
+                                <Label className="text-caption font-medium">
+                                  Store enquiry footprint
+                                </Label>
+                                <p className="text-caption text-muted-foreground max-w-sm">
+                                  When enabled, an enquiry record is written for this impact type.
+                                </p>
+                              </div>
+                              <Switch
+                                checked={opt.storeFootprint}
+                                onCheckedChange={(v) =>
+                                  setEnquiryConfig((prev) =>
+                                    normalizeEnquiryConfig({
+                                      ...prev,
+                                      [block.key]: normalizeImpactOption({
+                                        ...prev[block.key],
+                                        enabled: true,
+                                        storeFootprint: v,
+                                        footprintVisibility: v
+                                          ? prev[block.key].footprintVisibility ?? "NETWORK"
+                                          : null,
+                                      }),
+                                    })
+                                  )
+                                }
+                              />
+                            </div>
+
+                            {opt.storeFootprint && (
+                              <div className="space-y-2">
+                                <Label className="text-caption font-medium">
+                                  Footprint visibility
+                                </Label>
+                                <p className="text-caption text-muted-foreground">
+                                  Who can see this enquiry on the subject&apos;s footprint.
+                                </p>
+                                <div className="flex flex-wrap gap-2">
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                      opt.footprintVisibility === "NETWORK" ? "default" : "outline"
+                                    }
+                                    onClick={() =>
+                                      setEnquiryConfig((prev) =>
+                                        normalizeEnquiryConfig({
+                                          ...prev,
+                                          [block.key]: normalizeImpactOption({
+                                            ...prev[block.key],
+                                            enabled: true,
+                                            storeFootprint: true,
+                                            footprintVisibility: "NETWORK",
+                                          }),
+                                        })
+                                      )
+                                    }
+                                  >
+                                    All network participants
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant={
+                                      opt.footprintVisibility === "VERTICAL" ? "default" : "outline"
+                                    }
+                                    onClick={() =>
+                                      setEnquiryConfig((prev) =>
+                                        normalizeEnquiryConfig({
+                                          ...prev,
+                                          [block.key]: normalizeImpactOption({
+                                            ...prev[block.key],
+                                            enabled: true,
+                                            storeFootprint: true,
+                                            footprintVisibility: "VERTICAL",
+                                          }),
+                                        })
+                                      )
+                                    }
+                                  >
+                                    Vertical participants
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ── STEP 5: Review ──────────────────────────────── */}
+              {step === 5 && (
                 <div className="space-y-4">
                   <div className="rounded-lg border border-border/80 p-4 space-y-2">
                     <p className="text-caption font-semibold text-muted-foreground uppercase tracking-wide">
@@ -1292,39 +1647,36 @@ export default function ProductFormPage() {
                         <dd className="text-foreground">{metadata.targetSegment || "—"}</dd>
                       </div>
                       <div>
-                        <dt className="text-muted-foreground">Sensitivity</dt>
-                        <dd className="text-foreground">{metadata.sensitivity}</dd>
-                      </div>
-                      <div>
                         <dt className="text-muted-foreground">Effective start</dt>
                         <dd className="text-foreground">{metadata.effectiveStart || "—"}</dd>
                       </div>
                       <div className="col-span-2">
-                        <dt className="text-muted-foreground">Tags</dt>
-                        <dd className="text-foreground">{tagsInput || "—"}</dd>
-                      </div>
-                      <div className="col-span-2">
-                        <dt className="text-muted-foreground">Description</dt>
-                        <dd className="text-foreground">{description || "—"}</dd>
-                      </div>
-                      <div className="col-span-2">
                         <dt className="text-muted-foreground">Release note</dt>
-                        <dd className="text-foreground">{metadata.releaseNote || "—"}</dd>
+                        <dd className="text-foreground whitespace-pre-wrap">
+                          {metadata.releaseNote || "—"}
+                        </dd>
+                      </div>
+                      <div className="col-span-2">
+                        <dt className="text-muted-foreground">Tags</dt>
+                        <dd className="text-foreground">
+                          {tagsInput
+                            .split(",")
+                            .map((t) => t.trim())
+                            .filter(Boolean)
+                            .join(", ") || "—"}
+                        </dd>
                       </div>
                     </dl>
                   </div>
 
                   <div className="rounded-lg border border-border/80 p-4 space-y-2">
                     <p className="text-caption font-semibold text-muted-foreground uppercase tracking-wide">
-                      Data packets
-                    </p>
-                    <p className="text-caption text-muted-foreground">
-                      Customer Profile: {profileConfig.includedFields.length} field(s) ·{" "}
-                      {orderedPacketIds.length} packet(s) selected
+                      Packets
                     </p>
                     <ul className="flex flex-wrap gap-1.5">
                       {orderedPacketIds.map((pid) => {
-                        const label = catalogOptions.find((o) => o.id === pid)?.label ?? pid;
+                        const label =
+                          productCatalogPacketOptions.find((o) => o.id === pid)?.label ?? pid;
                         return (
                           <li
                             key={pid}
@@ -1344,20 +1696,21 @@ export default function ProductFormPage() {
 
                   <div className="rounded-lg border border-border/80 p-4 space-y-2">
                     <p className="text-caption font-semibold text-muted-foreground uppercase tracking-wide">
-                      Enquiry & trended
+                      Retrieval & enquiry
                     </p>
                     <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-caption">
                       <div>
                         <dt className="text-muted-foreground">Coverage scope</dt>
                         <dd className="text-foreground">{enquiryConfig.scope}</dd>
                       </div>
-                      <div>
+                      <div className="col-span-2">
                         <dt className="text-muted-foreground">Impact</dt>
-                        <dd className="text-foreground">
-                          {enquiryConfig.impactType === "SOFT" ? "Soft enquiry" : "Hard enquiry"}
+                        <dd className="text-foreground space-y-0.5">
+                          <div>{formatImpactOption(enquiryConfig.soft, "Soft")}</div>
+                          <div>{formatImpactOption(enquiryConfig.hard, "Hard")}</div>
                         </dd>
                       </div>
-                      <div className="col-span-2">
+                      <div>
                         <dt className="text-muted-foreground">Trended retrieval</dt>
                         <dd className="text-foreground">
                           {trendedConfig.enabled
@@ -1365,11 +1718,19 @@ export default function ProductFormPage() {
                             : "Disabled"}
                         </dd>
                       </div>
+                      <div>
+                        <dt className="text-muted-foreground">Retro retrieval</dt>
+                        <dd className="text-foreground">
+                          {retroConfig.enabled
+                            ? `Enabled · up to ${retroConfig.maxHistoryMonths} months`
+                            : "Disabled"}
+                        </dd>
+                      </div>
                     </dl>
                   </div>
 
                   <p className="text-caption text-muted-foreground italic">
-                    Full request/response JSON previews are in the right column.
+                    Full request/response JSON previews are below.
                   </p>
                 </div>
               )}
@@ -1386,7 +1747,7 @@ export default function ProductFormPage() {
                   <ChevronLeft className="w-4 h-4 mr-1" />
                   Back
                 </Button>
-                {step < 4 ? (
+                {step < 5 ? (
                   <Button type="button" size="sm" onClick={handleNext}>
                     Next
                     <ChevronRight className="w-4 h-4 ml-1" />
@@ -1410,24 +1771,31 @@ export default function ProductFormPage() {
             </p>
           </CardHeader>
           <CardContent className="space-y-3">
-            {trendedConfig.enabled && (
+            {(trendedConfig.enabled || retroConfig.enabled) && (
               <div className="flex flex-wrap items-center gap-2 rounded-md border border-border/70 bg-muted/20 px-2.5 py-2">
                 <span className="text-caption text-muted-foreground">Preview as</span>
                 <div className="flex gap-1">
-                  {(["LATEST", "TRENDED"] as const).map((s) => (
+                  {(
+                    [
+                      { id: "LATEST" as const, enabled: true },
+                      { id: "TRENDED" as const, enabled: trendedConfig.enabled },
+                      { id: "RETRO" as const, enabled: retroConfig.enabled },
+                    ] as const
+                  ).map((s) => (
                     <Button
-                      key={s}
+                      key={s.id}
                       type="button"
                       size="sm"
-                      variant={previewScope === s ? "default" : "outline"}
+                      variant={previewScope === s.id ? "default" : "outline"}
                       className="h-7 text-caption px-2.5"
-                      onClick={() => setPreviewScope(s)}
+                      disabled={!s.enabled}
+                      onClick={() => s.enabled && setPreviewScope(s.id)}
                     >
-                      {s}
+                      {s.id}
                     </Button>
                   ))}
                 </div>
-                {previewScope === "TRENDED" && (
+                {previewScope === "TRENDED" && trendedConfig.enabled && (
                   <div className="flex items-center gap-1.5 ml-auto">
                     <Label htmlFor="pf-preview-window" className="text-caption text-muted-foreground">
                       Window
@@ -1448,6 +1816,24 @@ export default function ProductFormPage() {
                     <span className="text-caption text-muted-foreground">
                       / {trendedConfig.maxHistoryMonths}mo
                     </span>
+                  </div>
+                )}
+                {previewScope === "RETRO" && retroConfig.enabled && (
+                  <div className="flex items-center gap-1.5 ml-auto">
+                    <Label
+                      htmlFor="pf-preview-enquiry-date"
+                      className="text-caption text-muted-foreground"
+                    >
+                      Enquiry date
+                    </Label>
+                    <Input
+                      id="pf-preview-enquiry-date"
+                      type="date"
+                      value={previewEnquiryDate}
+                      max={REFERENCE_DATE}
+                      onChange={(e) => setPreviewEnquiryDate(e.target.value || DEFAULT_RETRO_ENQUIRY_DATE)}
+                      className="h-7 w-[9.5rem] text-caption"
+                    />
                   </div>
                 )}
               </div>
