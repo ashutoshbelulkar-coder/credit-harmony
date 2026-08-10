@@ -4,7 +4,7 @@
 **Parent Module:** Data Products
 **Sub-Module:** Product Configurator (`/data-products/products`)
 **Document Type:** Business Requirements Document (BRD)
-**Version:** 1.4
+**Version:** 1.5
 **Status:** Draft for review
 **Classification:** Internal – Confidential
 
@@ -18,6 +18,7 @@
 | 1.2 | 2026-08-05 | Made product **business metadata backend-configurable** (PC-BR-205); **delegated approval** policy/routing/quorum/separation-of-duties to the application's approval framework (INT-3); added **packet point-in-time snapshot binding** (PC-BR-206 / ASM-7) and the **non-empty contract** rule (PC-VAL-11a); enumerated version **compare dimensions**; added an **OBJ→CAP→FR/BR→AC traceability matrix**. |
 | 1.3 | 2026-08-05 | **Major rescope.** Removed **CAP-6 Lifecycle Management** as owned content (→ OOS-8; owned by the **Product Lifecycle Management BRD**; INT-7) and **CAP-7 Subscriber Entitlement** as owned content (→ OOS-7; owned by **Institution / Member Management**; INT-1 now two-way). Lifecycle **status** and **subscriber/consumer counts** remain as **read-only inbound displays**. Added **§6.1 end-to-end flow narrative** with explicit handoff markers; added the **Customer Profile system block** (PC-FR-206a); kept **abandon Draft** (PC-FR-211) and **withdraw Pending submission** (PC-FR-405) as owned exits. Transferred all lifecycle and entitlement requirements to their owning BRDs in **[Section 17](#17-transferred-requirements-raised-against-owning-brds)** so none are lost. |
 | 1.4 | 2026-08-10 | **Authoring / enquiry model expansion.** Five-step authoring wizard; **Sensitivity** becomes a **calculated / display-only** field (not captured in the form); Business unit and Segment become **controlled catalogues**; independent **Allow soft enquiry** / **Allow hard enquiry** with per-impact **store footprint** and **footprint visibility** (network vs vertical participants); **Trended** and **Retro** retrieval ceilings; live preview **LATEST / TRENDED / RETRO** with Retro `enquiryDate` and `retrievalAnchor = AS_OF <enquiryDate>`; catalogue cards show tags (max 3) and date-only Updated; fingerprint and compare dimensions extended. Added detailed §7.2.1 narrative for AI implementers. |
+| 1.5 | 2026-08-10 | **Traceability scope narrow.** Product detail Traceability shows **data packets → this product version** only. **Data submitters** and **Consumers** columns are removed from Traceability; subscriber institutions remain on the **Subscribers** tab (and catalogue/version counts). |
 
 ---
 
@@ -41,7 +42,7 @@ The **Product Configurator** is the authoring and governance-submission workspac
 | OBJ-1 | Enable self-service product authoring for Bureau product owners | Products can be created and submitted without engineering involvement |
 | OBJ-2 | Enforce governance before go-live | No product reaches Active without a recorded approval decision |
 | OBJ-3 | Support controlled evolution | New versions supersede old ones through managed versioning (lifecycle execution owned by the Lifecycle BRD) |
-| OBJ-4 | Provide product transparency & traceability | Submitters → packets → product → consumers and the audit trail are viewable |
+| OBJ-4 | Provide product transparency & traceability | Packets → product composition, Subscribers tab, and the audit trail are viewable |
 
 > **OBJ-2 shared ownership:** Because approval mechanics are delegated to the application's approval framework (see [INT-3](#4-module-context--interactions), [PC-FR-403](#74-governance-submission-cap-4)), this document cannot *independently* guarantee "no product reaches Active without a recorded approval." **OBJ-2 is jointly satisfied by the Product Configurator, the Approval Queue module, and the Lifecycle BRD** (which owns activation), and the traceability in [Section 15](#15-acceptance-criteria) holds on that basis.
 
@@ -55,7 +56,7 @@ The **Product Configurator** is the authoring and governance-submission workspac
 - Version management: creating successor versions of an existing product and comparing versions.
 - Governance submission: submitting a definition into the application's approval framework and recording the resulting decision as a business outcome (approval mechanics owned by the framework — see [INT-3](#4-module-context--interactions)).
 - Owned draft/submission exits: **abandoning a Draft** and **withdrawing a Pending submission**.
-- Product transparency: viewing the data contract, traceability (submitters → packets → product → consumers), **read-only** subscriber list/counts, version history, and audit trail.
+- Product transparency: viewing the data contract, **packet→product Traceability**, **read-only** subscriber list/counts (Subscribers tab / catalogue), version history, and audit trail.
 - Consuming **lifecycle status** as read-only input for catalogue display, representative-version resolution, edit gating, and Run-test gating.
 - Pre-go-live enquiry validation: an in-context **Run test** simulation from the catalogue, plus the standalone enquiry simulation entry point (configuration handoff — see [Section 4](#4-module-context--interactions)).
 
@@ -94,7 +95,7 @@ The Product Configurator does not operate in isolation. It **depends on** and **
 
 ```mermaid
 flowchart LR
-  MM["Institution / Member Mgmt"] <-->|"submitters + subscriber/consumer display"| PC["Product Configurator"]
+  MM["Institution / Member Mgmt"] <-->|"subscriber/consumer display"| PC["Product Configurator"]
   SM["Schema Mapper / Data Governance"] -->|"packet + field catalogue"| PC
   PC -->|"submits product for review"| AQ["Approval Queue / Framework"]
   PLM["Product Lifecycle Mgmt"] -->|"lifecycle status"| PC
@@ -106,7 +107,7 @@ flowchart LR
 
 | ID | Interacting Module | Direction | Business Interaction |
 |----|--------------------|-----------|----------------------|
-| INT-1 | Institution / Member Management | **Two-way (display)** | Supplies institutions that appear as **data submitters** (traceability) **and** the **subscriber/consumer** information shown read-only in the catalogue count, Subscribers tab, and traceability consumers. Entitlement is owned there (OOS-7). |
+| INT-1 | Institution / Member Management | **Two-way (display)** | Supplies the **subscriber/consumer** information shown read-only in the catalogue count and Subscribers tab. Entitlement is owned there (OOS-7). Traceability does **not** list data submitters or consumers (v1.5). |
 | INT-2 | Schema Mapper / Data Governance | Inbound | Supplies the **data packets** and their fields from which a product is composed. |
 | INT-3 | Approval Queue / approval framework | Outbound | Receives product submissions for maker-checker governance review; decisions flow back as recorded outcomes. Owns policy, routing, quorum, and separation-of-duties. |
 | INT-4 | Enquiry API | Outbound | Consumes **Active** product definitions to serve live credit enquiries. |
@@ -146,7 +147,7 @@ flowchart LR
 | Business Unit | Controlled catalogue value describing the owning commercial unit (e.g. Commercial Lending, Consumer Digital). |
 | Segment | Controlled catalogue value describing the target customer segment (e.g. SME, BNPL retail). |
 | Run Test | An in-context, non-production enquiry simulation launched from a product card to validate a live/deprecated definition. |
-| Traceability | The end-to-end view of data submitters → packets → product version → consumers (formerly "Lineage"). |
+| Traceability | The composition view of **data packets → this product version**, with packet field inspection (formerly "Lineage"). Does **not** include data-submitter or consumer institution columns; subscribers remain on the Subscribers tab. |
 | Live Preview | Authoring-time business preview of representative enquiry **request** and **response** JSON, driven by the draft definition and Preview-as mode. |
 
 ---
@@ -162,7 +163,7 @@ flowchart LR
 | CAP-5 | Approval Decisioning | Record Approve/Reject outcomes with accountability (mechanics framework-owned). |
 | ~~CAP-6~~ | ~~Lifecycle Management~~ | **Moved out of scope (OOS-8)** — owned by the Product Lifecycle Management BRD (INT-7). Status consumed read-only here. |
 | ~~CAP-7~~ | ~~Subscriber Entitlement~~ | **Moved out of scope (OOS-7)** — owned by Institution / Member Management (INT-1). Subscriber/consumer data shown read-only here. |
-| CAP-8 | Transparency & Traceability | View data contract, traceability, read-only subscribers, version history, and audit. |
+| CAP-8 | Transparency & Traceability | View data contract, packet→product Traceability, read-only subscribers, version history, and audit. |
 | CAP-9 | Pre-Go-Live Validation | Run an in-context test simulation and hand off a configuration for enquiry simulation. |
 
 ### 6.1 End-to-End Flow (with handoff markers)
@@ -351,7 +352,7 @@ The configurator **reads** lifecycle status to drive: representative-version res
 | ID | Requirement |
 |----|-------------|
 | PC-FR-701 | The product detail shall display a **read-only Subscribers list** sourced from Institution / Member Management (INT-1), showing institution, pinned version, subscription status, and request date. |
-| PC-FR-702 | Traceability **consumers** and the catalogue/version **subscriber counts** shall be **read-only views** of the same inbound data; no entitlement action is initiated from this module. |
+| PC-FR-702 | Catalogue and version **subscriber counts**, and the **Subscribers** tab list, shall be **read-only views** of inbound Institution / Member Management data; no entitlement action is initiated from this module. Subscribers are **not** shown on the Traceability tab. |
 
 **Business rules**
 - **PC-BR-701** — The "**Deprecated with consumers**" catalogue view is a **display over inbound data** (INT-1 + INT-7) and remains available. Entitlement semantics (pinned-version fallback, exits, expiry) are owned by Institution / Member Management (see [Section 17](#17-transferred-requirements-raised-against-owning-brds)).
@@ -362,14 +363,14 @@ The configurator **reads** lifecycle status to drive: representative-version res
 |----|-------------|
 | PC-FR-801 | The product detail shall present an **Overview** of business metadata (business unit, segment, SAP item code, **sensitivity (calculated / display-only)**, effective start, published date, environment), the version **release note**, and a clear summary of **retrieval** (coverage, trended, retro) and **enquiry impact** (soft and hard lines with footprint settings). |
 | PC-FR-802 | The product detail shall present the **Data Contract** — the fields the product exposes (incl. the Customer Profile block), with type, PII indication, and attribute mode (Snapshot/Trended). |
-| PC-FR-803 | The product detail shall present **Traceability** showing the flow: data submitters → data packets → this product version → consumers (consumers shown read-only, INT-1). |
-| PC-FR-804 | From traceability, a user shall be able to inspect the field list contributed by any individual packet. |
+| PC-FR-803 | The product detail shall present **Traceability** showing the composition flow: **data packets → this product version**. Traceability shall **not** list data-submitter institutions or consuming/subscribing institutions. |
+| PC-FR-804 | From Traceability, a user shall be able to inspect the field list contributed by any individual packet. |
 | PC-FR-805 | The product detail shall present **Subscribers** (read-only, PC-FR-701) and **Version history**. |
 | PC-FR-806 | An **Audit trail** of all material actions on the product shall be viewable. |
 | PC-FR-807 | The product detail navigation shall be presented as tabs: Overview, Data Contract, Traceability, Subscribers (read-only), Versions, and **Audit** (aligns with PC-FR-806 and AC-07). |
 
 **Business rules**
-- **PC-BR-801** — Traceability data submitters are resolved to named member institutions (INT-1); where a packet has no named submitter, its source label is shown. **Consumers are a read-only view** of the product's subscribing institutions (INT-1).
+- **PC-BR-801** — Traceability is limited to the product's configured packets and the product-version node. Packet labels come from the governed packet catalogue (INT-2). **Subscriber institutions are shown only on the Subscribers tab** (PC-FR-701), not on Traceability. Data-submitter institution attribution is out of Traceability scope (v1.5).
 - **PC-BR-802** — A field is marked **PII** and its attribute **mode** based on governed field semantics.
 - **PC-BR-803** — The Overview does not expose data-acquisition type, data-availability type, or access-restrictions fields. **Product legal and usage terms are owned by the Data Governance / Legal function** (not authored here); the version **release note** carries only change-summary text. If no such owner is confirmed, the legal-terms field must be reinstated (see [OQ-03](#13-open-questions--ambiguities)).
 
@@ -515,7 +516,7 @@ Business validations are grouped by the action/form they govern. **Surfacing** i
 
 | ID | Dependency | Nature | Impact if Unavailable |
 |----|-----------|--------|-----------------------|
-| DEP-1 | Institution / Member Management | Data (two-way display) | No submitters to attribute in traceability and no subscriber/consumer counts to display (INT-1). |
+| DEP-1 | Institution / Member Management | Data (two-way display) | No subscriber/consumer counts or Subscribers-tab list to display (INT-1). |
 | DEP-2 | Packet & field catalogue (Data Governance) | Data | Products cannot be composed. Published versions bind to a **point-in-time snapshot** of packet fields (PC-BR-206 / ASM-7); packet retirement raises a policy warning (PC-FR-105). |
 | DEP-3 | Approval Queue / approval framework | Process | Submissions cannot be governed (owns PC-FR-403). |
 | DEP-4 | Enquiry API module | Downstream | Active products cannot be consumed at runtime. |
@@ -535,7 +536,7 @@ Business validations are grouped by the action/form they govern. **Surfacing** i
 | EDGE-4 | Attempt to create a new version while a Draft exists | Blocked; the existing Draft must be resolved first (PC-BR-301). |
 | EDGE-5 | Rejected submission is revised | Version returns to Draft and may be resubmitted as a new approval cycle (UA-05 → UA-03). |
 | EDGE-6 | Product's packets are fully disabled at submission | Blocked — the derived contract is empty (PC-VAL-11a). |
-| EDGE-7 | Packet contributes no fields to the contract | Packet still appears in traceability; its field inspection shows an empty contract for that packet. |
+| EDGE-7 | Packet contributes no fields to the contract | Packet still appears in Traceability; its field inspection shows an empty contract for that packet. |
 | EDGE-8 | Packet retired mid-Draft (after selection, before submission) | Draft flags the retired packet; the Product Owner must remove/replace it. Published versions are unaffected (PC-BR-206). |
 | EDGE-9 | Run test opened for a non-Active/Deprecated product | Not possible — the Run test action is not offered for those statuses (PC-FR-904). |
 | EDGE-10 | Deprecated product used in Run test | Permitted; Run test remains available so validators can compare behaviour during wind-down. |
@@ -612,8 +613,8 @@ The sub-module is accepted when the following business outcomes hold:
 | AC-04 | Cross-product duplicate definitions are prevented unless an explicit governance exception is provided; same-product matches warn only. Fingerprint includes soft, hard, trended, and retro components. | PC-BR-402, PC-FR-404, PC-VAL-17 |
 | AC-05 | A user can create a new version and compare two versions across the defined compare dimensions (incl. soft/hard/trended/retro); the single-open-Draft rule is enforced. | PC-FR-301–304, PC-BR-301, PC-VAL-33 |
 | AC-06 | **Lifecycle status is consumed read-only**: representative-version resolution, catalogue views, Run-test gating, and edit gating all reflect inbound status; no lifecycle transition is executed here. | PC-BR-101, PC-FR-104/904, PC-VAL-34, INT-7 |
-| AC-07 | Product detail exposes Overview (incl. optional SAP item code, release note, calculated sensitivity, retrieval + enquiry impact summaries), Data Contract (incl. Customer Profile block), Traceability, **read-only** Subscribers, Version history, and Audit. | PC-FR-801–807, PC-BR-801–803 |
-| AC-08 | Subscriber count and traceability consumers are **read-only views** of Institution / Member Management data; no entitlement action is initiated here. Catalogue cards show date-only Updated and up to three tags. | PC-FR-102/701/702/805, PC-BR-701/801, INT-1 |
+| AC-07 | Product detail exposes Overview (incl. optional SAP item code, release note, calculated sensitivity, retrieval + enquiry impact summaries), Data Contract (incl. Customer Profile block), Traceability (**packets → product only**), **read-only** Subscribers, Version history, and Audit. | PC-FR-801–807, PC-BR-801–803 |
+| AC-08 | Subscriber count and the Subscribers tab are **read-only views** of Institution / Member Management data; no entitlement action is initiated here. Traceability does not list submitters or consumers. Catalogue cards show date-only Updated and up to three tags. | PC-FR-102/701/702/805, PC-BR-701/801, INT-1 |
 | AC-09 | A product configuration can be handed off to Enquiry Simulation, and a Run test can be launched in-context, without creating a real consumer enquiry footprint. | PC-FR-901–905, PC-BR-901–903 |
 | AC-10 | Run test is offered only for Active/Deprecated products, captures minimal consumer inputs, returns a simulated response on a separate result step, and never persists inputs or writes them to audit. | PC-FR-903–905, PC-BR-903, PC-VAL-30–32 |
 | AC-11 | Every material owned action (create, submit, decision outcome, abandon Draft, withdraw submission) is written to the audit trail with actor, action, timestamp, and justification where applicable. | INT-6, PC-FR-211/405 |
@@ -783,6 +784,8 @@ Exclude: name, description, businessUnit, segment, SAP, tags, releaseNote, sensi
 | Catalogue card | Code, name, representative status, subscriber total, **date-only** Updated, **≤3 tags** (no enquiry-count badge required) |
 | Authoring live preview | Request + Response; Preview as when applicable |
 | Product detail Overview | Metadata + sensitivity display + Soft/Hard lines + trended/retro |
+| Product detail Traceability | **Data packets → this product version** only; packet click opens field inspection; **no** Data submitters column; **no** Consumers column |
+| Product detail Subscribers | Read-only subscriber institutions (INT-1) |
 | Approval review | Same enquiry/retrieval summary as detail |
 | Version compare | Soft, Hard, Trended, Retro deltas + contract + metadata |
 

@@ -45,8 +45,7 @@ import {
 import { cn } from "@/lib/utils";
 import { badgeTextClasses, detailPageTabTriggerBaseClasses, tableHeaderClasses } from "@/lib/typography";
 
-import { catalogLabelForPacketId, formatImpactOption, getDataPacketById } from "@/data/data-products-mock";
-import { getInstitutionById } from "@/data/institutions-mock";
+import { catalogLabelForPacketId, formatImpactOption } from "@/data/data-products-mock";
 import {
   BRD_STATUS_LABEL,
   LOCAL_CPO_LABEL,
@@ -820,42 +819,13 @@ function PacketFieldsDialog({
   );
 }
 
-function LineageTab({
-  product,
-  subscriptions,
-}: {
-  product: DemoProductVersion;
-  subscriptions: Subscription[];
-}) {
+function LineageTab({ product }: { product: DemoProductVersion }) {
   const [packetDialogId, setPacketDialogId] = useState<string | null>(null);
-
-  const dataSubmitters = useMemo(() => {
-    const byId = new Map<string, string>();
-    product.packetIds.forEach((pid) => {
-      const packet = getDataPacketById(pid);
-      const ids = packet?.dataSubmitterInstitutionIds ?? [];
-      if (ids.length === 0 && packet?.source) {
-        byId.set(`source:${packet.source}`, packet.source);
-        return;
-      }
-      ids.forEach((id) => {
-        const inst = getInstitutionById(id);
-        byId.set(id, inst?.name ?? id);
-      });
-    });
-    return [...byId.entries()].map(([id, label]) => ({ id, label }));
-  }, [product.packetIds]);
 
   const packetNodes = useMemo(
     () => product.packetIds.map((pid) => ({ id: pid, label: catalogLabelForPacketId(pid) ?? pid })),
     [product.packetIds]
   );
-
-  const consumers = useMemo(() => {
-    const names = new Set<string>();
-    subscriptions.forEach((s) => names.add(s.institutionName));
-    return [...names];
-  }, [subscriptions]);
 
   return (
     <>
@@ -863,20 +833,12 @@ function LineageTab({
         <CardHeader className="pb-2">
           <CardTitle>Traceability</CardTitle>
           <CardDescription className="text-[10px] leading-[14px]">
-            Data submitters flow through configured packets into this product version, out to
-            subscribed consumers. Click a packet to inspect its contract fields.
+            Configured data packets compose this product version. Click a packet to inspect its
+            contract fields. Subscribers are listed on the Subscribers tab.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col lg:flex-row lg:items-stretch gap-2 lg:gap-3 overflow-x-auto pb-2">
-            <LineageColumn
-              title="Data submitters"
-              nodes={dataSubmitters}
-              tone="muted"
-              emptyLabel="No submitters"
-            />
-            <LineageConnector orientation="vertical" />
-            <LineageConnector orientation="horizontal" />
+          <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3 overflow-x-auto pb-2">
             <LineageColumn
               title="Data packets"
               nodes={packetNodes}
@@ -887,14 +849,6 @@ function LineageTab({
             <LineageConnector orientation="vertical" />
             <LineageConnector orientation="horizontal" />
             <ProductJigsawNode name={product.name} version={product.version} />
-            <LineageConnector orientation="vertical" />
-            <LineageConnector orientation="horizontal" />
-            <LineageColumn
-              title="Consumers"
-              nodes={consumers.map((c) => ({ id: c, label: c }))}
-              tone="success"
-              emptyLabel="No consumers yet"
-            />
           </div>
         </CardContent>
       </Card>
@@ -1249,7 +1203,7 @@ export default function ProductDetailPage() {
         </TabsContent>
 
         <TabsContent value="lineage" className="mt-4">
-          <LineageTab product={product} subscriptions={subscriptions} />
+          <LineageTab product={product} />
         </TabsContent>
 
         <TabsContent value="subscribers" className="mt-4">
