@@ -23,6 +23,19 @@ export function DqGradePill({ grade, className }: { grade: DqGrade; className?: 
   );
 }
 
+export function DqKpiRangeTag({ status }: { status: "acceptable" | "watch" | "out" }) {
+  const tone =
+    status === "acceptable"
+      ? "bg-success/15 text-success"
+      : status === "watch"
+        ? "bg-warning/15 text-warning"
+        : "bg-destructive/15 text-destructive";
+  const label = status === "acceptable" ? "acceptable" : "Needs attention";
+  return (
+    <span className={cn("inline-flex shrink-0 rounded-full px-2 py-0.5", badgeTextClasses, tone)}>{label}</span>
+  );
+}
+
 export function DqSeverityPill({ severity }: { severity: DqSeverity }) {
   const tone =
     severity === "REJECT"

@@ -42,7 +42,7 @@ const navigationItems = [
   { label: "Governance Audit Logs", path: "/data-governance/governance-audit-logs", icon: ShieldCheck, group: "Data Governance" },
   { label: "Data Submission API Monitoring", path: "/monitoring/data-submission-api", icon: Activity, group: "Monitoring" },
   { label: "Data Submission Batch", path: "/monitoring/data-submission-batch", icon: Activity, group: "Monitoring" },
-  { label: "Inquiry API Monitoring", path: "/monitoring/inquiry-api", icon: Activity, group: "Monitoring" },
+  { label: "Enquiry API Monitoring", path: "/monitoring/inquiry-api", icon: Activity, group: "Monitoring" },
   { label: "SLA Configuration", path: "/monitoring/sla-configuration", icon: Activity, group: "Monitoring" },
   { label: "Alert Engine", path: "/monitoring/alert-engine", icon: Activity, group: "Monitoring" },
   { label: "Reports", path: "/reporting", icon: FileBarChart, group: "Navigation" },

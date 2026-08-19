@@ -58,7 +58,7 @@ export const permissionSections: PermissionSection[] = [
     items: [
       { label: "Data Submission API", path: "/monitoring/data-submission-api" },
       { label: "Data Submission Batch", path: "/monitoring/data-submission-batch" },
-      { label: "Inquiry API", path: "/monitoring/inquiry-api" },
+      { label: "Enquiry API", path: "/monitoring/inquiry-api" },
       { label: "SLA Configuration", path: "/monitoring/sla-configuration" },
       { label: "Alert Engine", path: "/monitoring/alert-engine" },
     ],

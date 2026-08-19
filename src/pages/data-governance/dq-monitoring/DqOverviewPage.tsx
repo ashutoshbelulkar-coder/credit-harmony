@@ -7,6 +7,7 @@ import { useDqMonitoring } from "./dq-context";
 import {
   DqDelta,
   DqEmptyState,
+  DqKpiRangeTag,
   DqKpiSkeleton,
   DqSeverityPill,
   DqTableSkeleton,
@@ -22,10 +23,12 @@ import type { DqHeadlineKpis, DqIssue } from "@/types/dq-monitoring";
 function KpiTile({
   label,
   value,
+  status,
   onClick,
 }: {
   label: string;
   value: string;
+  status?: "acceptable" | "watch" | "out";
   onClick: () => void;
 }) {
   return (
@@ -35,16 +38,27 @@ function KpiTile({
       className="rounded-xl border border-border bg-card p-4 shadow-sm text-left cursor-pointer hover:border-primary/30 transition-colors"
     >
       <p className="text-caption font-medium uppercase tracking-wider text-muted-foreground">{label}</p>
-      <div className="mt-2 flex items-center gap-2 min-w-0">
-        <p className="font-sans text-h2 font-bold text-foreground tabular-nums whitespace-nowrap">{value}</p>
-      </div>
+      <p className="mt-2 font-sans text-h2 font-bold text-foreground tabular-nums whitespace-nowrap">{value}</p>
+      {status ? <div className="mt-1.5"><DqKpiRangeTag status={status} /></div> : null}
     </button>
   );
 }
 
-function pct(part: number, whole: number): string {
-  if (!whole) return "0.0%";
-  return `${((part / whole) * 100).toFixed(1)}%`;
+function pctValue(part: number, whole: number): number {
+  if (!whole) return 0;
+  return (part / whole) * 100;
+}
+
+function higherIsBetter(value: number, good: number, watch: number): "acceptable" | "watch" | "out" {
+  if (value >= good) return "acceptable";
+  if (value >= watch) return "watch";
+  return "out";
+}
+
+function lowerIsBetter(value: number, good: number, watch: number): "acceptable" | "watch" | "out" {
+  if (value <= good) return "acceptable";
+  if (value <= watch) return "watch";
+  return "out";
 }
 
 export default function DqOverviewPage() {
@@ -55,6 +69,15 @@ export default function DqOverviewPage() {
   const empty = !isDefaultDqFilters(filters) && kpis.recordsEvaluated === 0;
   const warningRules = issues.filter((i) => i.severity === "WARNING").length;
   const infoRules = issues.filter((i) => i.severity === "INFO").length;
+  const warningPct = pctValue(warningRules, issues.length);
+  const infoPct = pctValue(infoRules, issues.length);
+  const rejectedPct = 100 - kpis.acceptedPct;
+  const duplicatePct = pctValue(kpis.duplicatesCollapsed, kpis.recordsEvaluated);
+  const acceptedStatus = higherIsBetter(kpis.acceptedPct, 95, 90);
+  const rejectedStatus = lowerIsBetter(rejectedPct, 5, 10);
+  const duplicateStatus = lowerIsBetter(duplicatePct, 1, 3);
+  const warningStatus = lowerIsBetter(warningPct, 1, 1);
+  const infoStatus = lowerIsBetter(infoPct, 5, 5);
 
   const sortedIssues = [...issues].sort((a, b) => b.membersAffected - a.membersAffected);
 
@@ -75,21 +98,34 @@ export default function DqOverviewPage() {
 
       <div className="grid grid-cols-3 gap-4">
         <KpiTile label="Records evaluated" value={formatInt(kpis.recordsEvaluated)} onClick={() => navigate("/data-governance/data-quality-monitoring/submissions")} />
-        <KpiTile label="Accepted" value={`${kpis.acceptedPct.toFixed(1)}%`} onClick={() => navigate("/data-governance/data-quality-monitoring/submissions")} />
-        <KpiTile label="Rejected" value={`${(100 - kpis.acceptedPct).toFixed(1)}%`} onClick={() => navigate("/data-governance/data-quality-monitoring/issues")} />
+        <KpiTile
+          label="Accepted"
+          value={`${kpis.acceptedPct.toFixed(1)}%`}
+          status={acceptedStatus}
+          onClick={() => navigate("/data-governance/data-quality-monitoring/submissions")}
+        />
+        <KpiTile
+          label="Rejected"
+          value={`${rejectedPct.toFixed(1)}%`}
+          status={rejectedStatus}
+          onClick={() => navigate("/data-governance/data-quality-monitoring/issues")}
+        />
         <KpiTile
           label="% of duplicate records"
-          value={pct(kpis.duplicatesCollapsed, kpis.recordsEvaluated)}
+          value={`${duplicatePct.toFixed(1)}%`}
+          status={duplicateStatus}
           onClick={() => navigate("/data-governance/data-quality-monitoring/issues")}
         />
         <KpiTile
           label="% of warning rules failed"
-          value={pct(warningRules, issues.length)}
+          value={`${warningPct.toFixed(1)}%`}
+          status={warningStatus}
           onClick={() => navigate("/data-governance/data-quality-monitoring/issues?severity=WARNING")}
         />
         <KpiTile
           label="% of Info rules failed"
-          value={pct(infoRules, issues.length)}
+          value={`${infoPct.toFixed(1)}%`}
+          status={infoStatus}
           onClick={() => navigate("/data-governance/data-quality-monitoring/issues?severity=INFO")}
         />
       </div>

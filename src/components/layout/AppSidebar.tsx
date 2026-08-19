@@ -72,7 +72,7 @@ const dataGovernanceSubItems = [
 const monitoringSubItems = [
   { title: "Data Submission API", path: "/monitoring/data-submission-api" },
   { title: "Data Submission Batch", path: "/monitoring/data-submission-batch" },
-  { title: "Inquiry API", path: "/monitoring/inquiry-api" },
+  { title: "Enquiry API", path: "/monitoring/inquiry-api" },
   { title: "SLA Configuration", path: "/monitoring/sla-configuration" },
   { title: "Alert Engine", path: "/monitoring/alert-engine" },
 ];

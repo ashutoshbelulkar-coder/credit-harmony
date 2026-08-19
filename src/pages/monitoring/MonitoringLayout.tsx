@@ -18,7 +18,7 @@ export type MonitoringOutletContext = {
 const monitoringTitles: Record<string, string> = {
   "data-submission-api": "Data Submission API",
   "data-submission-batch": "Data Submission Batch",
-  "inquiry-api": "Inquiry API",
+  "inquiry-api": "Enquiry API",
   "sla-configuration": "SLA Configuration",
   "alert-engine": "Alert Engine",
 };
@@ -45,10 +45,15 @@ export function MonitoringLayout() {
   const showLatencyAlert = kpisReady && kpis.p95LatencyMs > 300;
 
   const isAlertEngine = pathSegment === "alert-engine";
+  const isDsapi = pathSegment === "data-submission-api";
+  const isEnquiry = pathSegment === "inquiry-api";
+  const isSelfContained = isDsapi || isEnquiry;
 
   return (
     <DashboardLayout>
-      {isAlertEngine ? (
+      {isSelfContained ? (
+        <Outlet context={{ filters, setFilters } satisfies MonitoringOutletContext} />
+      ) : isAlertEngine ? (
         <div className="flex flex-1 flex-col min-h-0 animate-fade-in">
           <div className="shrink-0 flex items-center justify-between gap-3 pb-2">
             <div className="min-w-0">
@@ -73,13 +78,7 @@ export function MonitoringLayout() {
               <MonitoringFilterBar
                 filters={filters}
                 onFiltersChange={setFilters}
-                entityFilterMode={
-                  pathSegment === "data-submission-api"
-                    ? "data-submission-api"
-                    : pathSegment === "inquiry-api"
-                      ? "inquiry-api"
-                      : null
-                }
+                entityFilterMode={pathSegment === "inquiry-api" ? "inquiry-api" : null}
               />
             )}
           </div>
