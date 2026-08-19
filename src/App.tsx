@@ -36,7 +36,12 @@ const GovernanceAuditLogs = lazy(() => import("./pages/data-governance/Governanc
 const AutoMappingReview = lazy(() => import("./pages/data-governance/AutoMappingReview"));
 const ValidationRules = lazy(() => import("./pages/data-governance/ValidationRules"));
 const MatchReview = lazy(() => import("./pages/data-governance/MatchReview"));
-const DataQualityMonitoring = lazy(() => import("./pages/data-governance/DataQualityMonitoring"));
+const DqMonitoringLayout = lazy(() => import("./pages/data-governance/dq-monitoring/DqMonitoringLayout"));
+const DqOverviewPage = lazy(() => import("./pages/data-governance/dq-monitoring/DqOverviewPage"));
+const DqMembersPage = lazy(() => import("./pages/data-governance/dq-monitoring/DqMembersPage"));
+const DqMemberDetailPage = lazy(() => import("./pages/data-governance/dq-monitoring/DqMemberDetailPage"));
+const DqIssuesPage = lazy(() => import("./pages/data-governance/dq-monitoring/DqIssuesPage"));
+const DqSubmissionsPage = lazy(() => import("./pages/data-governance/dq-monitoring/DqSubmissionsPage"));
 const DataManagement = lazy(() => import("./pages/data-governance/data-management/DataManagement"));
 const MasterSchemaRegistryPage = lazy(() =>
   import("./pages/data-governance/master-schema/MasterSchemaRegistryPage").then((m) => ({ default: m.MasterSchemaRegistryPage }))
@@ -194,7 +199,13 @@ function AppRoutes() {
             <Route path="master-schema/:id/edit" element={<MasterSchemaEditorPage mode="edit" />} />
             <Route path="validation-rules" element={<ValidationRules />} />
             <Route path="match-review" element={<MatchReview />} />
-            <Route path="data-quality-monitoring" element={<DataQualityMonitoring />} />
+            <Route path="data-quality-monitoring" element={<DqMonitoringLayout />}>
+              <Route index element={<DqOverviewPage />} />
+              <Route path="members" element={<DqMembersPage />} />
+              <Route path="members/:memberId" element={<DqMemberDetailPage />} />
+              <Route path="issues" element={<DqIssuesPage />} />
+              <Route path="submissions" element={<DqSubmissionsPage />} />
+            </Route>
             <Route path="data-management" element={<DataManagement />} />
             <Route path="governance-audit-logs" element={<GovernanceAuditLogs />} />
           </Route>

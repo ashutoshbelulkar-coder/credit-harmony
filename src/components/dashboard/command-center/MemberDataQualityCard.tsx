@@ -75,7 +75,7 @@ export function MemberDataQualityCard({
         <div className="min-w-0">
           <CardTitle className="text-h4 font-semibold text-foreground">Member Data Quality</CardTitle>
           <p className="mt-1 text-caption text-muted-foreground">
-            AI anomaly detection per submission source
+            AI quality scores per submission source
           </p>
         </div>
         <Button size="sm" variant="outline" className="h-8 shrink-0" onClick={onOpenQualityCenter}>
