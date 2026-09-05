@@ -1,5 +1,6 @@
 package com.hcb.platform.service;
 
+import com.hcb.platform.common.AuthOperationException;
 import com.hcb.platform.model.dto.AuthLoginResponse;
 import com.hcb.platform.model.dto.AuthResponse;
 import com.hcb.platform.model.dto.LoginRequest;
@@ -14,9 +15,12 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.dao.IncorrectResultSizeDataAccessException;
+import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.DisabledException;
+import org.springframework.security.authentication.LockedException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
@@ -103,6 +107,13 @@ public class AuthService {
             AuthResponse session = issueSessionAfterAuth(principal, ipAddress);
             return toLoginResponse(session);
 
+        } catch (DisabledException | LockedException e) {
+            logFailedLoginAudit(email, ipAddress);
+            throw new AuthOperationException(
+                "ERR_ACCOUNT_SUSPENDED",
+                "Your account has been suspended. Please contact your administrator.",
+                HttpStatus.FORBIDDEN
+            );
         } catch (BadCredentialsException e) {
             logFailedLoginAudit(email, ipAddress);
             throw new BadCredentialsException("Invalid credentials");

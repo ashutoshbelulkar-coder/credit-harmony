@@ -115,9 +115,19 @@ export default function Login() {
       if (err instanceof ApiError) {
         if (err.isUnauthorized) {
           setErrors({ server: "Invalid email or password. Please try again." });
-        } else if (err.isForbidden) {
+        } else if (err.code === "ERR_ACCOUNT_SUSPENDED") {
           setErrors({
             server: "Your account has been suspended. Please contact your administrator.",
+          });
+        } else if (err.isForbidden) {
+          const corsBlocked =
+            err.code === "ERR_HTTP_403" ||
+            /cors/i.test(err.message) ||
+            /invalid cors/i.test(err.message);
+          setErrors({
+            server: corsBlocked
+              ? "Login was blocked by the API (CORS). If the app opened on a port other than 8080 (for example 8081), restart the Spring backend so it allows that origin, or use http://localhost:8080."
+              : err.message || "Access denied.",
           });
         } else if (err.code === "ERR_CAPTCHA_REQUIRED" || err.code === "ERR_CAPTCHA_INVALID") {
           setErrors({

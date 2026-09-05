@@ -81,7 +81,8 @@ hcb:
   security:
     h2-console-username: ${HCB_H2_USER:admin}
     h2-console-password: ${HCB_H2_PASS:admin123}
-    cors-allowed-origins: ${HCB_CORS_ORIGINS:http://localhost:5173,http://localhost:8080,http://127.0.0.1:8080,http://localhost:4173,http://127.0.0.1:4173}
+    # Patterns cover Vite falling over to 8081+ when 8080 is already in use.
+    cors-allowed-origins: ${HCB_CORS_ORIGINS:http://localhost:*,http://127.0.0.1:*}
     captcha:
       enabled: ${HCB_CAPTCHA_ENABLED:false}
       turnstile:
