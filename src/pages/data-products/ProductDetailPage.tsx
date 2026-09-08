@@ -2,10 +2,10 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 import {
-  ArrowUpDown,
   ChevronDown,
   ChevronRight,
   Copy,
+  Download,
   FileSearch,
   Flag,
   GitBranch,
@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -59,10 +58,13 @@ import { VersionSwitcher } from "@/components/data-products/VersionSwitcher";
 import { VersionStateBanner } from "@/components/data-products/VersionStateBanner";
 import {
   AttributeModeBadge,
-  PiiBadge,
+  AttributeSensitivityChip,
+  AttributeTypeChip,
+  PopulatedByChip,
   PortStatusBadge,
   SensitivityBadge,
 } from "@/components/data-products/AttributeBadges";
+import { getDictionaryPacket } from "@/data/attribute-dictionary";
 import {
   productMgmtStore,
   useProductMgmtStore,
@@ -261,6 +263,20 @@ function OverviewTab({
             <InfoField label="Segment" value={product.metadata.targetSegment || "—"} />
             <InfoField label="SAP item code" value={product.metadata.sapItemCode || "—"} />
             <InfoField
+              label="Subject scope"
+              value={
+                product.subjectScope === "COMPANY"
+                  ? "Company"
+                  : product.subjectScope === "BOTH"
+                    ? "Both"
+                    : "Individual"
+              }
+            />
+            <InfoField
+              label="Dictionary version"
+              value={product.dictionaryVersion || "—"}
+            />
+            <InfoField
               label="Sensitivity"
               value={<SensitivityBadge value={product.metadata.sensitivity} />}
             />
@@ -347,72 +363,52 @@ function OverviewTab({
           </CardContent>
         </Card>
 
-        <Card className="border-primary/30 bg-primary/[0.03]">
+        <Card>
           <CardHeader className="pb-2">
-            <CardTitle className="flex flex-wrap items-center gap-2">
-              Customer Profile
-              <Badge variant="outline" className="font-normal">
-                System block — always included
-              </Badge>
-            </CardTitle>
+            <CardTitle>Composed packets</CardTitle>
           </CardHeader>
           <CardContent>
-            <ul className="flex flex-wrap gap-1.5">
-              {product.profileConfig.includedFields.map((f) => (
-                <li
-                  key={f}
-                  className="rounded-full bg-muted px-2.5 py-1 text-caption font-mono text-muted-foreground"
-                >
-                  {f}
-                </li>
-              ))}
-            </ul>
+            {product.packetIds.length === 0 ? (
+              <p className="text-caption text-muted-foreground">No packets configured.</p>
+            ) : (
+              <ul className="space-y-2">
+                {product.packetIds.map((pid) => {
+                  const cfg = product.packetConfigs.find((c) => c.packetId === pid);
+                  const streams = product.eventStreamToggles?.[pid] ?? [];
+                  const attrCount =
+                    (cfg?.selectedFields?.length ?? 0) + (cfg?.selectedDerivedFields?.length ?? 0);
+                  return (
+                    <li
+                      key={pid}
+                      className="rounded-md border border-border px-3 py-2 text-caption flex items-center justify-between gap-2"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium text-foreground truncate">
+                          {catalogLabelForPacketId(pid) ?? pid}
+                        </p>
+                        <p className="text-muted-foreground">
+                          {attrCount} attributes
+                          {streams.length > 0
+                            ? ` · ${streams.map((s) => s.replace(/_/g, " ")).join(", ")}`
+                            : ""}
+                        </p>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 shrink-0"
+                        onClick={() => onOpenPacketContract(pid)}
+                      >
+                        View fields
+                      </Button>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           </CardContent>
         </Card>
       </div>
-
-      <Card>
-        <CardHeader className="pb-2">
-          <CardTitle>Data packets</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {product.packetIds.length === 0 ? (
-            <p className="text-caption text-muted-foreground">No packets configured.</p>
-          ) : (
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {product.packetIds.map((pid) => {
-                const cfg = product.packetConfigs.find((c) => c.packetId === pid);
-                return (
-                  <li
-                    key={pid}
-                    className="rounded-md border border-border px-3 py-2 text-caption flex items-center justify-between gap-2"
-                  >
-                    <div className="min-w-0">
-                      <p className="font-medium text-foreground truncate">
-                        {catalogLabelForPacketId(pid) ?? pid}
-                      </p>
-                      <p className="text-muted-foreground">
-                        {(cfg?.selectedFields?.length ?? 0)} fields
-                        {(cfg?.selectedDerivedFields?.length ?? 0) > 0
-                          ? ` · ${cfg!.selectedDerivedFields!.length} derived`
-                          : ""}
-                      </p>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 shrink-0"
-                      onClick={() => onOpenPacketContract(pid)}
-                    >
-                      View fields
-                    </Button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
 
       <Card>
         <CardHeader className="pb-2">
@@ -452,7 +448,7 @@ function OverviewTab({
 // Data Contract tab
 // ---------------------------------------------------------------------------
 
-type ContractSortKey = "name" | "type" | "mode" | "pii" | "packet";
+type ContractChipFilter = "all" | "pii" | "sensitive" | "trended" | "derived";
 
 function DataContractTab({
   product,
@@ -463,10 +459,7 @@ function DataContractTab({
   packetFilter: string;
   onPacketFilterChange: (value: string) => void;
 }) {
-  const [piiOnly, setPiiOnly] = useState(false);
-  const [showAll, setShowAll] = useState(false);
-  const [sortKey, setSortKey] = useState<ContractSortKey>("packet");
-  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+  const [chip, setChip] = useState<ContractChipFilter>("all");
 
   const packetOptions = product.packetIds.map((pid) => ({
     id: pid,
@@ -476,40 +469,29 @@ function DataContractTab({
   const filtered = useMemo(() => {
     let rows = product.fieldContract;
     if (packetFilter !== "all") rows = rows.filter((r) => r.packetId === packetFilter);
-    if (piiOnly) rows = rows.filter((r) => r.pii);
-    return [...rows].sort((a, b) => {
-      let cmp = 0;
-      switch (sortKey) {
-        case "name":
-          cmp = a.name.localeCompare(b.name);
-          break;
-        case "type":
-          cmp = a.type.localeCompare(b.type);
-          break;
-        case "mode":
-          cmp = a.mode.localeCompare(b.mode);
-          break;
-        case "pii":
-          cmp = Number(a.pii) - Number(b.pii);
-          break;
-        case "packet":
-          cmp = a.packetId.localeCompare(b.packetId) || a.name.localeCompare(b.name);
-          break;
-      }
-      return sortDir === "asc" ? cmp : -cmp;
-    });
-  }, [product.fieldContract, packetFilter, piiOnly, sortKey, sortDir]);
-
-  const visible = showAll ? filtered : filtered.slice(0, 10);
-
-  const toggleSort = (key: ContractSortKey) => {
-    if (sortKey === key) {
-      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-    } else {
-      setSortKey(key);
-      setSortDir("asc");
+    if (chip === "pii") rows = rows.filter((r) => r.pii || r.sensitivity === "PII" || r.sensitivity === "Sensitive-PII");
+    if (chip === "sensitive") {
+      rows = rows.filter((r) => r.sensitivity === "Sensitive-PII" || r.notes?.includes("special category"));
     }
-  };
+    if (chip === "trended") rows = rows.filter((r) => r.mode === "TRENDED");
+    if (chip === "derived") rows = rows.filter((r) => (r.notes ?? "").includes("ƒ"));
+    const order = new Map(product.packetIds.map((id, i) => [id, i]));
+    return [...rows].sort(
+      (a, b) => (order.get(a.packetId) ?? 99) - (order.get(b.packetId) ?? 99) || a.name.localeCompare(b.name)
+    );
+  }, [product.fieldContract, product.packetIds, packetFilter, chip]);
+
+  const grouped = useMemo(() => {
+    const map = new Map<string, typeof filtered>();
+    for (const row of filtered) {
+      const list = map.get(row.packetId) ?? [];
+      list.push(row);
+      map.set(row.packetId, list);
+    }
+    return product.packetIds
+      .filter((pid) => map.has(pid) || packetFilter === pid)
+      .map((pid) => [pid, map.get(pid) ?? []] as const);
+  }, [filtered, product.packetIds, packetFilter]);
 
   const copyFingerprint = async () => {
     try {
@@ -520,28 +502,40 @@ function DataContractTab({
     }
   };
 
-  const SortHead = ({
-    label,
-    sortKeyValue,
-    className,
-  }: {
-    label: string;
-    sortKeyValue: ContractSortKey;
-    className?: string;
-  }) => (
-    <TableHead className={cn(tableHeaderClasses, className)}>
-      <button
-        type="button"
-        className="inline-flex items-center gap-1 hover:text-foreground"
-        onClick={() => toggleSort(sortKeyValue)}
-      >
-        {label}
-        <ArrowUpDown
-          className={cn("w-3 h-3", sortKey === sortKeyValue ? "text-foreground" : "text-muted-foreground/50")}
-        />
-      </button>
-    </TableHead>
-  );
+  const downloadCsv = () => {
+    const header = "Packet,Attribute,Attribute ID,Type,Sensitivity,Mode,Populated by,Notes\n";
+    const rows = filtered
+      .map((r) =>
+        [
+          catalogLabelForPacketId(r.packetId) ?? r.packetId,
+          r.label ?? r.name,
+          r.attributeId ?? r.name,
+          r.type,
+          r.sensitivity ?? (r.pii ? "PII" : "Standard"),
+          r.mode,
+          (r.populatedBy ?? []).join("; "),
+          r.notes ?? r.description,
+        ]
+          .map((c) => `"${String(c).replace(/"/g, '""')}"`)
+          .join(",")
+      )
+      .join("\n");
+    const blob = new Blob([header + rows], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${product.productCode}-v${product.version}-contract.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const chips: { id: ContractChipFilter; label: string }[] = [
+    { id: "all", label: "All" },
+    { id: "pii", label: "PII" },
+    { id: "sensitive", label: "Sensitive-PII" },
+    { id: "trended", label: "Trended" },
+    { id: "derived", label: "Derived" },
+  ];
 
   return (
     <Card>
@@ -559,15 +553,21 @@ function DataContractTab({
             >
               <Copy className="w-3.5 h-3.5" />
             </Button>
+            <Button variant="outline" size="sm" className="h-7 gap-1.5" onClick={downloadCsv}>
+              <Download className="w-3.5 h-3.5" />
+              CSV
+            </Button>
           </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 text-caption">
+          <span>Subject scope: {product.subjectScope === "COMPANY" ? "Company" : product.subjectScope === "BOTH" ? "Both" : "Individual"}</span>
+          <span>Dictionary {product.dictionaryVersion}</span>
+          <SensitivityBadge value={product.metadata.sensitivity} />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Select
             value={packetFilter}
-            onValueChange={(v) => {
-              onPacketFilterChange(v);
-              setShowAll(false);
-            }}
+            onValueChange={(v) => onPacketFilterChange(v)}
           >
             <SelectTrigger className="w-full sm:w-[220px]">
               <SelectValue placeholder="Filter by packet" />
@@ -581,62 +581,106 @@ function DataContractTab({
               ))}
             </SelectContent>
           </Select>
-          <label className="flex items-center gap-2 text-caption text-muted-foreground">
-            <Switch checked={piiOnly} onCheckedChange={setPiiOnly} />
-            PII fields only
-          </label>
+          <div className="flex flex-wrap gap-1">
+            {chips.map((c) => (
+              <Button
+                key={c.id}
+                type="button"
+                size="sm"
+                variant={chip === c.id ? "default" : "outline"}
+                className="h-7 text-caption"
+                onClick={() => setChip(c.id)}
+              >
+                {c.label}
+              </Button>
+            ))}
+          </div>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
         {filtered.length === 0 ? (
           <EmptyState icon={FileSearch} message="No fields match the current filters." />
         ) : (
-          <>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <SortHead label="Name" sortKeyValue="name" />
-                  <SortHead label="Type" sortKeyValue="type" />
-                  <SortHead label="Mode" sortKeyValue="mode" />
-                  <SortHead label="PII" sortKeyValue="pii" />
-                  <TableHead className={tableHeaderClasses}>Description</TableHead>
-                  <SortHead label="Source packet" sortKeyValue="packet" />
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {visible.map((f) => (
-                  <TableRow key={`${f.packetId}-${f.name}`}>
-                    <TableCell className="font-mono text-caption text-foreground">{f.name}</TableCell>
-                    <TableCell className="text-caption text-muted-foreground">{f.type}</TableCell>
-                    <TableCell>
-                      <AttributeModeBadge mode={f.mode} />
-                    </TableCell>
-                    <TableCell>
-                      {f.pii ? <PiiBadge /> : <span className="text-muted-foreground text-caption">—</span>}
-                    </TableCell>
-                    <TableCell className="text-caption text-muted-foreground max-w-sm">
-                      {f.description}
-                    </TableCell>
-                    <TableCell className="text-caption text-muted-foreground">
-                      {catalogLabelForPacketId(f.packetId) ?? f.packetId}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            {filtered.length > 10 && (
-              <div className="pt-3 text-center">
-                <Button variant="ghost" size="sm" onClick={() => setShowAll((v) => !v)}>
-                  {showAll ? "Show fewer fields" : `Show all ${filtered.length} fields`}
-                </Button>
+          grouped.map(([pid, rows]) => {
+            const streams = product.eventStreamToggles?.[pid] ?? [];
+            const populated = getDictionaryPacket(pid)?.populatedBy ?? [];
+            return (
+              <div key={pid} className="space-y-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-caption font-medium text-foreground">
+                    {catalogLabelForPacketId(pid) ?? pid}
+                  </p>
+                  <span className="text-caption text-muted-foreground">{rows.length} attributes</span>
+                  {streams.length > 0 && (
+                    <span className="text-caption text-muted-foreground">
+                      · {streams.map((s) => s.replace(/_/g, " ")).join(", ")}
+                    </span>
+                  )}
+                  {populated.map((s) => (
+                    <PopulatedByChip key={s} source={s} />
+                  ))}
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className={tableHeaderClasses}>Attribute</TableHead>
+                      <TableHead className={tableHeaderClasses}>Attribute ID</TableHead>
+                      <TableHead className={tableHeaderClasses}>Type</TableHead>
+                      <TableHead className={tableHeaderClasses}>Sensitivity</TableHead>
+                      <TableHead className={tableHeaderClasses}>Mode</TableHead>
+                      <TableHead className={tableHeaderClasses}>Populated by</TableHead>
+                      <TableHead className={tableHeaderClasses}>Notes</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {rows.map((f) => (
+                      <TableRow key={`${f.packetId}-${f.attributeId ?? f.name}`}>
+                        <TableCell className="text-caption text-foreground">
+                          <span className="block">{f.label ?? f.name.replace(/_/g, " ")}</span>
+                          <span className="font-mono text-[10px] text-muted-foreground">{f.name}</span>
+                        </TableCell>
+                        <TableCell className="font-mono text-caption text-muted-foreground">
+                          {f.attributeId ?? f.name}
+                        </TableCell>
+                        <TableCell>
+                          <AttributeTypeChip type={f.type} />
+                        </TableCell>
+                        <TableCell>
+                          <AttributeSensitivityChip
+                            sensitivity={f.sensitivity ?? (f.pii ? "PII" : "Standard")}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <AttributeModeBadge mode={f.mode} />
+                        </TableCell>
+                        <TableCell className="text-caption">
+                          <div className="flex flex-wrap gap-1">
+                            {(f.populatedBy ?? []).map((s) => (
+                              <PopulatedByChip key={s} source={s} />
+                            ))}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-caption text-muted-foreground max-w-sm">
+                          {f.notes || f.description}
+                          {f.deprecatedInDictionary && (
+                            <span className="ml-1 inline-block rounded-full bg-warning/15 text-warning px-1.5 py-0 text-[10px]">
+                              Deprecated in dictionary — superseded by {f.deprecatedInDictionary}
+                            </span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
               </div>
-            )}
-          </>
+            );
+          })
         )}
       </CardContent>
     </Card>
   );
 }
+
 
 // ---------------------------------------------------------------------------
 // Lineage tab
@@ -665,7 +709,7 @@ function LineageColumn({
   emptyLabel,
 }: {
   title: string;
-  nodes: { id: string; label: string }[];
+  nodes: { id: string; label: string; sublabel?: string; pills?: string[] }[];
   tone: "muted" | "primary" | "success";
   onNodeClick?: (id: string) => void;
   emptyLabel?: string;
@@ -676,6 +720,24 @@ function LineageColumn({
       : tone === "success"
         ? "border-success/40 bg-success/5 text-foreground"
         : "border-border bg-muted/40 text-foreground";
+
+  const content = (n: { id: string; label: string; sublabel?: string; pills?: string[] }) => (
+    <>
+      <span className="block">{n.label}</span>
+      {n.sublabel && (
+        <span className="block text-muted-foreground">{n.sublabel}</span>
+      )}
+      {n.pills && n.pills.length > 0 && (
+        <span className="mt-1 flex flex-wrap gap-1">
+          {n.pills.map((p) => (
+            <span key={p} className="rounded-full bg-background/80 px-1.5 py-0 border border-border">
+              {p}
+            </span>
+          ))}
+        </span>
+      )}
+    </>
+  );
 
   return (
     <div className="flex flex-col gap-2 min-w-[140px] sm:min-w-[160px] flex-1 w-full">
@@ -696,7 +758,7 @@ function LineageColumn({
                 toneClasses
               )}
             >
-              {n.label}
+              {content(n)}
             </button>
           ) : (
             <div
@@ -706,7 +768,7 @@ function LineageColumn({
                 toneClasses
               )}
             >
-              {n.label}
+              {content(n)}
             </div>
           )
         )
@@ -793,8 +855,8 @@ function PacketFieldsDialog({
                 <TableRow>
                   <TableHead className={tableHeaderClasses}>Field</TableHead>
                   <TableHead className={tableHeaderClasses}>Type</TableHead>
+                  <TableHead className={tableHeaderClasses}>Sensitivity</TableHead>
                   <TableHead className={tableHeaderClasses}>Mode</TableHead>
-                  <TableHead className={tableHeaderClasses}>PII</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -803,10 +865,12 @@ function PacketFieldsDialog({
                     <TableCell className="font-mono text-caption text-foreground">{f.name}</TableCell>
                     <TableCell className="text-caption text-muted-foreground">{f.type}</TableCell>
                     <TableCell>
-                      <AttributeModeBadge mode={f.mode} />
+                      <AttributeSensitivityChip
+                        sensitivity={f.sensitivity ?? (f.pii ? "PII" : "Standard")}
+                      />
                     </TableCell>
                     <TableCell>
-                      {f.pii ? <PiiBadge /> : <span className="text-muted-foreground text-caption">—</span>}
+                      <AttributeModeBadge mode={f.mode} />
                     </TableCell>
                   </TableRow>
                 ))}
@@ -819,13 +883,64 @@ function PacketFieldsDialog({
   );
 }
 
-function LineageTab({ product }: { product: DemoProductVersion }) {
+function LineageTab({
+  product,
+  subscriptions,
+}: {
+  product: DemoProductVersion;
+  subscriptions: Subscription[];
+}) {
   const [packetDialogId, setPacketDialogId] = useState<string | null>(null);
 
+  const providerNodes = useMemo(() => {
+    const ids = new Set(product.packetIds);
+    const nodes: { id: string; label: string; sublabel?: string }[] = [];
+    if (ids.has("bank_account") || ids.has("subject")) {
+      nodes.push({ id: "hdfc", label: "HDFC Bank", sublabel: "via CRIF Connect" });
+    }
+    if (ids.has("credit_facility") || ids.has("subject")) {
+      nodes.push({ id: "zest", label: "ZestMoney" });
+      if (ids.has("credit_facility")) nodes.push({ id: "bajaj", label: "Bajaj Finance" });
+    }
+    if (ids.has("telco_profile")) {
+      nodes.push({ id: "airtel", label: "Airtel" });
+    }
+    if (ids.has("gst_registration")) {
+      nodes.push({ id: "gstn", label: "GSTN" });
+    }
+    if (nodes.length === 0) {
+      nodes.push({ id: "bureau", label: "Contributing members" });
+    }
+    return nodes;
+  }, [product.packetIds]);
+
   const packetNodes = useMemo(
-    () => product.packetIds.map((pid) => ({ id: pid, label: catalogLabelForPacketId(pid) ?? pid })),
-    [product.packetIds]
+    () =>
+      product.packetIds.map((pid) => ({
+        id: pid,
+        label: catalogLabelForPacketId(pid) ?? pid,
+        pills: (product.eventStreamToggles?.[pid] ?? []).map((s) => s.replace(/_/g, " ")),
+      })),
+    [product.packetIds, product.eventStreamToggles]
   );
+
+  const attributeNodes = useMemo(
+    () =>
+      product.packetIds.map((pid) => {
+        const cfg = product.packetConfigs.find((c) => c.packetId === pid);
+        const n = (cfg?.selectedFields?.length ?? 0) + (cfg?.selectedDerivedFields?.length ?? 0);
+        return {
+          id: `attr-${pid}`,
+          label: `${n} attributes`,
+          sublabel: catalogLabelForPacketId(pid) ?? pid,
+        };
+      }),
+    [product.packetIds, product.packetConfigs]
+  );
+
+  const consumerNodes = subscriptions
+    .filter((s) => s.status === "active")
+    .map((s) => ({ id: s.id, label: s.institutionName }));
 
   return (
     <>
@@ -833,14 +948,17 @@ function LineageTab({ product }: { product: DemoProductVersion }) {
         <CardHeader className="pb-2">
           <CardTitle>Traceability</CardTitle>
           <CardDescription className="text-[10px] leading-[14px]">
-            Configured data packets compose this product version. Click a packet to inspect its
-            contract fields. Subscribers are listed on the Subscribers tab.
+            Providers contribute packets; attributes compose this product version. Click a packet
+            to inspect its contract fields. Subscribers are listed on the Subscribers tab.
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col lg:flex-row lg:items-center gap-2 lg:gap-3 overflow-x-auto pb-2">
+          <div className="flex flex-col lg:flex-row lg:items-start gap-2 lg:gap-3 overflow-x-auto pb-2">
+            <LineageColumn title="Providers" nodes={providerNodes} tone="muted" />
+            <LineageConnector orientation="vertical" />
+            <LineageConnector orientation="horizontal" />
             <LineageColumn
-              title="Data packets"
+              title="Packets"
               nodes={packetNodes}
               tone="primary"
               onNodeClick={(id) => setPacketDialogId(id)}
@@ -848,7 +966,18 @@ function LineageTab({ product }: { product: DemoProductVersion }) {
             />
             <LineageConnector orientation="vertical" />
             <LineageConnector orientation="horizontal" />
+            <LineageColumn title="Attributes" nodes={attributeNodes} tone="muted" emptyLabel="No attributes" />
+            <LineageConnector orientation="vertical" />
+            <LineageConnector orientation="horizontal" />
             <ProductJigsawNode name={product.name} version={product.version} />
+            <LineageConnector orientation="vertical" />
+            <LineageConnector orientation="horizontal" />
+            <LineageColumn
+              title="Consumers"
+              nodes={consumerNodes}
+              tone="success"
+              emptyLabel="No subscribers"
+            />
           </div>
         </CardContent>
       </Card>
@@ -1203,7 +1332,7 @@ export default function ProductDetailPage() {
         </TabsContent>
 
         <TabsContent value="lineage" className="mt-4">
-          <LineageTab product={product} />
+          <LineageTab product={product} subscriptions={subscriptions} />
         </TabsContent>
 
         <TabsContent value="subscribers" className="mt-4">

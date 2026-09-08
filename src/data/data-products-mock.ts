@@ -1,5 +1,6 @@
 import data from "./data-products.json";
 import type { SourceType } from "@/types/schema-mapper";
+import { dictionaryPacketLabel } from "@/data/attribute-dictionary";
 
 export type DataPacketCategory = "Bureau" | "Banking" | "GST" | "Telecom" | "Consortium";
 export type DataPacketStatus = "active" | "deprecated" | "draft";
@@ -253,7 +254,10 @@ export function getInitialProductsCatalogState(): ConfiguredProduct[] {
 }
 
 export function catalogLabelForPacketId(packetId: string): string | undefined {
-  return productCatalogPacketOptions.find((o) => o.id === packetId)?.label;
+  return (
+    productCatalogPacketOptions.find((o) => o.id === packetId)?.label ??
+    dictionaryPacketLabel(packetId)
+  );
 }
 
 export function resolvePayloadPacketName(displayOrCanonical: string): string {

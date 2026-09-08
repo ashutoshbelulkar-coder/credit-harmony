@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import {
   AlertTriangle,
@@ -6,27 +6,17 @@ import {
   ChevronLeft,
   ChevronRight,
   Info,
-  Settings2,
 } from "lucide-react";
 import { PageBreadcrumb } from "@/components/PageBreadcrumb";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Dialog,
-  DialogContent,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   Select,
   SelectContent,
@@ -40,45 +30,41 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
-  productCatalogPacketOptions,
-  packetMockData,
   DEFAULT_ENQUIRY_CONFIG,
   formatImpactOption,
-  footprintCreatedForType,
   normalizeEnquiryConfig,
   normalizeImpactOption,
   preferredEnquiryType,
   type EnquiryConfig,
   type EnquiryDataScope,
-  type PacketConfig,
 } from "@/data/data-products-mock";
 import {
   PREVIEW_SAMPLE_APPLICATION,
   PREVIEW_SAMPLE_META,
   PREVIEW_SAMPLE_SUBJECT,
 } from "@/data/product-enquiry-preview-samples";
+import { ContractContinueTooltip, ContractStep } from "@/components/data-products/contract/ContractStep";
+import { ContractReviewCard } from "@/components/data-products/contract/ContractReviewCard";
+import { buildContractResponsePreview } from "@/lib/product-preview-response";
 import {
-  buildProductFormPacketRows,
-  filterCatalogOptionsForProductForm,
-  groupPacketRowsByDataDomain,
-  sortPacketIdsByCatalogOrder,
-  type ProductFormPacketRow,
-} from "@/lib/product-packet-catalog";
-import { PacketConfigModal } from "@/components/data-products/PacketConfigModal";
+  contractContinueBlockers,
+  contractHasTrendedCapable,
+  emptyContractSelection,
+  selectionFromVersion,
+  summarizeContract,
+  type ContractSelection,
+} from "@/lib/product-contract";
 import {
   productMgmtStore,
   useProductMgmtVersion,
 } from "@/lib/product-management-demo-store";
 import {
   BRD_STATUS_LABEL,
-  DEFAULT_PROFILE_CONFIG,
-  DEFAULT_PROFILE_FIELDS,
   DEFAULT_RETRO_CONFIG,
   DEFAULT_TRENDED_CONFIG,
   computeDefinitionFingerprint,
-  inferAttributeMode,
+  fingerprintExtrasFromVersion,
   type ProductMetadata,
-  type ProfileBlockConfig,
   type RetroConfig,
   type TrendedConfig,
 } from "@/data/product-management-types";
@@ -139,53 +125,20 @@ type WizardStep = 1 | 2 | 3 | 4 | 5;
 
 const WIZARD_STEPS: { id: WizardStep; label: string; shortTitle: string }[] = [
   { id: 1, label: "Basics & metadata", shortTitle: "Basics" },
-  { id: 2, label: "Data packets", shortTitle: "Packets" },
+  { id: 2, label: "Data packets & attributes", shortTitle: "Packets" },
   { id: 3, label: "Retrieval", shortTitle: "Retrieval" },
   { id: 4, label: "Enquiry impact", shortTitle: "Impact" },
   { id: 5, label: "Review", shortTitle: "Review" },
 ];
 
-const REFERENCE_MONTH = "2026-06";
 /** Demo reference date for retro enquiryDate ceiling checks. */
 const REFERENCE_DATE = "2026-06-30";
 const DEFAULT_RETRO_ENQUIRY_DATE = "2025-06-15";
 
 type PreviewScope = EnquiryDataScope;
 
-const PROFILE_MOCK_VALUES: Record<string, unknown> = {
-  fullName: "Aarav Sharma",
-  dateOfBirth: "1990-05-14",
-  gender: "Male",
-  currentAddress: "12, MG Road, Bengaluru, KA 560001",
-  primaryIdentifier: "XXXXXXXX1234",
-  contactNumber: "+91-98XXXXXX10",
-};
-
-function profileMockValue(field: string): unknown {
-  return PROFILE_MOCK_VALUES[field] ?? `[mock:${field}]`;
-}
-
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
-}
-
-/** Ascending list of "YYYY-MM" strings ending at the fixed demo reference month. */
-function generatePeriods(window: number): string[] {
-  const [refYear, refMonth] = REFERENCE_MONTH.split("-").map(Number);
-  const periods: string[] = [];
-  for (let i = window - 1; i >= 0; i--) {
-    const d = new Date(refYear, refMonth - 1 - i, 1);
-    periods.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`);
-  }
-  return periods;
-}
-
-function buildTrendedSeries(base: number, periods: string[]): { period: string; value: number }[] {
-  const mid = (periods.length - 1) / 2;
-  return periods.map((period, i) => {
-    const drift = 1 + (i - mid) * 0.025;
-    return { period, value: Math.round(base * drift * 100) / 100 };
-  });
 }
 
 /** Last whitespace-delimited token, stripped of punctuation, lowercased. */
@@ -238,157 +191,6 @@ function buildRequestPreview(params: {
     request.enquiryDate = params.enquiryDate;
   }
   return request;
-}
-
-function retrievalAnchorFor(scope: PreviewScope, enquiryDate: string): string {
-  if (scope === "TRENDED") return "PERIOD_WINDOW";
-  if (scope === "RETRO") return `AS_OF ${enquiryDate}`;
-  return "CURRENT";
-}
-
-function buildResponsePreview(params: {
-  productId: string;
-  productVersion: number;
-  productName: string;
-  orderedPacketIds: string[];
-  packetConfigs: PacketConfig[];
-  profileConfig: ProfileBlockConfig;
-  enquiryConfig: EnquiryConfig;
-  enquiryType: "SOFT" | "HARD";
-  trendedEnabled: boolean;
-  retroEnabled: boolean;
-  previewScope: PreviewScope;
-  previewWindow: number;
-  maxTrendedMonths: number;
-  enquiryDate: string;
-}): object {
-  const effectiveScope: PreviewScope =
-    params.previewScope === "TRENDED" && !params.trendedEnabled
-      ? "LATEST"
-      : params.previewScope === "RETRO" && !params.retroEnabled
-        ? "LATEST"
-        : params.previewScope;
-
-  const window = clamp(params.previewWindow, 1, Math.max(params.maxTrendedMonths, 1));
-  const periods = effectiveScope === "TRENDED" ? generatePeriods(window) : [];
-  const footprintCreated = footprintCreatedForType(params.enquiryConfig, params.enquiryType);
-
-  const customerProfile: Record<string, unknown> = {};
-  for (const field of params.profileConfig.includedFields) {
-    customerProfile[field] = profileMockValue(field);
-  }
-  // Align demo profile with sample subject where fields overlap
-  if ("fullName" in customerProfile) {
-    customerProfile.fullName = PREVIEW_SAMPLE_SUBJECT.individual.name.fullName;
-  }
-  if ("dateOfBirth" in customerProfile) {
-    customerProfile.dateOfBirth = PREVIEW_SAMPLE_SUBJECT.individual.birth.dateOfBirth;
-  }
-  if ("currentAddress" in customerProfile) {
-    customerProfile.currentAddress = "12 Riverside Drive, Westlands, Nairobi";
-  }
-  if ("primaryIdentifier" in customerProfile) {
-    customerProfile.primaryIdentifier = "XXXX-5678";
-  }
-
-  const configMap = new Map(params.packetConfigs.map((c) => [c.packetId, c]));
-  const dataSections: Record<string, unknown> = {};
-  const noDataIndex = params.orderedPacketIds.length >= 2 ? params.orderedPacketIds.length - 1 : -1;
-
-  params.orderedPacketIds.forEach((pid, idx) => {
-    const opt = productCatalogPacketOptions.find((o) => o.id === pid);
-    if (!opt) return;
-    const key = opt.previewKey;
-
-    if (idx === noDataIndex) {
-      dataSections[key] = { status: "NO_DATA", data: null };
-      return;
-    }
-
-    const fullPayload = packetMockData[pid] ?? {};
-    const cfg = configMap.get(pid);
-    const selectedFields = cfg?.selectedFields;
-    const disabledSet = new Set((cfg?.disabledFields ?? []).filter(Boolean));
-    const fieldEntries =
-      selectedFields && selectedFields.length > 0
-        ? Object.entries(fullPayload).filter(
-            ([k]) => selectedFields.includes(k) && !disabledSet.has(k)
-          )
-        : Object.entries(fullPayload);
-
-    const sectionData: Record<string, unknown> = {};
-    for (const [k, v] of fieldEntries) {
-      if (effectiveScope === "TRENDED" && typeof v === "number" && inferAttributeMode(k) === "TRENDED") {
-        sectionData[k] = buildTrendedSeries(v, periods);
-      } else {
-        sectionData[k] = v;
-      }
-    }
-    const derivedSel = cfg?.selectedDerivedFields?.filter(Boolean) ?? [];
-    if (derivedSel.length > 0) {
-      sectionData.__derived = Object.fromEntries(derivedSel.map((d) => [d, `[computed:${d}]`]));
-    }
-
-    dataSections[key] = sectionData;
-  });
-
-  const data: Record<string, unknown> = {
-    accountsSummary: {
-      totalAccounts: 4,
-      activeAccounts: 3,
-      closedAccounts: 1,
-      delinquentAccounts: 0,
-    },
-    totalExposure: 850000.0,
-    worstDpdDays: 0,
-    accounts: [
-      {
-        facilityType: "PERSONAL_LOAN",
-        outstandingBalance: 250000.0,
-        dpdDays: 0,
-        status: "ACTIVE",
-      },
-    ],
-    ...dataSections,
-  };
-  if (footprintCreated) {
-    data.enquiryFootprint = {
-      totalEnquiries12Months: 4,
-      hardEnquiries6Months: 2,
-    };
-  }
-
-  return {
-    enquiryId: "ENQ-2026-031-001",
-    status: "SUCCESS",
-    enquiryType: params.enquiryType,
-    subjectFound: true,
-    matchConfidence: "HIGH",
-    subject: { entityType: "INDIVIDUAL" },
-    application: { applicationRef: PREVIEW_SAMPLE_APPLICATION.applicationRef },
-    products: [
-      {
-        enquiryItemId: "ENQ-2026-031-001-RCP",
-        outcome: "SERVED",
-        productVersionServed: params.productVersion,
-        dataScope: effectiveScope,
-        retrievalAnchor: retrievalAnchorFor(effectiveScope, params.enquiryDate),
-        customerProfile,
-        productId: params.productId,
-        productName: params.productName || "Untitled product",
-        data,
-        analytics: {
-          summary: "Low delinquency; stable utilisation",
-          indicators: {
-            utilisationRatio: 0.34,
-            trendDirection: "STABLE",
-          },
-        },
-      },
-    ],
-    completedAt: "2026-03-31T14:00:00Z",
-    footprintCreated,
-  };
 }
 
 function WizardStepper({
@@ -466,33 +268,14 @@ export default function ProductFormPage() {
   const [saving, setSaving] = useState(false);
   const [step, setStep] = useState<WizardStep>(1);
 
-  // Local catalogue is source of truth for the form (avoids stale API packet-catalog responses).
-  const catalogOptions = productCatalogPacketOptions;
-  const catalogOrderIds = useMemo(
-    () => filterCatalogOptionsForProductForm(catalogOptions).map((o) => o.id),
-    [catalogOptions]
-  );
-  const visibleCatalogIdSet = useMemo(() => new Set(catalogOrderIds), [catalogOrderIds]);
-  const packetRowsByDomain = useMemo(
-    () => groupPacketRowsByDataDomain(buildProductFormPacketRows(catalogOptions)),
-    [catalogOptions]
-  );
-
   // ── Step 1: Basics & metadata ───────────────────────────────
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   const [metadata, setMetadata] = useState<ProductMetadata>(EMPTY_META);
   const [tagsInput, setTagsInput] = useState("");
 
-  // ── Step 2: Data packets ────────────────────────────────────
-  const [orderedPacketIds, setOrderedPacketIds] = useState<string[]>([]);
-  const [packetConfigs, setPacketConfigs] = useState<PacketConfig[]>([]);
-  const [packetModalIds, setPacketModalIds] = useState<string[] | null>(null);
-  const [profileConfig, setProfileConfig] = useState<ProfileBlockConfig>({
-    includedFields: [...DEFAULT_PROFILE_CONFIG.includedFields],
-  });
-  const [profileDialogOpen, setProfileDialogOpen] = useState(false);
-  const [profileDraftFields, setProfileDraftFields] = useState<string[]>([]);
+  // ── Step 2: Data packets & attributes ────────────────────────────
+  const [contract, setContract] = useState<ContractSelection>(() => emptyContractSelection());
 
   // ── Step 3–4: Retrieval + Enquiry impact ────────────────────
   const [enquiryConfig, setEnquiryConfig] = useState<EnquiryConfig>(DEFAULT_ENQUIRY_CONFIG);
@@ -510,31 +293,23 @@ export default function ProductFormPage() {
     if (existing) {
       setName(existing.name);
       setDescription(existing.description ?? "");
-      setOrderedPacketIds(sortPacketIdsByCatalogOrder(existing.packetIds, catalogOrderIds));
-      setPacketConfigs(existing.packetConfigs ?? []);
+      setContract(selectionFromVersion(existing));
       setEnquiryConfig(normalizeEnquiryConfig(existing.enquiryConfig));
       setTrendedConfig(existing.trendedConfig ?? { ...DEFAULT_TRENDED_CONFIG });
       setRetroConfig(existing.retroConfig ?? { ...DEFAULT_RETRO_CONFIG });
-      setProfileConfig(
-        existing.profileConfig?.includedFields?.length
-          ? { includedFields: [...existing.profileConfig.includedFields] }
-          : { includedFields: [...DEFAULT_PROFILE_CONFIG.includedFields] }
-      );
       setMetadata({ ...EMPTY_META, ...existing.metadata });
       setTagsInput(existing.metadata.tags.join(", "));
     } else if (!isEdit) {
       setName("");
       setDescription("");
-      setOrderedPacketIds([]);
-      setPacketConfigs([]);
+      setContract(emptyContractSelection());
       setEnquiryConfig(DEFAULT_ENQUIRY_CONFIG);
       setTrendedConfig({ ...DEFAULT_TRENDED_CONFIG });
       setRetroConfig({ ...DEFAULT_RETRO_CONFIG });
-      setProfileConfig({ includedFields: [...DEFAULT_PROFILE_CONFIG.includedFields] });
       setMetadata(EMPTY_META);
       setTagsInput("");
     }
-  }, [existing, isEdit, catalogOrderIds]);
+  }, [existing, isEdit]);
 
   // Keep preview controls consistent with enabled retrieval modes.
   useEffect(() => {
@@ -547,81 +322,6 @@ export default function ProductFormPage() {
       setPreviewWindow((w) => clamp(w, 1, Math.max(trendedConfig.maxHistoryMonths, 1)));
     }
   }, [trendedConfig.enabled, trendedConfig.maxHistoryMonths, retroConfig.enabled, previewScope]);
-
-  // ── Packet selection (row = source type group, or one custom packet) ──
-  const togglePacketRow = useCallback(
-    (row: ProductFormPacketRow) => {
-      setOrderedPacketIds((prev) => {
-        const anySelected = row.packetIds.some((pid) => prev.includes(pid));
-        const next = anySelected
-          ? prev.filter((pid) => !row.packetIds.includes(pid))
-          : [...prev, ...row.packetIds.filter((pid) => !prev.includes(pid))];
-        return sortPacketIdsByCatalogOrder(next, catalogOrderIds);
-      });
-    },
-    [catalogOrderIds]
-  );
-
-  const toggleOrphanPacket = useCallback(
-    (packetId: string) => {
-      setOrderedPacketIds((prev) => {
-        const next = prev.includes(packetId)
-          ? prev.filter((x) => x !== packetId)
-          : [...prev, packetId];
-        return sortPacketIdsByCatalogOrder(next, catalogOrderIds);
-      });
-    },
-    [catalogOrderIds]
-  );
-
-  // ── Field-level config ─────────────────────────────────────
-  const getPacketConfig = useCallback(
-    (packetId: string): PacketConfig =>
-      packetConfigs.find((c) => c.packetId === packetId) ?? {
-        packetId,
-        selectedFields: [],
-        disabledFields: [],
-        selectedDerivedFields: [],
-      },
-    [packetConfigs]
-  );
-
-  const handleSavePacketFields = useCallback(
-    (
-      packetId: string,
-      payload: {
-        selectedFields: string[];
-        disabledFields?: string[];
-        selectedDerivedFields: string[];
-      }
-    ) => {
-      setPacketConfigs((prev) => {
-        const without = prev.filter((c) => c.packetId !== packetId);
-        const selectedSet = new Set(payload.selectedFields);
-        const disabled =
-          payload.disabledFields?.filter((f) => selectedSet.has(f)) ?? [];
-        return [
-          ...without,
-          {
-            packetId,
-            selectedFields: payload.selectedFields,
-            disabledFields: disabled,
-            selectedDerivedFields: payload.selectedDerivedFields,
-          },
-        ];
-      });
-    },
-    []
-  );
-
-  const openProfileDialog = () => {
-    setProfileDraftFields(profileConfig.includedFields);
-    setProfileDialogOpen(true);
-  };
-  const saveProfileDialog = () => {
-    setProfileConfig({ includedFields: profileDraftFields });
-    setProfileDialogOpen(false);
-  };
 
   // ── Name validation ──────────────────────────────────────────
   const liveNameHint = useMemo(() => {
@@ -663,18 +363,22 @@ export default function ProductFormPage() {
   const liveFingerprint = useMemo(
     () =>
       computeDefinitionFingerprint(
-        orderedPacketIds,
-        packetConfigs,
+        contract.packetIds,
+        contract.packetConfigs,
         enquiryConfig,
         trendedConfig,
-        retroConfig
+        retroConfig,
+        fingerprintExtrasFromVersion(contract)
       ),
-    [orderedPacketIds, packetConfigs, enquiryConfig, trendedConfig, retroConfig]
+    [contract, enquiryConfig, trendedConfig, retroConfig]
   );
   const fingerprintConflict = useMemo(
     () => productMgmtStore.findFingerprintConflict(liveFingerprint, id, existing?.productCode),
     [liveFingerprint, id, existing?.productCode]
   );
+
+  const contractSummary = useMemo(() => summarizeContract(contract), [contract]);
+  const step2Blockers = useMemo(() => contractContinueBlockers(contract), [contract]);
 
   // ── Preview product identity ────────────────────────────────
   const previewProductId = useMemo(() => {
@@ -716,13 +420,11 @@ export default function ProductFormPage() {
 
   const responsePreview = useMemo(
     () =>
-      buildResponsePreview({
+      buildContractResponsePreview({
         productId: previewProductId,
         productVersion: previewProductVersion,
         productName: name,
-        orderedPacketIds,
-        packetConfigs,
-        profileConfig,
+        selection: contract,
         enquiryConfig,
         enquiryType: preferredEnquiryType(enquiryConfig),
         trendedEnabled: trendedConfig.enabled,
@@ -736,9 +438,7 @@ export default function ProductFormPage() {
       previewProductId,
       previewProductVersion,
       name,
-      orderedPacketIds,
-      packetConfigs,
-      profileConfig,
+      contract,
       enquiryConfig,
       trendedConfig,
       retroConfig.enabled,
@@ -755,6 +455,21 @@ export default function ProductFormPage() {
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean),
+    sensitivity: contractSummary.sensitivity,
+  });
+
+  const draftPayload = () => ({
+    name: name.trim(),
+    description: description.trim(),
+    packetIds: contract.packetIds,
+    packetConfigs: contract.packetConfigs,
+    enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
+    trendedConfig,
+    retroConfig,
+    subjectScope: contract.subjectScope,
+    dictionaryVersion: contract.dictionaryVersion,
+    eventStreamToggles: contract.eventStreamToggles,
+    metadata: parsedMeta(),
   });
 
   // ── Wizard navigation ────────────────────────────────────────
@@ -763,6 +478,13 @@ export default function ProductFormPage() {
       const err = getStep1BlockingError();
       if (err) {
         toast.error(err);
+        return;
+      }
+    }
+    if (step === 2) {
+      const blockers = contractContinueBlockers(contract);
+      if (blockers.length) {
+        toast.error(blockers[0]);
         return;
       }
     }
@@ -789,15 +511,7 @@ export default function ProductFormPage() {
           return;
         }
         const res = productMgmtStore.updateDraft(id, {
-          name: name.trim(),
-          description: description.trim(),
-          packetIds: orderedPacketIds,
-          packetConfigs,
-          enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
-          trendedConfig,
-          retroConfig,
-          profileConfig,
-          metadata: parsedMeta(),
+          ...draftPayload(),
         });
         if (!res.ok) {
           if (res.error === "name_conflict" && res.conflict) {
@@ -809,15 +523,7 @@ export default function ProductFormPage() {
         navigate(`/data-products/products/${id}`);
       } else {
         const res = productMgmtStore.createDraft({
-          name: name.trim(),
-          description: description.trim(),
-          packetIds: orderedPacketIds,
-          packetConfigs,
-          enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
-          trendedConfig,
-          retroConfig,
-          profileConfig,
-          metadata: parsedMeta(),
+          ...draftPayload(),
         });
         if (!res.ok) {
           toast.error(`Name conflicts with ${res.conflict.name}`, {
@@ -845,15 +551,7 @@ export default function ProductFormPage() {
     }
     if (!id) return;
     const res = productMgmtStore.updateDraft(id, {
-      name: name.trim(),
-      description: description.trim(),
-      packetIds: orderedPacketIds,
-      packetConfigs,
-      enquiryConfig: normalizeEnquiryConfig(enquiryConfig),
-      trendedConfig,
-      retroConfig,
-      profileConfig,
-      metadata: parsedMeta(),
+      ...draftPayload(),
     });
     if (!res.ok) {
       toast.error("Could not save draft");
@@ -899,7 +597,7 @@ export default function ProductFormPage() {
   }
 
   return (
-    <div className="space-y-6 animate-fade-in max-w-6xl">
+    <div className="space-y-6 animate-fade-in max-w-7xl">
       <PageBreadcrumb
         segments={[
           { label: "Dashboard", href: "/" },
@@ -1118,190 +816,10 @@ export default function ProductFormPage() {
                 </div>
               )}
 
-              {/* ── STEP 2: Data packets ───────────────────────── */}
+              {/* ── STEP 2: Data packets & attributes ───────────────────────── */}
               {step === 2 && (
                 <div className="space-y-4">
-                  <Card className="border-primary/30 bg-primary/[0.03]">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="flex items-center gap-2">
-                          <CardTitle>Customer Profile</CardTitle>
-                          <Badge variant="secondary" className="font-normal">
-                            System block
-                          </Badge>
-                        </div>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1.5"
-                          onClick={openProfileDialog}
-                        >
-                          <Settings2 className="w-3.5 h-3.5" />
-                          Configure
-                        </Button>
-                      </div>
-                      <p className="text-caption text-muted-foreground mt-0.5">
-                        Always included — not a data packet, not removable.
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="flex flex-wrap gap-1.5">
-                        {profileConfig.includedFields.map((f) => (
-                          <li
-                            key={f}
-                            className="rounded-full bg-muted px-2.5 py-1 text-caption font-mono text-muted-foreground"
-                          >
-                            {f}
-                          </li>
-                        ))}
-                        {profileConfig.includedFields.length === 0 && (
-                          <li className="text-caption text-muted-foreground">
-                            No fields selected.
-                          </li>
-                        )}
-                      </ul>
-                    </CardContent>
-                  </Card>
-
-                  <div>
-                    <p className="text-caption text-muted-foreground mb-2">
-                      Click <span className="font-medium text-foreground">Configure</span> to
-                      choose fields per packet.
-                    </p>
-                    <div className="space-y-4">
-                      {packetRowsByDomain.map(([domain, rows], di) => (
-                        <div key={domain}>
-                          {di > 0 && <Separator className="mb-4" />}
-                          <p className="text-caption font-semibold text-muted-foreground uppercase tracking-wide mb-2">
-                            {domain}
-                          </p>
-                          <ul className="space-y-1.5">
-                            {rows.map((row) => {
-                              const rowFullySelected =
-                                row.packetIds.length > 0 &&
-                                row.packetIds.every((pid) => orderedPacketIds.includes(pid));
-                              const rowPartial =
-                                !rowFullySelected &&
-                                row.packetIds.some((pid) => orderedPacketIds.includes(pid));
-                              const chkId = `pkt-grp-${row.packetIds[0]}`;
-                              return (
-                                <li
-                                  key={chkId}
-                                  className={cn(
-                                    "flex items-center gap-3 rounded-lg border px-3 py-2.5 transition-colors",
-                                    rowFullySelected || rowPartial
-                                      ? "border-primary/30 bg-primary/5"
-                                      : "border-border/80 bg-transparent hover:bg-muted/30"
-                                  )}
-                                >
-                                  <Checkbox
-                                    id={chkId}
-                                    checked={rowPartial ? "indeterminate" : rowFullySelected}
-                                    onCheckedChange={() => togglePacketRow(row)}
-                                    className="shrink-0"
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <label
-                                      htmlFor={chkId}
-                                      className="text-[11px] text-muted-foreground cursor-pointer leading-tight block"
-                                    >
-                                      {row.sourceTypeLabel}
-                                    </label>
-                                  </div>
-                                  {(rowFullySelected || rowPartial) && (() => {
-                                    const selectedPkts = row.packets.filter((opt) =>
-                                      orderedPacketIds.includes(opt.id)
-                                    );
-                                    if (selectedPkts.length === 0) return null;
-
-                                    const rowFieldCount = selectedPkts.reduce((sum, opt) => {
-                                      const cfg = getPacketConfig(opt.id);
-                                      return (
-                                        sum +
-                                        cfg.selectedFields.length +
-                                        (cfg.selectedDerivedFields?.length ?? 0)
-                                      );
-                                    }, 0);
-
-                                    return (
-                                      <div className="flex shrink-0 items-center min-w-[7rem]">
-                                        <Button
-                                          type="button"
-                                          variant="ghost"
-                                          size="sm"
-                                          className="h-7 gap-1.5 px-2 justify-start text-caption leading-snug overflow-visible"
-                                          onClick={() =>
-                                            setPacketModalIds(
-                                              sortPacketIdsByCatalogOrder(
-                                                selectedPkts.map((o) => o.id),
-                                                catalogOrderIds
-                                              )
-                                            )
-                                          }
-                                        >
-                                          <Settings2 className="w-3.5 h-3.5 shrink-0" aria-hidden />
-                                          <span className="min-w-0">Configure</span>
-                                          {rowFieldCount > 0 && (
-                                            <Badge
-                                              variant="secondary"
-                                              className="h-4 px-1.5 text-[10px] font-mono shrink-0"
-                                            >
-                                              {rowFieldCount}
-                                            </Badge>
-                                          )}
-                                        </Button>
-                                      </div>
-                                    );
-                                  })()}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </div>
-                      ))}
-                      {orderedPacketIds.some((pid) => !visibleCatalogIdSet.has(pid)) && (
-                        <div className="rounded-lg border border-border/80 bg-muted/20 px-3 py-2.5 space-y-2">
-                          <p className="text-[11px] font-medium text-muted-foreground">
-                            Packets not in the standard catalogue (e.g. custom source). Uncheck
-                            to remove from this product.
-                          </p>
-                          <ul className="space-y-1.5">
-                            {orderedPacketIds
-                              .filter((pid) => !visibleCatalogIdSet.has(pid))
-                              .map((pid) => {
-                                const meta = catalogOptions.find((o) => o.id === pid);
-                                return (
-                                  <li
-                                    key={pid}
-                                    className="flex items-center gap-3 rounded-md border border-border/60 bg-background/50 px-2 py-2"
-                                  >
-                                    <Checkbox
-                                      id={`pkt-orphan-${pid}`}
-                                      checked
-                                      onCheckedChange={() => toggleOrphanPacket(pid)}
-                                      className="shrink-0"
-                                    />
-                                    <label
-                                      htmlFor={`pkt-orphan-${pid}`}
-                                      className="text-caption cursor-pointer flex-1 min-w-0"
-                                    >
-                                      {meta?.label ?? pid}
-                                      {meta?.description && (
-                                        <span className="text-muted-foreground block mt-0.5">
-                                          {meta.description}
-                                        </span>
-                                      )}
-                                    </label>
-                                  </li>
-                                );
-                              })}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
+                  <ContractStep selection={contract} onChange={setContract} />
                   {fingerprintConflict && (
                     <div className="rounded-lg border border-warning/40 bg-warning/5 px-3 py-2.5 text-caption space-y-1.5">
                       <p className="text-foreground font-medium flex items-center gap-1.5">
@@ -1317,7 +835,7 @@ export default function ProductFormPage() {
                         that product instead of saving a duplicate definition.
                       </p>
                       <Link
-                        to={`/data-products/products/${fingerprintConflict.id}`}
+                        to={"/data-products/products/" + fingerprintConflict.id}
                         className="text-primary hover:underline"
                       >
                         Reuse existing product →
@@ -1400,6 +918,13 @@ export default function ProductFormPage() {
                         }
                       />
                     </div>
+                    {trendedConfig.enabled && !contractHasTrendedCapable(contract) && (
+                      <div className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-caption text-muted-foreground">
+                        No trended-capable attributes are included in this contract yet. Trended
+                        retrieval will return latest values only until you add an event stream or
+                        trended attribute in Step 2.
+                      </div>
+                    )}
                     {trendedConfig.enabled && (
                       <div className="space-y-1.5 max-w-xs">
                         <Label htmlFor="pf-max-history" className="text-caption">
@@ -1669,30 +1194,7 @@ export default function ProductFormPage() {
                     </dl>
                   </div>
 
-                  <div className="rounded-lg border border-border/80 p-4 space-y-2">
-                    <p className="text-caption font-semibold text-muted-foreground uppercase tracking-wide">
-                      Packets
-                    </p>
-                    <ul className="flex flex-wrap gap-1.5">
-                      {orderedPacketIds.map((pid) => {
-                        const label =
-                          productCatalogPacketOptions.find((o) => o.id === pid)?.label ?? pid;
-                        return (
-                          <li
-                            key={pid}
-                            className="rounded-full bg-muted px-2.5 py-1 text-caption text-muted-foreground"
-                          >
-                            {label}
-                          </li>
-                        );
-                      })}
-                      {orderedPacketIds.length === 0 && (
-                        <li className="text-caption text-muted-foreground">
-                          No packets selected.
-                        </li>
-                      )}
-                    </ul>
-                  </div>
+                  <ContractReviewCard selection={contract} fingerprint={liveFingerprint} />
 
                   <div className="rounded-lg border border-border/80 p-4 space-y-2">
                     <p className="text-caption font-semibold text-muted-foreground uppercase tracking-wide">
@@ -1748,10 +1250,26 @@ export default function ProductFormPage() {
                   Back
                 </Button>
                 {step < 5 ? (
-                  <Button type="button" size="sm" onClick={handleNext}>
-                    Next
-                    <ChevronRight className="w-4 h-4 ml-1" />
-                  </Button>
+                  step === 2 && step2Blockers.length > 0 ? (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span tabIndex={0}>
+                          <Button type="button" size="sm" disabled>
+                            Continue
+                            <ChevronRight className="w-4 h-4 ml-1" />
+                          </Button>
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <ContractContinueTooltip selection={contract} />
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Button type="button" size="sm" onClick={handleNext}>
+                      {step === 2 ? "Continue" : "Next"}
+                      <ChevronRight className="w-4 h-4 ml-1" />
+                    </Button>
+                  )
                 ) : (
                   <Button type="button" size="sm" onClick={handleSave} disabled={saving}>
                     {saving ? "Saving…" : isEdit ? "Save draft" : "Create product"}
@@ -1870,73 +1388,6 @@ export default function ProductFormPage() {
         </Card>
       </div>
 
-      {packetModalIds && (
-        <PacketConfigModal
-          key={packetModalIds.join(",")}
-          packetIds={packetModalIds}
-          catalogOptions={catalogOptions}
-          onClose={() => setPacketModalIds(null)}
-          getPacketConfig={(pid) => {
-            const c = getPacketConfig(pid);
-            return {
-              selectedFields: c.selectedFields,
-              disabledFields: c.disabledFields ?? [],
-              selectedDerivedFields: c.selectedDerivedFields ?? [],
-            };
-          }}
-          onSave={handleSavePacketFields}
-        />
-      )}
-
-      {profileDialogOpen && (
-        <Dialog open onOpenChange={(v) => !v && setProfileDialogOpen(false)}>
-          <DialogContent className="sm:max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="text-h4">Customer Profile fields</DialogTitle>
-            </DialogHeader>
-            <p className="text-caption text-muted-foreground">
-              System profile block fields — not a data packet, always included in every product.
-            </p>
-            <ul className="space-y-1 py-1">
-              {DEFAULT_PROFILE_FIELDS.map((f) => (
-                <li
-                  key={f}
-                  className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-muted/50 transition-colors"
-                >
-                  <Checkbox
-                    id={`profile-field-${f}`}
-                    checked={profileDraftFields.includes(f)}
-                    onCheckedChange={(v) =>
-                      setProfileDraftFields((prev) =>
-                        v ? [...prev, f] : prev.filter((x) => x !== f)
-                      )
-                    }
-                  />
-                  <Label
-                    htmlFor={`profile-field-${f}`}
-                    className="text-body font-mono font-normal cursor-pointer flex-1 select-none"
-                  >
-                    {f}
-                  </Label>
-                </li>
-              ))}
-            </ul>
-            <DialogFooter className="gap-2 sm:gap-0">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => setProfileDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button type="button" size="sm" onClick={saveProfileDialog}>
-                Save
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }

@@ -1,5 +1,15 @@
 import { useSyncExternalStore } from "react";
 import seed from "@/data/product-management-demo.json";
+import { DICTIONARY_VERSION } from "@/data/attribute-dictionary";
+import {
+  applyDerivedSensitivityToMetadata,
+  buildFieldContractFromDictionary,
+  contractReferencesDeprecated,
+  deprecatedAttributeWarningMessage,
+  isDictionaryPacketId,
+  migrateProfileFieldsToSubject,
+  SUBJECT_PACKET_ID,
+} from "@/lib/product-contract";
 import {
   ALLOWED_TRANSITIONS,
   buildFieldContractFromPackets,
@@ -7,6 +17,7 @@ import {
   DEFAULT_PROFILE_CONFIG,
   DEFAULT_RETRO_CONFIG,
   DEFAULT_TRENDED_CONFIG,
+  fingerprintExtrasFromVersion,
   normalizeRetroConfig,
   normalizeTrendedConfig,
   defaultOutputPorts,
@@ -25,13 +36,14 @@ import {
   type ProductMetadata,
   type ProfileBlockConfig,
   type RetroConfig,
+  type SubjectScope,
   type Subscription,
   type TrendedConfig,
 } from "@/data/product-management-types";
 import type { EnquiryConfig, PacketConfig } from "@/data/data-products-mock";
 import { DEFAULT_ENQUIRY_CONFIG, normalizeEnquiryConfig } from "@/data/data-products-mock";
 
-const STORAGE_KEY = "hcb-product-mgmt-demo-v11";
+const STORAGE_KEY = "hcb-product-mgmt-demo-v12";
 
 const DEFAULT_METADATA: ProductMetadata = {
   businessUnit: "Product Management",
@@ -77,9 +89,67 @@ function normalizeMetadata(raw: Partial<ProductMetadata> & Record<string, unknow
   };
 }
 
+function normalizeSubjectScope(raw: unknown): SubjectScope {
+  if (raw === "COMPANY" || raw === "BOTH" || raw === "INDIVIDUAL") return raw;
+  return "INDIVIDUAL";
+}
+
+function contractSelectionOf(v: {
+  packetIds: string[];
+  packetConfigs: PacketConfig[];
+  subjectScope: SubjectScope;
+  dictionaryVersion: string;
+  eventStreamToggles: Record<string, string[]>;
+}) {
+  return {
+    subjectScope: v.subjectScope,
+    dictionaryVersion: v.dictionaryVersion,
+    packetIds: v.packetIds,
+    packetConfigs: v.packetConfigs,
+    eventStreamToggles: v.eventStreamToggles,
+  };
+}
+
+function fieldContractFor(v: {
+  packetIds: string[];
+  packetConfigs: PacketConfig[];
+  subjectScope: SubjectScope;
+  dictionaryVersion: string;
+  eventStreamToggles: Record<string, string[]>;
+}): DemoProductVersion["fieldContract"] {
+  if (v.packetIds.some(isDictionaryPacketId)) {
+    return buildFieldContractFromDictionary(contractSelectionOf(v));
+  }
+  return buildFieldContractFromPackets(v.packetIds, v.packetConfigs, v.eventStreamToggles);
+}
+
+function withDeprecatedPolicyWarning(
+  warnings: PolicyWarning[],
+  selection: {
+    packetIds: string[];
+    packetConfigs: PacketConfig[];
+    subjectScope: SubjectScope;
+    dictionaryVersion: string;
+    eventStreamToggles: Record<string, string[]>;
+  }
+): PolicyWarning[] {
+  const has = warnings.some((w) => w.code === "deprecated_attribute");
+  if (contractReferencesDeprecated(contractSelectionOf(selection)) && !has) {
+    return [
+      ...warnings,
+      {
+        code: "deprecated_attribute",
+        severity: "warning",
+        message: deprecatedAttributeWarningMessage(),
+      },
+    ];
+  }
+  return warnings;
+}
+
 function normalizeVersion(v: DemoProductVersion & Record<string, unknown>): DemoProductVersion {
   const packetIds = v.packetIds ?? [];
-  const packetConfigs = v.packetConfigs ?? [];
+  let packetConfigs = v.packetConfigs ?? [];
   const enquiryConfig = normalizeEnquiryConfig(v.enquiryConfig);
   const trendedConfig = normalizeTrendedConfig(v.trendedConfig);
   const retroConfig = normalizeRetroConfig(
@@ -88,28 +158,73 @@ function normalizeVersion(v: DemoProductVersion & Record<string, unknown>): Demo
   const profileConfig: ProfileBlockConfig = v.profileConfig?.includedFields?.length
     ? { includedFields: [...v.profileConfig.includedFields] }
     : { ...DEFAULT_PROFILE_CONFIG, includedFields: [...DEFAULT_PROFILE_CONFIG.includedFields] };
+  const subjectScope = normalizeSubjectScope(v.subjectScope);
+  const dictionaryVersion =
+    typeof v.dictionaryVersion === "string" && v.dictionaryVersion
+      ? v.dictionaryVersion
+      : DICTIONARY_VERSION;
+  const eventStreamToggles =
+    v.eventStreamToggles && typeof v.eventStreamToggles === "object"
+      ? (v.eventStreamToggles as Record<string, string[]>)
+      : {};
+
+  if (
+    packetIds.includes(SUBJECT_PACKET_ID) &&
+    !packetConfigs.some((c) => c.packetId === SUBJECT_PACKET_ID)
+  ) {
+    packetConfigs = [
+      migrateProfileFieldsToSubject(profileConfig.includedFields),
+      ...packetConfigs,
+    ];
+  }
+
   const outputPorts: OutputPort[] =
     Array.isArray(v.outputPorts) && v.outputPorts.length > 0
       ? v.outputPorts
       : defaultOutputPorts(v.productCode, v.version);
+  const extras = fingerprintExtrasFromVersion({
+    subjectScope,
+    dictionaryVersion,
+    eventStreamToggles,
+  });
   const fieldContract =
-    Array.isArray(v.fieldContract) && v.fieldContract.length > 0
+    Array.isArray(v.fieldContract) && v.fieldContract.length > 0 && !packetIds.some(isDictionaryPacketId)
       ? v.fieldContract
-      : buildFieldContractFromPackets(packetIds, packetConfigs);
-  const policyWarnings: PolicyWarning[] = Array.isArray(v.policyWarnings) ? v.policyWarnings : [];
+      : fieldContractFor({
+          packetIds,
+          packetConfigs,
+          subjectScope,
+          dictionaryVersion,
+          eventStreamToggles,
+        });
+  const policyWarnings = withDeprecatedPolicyWarning(
+    Array.isArray(v.policyWarnings) ? v.policyWarnings : [],
+    { packetIds, packetConfigs, subjectScope, dictionaryVersion, eventStreamToggles }
+  );
   const fingerprint = computeDefinitionFingerprint(
     packetIds,
     packetConfigs,
     enquiryConfig,
     trendedConfig,
-    retroConfig
+    retroConfig,
+    extras
   );
+  const metadata = normalizeMetadata((v.metadata ?? {}) as ProductMetadata & Record<string, unknown>);
+  const derivedMeta = packetIds.some(isDictionaryPacketId)
+    ? applyDerivedSensitivityToMetadata(metadata, {
+        subjectScope,
+        dictionaryVersion,
+        packetIds,
+        packetConfigs,
+        eventStreamToggles,
+      })
+    : metadata;
   return {
     ...v,
     packetIds,
     packetConfigs,
     enquiryConfig,
-    metadata: normalizeMetadata((v.metadata ?? {}) as ProductMetadata & Record<string, unknown>),
+    metadata: derivedMeta,
     approvalCycles: (v.approvalCycles ?? []).map((c) => ({
       ...c,
       decisions: (c.decisions ?? []).map((d) => ({
@@ -120,6 +235,9 @@ function normalizeVersion(v: DemoProductVersion & Record<string, unknown>): Demo
     trendedConfig,
     retroConfig,
     profileConfig,
+    subjectScope,
+    dictionaryVersion,
+    eventStreamToggles,
     outputPorts,
     fieldContract,
     policyWarnings,
@@ -242,7 +360,14 @@ function updateVersion(
 function fingerprintFor(
   v: Pick<
     DemoProductVersion,
-    "packetIds" | "packetConfigs" | "enquiryConfig" | "trendedConfig" | "retroConfig"
+    | "packetIds"
+    | "packetConfigs"
+    | "enquiryConfig"
+    | "trendedConfig"
+    | "retroConfig"
+    | "subjectScope"
+    | "dictionaryVersion"
+    | "eventStreamToggles"
   >
 ) {
   return computeDefinitionFingerprint(
@@ -250,7 +375,8 @@ function fingerprintFor(
     v.packetConfigs,
     v.enquiryConfig,
     v.trendedConfig,
-    v.retroConfig
+    v.retroConfig,
+    fingerprintExtrasFromVersion(v)
   );
 }
 
@@ -405,6 +531,9 @@ export const productMgmtStore = {
     trendedConfig?: TrendedConfig;
     retroConfig?: RetroConfig;
     profileConfig?: ProfileBlockConfig;
+    subjectScope?: SubjectScope;
+    dictionaryVersion?: string;
+    eventStreamToggles?: Record<string, string[]>;
     metadata?: Partial<ProductMetadata>;
     actor?: string;
   }) {
@@ -415,12 +544,21 @@ export const productMgmtStore = {
     const enquiryConfig = normalizeEnquiryConfig(input.enquiryConfig ?? DEFAULT_ENQUIRY_CONFIG);
     const trendedConfig = normalizeTrendedConfig(input.trendedConfig ?? DEFAULT_TRENDED_CONFIG);
     const retroConfig = normalizeRetroConfig(input.retroConfig ?? DEFAULT_RETRO_CONFIG);
+    const subjectScope = input.subjectScope ?? "INDIVIDUAL";
+    const dictionaryVersion = input.dictionaryVersion ?? DICTIONARY_VERSION;
+    const eventStreamToggles = input.eventStreamToggles ?? {};
+    const extras = fingerprintExtrasFromVersion({
+      subjectScope,
+      dictionaryVersion,
+      eventStreamToggles,
+    });
     const fingerprint = computeDefinitionFingerprint(
       input.packetIds,
       input.packetConfigs,
       enquiryConfig,
       trendedConfig,
-      retroConfig
+      retroConfig,
+      extras
     );
     const id = uid("ver");
     const maxNum = state.versions.reduce((max, v) => {
@@ -433,6 +571,13 @@ export const productMgmtStore = {
     const profileConfig = input.profileConfig ?? {
       includedFields: [...DEFAULT_PROFILE_CONFIG.includedFields],
     };
+    const derivedMeta = applyDerivedSensitivityToMetadata(meta, {
+      subjectScope,
+      dictionaryVersion,
+      packetIds: input.packetIds,
+      packetConfigs: input.packetConfigs,
+      eventStreamToggles,
+    });
     const version: DemoProductVersion = {
       id,
       productCode: code,
@@ -446,7 +591,7 @@ export const productMgmtStore = {
       packetIds: input.packetIds,
       packetConfigs: input.packetConfigs,
       enquiryConfig,
-      metadata: meta,
+      metadata: derivedMeta,
       consumerCount: 0,
       enquiryCount: 0,
       definitionFingerprint: fingerprint,
@@ -454,9 +599,24 @@ export const productMgmtStore = {
       trendedConfig,
       retroConfig,
       profileConfig,
+      subjectScope,
+      dictionaryVersion,
+      eventStreamToggles,
       outputPorts: defaultOutputPorts(code, 1),
-      fieldContract: buildFieldContractFromPackets(input.packetIds, input.packetConfigs),
-      policyWarnings: [],
+      fieldContract: fieldContractFor({
+        packetIds: input.packetIds,
+        packetConfigs: input.packetConfigs,
+        subjectScope,
+        dictionaryVersion,
+        eventStreamToggles,
+      }),
+      policyWarnings: withDeprecatedPolicyWarning([], {
+        packetIds: input.packetIds,
+        packetConfigs: input.packetConfigs,
+        subjectScope,
+        dictionaryVersion,
+        eventStreamToggles,
+      }),
     };
     const auditEvents = pushAudit(state.versions, state.auditEvents, {
       actor: input.actor ?? LOCAL_CPO_LABEL,
@@ -485,6 +645,9 @@ export const productMgmtStore = {
       trendedConfig?: TrendedConfig;
       retroConfig?: RetroConfig;
       profileConfig?: ProfileBlockConfig;
+      subjectScope?: SubjectScope;
+      dictionaryVersion?: string;
+      eventStreamToggles?: Record<string, string[]>;
       metadata?: Partial<ProductMetadata>;
       actor?: string;
     }
@@ -510,6 +673,17 @@ export const productMgmtStore = {
         const retroConfig = patch.retroConfig
           ? normalizeRetroConfig(patch.retroConfig)
           : v.retroConfig;
+        const subjectScope = patch.subjectScope ?? v.subjectScope;
+        const dictionaryVersion = patch.dictionaryVersion ?? v.dictionaryVersion;
+        const eventStreamToggles = patch.eventStreamToggles ?? v.eventStreamToggles;
+        const extras = fingerprintExtrasFromVersion({
+          subjectScope,
+          dictionaryVersion,
+          eventStreamToggles,
+        });
+        const metadata = patch.metadata
+          ? normalizeMetadata({ ...v.metadata, ...patch.metadata })
+          : v.metadata;
         return {
           ...v,
           name: patch.name?.trim() ?? v.name,
@@ -520,15 +694,38 @@ export const productMgmtStore = {
           trendedConfig,
           retroConfig,
           profileConfig: patch.profileConfig ?? v.profileConfig,
-          metadata: patch.metadata ? normalizeMetadata({ ...v.metadata, ...patch.metadata }) : v.metadata,
-          fieldContract: buildFieldContractFromPackets(packetIds, packetConfigs),
+          subjectScope,
+          dictionaryVersion,
+          eventStreamToggles,
+          metadata: applyDerivedSensitivityToMetadata(metadata, {
+            subjectScope,
+            dictionaryVersion,
+            packetIds,
+            packetConfigs,
+            eventStreamToggles,
+          }),
+          fieldContract: fieldContractFor({
+            packetIds,
+            packetConfigs,
+            subjectScope,
+            dictionaryVersion,
+            eventStreamToggles,
+          }),
           definitionFingerprint: computeDefinitionFingerprint(
             packetIds,
             packetConfigs,
             enquiryConfig,
             trendedConfig,
-            retroConfig
+            retroConfig,
+            extras
           ),
+          policyWarnings: withDeprecatedPolicyWarning(v.policyWarnings, {
+            packetIds,
+            packetConfigs,
+            subjectScope,
+            dictionaryVersion,
+            eventStreamToggles,
+          }),
         };
       },
       {

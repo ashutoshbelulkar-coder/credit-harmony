@@ -32,6 +32,10 @@ const META_LABELS: Partial<Record<keyof ProductMetadata, string>> = {
   regulatoryNotes: "Regulatory notes",
 };
 
+function streamsOf(v: DemoProductVersion, pid: string) {
+  return [...(v.eventStreamToggles?.[pid] ?? [])].sort();
+}
+
 function computeVersionDiff(a: DemoProductVersion, b: DemoProductVersion) {
   const aSet = new Set(a.packetIds);
   const bSet = new Set(b.packetIds);
@@ -41,13 +45,24 @@ function computeVersionDiff(a: DemoProductVersion, b: DemoProductVersion) {
   const fieldChanges = shared.flatMap((pid) => {
     const ca = a.packetConfigs.find((c) => c.packetId === pid);
     const cb = b.packetConfigs.find((c) => c.packetId === pid);
-    const fa = new Set(ca?.selectedFields ?? []);
-    const fb = new Set(cb?.selectedFields ?? []);
+    const fa = new Set([...(ca?.selectedFields ?? []), ...(ca?.selectedDerivedFields ?? [])]);
+    const fb = new Set([...(cb?.selectedFields ?? []), ...(cb?.selectedDerivedFields ?? [])]);
     const fAdded = [...fb].filter((f) => !fa.has(f));
     const fRemoved = [...fa].filter((f) => !fb.has(f));
     if (!fAdded.length && !fRemoved.length) return [];
     return [{ packetId: pid, fAdded, fRemoved }];
   });
+  const streamChanges = shared.flatMap((pid) => {
+    const sa = streamsOf(a, pid).join(",");
+    const sb = streamsOf(b, pid).join(",");
+    if (sa === sb) return [];
+    const addedStreams = streamsOf(b, pid).filter((s) => !streamsOf(a, pid).includes(s));
+    const removedStreams = streamsOf(a, pid).filter((s) => !streamsOf(b, pid).includes(s));
+    return [{ packetId: pid, addedStreams, removedStreams }];
+  });
+
+  const subjectScopeChanged = (a.subjectScope ?? "INDIVIDUAL") !== (b.subjectScope ?? "INDIVIDUAL");
+  const sensitivityChanged = a.metadata.sensitivity !== b.metadata.sensitivity;
 
   const scopeChanged = a.enquiryConfig.scope !== b.enquiryConfig.scope;
   const softChanged =
@@ -88,6 +103,9 @@ function computeVersionDiff(a: DemoProductVersion, b: DemoProductVersion) {
     added,
     removed,
     fieldChanges,
+    streamChanges,
+    subjectScopeChanged,
+    sensitivityChanged,
     scopeChanged,
     impactChanged,
     footprintStoreChanged,
@@ -198,6 +216,62 @@ export function VersionComparePanel({ a, b, hidePickers }: VersionComparePanelPr
           <CardTitle>Diff summary (Compared vs Baseline)</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3 text-caption">
+          <div>
+            <p className="font-medium text-foreground">Contract delta</p>
+            <ul className="space-y-1">
+              {diff.subjectScopeChanged && (
+                <li>
+                  Subject scope: {a.subjectScope ?? "INDIVIDUAL"} → {b.subjectScope ?? "INDIVIDUAL"}
+                </li>
+              )}
+              {diff.sensitivityChanged && (
+                <li className="text-warning">
+                  Sensitivity: {a.metadata.sensitivity} → {b.metadata.sensitivity}
+                </li>
+              )}
+              {diff.added.map((p) => (
+                <li key={`add-${p}`} className="text-success">
+                  Packet added: {catalogLabelForPacketId(p) ?? p}
+                </li>
+              ))}
+              {diff.removed.map((p) => (
+                <li key={`rm-${p}`} className="text-destructive">
+                  Packet removed: {catalogLabelForPacketId(p) ?? p}
+                </li>
+              ))}
+              {diff.streamChanges.map((sc) => (
+                <li key={`st-${sc.packetId}`}>
+                  {catalogLabelForPacketId(sc.packetId) ?? sc.packetId}: event stream{" "}
+                  {sc.addedStreams.length ? (
+                    <span className="text-success">+ {sc.addedStreams.join(", ")}</span>
+                  ) : null}
+                  {sc.removedStreams.length ? (
+                    <span className="text-destructive"> − {sc.removedStreams.join(", ")}</span>
+                  ) : null}
+                </li>
+              ))}
+              {diff.fieldChanges.map((fc) => (
+                <li key={fc.packetId}>
+                  {catalogLabelForPacketId(fc.packetId) ?? fc.packetId}:{" "}
+                  {fc.fAdded.length ? (
+                    <span className="text-success">+ {fc.fAdded.join(", ")}</span>
+                  ) : null}
+                  {fc.fAdded.length && fc.fRemoved.length ? " / " : null}
+                  {fc.fRemoved.length ? (
+                    <span className="text-destructive">− {fc.fRemoved.join(", ")}</span>
+                  ) : null}
+                </li>
+              ))}
+              {!diff.subjectScopeChanged &&
+                !diff.sensitivityChanged &&
+                !diff.added.length &&
+                !diff.removed.length &&
+                !diff.fieldChanges.length &&
+                !diff.streamChanges.length && (
+                  <li className="text-muted-foreground">None</li>
+                )}
+            </ul>
+          </div>
           <div>
             <p className="font-medium text-foreground">Packets added</p>
             <p className="text-muted-foreground">

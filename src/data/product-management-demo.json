@@ -2374,6 +2374,662 @@
         "enabled": false,
         "maxHistoryMonths": 0
       }
+    },
+    {
+      "parentVersionId": null,
+      "lastUpdated": "2026-09-08T10:00:00.000Z",
+      "createdAt": "2026-08-01T09:00:00.000Z",
+      "enquiryConfig": {
+        "scope": "NETWORK",
+        "soft": {
+          "enabled": true,
+          "storeFootprint": false,
+          "footprintVisibility": null
+        },
+        "hard": {
+          "enabled": true,
+          "storeFootprint": true,
+          "footprintVisibility": "NETWORK"
+        }
+      },
+      "approvalCycles": [],
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth"
+        ]
+      },
+      "consumerCount": 18,
+      "enquiryCount": 4200,
+      "outputPorts": [],
+      "fieldContract": [],
+      "policyWarnings": [],
+      "id": "ver_rcp_v1",
+      "productCode": "PRD_0006",
+      "name": "Retail Cashflow Plus",
+      "description": "Retail cashflow from credit facilities and bank accounts.",
+      "version": 1,
+      "status": "deprecated",
+      "dictionaryVersion": "v12",
+      "subjectScope": "INDIVIDUAL",
+      "packetIds": [
+        "subject",
+        "credit_facility",
+        "bank_account"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "subject",
+          "selectedFields": [
+            "subject.full_name",
+            "subject.first_name",
+            "subject.last_name",
+            "subject.dob",
+            "subject.gender",
+            "subject.mobile",
+            "subject.email",
+            "subject.address_line",
+            "subject.city",
+            "subject.postal_code",
+            "subject.country",
+            "subject.provider_id",
+            "subject.reported_at"
+          ],
+          "selectedDerivedFields": []
+        },
+        {
+          "packetId": "credit_facility",
+          "selectedFields": [
+            "credit.contract_type",
+            "credit.contract_status",
+            "credit.contract_role",
+            "credit.financed_amount",
+            "credit.outstanding_balance",
+            "credit.overdue_payments_amount",
+            "credit.monthly_payment_amount",
+            "credit.overdue_days",
+            "credit.installments_number",
+            "credit.contract_start_date",
+            "credit.contract_end_actual_date",
+            "credit.last_payment_date",
+            "credit.current_balance",
+            "credit.repayment_period",
+            "credit.amount_paid",
+            "credit.repayment_dpd",
+            "credit.repayment_payment_status"
+          ],
+          "selectedDerivedFields": [
+            "feature.dpd_max"
+          ]
+        },
+        {
+          "packetId": "bank_account",
+          "selectedFields": [
+            "bank.account_type",
+            "bank.account_subtype",
+            "bank.currency",
+            "bank.current_balance"
+          ],
+          "selectedDerivedFields": []
+        }
+      ],
+      "eventStreamToggles": {
+        "credit_facility": [
+          "repayment_history"
+        ]
+      },
+      "metadata": {
+        "businessUnit": "Retail Lending",
+        "targetSegment": "Thin-file retail",
+        "sapItemCode": "HCB-RCP-006",
+        "intendedUse": "",
+        "regulatoryNotes": "",
+        "sensitivity": "Medium",
+        "tags": [
+          "cashflow",
+          "bnpl",
+          "thin-file"
+        ],
+        "categories": [
+          "Credit Decisioning"
+        ],
+        "effectiveStart": "2026-06-01",
+        "effectiveEnd": null,
+        "releaseNote": "Initial retail cashflow contract.",
+        "dataAcquisitionType": "Member-contributed",
+        "dataAvailabilityType": "Managed by bureau, available for direct enquiry",
+        "accessRestrictions": "Active subscription required; purpose-bound use only"
+      },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 6
+      },
+      "retroConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 6
+      }
+    },
+    {
+      "parentVersionId": "ver_rcp_v1",
+      "lastUpdated": "2026-09-08T10:00:00.000Z",
+      "createdAt": "2026-08-01T09:00:00.000Z",
+      "enquiryConfig": {
+        "scope": "NETWORK",
+        "soft": {
+          "enabled": true,
+          "storeFootprint": false,
+          "footprintVisibility": null
+        },
+        "hard": {
+          "enabled": true,
+          "storeFootprint": true,
+          "footprintVisibility": "NETWORK"
+        }
+      },
+      "approvalCycles": [],
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth"
+        ]
+      },
+      "consumerCount": 27,
+      "enquiryCount": 12840,
+      "outputPorts": [],
+      "fieldContract": [],
+      "policyWarnings": [
+        {
+          "code": "deprecated_attribute",
+          "severity": "warning",
+          "message": "Contract references a deprecated attribute — review before next version."
+        }
+      ],
+      "id": "ver_rcp_v2",
+      "productCode": "PRD_0006",
+      "name": "Retail Cashflow Plus",
+      "description": "Retail cashflow from credit facilities, bank transactions and cross-asset risk tier.",
+      "version": 2,
+      "status": "active",
+      "dictionaryVersion": "v12",
+      "subjectScope": "INDIVIDUAL",
+      "packetIds": [
+        "subject",
+        "credit_facility",
+        "bank_account",
+        "cross_asset_analytics"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "subject",
+          "selectedFields": [
+            "subject.full_name",
+            "subject.first_name",
+            "subject.last_name",
+            "subject.dob",
+            "subject.gender",
+            "subject.mobile",
+            "subject.email",
+            "subject.address_line",
+            "subject.city",
+            "subject.postal_code",
+            "subject.country",
+            "subject.provider_id",
+            "subject.reported_at",
+            "subject.pan"
+          ],
+          "selectedDerivedFields": []
+        },
+        {
+          "packetId": "credit_facility",
+          "selectedFields": [
+            "credit.contract_type",
+            "credit.contract_status",
+            "credit.contract_role",
+            "credit.financed_amount",
+            "credit.outstanding_balance",
+            "credit.overdue_payments_amount",
+            "credit.monthly_payment_amount",
+            "credit.overdue_days",
+            "credit.installments_number",
+            "credit.contract_start_date",
+            "credit.contract_end_actual_date",
+            "credit.last_payment_date",
+            "credit.current_balance",
+            "credit.repayment_period",
+            "credit.amount_paid",
+            "credit.repayment_dpd",
+            "credit.repayment_payment_status"
+          ],
+          "selectedDerivedFields": [
+            "feature.dpd_max"
+          ]
+        },
+        {
+          "packetId": "bank_account",
+          "selectedFields": [
+            "bank.account_type",
+            "bank.account_subtype",
+            "bank.currency",
+            "bank.current_balance",
+            "bank.drawing_limit",
+            "bank.balance_datetime",
+            "bank.account_number",
+            "bank.txn_date",
+            "bank.txn_amount",
+            "bank.txn_type",
+            "bank.txn_narration",
+            "bank.balance_after"
+          ],
+          "selectedDerivedFields": []
+        },
+        {
+          "packetId": "cross_asset_analytics",
+          "selectedFields": [],
+          "selectedDerivedFields": [
+            "feature.risk_tier",
+            "feature.segment",
+            "feature.age_band"
+          ]
+        }
+      ],
+      "eventStreamToggles": {
+        "credit_facility": [
+          "repayment_history"
+        ],
+        "bank_account": [
+          "transactions"
+        ]
+      },
+      "metadata": {
+        "businessUnit": "Retail Lending",
+        "targetSegment": "Thin-file retail",
+        "sapItemCode": "HCB-RCP-006",
+        "intendedUse": "",
+        "regulatoryNotes": "",
+        "sensitivity": "High",
+        "tags": [
+          "cashflow",
+          "bnpl",
+          "thin-file"
+        ],
+        "categories": [
+          "Credit Decisioning"
+        ],
+        "effectiveStart": "2026-09-01",
+        "effectiveEnd": null,
+        "releaseNote": "Adds bank transactions stream and cross-asset risk tier.",
+        "dataAcquisitionType": "Member-contributed",
+        "dataAvailabilityType": "Managed by bureau, available for direct enquiry",
+        "accessRestrictions": "Active subscription required; purpose-bound use only"
+      },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 12
+      },
+      "retroConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 6
+      }
+    },
+    {
+      "parentVersionId": null,
+      "lastUpdated": "2026-08-21T10:00:00.000Z",
+      "createdAt": "2026-08-01T09:00:00.000Z",
+      "enquiryConfig": {
+        "scope": "NETWORK",
+        "soft": {
+          "enabled": true,
+          "storeFootprint": false,
+          "footprintVisibility": null
+        },
+        "hard": {
+          "enabled": false,
+          "storeFootprint": false,
+          "footprintVisibility": null
+        }
+      },
+      "approvalCycles": [],
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth"
+        ]
+      },
+      "consumerCount": 9,
+      "enquiryCount": 910,
+      "outputPorts": [],
+      "fieldContract": [],
+      "policyWarnings": [],
+      "id": "ver_tpl_v1",
+      "productCode": "PRD_0009",
+      "name": "Telco Payment Lite",
+      "description": "Lite telco payment behaviour for gig-worker screening.",
+      "version": 1,
+      "status": "active",
+      "dictionaryVersion": "v12",
+      "subjectScope": "INDIVIDUAL",
+      "packetIds": [
+        "subject",
+        "telco_profile"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "subject",
+          "selectedFields": [
+            "subject.full_name",
+            "subject.first_name",
+            "subject.last_name",
+            "subject.dob",
+            "subject.gender",
+            "subject.mobile",
+            "subject.email",
+            "subject.address_line",
+            "subject.city",
+            "subject.postal_code",
+            "subject.country",
+            "subject.provider_id",
+            "subject.reported_at"
+          ],
+          "selectedDerivedFields": []
+        },
+        {
+          "packetId": "telco_profile",
+          "selectedFields": [
+            "telco.connection_type",
+            "telco.plan_type",
+            "telco.tenure_months",
+            "telco.bill_amount",
+            "telco.payment_status",
+            "telco.days_past_due"
+          ],
+          "selectedDerivedFields": [
+            "feature.identity_trust",
+            "feature.telco_score"
+          ]
+        }
+      ],
+      "eventStreamToggles": {},
+      "metadata": {
+        "businessUnit": "Consumer Digital",
+        "targetSegment": "Gig workers",
+        "sapItemCode": "HCB-TPL-009",
+        "intendedUse": "",
+        "regulatoryNotes": "",
+        "sensitivity": "Medium",
+        "tags": [
+          "telco",
+          "lite"
+        ],
+        "categories": [
+          "Credit Decisioning"
+        ],
+        "effectiveStart": "2026-08-21",
+        "effectiveEnd": null,
+        "releaseNote": "Initial contract.",
+        "dataAcquisitionType": "Member-contributed",
+        "dataAvailabilityType": "Managed by bureau, available for direct enquiry",
+        "accessRestrictions": "Active subscription required; purpose-bound use only"
+      },
+      "trendedConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 6
+      },
+      "retroConfig": {
+        "enabled": false,
+        "maxHistoryMonths": 0
+      }
+    },
+    {
+      "parentVersionId": null,
+      "lastUpdated": "2026-09-08T10:00:00.000Z",
+      "createdAt": "2026-08-01T09:00:00.000Z",
+      "enquiryConfig": {
+        "scope": "CONSORTIUM",
+        "soft": {
+          "enabled": false,
+          "storeFootprint": false,
+          "footprintVisibility": null
+        },
+        "hard": {
+          "enabled": true,
+          "storeFootprint": true,
+          "footprintVisibility": "VERTICAL"
+        }
+      },
+      "approvalCycles": [],
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth"
+        ]
+      },
+      "consumerCount": 4,
+      "enquiryCount": 640,
+      "outputPorts": [],
+      "fieldContract": [],
+      "policyWarnings": [],
+      "id": "ver_sts_v2",
+      "productCode": "PRD_0011",
+      "name": "SME Trade Screen",
+      "description": "GST registration and identity documents for SME KYB.",
+      "version": 2,
+      "status": "active",
+      "dictionaryVersion": "v11",
+      "subjectScope": "COMPANY",
+      "packetIds": [
+        "subject",
+        "gst_registration",
+        "identity_document"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "subject",
+          "selectedFields": [
+            "subject.full_name",
+            "subject.first_name",
+            "subject.last_name",
+            "subject.dob",
+            "subject.gender",
+            "subject.mobile",
+            "subject.email",
+            "subject.address_line",
+            "subject.city",
+            "subject.postal_code",
+            "subject.country",
+            "subject.provider_id",
+            "subject.reported_at"
+          ],
+          "selectedDerivedFields": []
+        },
+        {
+          "packetId": "gst_registration",
+          "selectedFields": [
+            "gst.legal_name",
+            "gst.trade_name",
+            "gst.registration_status",
+            "gst.turnover_band",
+            "gst.filing_period",
+            "gst.return_type",
+            "gst.filing_date",
+            "gst.delay_days"
+          ],
+          "selectedDerivedFields": [
+            "feature.gst_filing_regularity"
+          ]
+        },
+        {
+          "packetId": "identity_document",
+          "selectedFields": [
+            "identity.document_type",
+            "identity.issue_date",
+            "identity.expiry_date",
+            "identity.issuing_authority",
+            "identity.document_number"
+          ],
+          "selectedDerivedFields": []
+        }
+      ],
+      "eventStreamToggles": {
+        "gst_registration": [
+          "filings"
+        ]
+      },
+      "metadata": {
+        "businessUnit": "Commercial Lending",
+        "targetSegment": "SME",
+        "sapItemCode": "HCB-STS-011",
+        "intendedUse": "",
+        "regulatoryNotes": "",
+        "sensitivity": "High",
+        "tags": [
+          "gst",
+          "kyb",
+          "trade"
+        ],
+        "categories": [
+          "Credit Decisioning"
+        ],
+        "effectiveStart": "2026-07-01",
+        "effectiveEnd": null,
+        "releaseNote": "Active commercial contract.",
+        "dataAcquisitionType": "Member-contributed",
+        "dataAvailabilityType": "Managed by bureau, available for direct enquiry",
+        "accessRestrictions": "Active subscription required; purpose-bound use only"
+      },
+      "trendedConfig": {
+        "enabled": false,
+        "maxHistoryMonths": 0
+      },
+      "retroConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 12
+      }
+    },
+    {
+      "parentVersionId": "ver_sts_v2",
+      "lastUpdated": "2026-09-08T10:00:00.000Z",
+      "createdAt": "2026-08-01T09:00:00.000Z",
+      "enquiryConfig": {
+        "scope": "CONSORTIUM",
+        "soft": {
+          "enabled": false,
+          "storeFootprint": false,
+          "footprintVisibility": null
+        },
+        "hard": {
+          "enabled": true,
+          "storeFootprint": true,
+          "footprintVisibility": "VERTICAL"
+        }
+      },
+      "approvalCycles": [],
+      "profileConfig": {
+        "includedFields": [
+          "fullName",
+          "dateOfBirth"
+        ]
+      },
+      "consumerCount": 0,
+      "enquiryCount": 0,
+      "outputPorts": [],
+      "fieldContract": [],
+      "policyWarnings": [],
+      "id": "ver_sts_v3",
+      "productCode": "PRD_0011",
+      "name": "SME Trade Screen",
+      "description": "GST registration and identity documents for SME KYB.",
+      "version": 3,
+      "status": "draft",
+      "dictionaryVersion": "v11",
+      "subjectScope": "COMPANY",
+      "packetIds": [
+        "subject",
+        "gst_registration",
+        "identity_document"
+      ],
+      "packetConfigs": [
+        {
+          "packetId": "subject",
+          "selectedFields": [
+            "subject.full_name",
+            "subject.first_name",
+            "subject.last_name",
+            "subject.dob",
+            "subject.gender",
+            "subject.mobile",
+            "subject.email",
+            "subject.address_line",
+            "subject.city",
+            "subject.postal_code",
+            "subject.country",
+            "subject.provider_id",
+            "subject.reported_at"
+          ],
+          "selectedDerivedFields": []
+        },
+        {
+          "packetId": "gst_registration",
+          "selectedFields": [
+            "gst.legal_name",
+            "gst.trade_name",
+            "gst.registration_status",
+            "gst.turnover_band",
+            "gst.filing_period",
+            "gst.return_type",
+            "gst.filing_date",
+            "gst.delay_days"
+          ],
+          "selectedDerivedFields": [
+            "feature.gst_filing_regularity"
+          ]
+        },
+        {
+          "packetId": "identity_document",
+          "selectedFields": [
+            "identity.document_type",
+            "identity.issue_date",
+            "identity.expiry_date",
+            "identity.issuing_authority",
+            "identity.document_number"
+          ],
+          "selectedDerivedFields": []
+        }
+      ],
+      "eventStreamToggles": {
+        "gst_registration": [
+          "filings"
+        ]
+      },
+      "metadata": {
+        "businessUnit": "Commercial Lending",
+        "targetSegment": "SME",
+        "sapItemCode": "HCB-STS-011",
+        "intendedUse": "",
+        "regulatoryNotes": "",
+        "sensitivity": "High",
+        "tags": [
+          "gst",
+          "kyb",
+          "trade"
+        ],
+        "categories": [
+          "Credit Decisioning"
+        ],
+        "effectiveStart": "2026-09-08",
+        "effectiveEnd": null,
+        "releaseNote": "Adds GST filing regularity attributes.",
+        "dataAcquisitionType": "Member-contributed",
+        "dataAvailabilityType": "Managed by bureau, available for direct enquiry",
+        "accessRestrictions": "Active subscription required; purpose-bound use only"
+      },
+      "trendedConfig": {
+        "enabled": false,
+        "maxHistoryMonths": 0
+      },
+      "retroConfig": {
+        "enabled": true,
+        "maxHistoryMonths": 12
+      }
     }
   ],
   "notifications": [

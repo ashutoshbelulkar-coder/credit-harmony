@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { productCatalogPacketOptions } from "@/data/data-products-mock";
+import { isDictionaryPacketId } from "@/lib/product-contract";
 import {
   buildProductFormPacketRows,
   filterCatalogOptionsForProductForm,
@@ -22,6 +23,7 @@ describe("product form packet catalogue", () => {
     );
 
     for (const id of used) {
+      if (isDictionaryPacketId(id)) continue;
       const opt = byId.get(id);
       if (opt && FORM_HIDDEN.has(opt.category)) continue;
       expect(eligible.has(id), `${id} should appear on the product form`).toBe(true);

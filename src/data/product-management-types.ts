@@ -1,4 +1,6 @@
 import type { EnquiryConfig, PacketConfig } from "@/data/data-products-mock";
+import type { AttributeSensitivity, SubjectScope } from "@/data/attribute-dictionary";
+import { DICTIONARY_VERSION } from "@/data/attribute-dictionary";
 
 /** Full BRD product version lifecycle (static UI demo). */
 export type BrdLifecycleStatus =
@@ -91,7 +93,16 @@ export interface FieldContractRow {
   pii: boolean;
   mode: AttributeMode;
   packetId: string;
+  attributeId?: string;
+  label?: string;
+  sensitivity?: AttributeSensitivity;
+  populatedBy?: string[];
+  notes?: string;
+  deprecatedInDictionary?: string | null;
+  eventStreamId?: string;
 }
+
+export type { SubjectScope };
 
 /** Ceiling; request selects within it. */
 export interface TrendedConfig {
@@ -166,6 +177,9 @@ export interface DemoProductVersion {
   trendedConfig: TrendedConfig;
   retroConfig: RetroConfig;
   profileConfig: ProfileBlockConfig;
+  subjectScope: SubjectScope;
+  dictionaryVersion: string;
+  eventStreamToggles: Record<string, string[]>;
   outputPorts: OutputPort[];
   fieldContract: FieldContractRow[];
   policyWarnings: PolicyWarning[];
@@ -329,24 +343,35 @@ export function inferFieldType(fieldName: string): string {
  * footprint policy, trendedConfig, and retroConfig. Disabled fields are excluded from
  * the fields set rather than hashed separately.
  */
+export interface ContractFingerprintExtras {
+  subjectScope?: SubjectScope;
+  dictionaryVersion?: string;
+  eventStreamToggles?: Record<string, string[]>;
+}
+
 export function computeDefinitionFingerprint(
   packetIds: string[],
   packetConfigs: PacketConfig[],
   enquiryConfig: Pick<EnquiryConfig, "scope" | "soft" | "hard">,
   trendedConfig: TrendedConfig,
-  retroConfig: RetroConfig = { enabled: false, maxHistoryMonths: 0 }
+  retroConfig: RetroConfig = { enabled: false, maxHistoryMonths: 0 },
+  extras: ContractFingerprintExtras = {}
 ): string {
   const sortedIds = [...packetIds].sort();
   const cfgMap = new Map(packetConfigs.map((c) => [c.packetId, c]));
+  const streams = extras.eventStreamToggles ?? {};
   const parts = sortedIds.map((pid) => {
     const c = cfgMap.get(pid);
     const disabled = new Set((c?.disabledFields ?? []).map(String));
     const fields = [...(c?.selectedFields ?? [])].filter((f) => !disabled.has(f)).sort().join(",");
     const derived = [...(c?.selectedDerivedFields ?? [])].sort().join(",");
-    return `${pid}:{${fields}}/{${derived}}`;
+    const toggled = [...(streams[pid] ?? [])].sort().join(",");
+    return `${pid}:{${fields}}/{${derived}}/[${toggled}]`;
   });
   const packImpact = (opt: { enabled: boolean; storeFootprint: boolean; footprintVisibility: string | null }) =>
     `${opt.enabled ? 1 : 0}:${opt.storeFootprint ? 1 : 0}:${opt.footprintVisibility ?? "none"}`;
+  parts.push(`scope:${extras.subjectScope ?? "INDIVIDUAL"}`);
+  parts.push(`dict:${extras.dictionaryVersion ?? DICTIONARY_VERSION}`);
   parts.push(
     `enq:${enquiryConfig.scope}:soft=${packImpact(enquiryConfig.soft)}:hard=${packImpact(enquiryConfig.hard)}`
   );
@@ -365,9 +390,22 @@ export function computeDefinitionFingerprint(
   return `fp_${Math.abs(hash).toString(16).padStart(8, "0")}`;
 }
 
+export function fingerprintExtrasFromVersion(v: {
+  subjectScope?: SubjectScope;
+  dictionaryVersion?: string;
+  eventStreamToggles?: Record<string, string[]>;
+}): ContractFingerprintExtras {
+  return {
+    subjectScope: v.subjectScope ?? "INDIVIDUAL",
+    dictionaryVersion: v.dictionaryVersion ?? DICTIONARY_VERSION,
+    eventStreamToggles: v.eventStreamToggles ?? {},
+  };
+}
+
 export function buildFieldContractFromPackets(
   packetIds: string[],
-  packetConfigs: PacketConfig[]
+  packetConfigs: PacketConfig[],
+  eventStreamToggles: Record<string, string[]> = {}
 ): FieldContractRow[] {
   const cfgMap = new Map(packetConfigs.map((c) => [c.packetId, c]));
   const rows: FieldContractRow[] = [];
@@ -383,6 +421,12 @@ export function buildFieldContractFromPackets(
         pii: inferFieldPii(name),
         mode: inferAttributeMode(name),
         packetId: pid,
+        attributeId: name,
+        label: name.replace(/_/g, " "),
+        sensitivity: inferFieldPii(name) ? "PII" : "Standard",
+        populatedBy: [],
+        notes: "",
+        deprecatedInDictionary: null,
       });
     }
     for (const name of c?.selectedDerivedFields ?? []) {
@@ -393,9 +437,16 @@ export function buildFieldContractFromPackets(
         pii: false,
         mode: inferAttributeMode(name),
         packetId: pid,
+        attributeId: name,
+        label: name.replace(/_/g, " "),
+        sensitivity: "Standard",
+        populatedBy: ["computed"],
+        notes: "ƒ derived from this packet",
+        deprecatedInDictionary: null,
       });
     }
   }
+  void eventStreamToggles;
   return rows;
 }
 
