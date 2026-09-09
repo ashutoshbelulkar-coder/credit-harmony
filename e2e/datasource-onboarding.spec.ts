@@ -38,7 +38,7 @@ test.describe("Datasource Onboarding wizard", () => {
     await expect(page.getByRole("heading", { name: /Create Master Data Model/i })).toBeVisible({ timeout: 15_000 });
 
     // Tree tab is the default and visible.
-    await expect(page.getByRole("tab", { name: /Tree/i })).toBeVisible();
+    await expect(page.getByRole("tab", { name: /Attributes/i })).toBeVisible();
     await expect(page.getByRole("tab", { name: /JSON View/i })).toBeVisible();
     await expect(page.getByRole("tab", { name: /Approvals/i })).toBeVisible();
   });
