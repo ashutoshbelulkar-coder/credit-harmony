@@ -54,7 +54,7 @@ import {
   STATUS_LABELS,
   STATUS_STYLES,
 } from "./msm-helpers";
-import { completenessIssueCount, coverageGapCount } from "./validate-dictionary";
+import { completenessIssueCount } from "./validate-dictionary";
 import {
   addAttributeGroup,
   loadDictFilters,
@@ -185,7 +185,7 @@ export function MasterSchemaRegistryPage() {
       { label: "Attributes", value: attrs.length, icon: Layers, accent: "text-primary" },
       { label: "Active", value: attrs.filter((a) => a.status === "active").length, icon: CheckCircle2, accent: "text-success" },
       { label: "Pending approval", value: attrs.filter((a) => a.status === "pending" || a.status === "proposed").length, icon: Clock, accent: "text-warning" },
-      { label: "Coverage gaps", value: coverageGapCount(attrs), icon: AlertTriangle, accent: "text-warning" },
+      { label: "Deprecated", value: attrs.filter((a) => a.status === "deprecated").length, icon: AlertTriangle, accent: "text-muted-foreground" },
     ] as const;
   }, [filteredAttrs]);
 
@@ -484,15 +484,6 @@ export function MasterSchemaRegistryPage() {
                     ))}
                   </SelectContent>
                 </Select>
-                <Select value={filters.source} onValueChange={(v) => updateFilters({ source: v })}>
-                  <SelectTrigger className="w-[150px] h-9"><SelectValue placeholder="Source" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All sources</SelectItem>
-                    {(enums?.sources ?? []).map((s) => (
-                      <SelectItem key={s} value={s}>{s}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
                 <Select value={filters.group} onValueChange={(v) => updateFilters({ group: v })}>
                   <SelectTrigger className="w-[180px] h-9"><SelectValue placeholder="Group" /></SelectTrigger>
                   <SelectContent>
@@ -539,14 +530,13 @@ export function MasterSchemaRegistryPage() {
                       <TableHead className={cn(tableHeaderClasses)}>Group</TableHead>
                       <TableHead className={cn(tableHeaderClasses)}>Sensitivity</TableHead>
                       <TableHead className={cn(tableHeaderClasses)}>Status</TableHead>
-                      <TableHead className={cn(tableHeaderClasses)}>Sources</TableHead>
                       <TableHead className={cn(tableHeaderClasses, "hidden md:table-cell")}>Updated</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {dictSlice.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={canMutate ? 11 : 10} className="h-32 text-center text-body text-muted-foreground">
+                        <TableCell colSpan={canMutate ? 10 : 9} className="h-32 text-center text-body text-muted-foreground">
                           No attributes match the current filters.
                         </TableCell>
                       </TableRow>
@@ -576,15 +566,29 @@ export function MasterSchemaRegistryPage() {
                           <TableCell className="font-mono text-caption">{a.canonicalQualifier}</TableCell>
                           <TableCell className="text-caption">{a.class}</TableCell>
                           <TableCell className="font-mono text-caption">{a.targetTable}</TableCell>
-                          <TableCell><ChipOverflow values={a.appliesTo} max={2} /></TableCell>
+                          <TableCell><ChipOverflow values={a.appliesTo} max={1} /></TableCell>
                           <TableCell className="text-caption">{a.attributeGroup ?? "—"}</TableCell>
                           <TableCell>
                             <Badge className={cn("text-[9px] leading-[12px] font-medium border-0", SENSITIVITY_STYLES[a.sensitivity])}>{a.sensitivity}</Badge>
                           </TableCell>
                           <TableCell>
-                            <Badge className={cn("text-[9px] leading-[12px] font-medium border-0", STATUS_STYLES[a.status])}>{STATUS_LABELS[a.status]}</Badge>
+                            <div className="flex flex-col gap-0.5">
+                              <Badge className={cn("text-[9px] leading-[12px] font-medium border-0 w-fit", STATUS_STYLES[a.status])}>{STATUS_LABELS[a.status]}</Badge>
+                              {a.status === "deprecated" && a.supersededBy && (
+                                <button
+                                  type="button"
+                                  className="text-[10px] text-primary hover:underline text-left font-mono"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    const successor = allAttrs.find((x) => x.attributeId === a.supersededBy);
+                                    if (successor) navigate(firstAppliesToHref(successor, entityTypes));
+                                  }}
+                                >
+                                  Superseded by {a.supersededBy}
+                                </button>
+                              )}
+                            </div>
                           </TableCell>
-                          <TableCell><ChipOverflow values={a.sources} max={3} /></TableCell>
                           <TableCell className="text-caption text-muted-foreground hidden md:table-cell">{formatDateEnIn(a.updatedAt)}</TableCell>
                         </TableRow>
                       ))
@@ -643,6 +647,13 @@ export function MasterSchemaRegistryPage() {
                 onOpenDomain={() => {
                   setAddOpen(false);
                   setDomainsOpen(true);
+                }}
+                onOpenAttribute={(id) => {
+                  const a = allAttrs.find((x) => x.attributeId === id);
+                  if (a) {
+                    setAddOpen(false);
+                    navigate(firstAppliesToHref(a, entityTypes));
+                  }
                 }}
               />
             </div>

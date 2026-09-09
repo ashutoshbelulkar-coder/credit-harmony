@@ -99,11 +99,11 @@
     },
     {
       "sourceId": "S-004",
-      "name": "HDFC Credit Card Statement",
+      "name": "HDFC Credit Facility",
       "type": "Financial",
       "provider": "HDFCBank",
       "lastUpdated": "2026-04-29T00:00:00.000Z",
-      "details": { "cardLast4": "4421", "currency": "INR" },
+      "details": { "maskedAccountNumber": "XXXX4421", "contractStatus": "ACTIVE" },
       "status": "ACTIVE"
     },
     {
@@ -132,16 +132,56 @@
       "lastUpdated": "2026-03-29T00:00:00.000Z",
       "details": { "accountNumber": "9988776655", "currency": "INR" },
       "status": "INACTIVE"
+    },
+    {
+      "sourceId": "S-008",
+      "name": "HDFC Credit Enquiry",
+      "type": "Financial",
+      "provider": "HDFCBank",
+      "lastUpdated": "2026-08-15T00:00:00.000Z",
+      "details": { "enquiryPurpose": "PERSONAL_LOAN", "enquiryAmount": "250000" },
+      "status": "ACTIVE"
+    },
+    {
+      "sourceId": "S-009",
+      "name": "Bajaj Adverse Record",
+      "type": "Financial",
+      "provider": "BajajFinance",
+      "lastUpdated": "2026-04-12T00:00:00.000Z",
+      "details": { "eventCode": "SUIT_FILED", "eventStatus": "OPEN" },
+      "status": "ACTIVE"
+    },
+    {
+      "sourceId": "S-010",
+      "name": "HDFC Investment Transaction",
+      "type": "Financial",
+      "provider": "HDFCBank",
+      "lastUpdated": "2026-08-20T00:00:00.000Z",
+      "details": { "orderId": "ORD-4417-8821", "transactionId": "TXN-INV-99012" },
+      "status": "ACTIVE"
+    },
+    {
+      "sourceId": "S-011",
+      "name": "BESCOM Address Proof",
+      "type": "Government",
+      "provider": "BESCOM",
+      "lastUpdated": "2026-03-31T00:00:00.000Z",
+      "details": { "documentType": "Electricity bill", "validTo": "2026-03-31" },
+      "status": "ACTIVE"
     }
   ],
   "links": [
     { "subjectId": "123e4567-e89b-12d3-a456-426614174000", "sourceId": "S-001", "linkedAt": "2025-12-04T10:00:00.000Z", "linkedBy": "system@hcb.io" },
     { "subjectId": "123e4567-e89b-12d3-a456-426614174000", "sourceId": "S-002", "linkedAt": "2025-12-04T10:05:00.000Z", "linkedBy": "system@hcb.io" },
     { "subjectId": "123e4567-e89b-12d3-a456-426614174000", "sourceId": "S-005", "linkedAt": "2026-01-15T13:20:00.000Z", "linkedBy": "bureau@hcb.io" },
+    { "subjectId": "123e4567-e89b-12d3-a456-426614174000", "sourceId": "S-008", "linkedAt": "2026-08-16T09:00:00.000Z", "linkedBy": "system@hcb.io" },
+    { "subjectId": "123e4567-e89b-12d3-a456-426614174000", "sourceId": "S-010", "linkedAt": "2026-08-21T09:00:00.000Z", "linkedBy": "system@hcb.io" },
+    { "subjectId": "123e4567-e89b-12d3-a456-426614174000", "sourceId": "S-011", "linkedAt": "2026-04-01T09:00:00.000Z", "linkedBy": "system@hcb.io" },
     { "subjectId": "223e4567-e89b-12d3-a456-426614174001", "sourceId": "S-002", "linkedAt": "2025-11-21T11:00:00.000Z", "linkedBy": "system@hcb.io" },
     { "subjectId": "223e4567-e89b-12d3-a456-426614174001", "sourceId": "S-003", "linkedAt": "2025-11-21T11:15:00.000Z", "linkedBy": "system@hcb.io" },
     { "subjectId": "323e4567-e89b-12d3-a456-426614174002", "sourceId": "S-004", "linkedAt": "2026-01-05T09:00:00.000Z", "linkedBy": "system@hcb.io" },
-    { "subjectId": "323e4567-e89b-12d3-a456-426614174002", "sourceId": "S-006", "linkedAt": "2026-01-05T09:10:00.000Z", "linkedBy": "system@hcb.io" }
+    { "subjectId": "323e4567-e89b-12d3-a456-426614174002", "sourceId": "S-006", "linkedAt": "2026-01-05T09:10:00.000Z", "linkedBy": "system@hcb.io" },
+    { "subjectId": "323e4567-e89b-12d3-a456-426614174002", "sourceId": "S-009", "linkedAt": "2026-04-12T10:00:00.000Z", "linkedBy": "system@hcb.io" }
   ],
   "auditLog": [
     {

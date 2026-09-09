@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -83,6 +83,12 @@ export function AttributeNavigator({
     return ordered;
   }, [attributes, groups]);
 
+  const [sharedOnly, setSharedOnly] = useState(false);
+  const sharedCount = useMemo(
+    () => attributes.filter((a) => a.class !== "Reserved" && a.appliesTo.length > 1).length,
+    [attributes],
+  );
+
   if (attributes.length === 0) {
     return (
       <div className="p-4">
@@ -102,8 +108,27 @@ export function AttributeNavigator({
   return (
     <TooltipProvider delayDuration={200}>
       <div className="p-1">
+        {sharedCount > 0 && (
+          <button
+            type="button"
+            className={cn(
+              "mb-1.5 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium",
+              sharedOnly
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-border bg-muted/40 text-muted-foreground hover:bg-muted",
+            )}
+            onClick={() => setSharedOnly((v) => !v)}
+          >
+            <Share2 className="h-3 w-3" />
+            Shared ({sharedCount})
+          </button>
+        )}
         {buckets.map((bucket) => {
           if (bucket.key === SYSTEM && bucket.attrs.length === 0) return null;
+          const visibleAttrs = sharedOnly
+            ? bucket.attrs.filter((a) => a.appliesTo.length > 1)
+            : bucket.attrs;
+          if (sharedOnly && visibleAttrs.length === 0 && bucket.key !== SYSTEM) return null;
           const isOpen = expanded.has(bucket.key);
           const isGroupSelected = selected?.kind === "group" && selected.group === bucket.key;
           return (
@@ -128,7 +153,7 @@ export function AttributeNavigator({
                     <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                   )}
                   <span className="text-caption font-medium text-foreground truncate">{bucket.label}</span>
-                  <span className="text-[10px] tabular-nums text-muted-foreground">{bucket.attrs.length}</span>
+                  <span className="text-[10px] tabular-nums text-muted-foreground">{visibleAttrs.length}</span>
                 </button>
                 {bucket.addable && canMutate && !readOnly && (
                   <Button
@@ -144,7 +169,7 @@ export function AttributeNavigator({
                 )}
               </div>
               {isOpen &&
-                bucket.attrs.map((attr) => {
+                visibleAttrs.map((attr) => {
                   const Icon = CLASS_ICONS[attr.class];
                   const isSel = selected?.kind === "attribute" && selected.attributeId === attr.attributeId;
                   const shared = attr.appliesTo.filter((t) => t !== entityType && t !== "all rows");
@@ -216,6 +241,11 @@ export function AttributeNavigator({
                             )}
                             {(attr.status === "proposed" || attr.status === "pending") && (
                               <>
+                                {isSuperAdmin && (
+                                  <DropdownMenuItem onClick={() => onLifecycle(attr.attributeId, "approve")}>
+                                    Approve
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem onClick={() => onLifecycle(attr.attributeId, "reject")}>
                                   Reject
                                 </DropdownMenuItem>

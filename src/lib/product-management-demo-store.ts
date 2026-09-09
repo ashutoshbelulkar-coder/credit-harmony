@@ -43,7 +43,7 @@ import {
 import type { EnquiryConfig, PacketConfig } from "@/data/data-products-mock";
 import { DEFAULT_ENQUIRY_CONFIG, normalizeEnquiryConfig } from "@/data/data-products-mock";
 
-const STORAGE_KEY = "hcb-product-mgmt-demo-v12";
+const STORAGE_KEY = "hcb-product-mgmt-demo-v14";
 
 const DEFAULT_METADATA: ProductMetadata = {
   businessUnit: "Product Management",

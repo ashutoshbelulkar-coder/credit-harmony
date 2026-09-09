@@ -37,6 +37,7 @@ import {
   cloneAttribute,
   emptyAttribute,
   entityCodeRegex,
+  firstAppliesToHref,
   formatDateEnIn,
   nowIso,
   STATUS_STYLES,
@@ -114,7 +115,6 @@ export function MasterModelEditorPage({ mode }: MasterModelEditorPageProps) {
     nature: "Deterministic",
     attributeCount: 0,
     pendingCount: 0,
-    sources: [],
     groups: [],
     lastUpdated: nowIso().slice(0, 10),
   });
@@ -208,7 +208,6 @@ export function MasterModelEditorPage({ mode }: MasterModelEditorPageProps) {
     comment: `${e.action}${e.attributeId ? ` · ${e.attributeId}` : ""}${e.comment ? ` — ${e.comment}` : ""}`,
   }));
 
-  const sourcesUnion = [...new Set(localAttrs.flatMap((a) => a.sources))].sort();
   const rowKey = snapshot?.rowKeys.find((r) => r.table === (meta.targetTable ?? et?.targetTable));
 
   const toggleExpand = useCallback(
@@ -299,7 +298,6 @@ export function MasterModelEditorPage({ mode }: MasterModelEditorPageProps) {
       targetTable: KIND_TO_TABLE[kind],
       attributeCount: 0,
       pendingCount: 0,
-      sources: [],
       groups: meta.groupManifest ?? [],
       lastUpdated: nowIso().slice(0, 10),
       subjectClass: kind === "subject" ? meta.subjectClass : undefined,
@@ -346,7 +344,6 @@ export function MasterModelEditorPage({ mode }: MasterModelEditorPageProps) {
     { key: "apis" as const, items: [] as { id: string; name: string }[] },
     { key: "products" as const, items: [] as { id: string; name: string }[] },
     { key: "institutions" as const, items: [] as { id: string; name: string }[] },
-    { key: "sources" as const, items: sourcesUnion.map((s) => ({ id: s, name: s })) },
   ];
 
   const navigatorPane = (
@@ -387,6 +384,18 @@ export function MasterModelEditorPage({ mode }: MasterModelEditorPageProps) {
       onOpenDomain={(name) => {
         setDomainName(name);
         setDomainOpen(true);
+      }}
+      onOpenAttribute={(id) => {
+        const found = mergedSnapshotAttrs.find((a) => a.attributeId === id);
+        if (!found) return;
+        if (
+          found.appliesTo.includes(entityTypeCode) ||
+          (found.class === "Reserved" && found.appliesTo.includes("all rows"))
+        ) {
+          setSelected({ kind: "attribute", attributeId: id });
+          return;
+        }
+        navigate(firstAppliesToHref(found, snapshot.entityTypes));
       }}
     />
   ) : selectedGroup ? (
@@ -704,11 +713,6 @@ export function MasterModelEditorPage({ mode }: MasterModelEditorPageProps) {
                           <Badge key={r} variant="outline" className="text-[10px]">{r}</Badge>
                         ))}
                       </div>
-                      <div className="flex flex-wrap gap-1">
-                        {sourcesUnion.map((s) => (
-                          <Badge key={s} variant="secondary" className="text-[10px]">{s}</Badge>
-                        ))}
-                      </div>
                       <div className="rounded-lg border border-border p-3 space-y-1">
                         <p className="text-caption font-medium text-foreground">Physical placement</p>
                         <p className="font-mono text-caption text-muted-foreground">Column family: d</p>
@@ -783,7 +787,7 @@ export function MasterModelEditorPage({ mode }: MasterModelEditorPageProps) {
               </TabsContent>
 
               <TabsContent value="impact">
-                <div className="grid grid-cols-1 gap-3 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
                   {impactBuckets.map((bucket) => (
                     <Card key={bucket.key} className="border-border shadow-sm">
                       <CardContent className="p-4 space-y-2">

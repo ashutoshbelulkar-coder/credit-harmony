@@ -44,6 +44,7 @@ function tokenise(qualifier: string): string {
     document_number: "tok_d11a…",
     gstin: "tok_g7e2…",
     photo_ref: "tok_ph0t…",
+    national_id_no: "tok_4e07…",
   };
   return seeds[qualifier] ?? `tok_${qualifier.slice(0, 4)}…`;
 }
@@ -208,6 +209,7 @@ const IDENTITY_DOCUMENTS = [
     expiryDate: null,
     issuingAuthority: "Income Tax Department",
     documentNumber: "tok_d11a…",
+    photoRef: "tok_ph0t…",
   },
 ];
 
@@ -228,10 +230,60 @@ const GST_REGISTRATIONS = [
   },
 ];
 
+const ENQUIRIES = [
+  {
+    providerId: "HDFC Bank",
+    sourceId: "CSDF",
+    enquiryAmount: 250000.0,
+    enquiryPurpose: "PERSONAL_LOAN",
+    enquiryMemberId: "MEM-HDFC-001",
+  },
+];
+
+const ADVERSE_RECORDS = [
+  {
+    providerId: "Bajaj Finance",
+    sourceId: "CSDF",
+    eventCode: "SUIT_FILED",
+    eventDate: "2026-04-12",
+    eventStatus: "OPEN",
+  },
+];
+
+const INVESTMENT_TRANSACTIONS = [
+  {
+    providerId: "HDFC Bank",
+    sourceId: "CRIF Connect",
+    orderId: "ORD-4417-8821",
+    tradeRate: 187.45,
+    transactionId: "TXN-INV-99012",
+  },
+];
+
+const REGISTRATION_DOCUMENTS = [
+  {
+    providerId: "MCA",
+    sourceId: "CSDF",
+    permittedActivities: "Wholesale trade of electronic goods",
+    providerName: "Ministry of Corporate Affairs",
+  },
+];
+
+const ADDRESS_PROOF_DOCUMENTS = [
+  {
+    providerId: "HDFC Bank",
+    sourceId: "CSDF",
+    nationalIdNo: "tok_4e07…",
+    validFrom: "2024-01-01",
+    validTo: "2026-12-31",
+  },
+];
+
 const STREAM_NEST_KEY: Record<string, string> = {
   repayment_history: "repaymentHistory",
   transactions: "transactions",
   filings: "filings",
+  gst_filings: "filings",
 };
 
 function pickKeys(
@@ -287,12 +339,24 @@ function samplesForPacket(packetId: string): Record<string, unknown>[] {
       return CREDIT_FACILITIES as unknown as Record<string, unknown>[];
     case "bank_account":
       return BANK_ACCOUNTS as unknown as Record<string, unknown>[];
-    case "telco_profile":
+    case "phone_profile":
       return TELCO_PROFILES as unknown as Record<string, unknown>[];
     case "identity_document":
       return IDENTITY_DOCUMENTS as unknown as Record<string, unknown>[];
-    case "gst_registration":
+    case "tax_registration":
       return GST_REGISTRATIONS as unknown as Record<string, unknown>[];
+    case "credit_enquiry":
+    case "enquiry":
+      return ENQUIRIES as unknown as Record<string, unknown>[];
+    case "adverse_record":
+      return ADVERSE_RECORDS as unknown as Record<string, unknown>[];
+    case "investment_account":
+    case "investment_transaction":
+      return INVESTMENT_TRANSACTIONS as unknown as Record<string, unknown>[];
+    case "registration_document":
+      return REGISTRATION_DOCUMENTS as unknown as Record<string, unknown>[];
+    case "address_proof_document":
+      return ADDRESS_PROOF_DOCUMENTS as unknown as Record<string, unknown>[];
     default:
       return [];
   }

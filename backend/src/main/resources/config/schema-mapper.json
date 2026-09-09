@@ -238,7 +238,7 @@
           "id": "ms-6-3",
           "name": "current_balance",
           "dataType": "number",
-          "description": "Current outstanding balance",
+          "description": "Outstanding balance on the credit facility",
           "path": "accounts.current_balance",
           "depth": 1,
           "nullable": true,

@@ -13,9 +13,10 @@ import type {
 import { bumpDictVersion, nowIso } from "./msm-helpers";
 import { summarizeFieldDiff } from "./validate-dictionary";
 
-const DICT_KEY = "hcb_msm_v2_dictionary";
-export const FILTERS_KEY = "hcb_msm_v2_dict_filters";
-export const NAV_EXPAND_PREFIX = "hcb_msm_v2_nav_expanded_";
+const DICT_KEY = "hcb_msm_v14_dictionary";
+export const FILTERS_KEY = "hcb_msm_v14_dict_filters";
+export const NAV_EXPAND_PREFIX = "hcb_msm_v14_nav_expanded_";
+const EXPECTED_SEED_VERSION = "v14";
 
 const seed = seedJson as unknown as MasterDictionarySeed;
 
@@ -29,7 +30,7 @@ function emptySnapshot(): DictionarySnapshot {
     seedSynonyms[a.attributeId] = [...(a.synonyms ?? [])];
   }
   return {
-    dictionaryVersion: seed.dictionaryVersion ?? "v13",
+    dictionaryVersion: seed.dictionaryVersion ?? EXPECTED_SEED_VERSION,
     entityTypes: deepClone(seed.entityTypes ?? []),
     attributes: deepClone(seed.attributes ?? []),
     attributeGroups: deepClone(seed.attributeGroups ?? []),
@@ -60,7 +61,11 @@ function hydrate(): DictionarySnapshot {
     const raw = localStorage.getItem(DICT_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as DictionarySnapshot;
-      if (parsed?.attributes?.length && parsed?.entityTypes?.length) {
+      if (
+        parsed?.attributes?.length &&
+        parsed?.entityTypes?.length &&
+        parsed.dictionaryVersion === (seed.dictionaryVersion ?? EXPECTED_SEED_VERSION)
+      ) {
         state = parsed;
         if (!state.seedSynonyms) state.seedSynonyms = emptySnapshot().seedSynonyms;
         return state;
@@ -95,13 +100,11 @@ function touchEntityType(entityType: string) {
     (a) => a.appliesTo.includes(entityType) || (a.class === "Reserved" && a.appliesTo.includes("all rows")),
   );
   const pending = attrs.filter((a) => a.status === "pending" || a.status === "proposed").length;
-  const sources = [...new Set(attrs.flatMap((a) => a.sources))].sort();
   const groups = [...new Set(attrs.map((a) => a.attributeGroup).filter(Boolean))] as string[];
   s.entityTypes[idx] = {
     ...et,
     attributeCount: attrs.filter((a) => a.class !== "Reserved").length,
     pendingCount: pending,
-    sources,
     groups,
     lastUpdated: nowIso().slice(0, 10),
   };
@@ -133,7 +136,6 @@ export function listAttributes(filters?: Partial<DictFilters>): CanonicalAttribu
   if (filters?.table && filters.table !== "all") list = list.filter((a) => a.targetTable === filters.table);
   if (filters?.className && filters.className !== "all") list = list.filter((a) => a.class === filters.className);
   if (filters?.sensitivity && filters.sensitivity !== "all") list = list.filter((a) => a.sensitivity === filters.sensitivity);
-  if (filters?.source && filters.source !== "all") list = list.filter((a) => a.sources.includes(filters.source as string));
   if (filters?.group && filters.group !== "all") {
     if (filters.group === "__ungrouped") list = list.filter((a) => a.attributeGroup == null);
     else list = list.filter((a) => a.attributeGroup === filters.group);
@@ -214,7 +216,6 @@ export function createEntityType(et: EntityType): EntityType {
     ...et,
     attributeCount: 0,
     pendingCount: 0,
-    sources: et.sources ?? [],
     groups: et.groupManifest ?? et.groups ?? [],
     lastUpdated: nowIso().slice(0, 10),
   };
@@ -309,7 +310,6 @@ export function loadDictFilters(): DictFilters {
     table: "all",
     className: "all",
     sensitivity: "all",
-    source: "all",
     group: "all",
   };
   try {

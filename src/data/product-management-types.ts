@@ -96,7 +96,8 @@ export interface FieldContractRow {
   attributeId?: string;
   label?: string;
   sensitivity?: AttributeSensitivity;
-  populatedBy?: string[];
+  // `populatedBy` (feed/provider names) removed — provenance is dictionary-maintenance
+  // metadata (Excel-only) and must not surface in the product-facing field contract.
   notes?: string;
   deprecatedInDictionary?: string | null;
   eventStreamId?: string;
@@ -424,7 +425,6 @@ export function buildFieldContractFromPackets(
         attributeId: name,
         label: name.replace(/_/g, " "),
         sensitivity: inferFieldPii(name) ? "PII" : "Standard",
-        populatedBy: [],
         notes: "",
         deprecatedInDictionary: null,
       });
@@ -440,7 +440,6 @@ export function buildFieldContractFromPackets(
         attributeId: name,
         label: name.replace(/_/g, " "),
         sensitivity: "Standard",
-        populatedBy: ["computed"],
         notes: "ƒ derived from this packet",
         deprecatedInDictionary: null,
       });

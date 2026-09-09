@@ -193,6 +193,7 @@ export interface AttributeProfileEditorProps {
   onRequestRevision: () => void;
   onRequestDeprecate: () => void;
   onOpenDomain: (domainName: string) => void;
+  onOpenAttribute?: (attributeId: string) => void;
 }
 
 export function AttributeProfileEditor({
@@ -213,6 +214,7 @@ export function AttributeProfileEditor({
   onRequestRevision,
   onRequestDeprecate,
   onOpenDomain,
+  onOpenAttribute,
 }: AttributeProfileEditorProps) {
   const [draft, setDraft] = useState<CanonicalAttribute>(attribute);
   const [classConfirm, setClassConfirm] = useState<ClassName | null>(null);
@@ -322,6 +324,7 @@ export function AttributeProfileEditor({
         snapshotAttributes.some((a) => a.attributeId === next.attributeId) ? [] : [next],
       ), entityTypes, domains },
       scoped: [next],
+      includeGates: true,
     });
     const errors = scopedIssues.filter((i) => i.severity === "Error");
     setIssues(scopedIssues);
@@ -350,8 +353,6 @@ export function AttributeProfileEditor({
       </div>
     </div>
   );
-
-  const sourcesDisabled = fieldDisabled("A") || draft.class === "Feature" || draft.class === "Reserved";
 
   return (
     <Card className="border-border shadow-sm">
@@ -650,17 +651,23 @@ export function AttributeProfileEditor({
                     ))}
                   </SelectContent>
                 </Select>
-                <p className="text-caption text-muted-foreground">
-                  {activeDomain?.codes.length ?? 0} of ? codes loaded{" "}
+                <p
+                  className={cn(
+                    "text-caption",
+                    (activeDomain?.codes.length ?? 0) === 0 ? "text-warning" : "text-muted-foreground",
+                  )}
+                >
+                  {draft.allowedValues.domain}
+                  {" · "}
+                  {(activeDomain?.codes.length ?? 0) > 0
+                    ? `${activeDomain?.codes.length} codes loaded`
+                    : "Codes not loaded"}{" "}
                   {draft.allowedValues.domain && (
                     <button type="button" className="text-primary underline-offset-2 hover:underline" onClick={() => onOpenDomain(draft.allowedValues!.kind === "domain" ? draft.allowedValues.domain : "")}>
                       Open domain
                     </button>
                   )}
                 </p>
-                {(activeDomain?.codes.length ?? 0) === 0 && (
-                  <p className="text-caption text-info">Attribute cannot be activated until the domain is loaded.</p>
-                )}
               </div>
             )}
           </div>
@@ -685,7 +692,7 @@ export function AttributeProfileEditor({
             )}
           </div>
           <div className="space-y-1">
-            <Label className="text-caption text-muted-foreground">Synonyms / source aliases</Label>
+            <Label className="text-caption text-muted-foreground">Synonyms</Label>
             <ChipList
               values={draft.synonyms}
               lockedValues={seedChips}
@@ -778,20 +785,6 @@ export function AttributeProfileEditor({
               <p className="text-caption text-warning">Special category usually uses retention class special_category.</p>
             )}
           </div>
-        </section>
-
-        <section className="space-y-3">
-          <h3 className="text-h4 font-semibold text-foreground">Sources</h3>
-          <EnumMultiSelect
-            values={draft.sources}
-            options={enums.sources}
-            disabled={sourcesDisabled}
-            onChange={(sources) => patch({ sources })}
-            placeholder="Add source"
-          />
-          {draft.class === "Feature" && (
-            <p className="text-caption text-muted-foreground">Features are platform-computed, not source-contributed</p>
-          )}
         </section>
 
         <section className="space-y-4" data-placeholder="R-2">
@@ -1101,7 +1094,47 @@ export function AttributeProfileEditor({
             <p>Created: {formatDateEnIn(draft.createdAt)}</p>
             <p>Updated: {formatDateEnIn(draft.updatedAt)}</p>
             <p>Approved by: {draft.approvedBy ?? "—"}</p>
-            <p>Superseded by: {draft.supersededBy ?? "—"}</p>
+            <p>
+              Superseded by:{" "}
+              {draft.supersededBy ? (
+                onOpenAttribute ? (
+                  <button
+                    type="button"
+                    className="font-mono text-primary hover:underline"
+                    onClick={() => onOpenAttribute(draft.supersededBy!)}
+                  >
+                    {draft.supersededBy}
+                  </button>
+                ) : (
+                  <span className="font-mono text-foreground">{draft.supersededBy}</span>
+                )
+              ) : (
+                "—"
+              )}
+            </p>
+            {allAttributes.filter((a) => a.supersededBy === draft.attributeId).length > 0 && (
+              <p className="sm:col-span-2">
+                Supersedes:{" "}
+                {allAttributes
+                  .filter((a) => a.supersededBy === draft.attributeId)
+                  .map((a, idx, arr) => (
+                    <span key={a.attributeId}>
+                      {onOpenAttribute ? (
+                        <button
+                          type="button"
+                          className="font-mono text-primary hover:underline"
+                          onClick={() => onOpenAttribute(a.attributeId)}
+                        >
+                          {a.attributeId}
+                        </button>
+                      ) : (
+                        <span className="font-mono text-foreground">{a.attributeId}</span>
+                      )}
+                      {idx < arr.length - 1 ? ", " : ""}
+                    </span>
+                  ))}
+              </p>
+            )}
           </div>
         </section>
 

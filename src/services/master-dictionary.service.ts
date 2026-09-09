@@ -26,7 +26,7 @@ import {
   updateEntityType,
   upsertAttributes,
 } from "@/pages/data-governance/master-schema/dictionary-store";
-import { activationGateIssues } from "@/pages/data-governance/master-schema/validate-dictionary";
+import { activationGateIssues, activationGateWarnings } from "@/pages/data-governance/master-schema/validate-dictionary";
 import { nowIso } from "@/pages/data-governance/master-schema/msm-helpers";
 
 const BASE = "/v1/master-dictionary";
@@ -222,6 +222,7 @@ export interface LifecycleResult {
   ok: boolean;
   attribute?: CanonicalAttribute;
   failed?: { attributeId: string; reasons: string[] }[];
+  warnings?: string[];
 }
 
 export async function runAttributeLifecycle(
@@ -265,7 +266,8 @@ export async function runAttributeLifecycle(
           action: action === "reinstate" ? "reinstated" : "approved",
           comment,
         });
-        return { ok: true, attribute: getAttribute(attributeId) };
+        const warnings = activationGateWarnings({ ...attr, status: "active" }, snapshot).map((w) => w.message);
+        return { ok: true, attribute: getAttribute(attributeId), warnings };
       }
 
       if (action === "reject") {
@@ -343,10 +345,12 @@ export async function runAttributeLifecycle(
 export async function bulkApprove(attributeIds: string[]): Promise<{
   passed: string[];
   failed: { attributeId: string; reasons: string[] }[];
+  warnings: string[];
 }> {
   const snapshot = getSnapshot();
   const passed: string[] = [];
   const failed: { attributeId: string; reasons: string[] }[] = [];
+  const warnings: string[] = [];
   const now = nowIso();
   const toSave: CanonicalAttribute[] = [];
   for (const id of attributeIds) {
@@ -360,6 +364,9 @@ export async function bulkApprove(attributeIds: string[]): Promise<{
       failed.push({ attributeId: id, reasons: gates.map((g) => g.message) });
       continue;
     }
+    warnings.push(
+      ...activationGateWarnings({ ...attr, status: "active" }, snapshot).map((w) => `${id}: ${w.message}`),
+    );
     toSave.push({ ...attr, status: "active", approvedBy: "You", updatedAt: now });
     passed.push(id);
   }
@@ -377,7 +384,7 @@ export async function bulkApprove(attributeIds: string[]): Promise<{
       });
     }
   }
-  return { passed, failed };
+  return { passed, failed, warnings };
 }
 
 export async function bulkReject(attributeIds: string[], comment: string): Promise<void> {

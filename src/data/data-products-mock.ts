@@ -1,3 +1,14 @@
+/**
+ * KNOWN GAP (flagged during the 2026-09 product-configurator clean-up, not fixed here):
+ * this file imports "./data-products.json" — a legacy packet-catalogue + mock-payload
+ * dataset (DataPacket[], packetMockData, productCatalogPacketOptions, configuredProducts)
+ * that is DISTINCT from productmanagementdemo.json (the BRD-driven ProductManagementDemoState
+ * consumed by product-management-types.ts). data-products.json was not part of this batch,
+ * so it could not be reconciled or regenerated here. See the accompanying analysis doc,
+ * section "Two parallel product-catalogue data models", for the recommended consolidation
+ * (retire this legacy ConfiguredProduct model in favour of DemoProductVersion once the
+ * five canonical-dictionary-based product-management-demo.json versions prove the pattern out).
+ */
 import data from "./data-products.json";
 import type { SourceType } from "@/types/schema-mapper";
 import { dictionaryPacketLabel } from "@/data/attribute-dictionary";
@@ -26,10 +37,13 @@ export interface DataPacket {
   id: string;
   name: string;
   category: DataPacketCategory;
-  source: string;
+  // `source` (feed/provider name, e.g. "CSDF"/"AA"/"BNPL") removed — provenance is
+  // dictionary-maintenance metadata and must not surface in a product-facing UI.
   visibility: "Internal" | "Consortium" | "Platform";
   status: DataPacketStatus;
-  /** Institution IDs (from institutions.json) that submit data into this packet. */
+  /** Institution IDs (from institutions.json) that submit data into this packet — this is
+   * distinct from feed provenance: it identifies contributing *institutions* for billing /
+   * consortium-eligibility purposes, not the internal feed-format name. */
   dataSubmitterInstitutionIds?: string[];
 }
 

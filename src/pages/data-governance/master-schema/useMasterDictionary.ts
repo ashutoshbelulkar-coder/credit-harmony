@@ -190,6 +190,8 @@ export function useAttributeLifecycle() {
       if (!res.ok) {
         const reasons = res.failed?.[0]?.reasons?.join("; ") ?? "Activation gates failed";
         toast.error(reasons);
+      } else if (res.warnings?.length) {
+        toast.warning(res.warnings.join("; "));
       }
     },
     onError: (e: ApiError) => toast.error(e.message),
@@ -200,7 +202,10 @@ export function useBulkApprove() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: (ids: string[]) => bulkApprove(ids),
-    onSuccess: () => invalidateAll(qc),
+    onSuccess: (res) => {
+      invalidateAll(qc);
+      if (res.warnings?.length) toast.warning(res.warnings.join("; "));
+    },
   });
 }
 

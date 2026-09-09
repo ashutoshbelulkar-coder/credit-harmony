@@ -105,7 +105,6 @@ export interface CanonicalAttribute {
   synonyms: string[];
   status: AttrStatus;
   retentionClass: RetentionClass;
-  sources: string[];
   displayName: string;
   version: number;
   createdAt: string;
@@ -123,7 +122,6 @@ export interface EntityType {
   description: string;
   attributeCount: number;
   pendingCount: number;
-  sources: string[];
   groups: string[];
   lastUpdated: string;
   subjectClass?: string;
@@ -177,7 +175,6 @@ export interface DictionaryEnums {
   status: AttrStatus[];
   retentionClass: RetentionClass[];
   normalizationRules: string[];
-  sources: string[];
   placeholderValidationRules: ValidationRuleName[];
   placeholderBusinessValidations: BusinessValidationName[];
   placeholderTransformations: TransformationName[];
@@ -247,7 +244,6 @@ export interface DictFilters {
   table: TargetTable | "all";
   className: ClassName | "all";
   sensitivity: Sensitivity | "all";
-  source: string | "all";
   group: string | "all";
 }
 

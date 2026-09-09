@@ -35,7 +35,6 @@ import {
   AttributeSensitivityChip,
   AttributeTypeChip,
   DerivedGlyph,
-  PopulatedByChip,
   ScopeTag,
   SensitivityBadge,
   StatusReasonChip,
@@ -328,9 +327,6 @@ export function ContractStep({ selection, onChange }: ContractStepProps) {
                               </TooltipTrigger>
                               <TooltipContent side="right" className="max-w-xs text-caption">
                                 <p>{packet.description}</p>
-                                <p className="mt-1 text-muted-foreground">
-                                  Populated by: {packet.populatedBy.length ? packet.populatedBy.join(", ") : "none yet"}
-                                </p>
                                 {locked && (
                                   <p className="mt-1">Always included — attributes configurable.</p>
                                 )}
@@ -540,9 +536,6 @@ export function ContractStep({ selection, onChange }: ContractStepProps) {
                                         specialCategory={attr.specialCategory}
                                         optIn={optIn && !checked}
                                       />
-                                      {attr.sources.map((s) => (
-                                        <PopulatedByChip key={s} source={s} />
-                                      ))}
                                       <AttributeModeBadge mode={attr.mode} />
                                       {attr.system && <SystemChip />}
                                       {attr.derived && selectedPacketId !== CROSS_ASSET_PACKET_ID && (

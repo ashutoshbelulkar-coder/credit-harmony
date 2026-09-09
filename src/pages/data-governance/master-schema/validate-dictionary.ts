@@ -245,10 +245,6 @@ export function validateDictionary(opts: ValidateOptions): ValidationIssue[] {
       out.push(issue(id, "I1", "Info", "Seed-level definition"));
     }
 
-    if ((!attr.sources || attr.sources.length === 0) && attr.class !== "Feature" && attr.class !== "Reserved") {
-      out.push(issue(id, "I2", "Info", "No source populates this attribute"));
-    }
-
     if (includeGates) {
       if (!attr.definition?.trim()) {
         out.push(issue(id, "G1", "Error", "Activation requires a non-empty definition"));
@@ -256,7 +252,14 @@ export function validateDictionary(opts: ValidateOptions): ValidationIssue[] {
       if (attr.allowedValues?.kind === "domain") {
         const domain = domainByName.get(attr.allowedValues.domain);
         if (!domain || domain.codes.length === 0) {
-          out.push(issue(id, "G2", "Error", `Domain ${attr.allowedValues.domain} has no codes loaded`));
+          out.push(
+            issue(
+              id,
+              "G2",
+              "Warning",
+              "Domain codes not loaded — values will be stored as raw codes until the domain is populated.",
+            ),
+          );
         }
       }
     }
@@ -285,6 +288,15 @@ export function activationGateIssues(
   );
 }
 
+export function activationGateWarnings(
+  attr: CanonicalAttribute,
+  snapshot: Pick<DictionarySnapshot, "entityTypes" | "domains" | "attributes">,
+): ValidationIssue[] {
+  return validateDictionary({ snapshot, scoped: [attr], includeGates: true }).filter(
+    (i) => i.severity === "Warning" && i.code.startsWith("G"),
+  );
+}
+
 export function findNearDuplicates(candidate: CanonicalAttribute, attributes: CanonicalAttribute[]): CanonicalAttribute[] {
   return attributes.filter((a) => a.attributeId !== candidate.attributeId && isNearDuplicate(candidate, a));
 }
@@ -293,17 +305,12 @@ export function completenessIssueCount(attributes: CanonicalAttribute[]): number
   return attributes.filter((a) => a.attributeGroup == null || isSeedLevelDefinition(a.definition ?? "")).length;
 }
 
-export function coverageGapCount(attributes: CanonicalAttribute[]): number {
-  return attributes.filter((a) => a.sources.length === 0 && a.class !== "Feature" && a.class !== "Reserved").length;
-}
-
 export function summarizeFieldDiff(prev: CanonicalAttribute, next: CanonicalAttribute): string {
   if (prev.status !== next.status) return `status: ${prev.status} → ${next.status}`;
   const fields: (keyof CanonicalAttribute)[] = [
     "definition",
     "synonyms",
     "attributeGroup",
-    "sources",
     "normalizationRule",
     "allowedValues",
     "sensitivity",

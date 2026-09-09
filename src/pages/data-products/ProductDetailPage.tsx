@@ -60,11 +60,9 @@ import {
   AttributeModeBadge,
   AttributeSensitivityChip,
   AttributeTypeChip,
-  PopulatedByChip,
   PortStatusBadge,
   SensitivityBadge,
 } from "@/components/data-products/AttributeBadges";
-import { getDictionaryPacket } from "@/data/attribute-dictionary";
 import {
   productMgmtStore,
   useProductMgmtStore,
@@ -503,7 +501,7 @@ function DataContractTab({
   };
 
   const downloadCsv = () => {
-    const header = "Packet,Attribute,Attribute ID,Type,Sensitivity,Mode,Populated by,Notes\n";
+    const header = "Packet,Attribute,Attribute ID,Type,Sensitivity,Mode,Notes\n";
     const rows = filtered
       .map((r) =>
         [
@@ -513,7 +511,6 @@ function DataContractTab({
           r.type,
           r.sensitivity ?? (r.pii ? "PII" : "Standard"),
           r.mode,
-          (r.populatedBy ?? []).join("; "),
           r.notes ?? r.description,
         ]
           .map((c) => `"${String(c).replace(/"/g, '""')}"`)
@@ -603,7 +600,6 @@ function DataContractTab({
         ) : (
           grouped.map(([pid, rows]) => {
             const streams = product.eventStreamToggles?.[pid] ?? [];
-            const populated = getDictionaryPacket(pid)?.populatedBy ?? [];
             return (
               <div key={pid} className="space-y-2">
                 <div className="flex flex-wrap items-center gap-2">
@@ -616,9 +612,6 @@ function DataContractTab({
                       · {streams.map((s) => s.replace(/_/g, " ")).join(", ")}
                     </span>
                   )}
-                  {populated.map((s) => (
-                    <PopulatedByChip key={s} source={s} />
-                  ))}
                 </div>
                 <Table>
                   <TableHeader>
@@ -628,7 +621,6 @@ function DataContractTab({
                       <TableHead className={tableHeaderClasses}>Type</TableHead>
                       <TableHead className={tableHeaderClasses}>Sensitivity</TableHead>
                       <TableHead className={tableHeaderClasses}>Mode</TableHead>
-                      <TableHead className={tableHeaderClasses}>Populated by</TableHead>
                       <TableHead className={tableHeaderClasses}>Notes</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -652,13 +644,6 @@ function DataContractTab({
                         </TableCell>
                         <TableCell>
                           <AttributeModeBadge mode={f.mode} />
-                        </TableCell>
-                        <TableCell className="text-caption">
-                          <div className="flex flex-wrap gap-1">
-                            {(f.populatedBy ?? []).map((s) => (
-                              <PopulatedByChip key={s} source={s} />
-                            ))}
-                          </div>
                         </TableCell>
                         <TableCell className="text-caption text-muted-foreground max-w-sm">
                           {f.notes || f.description}
@@ -902,10 +887,10 @@ function LineageTab({
       nodes.push({ id: "zest", label: "ZestMoney" });
       if (ids.has("credit_facility")) nodes.push({ id: "bajaj", label: "Bajaj Finance" });
     }
-    if (ids.has("telco_profile")) {
+    if (ids.has("phone_profile")) {
       nodes.push({ id: "airtel", label: "Airtel" });
     }
-    if (ids.has("gst_registration")) {
+    if (ids.has("tax_registration")) {
       nodes.push({ id: "gstn", label: "GSTN" });
     }
     if (nodes.length === 0) {

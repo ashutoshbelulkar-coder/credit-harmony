@@ -23,7 +23,7 @@
       "children": [
         { "id": "ms-6-1", "name": "account_type", "dataType": "enum", "description": "Type of credit account", "path": "accounts.account_type", "depth": 1, "nullable": false, "required": true, "enumValues": ["credit_card","personal_loan","home_loan","auto_loan","telecom","utility"] },
         { "id": "ms-6-2", "name": "lender_name", "dataType": "string", "description": "Name of the lending institution", "path": "accounts.lender_name", "depth": 1, "nullable": false, "required": true },
-        { "id": "ms-6-3", "name": "current_balance", "dataType": "number", "description": "Current outstanding balance", "path": "accounts.current_balance", "depth": 1, "nullable": true, "required": false },
+        { "id": "ms-6-3", "name": "current_balance", "dataType": "number", "description": "Outstanding balance on the credit facility", "path": "accounts.current_balance", "depth": 1, "nullable": true, "required": false },
         { "id": "ms-6-4", "name": "dpd", "dataType": "number", "description": "Days past due", "path": "accounts.dpd", "depth": 1, "nullable": true, "required": false },
         { "id": "ms-6-5", "name": "account_status", "dataType": "enum", "description": "Current status of the account", "path": "accounts.account_status", "depth": 1, "nullable": false, "required": true, "enumValues": ["current","delinquent","default","closed","written_off"] }
       ]

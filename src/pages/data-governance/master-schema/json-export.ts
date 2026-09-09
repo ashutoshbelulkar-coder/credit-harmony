@@ -30,7 +30,6 @@ export function toExportShape(attr: CanonicalAttribute): Record<string, unknown>
     synonyms: attr.synonyms,
     status: attr.status,
     retention_class: attr.retentionClass,
-    sources: attr.sources,
     version: attr.version,
     rules: attr.rules,
   };

@@ -185,7 +185,6 @@ export function emptyAttribute(partial: Partial<CanonicalAttribute> & Pick<Canon
     synonyms: partial.synonyms ?? [],
     status: partial.status ?? "pending",
     retentionClass: partial.retentionClass ?? "standard",
-    sources: partial.sources ?? [],
     displayName: partial.displayName ?? "New attribute",
     version: partial.version ?? 1,
     createdAt: partial.createdAt ?? nowIso(),

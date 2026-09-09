@@ -217,7 +217,7 @@ export const generatedValidationRules: GeneratedValidationRule[] = [
   { id: "vr-10", field: "full_name", ruleType: "required", ruleLogic: "NOT NULL AND LENGTH > 0", severity: "error", isEnabled: true, isEditable: true, impactPercent: 0.0, description: "Full name is required and cannot be empty" },
   { id: "vr-11", field: "consumer_id", ruleType: "required", ruleLogic: "NOT NULL AND UNIQUE", severity: "critical", isEnabled: true, isEditable: true, impactPercent: 0.0, description: "Consumer ID must be unique and not null" },
   { id: "vr-12", field: "pan", ruleType: "regex", ruleLogic: "^[A-Z]{5}[0-9]{4}[A-Z]$", severity: "error", isEnabled: false, isEditable: true, impactPercent: 1.5, description: "PAN must follow AAAAA9999A format (disabled for telecom source)" },
-  { id: "vr-13", field: "accounts.current_balance", ruleType: "range", ruleLogic: "value >= 0", severity: "warning", isEnabled: true, isEditable: true, impactPercent: 0.4, description: "Current balance must be non-negative" },
+  { id: "vr-13", field: "accounts.current_balance", ruleType: "range", ruleLogic: "value >= 0", severity: "warning", isEnabled: true, isEditable: true, impactPercent: 0.4, description: "Outstanding balance on the facility must be non-negative" },
   { id: "vr-14", field: "credit_score", ruleType: "range", ruleLogic: "300 <= value <= 900", severity: "warning", isEnabled: false, isEditable: true, impactPercent: null, description: "Credit score range validation (not applicable for raw telecom data)" },
 ];
 

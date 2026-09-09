@@ -47,9 +47,9 @@ const PROFILE_FIELD_TO_ATTR: Record<string, string> = {
   fullName: "subject.full_name",
   dateOfBirth: "subject.dob",
   gender: "subject.gender",
-  currentAddress: "subject.address_line",
+  currentAddress: "subject.address_full_address",
   primaryIdentifier: "subject.full_name",
-  contactNumber: "subject.mobile",
+  contactNumber: "subject.primary_mobile",
 };
 
 export function emptyContractSelection(
@@ -73,6 +73,9 @@ export function isOptInAttribute(attr: DictionaryAttribute): boolean {
   return attr.sensitivity === "Sensitive-PII" || attr.specialCategory;
 }
 
+/** Always defaulted on Subject so name+dob reconciliation works out of the box. */
+const SUBJECT_RECONCILIATION_DEFAULTS = new Set(["subject.full_name", "subject.dob"]);
+
 export function isTrendedCapable(attr: DictionaryAttribute): boolean {
   return attr.mode === "TRENDED";
 }
@@ -81,7 +84,12 @@ export function defaultSelectedIdsForPacket(packetId: string): string[] {
   return attributesForPacket(packetId)
     .filter((a) => a.status === "active")
     .filter((a) => !a.eventStreamId)
-    .filter((a) => a.system || (!isOptInAttribute(a) && (a.sensitivity === "Standard" || a.sensitivity === "PII")))
+    .filter(
+      (a) =>
+        a.system ||
+        SUBJECT_RECONCILIATION_DEFAULTS.has(a.id) ||
+        (!isOptInAttribute(a) && (a.sensitivity === "Standard" || a.sensitivity === "PII"))
+    )
     .map((a) => a.id);
 }
 
@@ -413,7 +421,26 @@ export function buildFieldContractFromDictionary(selection: ContractSelection): 
   const rows: FieldContractRow[] = [];
   for (const id of ids) {
     const a = getDictionaryAttribute(id);
-    if (!a) continue;
+    if (!a) {
+      const packetId =
+        selection.packetConfigs.find((c) =>
+          [...(c.selectedFields ?? []), ...(c.selectedDerivedFields ?? [])].includes(id)
+        )?.packetId ??
+        (id.includes(".") ? id.split(".")[0]! : "unknown");
+      const qualifier = id.includes(".") ? id.slice(id.indexOf(".") + 1) : id;
+      rows.push({
+        name: qualifier,
+        type: "string",
+        description: "Pending dictionary extension — see DICTIONARY_GAP warning.",
+        pii: false,
+        mode: "SNAPSHOT",
+        packetId,
+        attributeId: id,
+        label: qualifier.replace(/_/g, " "),
+        notes: "DICTIONARY_GAP",
+      });
+      continue;
+    }
     rows.push({
       name: a.qualifier,
       type: a.dataType,
@@ -424,7 +451,6 @@ export function buildFieldContractFromDictionary(selection: ContractSelection): 
       attributeId: a.id,
       label: a.label,
       sensitivity: a.sensitivity,
-      populatedBy: a.sources.length ? a.sources : getDictionaryPacket(a.packetId)?.populatedBy ?? [],
       notes: notesForAttribute(a),
       deprecatedInDictionary: a.status === "deprecated" ? a.supersededBy ?? "deprecated" : null,
       eventStreamId: a.eventStreamId,
